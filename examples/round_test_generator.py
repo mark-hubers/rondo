@@ -8,7 +8,7 @@ from pathlib import Path
 from rondo.engine import Gate, Round, Task
 
 
-def build_round(src_dir: str = "src/", test_dir: str = "tests/") -> Round:
+def build_round(src_dir: str = ".", test_dir: str = "tests/") -> Round:
     src = Path(src_dir)
     tests = Path(test_dir)
 

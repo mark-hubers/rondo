@@ -4,7 +4,7 @@ from pathlib import Path
 from rondo.engine import Gate, Round, Task
 
 
-def build_round(target_dir: str = "src/") -> Round:
+def build_round(target_dir: str = ".") -> Round:
     return Round(
         name="code-survey",
         pre_gates=[

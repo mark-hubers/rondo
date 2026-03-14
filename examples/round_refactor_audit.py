@@ -38,7 +38,7 @@ def _tests_still_pass() -> tuple[bool, str]:
     return (True, "Tests pass (placeholder)")
 
 
-def build_round(target_file: str = "src/main.py") -> Round:
+def build_round(target_file: str = "src/rondo/runner.py") -> Round:
     return Round(
         name="refactor-audit",
         pre_gates=[

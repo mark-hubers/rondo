@@ -2,13 +2,20 @@
 
 Pattern: multiple independent tasks that can run in parallel (workers > 1).
 Shows: parallel-safe tasks, per-task model hints, context_files per task.
+Auto-filters to files that actually exist — safe to run in any project.
 """
+from pathlib import Path
+
 from rondo.engine import Round, Task
 
 
 def build_round(files: list[str] | None = None) -> Round:
     if files is None:
-        files = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md"]
+        # -- Common docs — filtered to what actually exists
+        candidates = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"]
+        files = [f for f in candidates if Path(f).exists()]
+        if not files:
+            files = ["README.md"]  # -- fallback: Claude will note it's missing
 
     tasks = []
     for filepath in files:

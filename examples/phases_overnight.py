@@ -17,7 +17,7 @@ def _tests_pass() -> tuple[bool, str]:
     return (True, "Tests pass (placeholder)")
 
 
-def build_phases(target_dir: str = "src/") -> list[Round]:
+def build_phases(target_dir: str = ".") -> list[Round]:
     """Build overnight phases — ordered from fast/cheap to slow/expensive."""
     return [
         # -- Phase 1: fast checks (auto tasks, no Claude needed)

@@ -176,11 +176,11 @@ class TestPracticalExamples:
         assert "lib/" in r.tasks[1].instruction
 
     def test_doc_sweep_structure(self):
-        """round_doc_sweep.py: multiple parallel-safe tasks from file list."""
+        """round_doc_sweep.py: parallel-safe tasks, auto-filters to existing files."""
         module = _load_example("round_doc_sweep.py")
         r = module.build_round()
         assert r.name == "doc-sweep"
-        assert len(r.tasks) == 3  # -- default 3 files
+        assert len(r.tasks) >= 1  # -- at least 1 (filters to what exists)
         for t in r.tasks:
             assert t.model == "haiku"
 

@@ -294,4 +294,4 @@ def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
         if task.name in status_map:
             task.status = status_map[task.name]
 
-# -- sig: ace-590731ef
+# -- sig: MgH-65114b.590731

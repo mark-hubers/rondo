@@ -218,4 +218,4 @@ def _build_summary_dict(result: RoundResult) -> dict:
         "total_cost_usd": sum(u.cost_usd for u in result.usage),
     }
 
-# -- sig: ace-7eb581d4
+# -- sig: MgH-48e184.7eb581

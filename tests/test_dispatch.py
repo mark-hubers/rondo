@@ -873,4 +873,4 @@ class TestDispatchIntegration:
             assert result.duration_sec > 0 or True  # -- duration is wall clock
             assert result.model == "sonnet"
 
-# -- sig: ace-a9bc17ff
+# -- sig: MgH-fd5cbb.a9bc17

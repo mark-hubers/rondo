@@ -279,23 +279,24 @@ class TestErrorHandlingInCli:
         assert has_try, "_cmd_overnight() must wrap load_phases_file() in try/except"
 
 
-class TestAceSignature:
-    """Every .py file MUST have an ACE cryptographic signature.
+class TestMgHSignature:
+    """Every .py file MUST have a two-part MgH cryptographic signature.
 
-    The signature is an HMAC-SHA256 watermark burned into the last line.
-    Format: # -- sig: ace-{8 hex chars}
-    Only Mark's system has the key to generate or verify these.
+    Format: # -- sig: MgH-{public 6 hex}.{private 6 hex}
+
+    Part 1 (public):  SHA-256 content fingerprint — anyone can verify.
+    Part 2 (private): HMAC-SHA256 with secret key — only Mark's system.
     """
 
-    SIG_PATTERN = re.compile(r"^# -- sig: ace-[0-9a-f]{8}$")
+    SIG_PATTERN = re.compile(r"^# -- sig: MgH-[0-9a-f]{6}\.[0-9a-f]{6}$")
 
     @pytest.mark.parametrize("filepath", ALL_PY_FILES, ids=lambda p: p.name)
     def test_has_signature(self, filepath):
-        """File has ACE signature line."""
+        """File has MgH two-part signature line."""
         lines = filepath.read_text(encoding="utf-8").rstrip().splitlines()
         assert lines, f"{filepath.name} is empty"
         assert self.SIG_PATTERN.match(lines[-1]), (
-            f"{filepath.name} missing ACE signature (expected: # -- sig: ace-xxxxxxxx)"
+            f"{filepath.name} missing MgH signature (expected: # -- sig: MgH-xxxxxx.yyyyyy)"
         )
 
-# -- sig: ace-c1b9fb85
+# -- sig: MgH-9bed88.ad4440

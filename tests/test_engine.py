@@ -449,4 +449,4 @@ class TestRoundResultStatusCalculation:
         ]
         assert calculate_round_status(results) == "error"
 
-# -- sig: ace-cb8a98c3
+# -- sig: MgH-40130b.cb8a98

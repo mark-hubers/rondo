@@ -292,4 +292,4 @@ class TestMainIntegration:
         with pytest.raises(SystemExit):
             main([])
 
-# -- sig: ace-d125935b
+# -- sig: MgH-073422.d12593

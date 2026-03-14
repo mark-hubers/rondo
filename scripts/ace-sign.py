@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""ACE code signing — burn a cryptographic watermark into every source file.
+"""ACE code signing — two-part cryptographic watermark on every source file.
 
-Generates an HMAC-SHA256 signature from file content + secret key.
-The signature proves the file passed through Mark's build pipeline.
+Signature format: # -- sig: MgH-{public}.{private}
+
+    Part 1 (public):  SHA-256 of file content, first 6 hex chars.
+                      Anyone can verify this — hash the file, compare.
+                      Proves the file is unmodified.
+
+    Part 2 (private): HMAC-SHA256 with secret key, first 6 hex chars.
+                      Only the key holder can generate or verify this.
+                      Proves the file came from Mark's build pipeline.
 
 Usage:
     python scripts/ace-sign.py sign               # -- sign all source + test files
@@ -13,7 +20,8 @@ Usage:
     python scripts/ace-sign.py verify path/to/file.py  # -- verify one file
 
 The secret key lives at ~/.ace/signing-key (never committed, 600 perms).
-Without the key, signatures cannot be generated or verified.
+Without the key, Part 2 cannot be generated or verified.
+Part 1 can always be verified by anyone — it's a plain SHA-256.
 
 Author: Mark Hubers
 Built with: Claude Code + ACE Orbit
@@ -27,9 +35,9 @@ import re
 import sys
 from pathlib import Path
 
-# -- Signature format: # -- sig: ace-{8 hex chars}
-SIG_PATTERN = re.compile(r"^# -- sig: ace-[0-9a-f]{8}$")
-SIG_PREFIX = "# -- sig: ace-"
+# -- Signature format: # -- sig: MgH-{6 hex}.{6 hex}
+SIG_PATTERN = re.compile(r"^# -- sig: MgH-[0-9a-f]{6}\.[0-9a-f]{6}$")
+SIG_PREFIX = "# -- sig: MgH-"
 KEY_PATH = Path.home() / ".ace" / "signing-key"
 
 # -- Default paths (relative to rondo/)
@@ -42,16 +50,22 @@ def load_key() -> bytes:
     """Load the signing key from ~/.ace/signing-key."""
     if not KEY_PATH.exists():
         print(f"-ERROR- Signing key not found: {KEY_PATH}", file=sys.stderr)
-        print("        Generate one: python -c \"import secrets; print(secrets.token_hex(32))\" > ~/.ace/signing-key",
-              file=sys.stderr)
+        print(
+            '        Generate: python -c "import secrets; print(secrets.token_hex(32))" > ~/.ace/signing-key',
+            file=sys.stderr,
+        )
         sys.exit(1)
     return KEY_PATH.read_text(encoding="utf-8").strip().encode()
 
 
-def compute_sig(content: str, key: bytes) -> str:
-    """Compute HMAC-SHA256 signature of content, return 8-char hex prefix."""
-    mac = hmac.new(key, content.encode("utf-8"), hashlib.sha256)
-    return mac.hexdigest()[:8]
+def compute_public(content: str) -> str:
+    """Part 1 — SHA-256 of content, first 6 hex chars. Anyone can verify."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:6]
+
+
+def compute_private(content: str, key: bytes) -> str:
+    """Part 2 — HMAC-SHA256 with secret key, first 6 hex chars. Key required."""
+    return hmac.new(key, content.encode("utf-8"), hashlib.sha256).hexdigest()[:6]
 
 
 def strip_sig_line(content: str) -> str:
@@ -60,21 +74,26 @@ def strip_sig_line(content: str) -> str:
     # -- Remove trailing sig line(s) and blank lines before them
     while lines and (SIG_PATTERN.match(lines[-1]) or lines[-1].strip() == ""):
         lines.pop()
+    # -- Also strip old-format ace- signatures
+    old_pattern = re.compile(r"^# -- sig: ace-[0-9a-f]{8}$")
+    while lines and (old_pattern.match(lines[-1]) or lines[-1].strip() == ""):
+        lines.pop()
     return "\n".join(lines) + "\n"
 
 
-def sign_file(filepath: Path, key: bytes) -> str:
-    """Sign a file — add or update the signature line. Returns the sig."""
+def sign_file(filepath: Path, key: bytes) -> tuple[str, str]:
+    """Sign a file — add or update the two-part signature. Returns (public, private)."""
     content = filepath.read_text(encoding="utf-8")
     clean = strip_sig_line(content)
-    sig = compute_sig(clean, key)
-    signed = clean + f"\n{SIG_PREFIX}{sig}\n"
+    pub = compute_public(clean)
+    priv = compute_private(clean, key)
+    signed = clean + f"\n{SIG_PREFIX}{pub}.{priv}\n"
     filepath.write_text(signed, encoding="utf-8")
-    return sig
+    return pub, priv
 
 
 def verify_file(filepath: Path, key: bytes) -> tuple[bool, str]:
-    """Verify a file's signature. Returns (passed, detail)."""
+    """Verify both parts of a file's signature. Returns (passed, detail)."""
     content = filepath.read_text(encoding="utf-8")
     lines = content.rstrip().splitlines()
 
@@ -82,13 +101,26 @@ def verify_file(filepath: Path, key: bytes) -> tuple[bool, str]:
     if not lines or not SIG_PATTERN.match(lines[-1]):
         return False, "no signature found"
 
-    existing_sig = lines[-1].replace(SIG_PREFIX, "")
-    clean = strip_sig_line(content)
-    expected_sig = compute_sig(clean, key)
+    # -- Parse existing sig
+    sig_text = lines[-1].replace(SIG_PREFIX, "")
+    parts = sig_text.split(".")
+    if len(parts) != 2:
+        return False, f"malformed signature: {sig_text}"
 
-    if existing_sig == expected_sig:
-        return True, f"ace-{existing_sig}"
-    return False, f"MISMATCH — expected ace-{expected_sig}, found ace-{existing_sig}"
+    existing_pub, existing_priv = parts
+    clean = strip_sig_line(content)
+
+    # -- Verify Part 1 (public — SHA-256)
+    expected_pub = compute_public(clean)
+    if existing_pub != expected_pub:
+        return False, f"Part 1 MISMATCH — content modified (expected {expected_pub}, found {existing_pub})"
+
+    # -- Verify Part 2 (private — HMAC)
+    expected_priv = compute_private(clean, key)
+    if existing_priv != expected_priv:
+        return False, f"Part 2 MISMATCH — wrong key or tampered (expected {expected_priv}, found {existing_priv})"
+
+    return True, f"MgH-{existing_pub}.{existing_priv}"
 
 
 def get_all_files() -> list[Path]:
@@ -100,12 +132,12 @@ def get_all_files() -> list[Path]:
 
 def cmd_sign(targets: list[Path], key: bytes) -> int:
     """Sign files. Returns exit code."""
-    passed = 0
+    signed = 0
     for filepath in targets:
-        sig = sign_file(filepath, key)
-        print(f"   -PASS- {filepath.name:30s} ace-{sig}")
-        passed += 1
-    print(f"\n   {passed} files signed")
+        pub, priv = sign_file(filepath, key)
+        print(f"   -PASS- {filepath.name:30s} MgH-{pub}.{priv}")
+        signed += 1
+    print(f"\n   {signed} files signed")
     return 0
 
 

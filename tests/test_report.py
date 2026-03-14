@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.report — REQ-002 reqs 29-36.
 
 VER-001 verification matrix: morning report generation.

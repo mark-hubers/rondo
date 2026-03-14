@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.dispatch — REQ-001 reqs 12-28, STD-001, IFS-001, STD-003.
 
 VER-001 verification matrix: every test maps to a numbered requirement.
@@ -702,6 +704,66 @@ class TestDispatchIntegration:
             assert "--model" in call_args
             model_idx = call_args.index("--model")
             assert call_args[model_idx + 1] == "opus"
+
+    def test_permission_mode_passed(self):
+        """REQ-001 req 47: --permission-mode passed to subprocess."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig(permission_mode="bypassPermissions")
+        mock_proc = self._mock_popen(
+            stdout=json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 100,
+                    "duration_api_ms": 90,
+                    "num_turns": 1,
+                    "total_cost_usd": 0.01,
+                    "usage": {
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "modelUsage": {},
+                }
+            )
+        )
+        with patch("rondo.dispatch.subprocess.Popen", return_value=mock_proc) as mock_popen:
+            dispatch_task(task, config)
+            call_args = mock_popen.call_args[0][0]
+            assert "--permission-mode" in call_args
+            perm_idx = call_args.index("--permission-mode")
+            assert call_args[perm_idx + 1] == "bypassPermissions"
+
+    def test_permission_mode_default_auto(self):
+        """REQ-001 req 48: default permission_mode 'auto' is passed."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig()  # -- default permission_mode="auto"
+        mock_proc = self._mock_popen(
+            stdout=json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 100,
+                    "duration_api_ms": 90,
+                    "num_turns": 1,
+                    "total_cost_usd": 0.01,
+                    "usage": {
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "modelUsage": {},
+                }
+            )
+        )
+        with patch("rondo.dispatch.subprocess.Popen", return_value=mock_proc) as mock_popen:
+            dispatch_task(task, config)
+            call_args = mock_popen.call_args[0][0]
+            assert "--permission-mode" in call_args
+            perm_idx = call_args.index("--permission-mode")
+            assert call_args[perm_idx + 1] == "auto"
 
     def test_error_exit_code(self):
         """REQ-001 req 27: exit code != 0 → status error."""

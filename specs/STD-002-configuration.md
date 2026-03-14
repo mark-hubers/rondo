@@ -116,6 +116,7 @@ Example:
 | Watchdog timeout | `--watchdog-timeout` | `watchdog_timeout_sec` | int | `60` | 10-600 |
 | Rate limit backoff | `--backoff` | `rate_limit_backoff_sec` | int | `60` | 10-600 |
 | On overage | `--on-overage` | `on_overage` | str | `"continue"` | "continue", "pause", "stop" |
+| Permission mode | `--permission-mode` | `permission_mode` | str | `"auto"` | "default", "acceptEdits", "plan", "auto", "bypassPermissions" |
 | Worktree isolation | `--worktree` | `worktree_isolation` | bool | `false` | — |
 
 ---
@@ -138,6 +139,9 @@ class RondoConfig:
     # -- parallel
     workers: int = 4
     throttle_sec: float = 2.0
+
+    # -- permissions
+    permission_mode: str = "auto"
 
     # -- self-healing (REQ-002 watchdog + usage gating)
     watchdog_timeout_sec: int = 60
@@ -176,6 +180,7 @@ effort = "high"                 # low, medium, high, max
 output_format = "stream-json"   # text, json, stream-json (stream-json recommended)
 claude_binary = "claude"        # path to claude binary (usually just "claude")
 task_timeout_sec = 300          # seconds before killing a hung task
+permission_mode = "auto"        # default, acceptEdits, plan, auto, bypassPermissions
 
 # -- Parallel execution
 workers = 4                     # max concurrent task dispatches
@@ -250,6 +255,12 @@ def validate_config(config: RondoConfig) -> list[str]:
     if config.default_model not in valid_models:
         errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
 
+    valid_perms = ("default", "acceptEdits", "plan", "auto", "bypassPermissions")
+    if config.permission_mode not in valid_perms:
+        errors.append(
+            f"permission_mode must be one of {valid_perms}, got '{config.permission_mode}'"
+        )
+
     if not config.claude_binary:
         errors.append("claude_binary must not be empty")
 
@@ -303,3 +314,4 @@ Startup
 | 0.2 | 2026-03-14 | Beefed up: COALESCE walkthrough, dataclass, validation, discovery, flow diagram, output_format + effort settings |
 | 0.3 | 2026-03-14 | Deep review fixes: added 4 missing fields to RondoConfig (watchdog_timeout_sec, rate_limit_backoff_sec, on_overage, worktree_isolation), completed validate_config(), added dry_run note, updated TOML example |
 | 0.4 | 2026-03-14 | Deep review v2: added 4 missing validations to validate_config() (default_model, claude_binary, results_dir, report_dir) |
+| 0.5 | 2026-03-14 | Added permission_mode setting — controls Claude Code's `--permission-mode` flag for tool access in non-interactive dispatch |

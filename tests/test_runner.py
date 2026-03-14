@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.runner — REQ-001 reqs 6, 7, 40, 45, 46.
 
 VER-001 verification matrix: run_round() contract + orchestration.

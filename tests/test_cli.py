@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.cli — REQ-001 reqs 36-41.
 
 VER-001 verification matrix: CLI entry point, subcommands, flags.
@@ -216,6 +218,7 @@ class TestCliFlags:
         assert args.config is None
         assert args.dry_run is False
         assert args.verbose is False
+        assert args.permission_mode is None
 
     def test_effort_flag(self):
         """--effort flag parsed."""
@@ -228,6 +231,18 @@ class TestCliFlags:
         parser = build_parser()
         args = parser.parse_args(["run", "file.py", "--on-overage", "stop"])
         assert args.on_overage == "stop"
+
+    def test_permission_mode_flag(self):
+        """REQ-001 req 48: --permission-mode flag parsed."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--permission-mode", "bypassPermissions"])
+        assert args.permission_mode == "bypassPermissions"
+
+    def test_permission_mode_overnight(self):
+        """--permission-mode available on overnight subcommand too."""
+        parser = build_parser()
+        args = parser.parse_args(["overnight", "file.py", "--permission-mode", "acceptEdits"])
+        assert args.permission_mode == "acceptEdits"
 
 
 # ──────────────────────────────────────────────────────────────────

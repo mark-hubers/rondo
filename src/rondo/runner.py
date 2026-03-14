@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo runner — sequential orchestration: pre-gates → tasks → post-gates.
 
 REQ-001 reqs 6, 7, 40, 45, 46.

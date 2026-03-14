@@ -116,6 +116,12 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 40. Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py`.
 41. All CLI flags from STD-002 (--workers, --model, --auth, etc.) MUST be available on the `run` subcommand.
 
+### Dispatch — Permission Mode
+
+47. Dispatch MUST pass `--permission-mode` to the subprocess from the config's `permission_mode` field.
+48. Permission mode MUST follow the COALESCE pattern: CLI flag → config file → default `"auto"`.
+49. Valid permission modes MUST be: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` (matches Claude Code CLI).
+
 ### Package Layout
 
 ```
@@ -798,3 +804,4 @@ reports/rondo-results/
 | 0.4 | 2026-03-14 | Deep review fixes: formal Task/Gate/GateResult/Round dataclasses, aligned status vocabulary (done/blocked/partial/error/skipped) with STD-001, added description field to Task, added model hint to Task, RoundResult.status uses same vocabulary, duration units clarified (ms from stream-json, sec for wall-clock) |
 | 0.5 | 2026-03-14 | Added reqs 34-44: package structure, CLI entry point (run/overnight/report/dry-run subcommands), dynamic round loading, auto sequential/parallel detection, living example rounds (3 examples as test fixtures), library usage pattern, call chain diagram |
 | 0.6 | 2026-03-14 | Deep review v2 fixes: added reqs 45-46 (run_round contract, RoundResult.status calculation), gate calling convention documented, DispatchUsage defaults for rate limit fields, dry-run changed from subcommand to --dry-run flag on run, test_cli.py + test_examples.py added to package layout |
+| 0.7 | 2026-03-14 | Added reqs 47-49: `--permission-mode` dispatch flag — controls Claude Code tool access prompts in non-interactive subprocess dispatch |

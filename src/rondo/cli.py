@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo CLI — command-line entry point.
 
 REQ-001 reqs 36-41.
@@ -67,6 +69,11 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--verbose", action="store_true", default=False, help="Verbose output")
     parser.add_argument("--effort", default=None, help="Effort level (high/medium/low)")
     parser.add_argument("--on-overage", default=None, help="Overage action (continue/pause/stop)")
+    parser.add_argument(
+        "--permission-mode",
+        default=None,
+        help="Claude permission mode (default/acceptEdits/plan/auto/bypassPermissions)",
+    )
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -100,6 +107,32 @@ def load_round_file(filepath: str) -> Round:
     return result
 
 
+def load_phases_file(filepath: str) -> list[Round]:
+    """Dynamically import a phases file and call build_phases().
+
+    Same pattern as load_round_file() but expects build_phases() → list[Round].
+    """
+    path = Path(filepath)
+    if not path.exists():
+        raise FileNotFoundError(f"Phases file not found: {filepath}")
+
+    spec = importlib.util.spec_from_file_location("phases_def", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module spec from: {filepath}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "build_phases"):
+        raise AttributeError(f"Phases file '{filepath}' must define a build_phases() function")
+
+    result = module.build_phases()
+
+    if not isinstance(result, list):
+        raise TypeError(f"build_phases() must return a list[Round], got {type(result).__name__}")
+
+    return result
+
+
 # ──────────────────────────────────────────────────────────────────
 #  Config construction — COALESCE: CLI → TOML → defaults
 # ──────────────────────────────────────────────────────────────────
@@ -121,6 +154,8 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
         overrides["effort"] = args.effort
     if getattr(args, "on_overage", None) is not None:
         overrides["on_overage"] = args.on_overage
+    if getattr(args, "permission_mode", None) is not None:
+        overrides["permission_mode"] = args.permission_mode
     if getattr(args, "dry_run", False):
         overrides["dry_run"] = True
     if getattr(args, "verbose", False):
@@ -164,7 +199,12 @@ def main(argv: list[str] | None = None) -> int:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """Execute 'rondo run <file>' subcommand."""
-    round_def = load_round_file(args.file)
+    try:
+        round_def = load_round_file(args.file)
+    except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
     config = _build_config(args)
 
     result = run_round(round_def, config=config)
@@ -188,24 +228,12 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
     from rondo.overnight import run_overnight  # pylint: disable=import-outside-toplevel
     from rondo.report import save_report  # pylint: disable=import-outside-toplevel
 
-    # -- Load phases file (expects build_phases() → list[Round])
-    path = Path(args.file)
-    if not path.exists():
-        print(f"Error: file not found: {args.file}", file=sys.stderr)
+    try:
+        phases = load_phases_file(args.file)
+    except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    spec = importlib.util.spec_from_file_location("phases_def", path)
-    if spec is None or spec.loader is None:
-        print(f"Error: cannot load module spec from: {args.file}", file=sys.stderr)
-        return 1
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, "build_phases"):
-        print(f"Error: {args.file} must define build_phases()", file=sys.stderr)
-        return 1
-
-    phases = module.build_phases()
     config = _build_config(args)
 
     result = run_overnight(

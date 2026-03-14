@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.overnight — REQ-002 reqs 10-28.
 
 VER-001 verification matrix: phase scheduler + watchdog + usage gating.

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo parallel — concurrent task dispatch via ThreadPoolExecutor.
 
 REQ-002 reqs 1-9, STD-003 C1-C7.

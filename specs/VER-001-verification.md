@@ -126,6 +126,14 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | 45 | run_round() accepts Round + optional config, returns RoundResult | Test | `test_engine.py::test_run_round_contract` |
 | 46 | RoundResult.status calculated from task statuses (done/partial/error/skipped) | Test | `test_engine.py::test_round_result_status_calculation` |
 
+### Dispatch — Permission Mode
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 47 | --permission-mode passed to subprocess | Test | `test_dispatch.py::test_permission_mode_passed` |
+| 48 | COALESCE: CLI → config → default "auto" | Test | `test_config.py::test_permission_mode_coalesce` |
+| 49 | Valid modes: default/acceptEdits/plan/auto/bypassPermissions | Test | `test_config.py::test_all_valid_permission_modes` |
+
 ### Living Example Rounds
 
 | Req | Requirement (short) | Method | Test/Evidence |
@@ -360,3 +368,4 @@ specs, not spikes. Full gap analysis: `rondo/spikes/SPIKE-TRACKER.md`.
 | 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |
 | 0.6 | 2026-03-14 | Added REQ-001 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |
 | 0.7 | 2026-03-14 | Deep review v2: added REQ-001 reqs 45-46 (run_round, RoundResult.status). Added STD-001/002/003 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
+| 0.8 | 2026-03-14 | Added REQ-001 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |

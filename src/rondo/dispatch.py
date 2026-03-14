@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo dispatch — send tasks to Claude via `claude -p`, parse results.
 
 REQ-001 reqs 12-28, STD-001, IFS-001, STD-003.
@@ -274,6 +276,9 @@ def extract_modified_files(raw_output: str) -> list[str]:
     STD-001: populated by parsing raw_output for file paths.
     Used by detect_conflicts() in parallel dispatch (advisory).
     """
+    # -- Match file paths with known extensions in Claude output.
+    # -- Captures optional leading ./ or /, path segments (dir/dir/),
+    # -- and filename with extension. Used for conflict detection in parallel mode.
     pattern = (
         r"(?:^|\s)"
         r"((?:\./|/)?(?:[\w.-]+/)*[\w.-]+\."
@@ -329,7 +334,7 @@ def save_result(
     # -- Write with restrictive permissions
     safe_name = re.sub(r"[^\w\-.]", "_", result.task_name)
     filepath = out_dir / f"task-{safe_name}.json"
-    filepath.write_text(json.dumps(data, indent=2, default=str))
+    filepath.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
     filepath.chmod(0o600)
 
     return str(filepath)
@@ -451,6 +456,8 @@ def _dispatch_interactive(
     ]
     if config.effort:
         cmd.extend(["--effort", config.effort])
+    if config.permission_mode:
+        cmd.extend(["--permission-mode", config.permission_mode])
 
     try:
         # -- Launch subprocess (STD-003 R1: Popen for SIGTERM-first kill)

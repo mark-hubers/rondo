@@ -231,6 +231,7 @@ Generate a report from saved results (future feature).
 | `--timeout SECS` | Task timeout in seconds | 300 |
 | `--effort LEVEL` | Effort level (low/medium/high/max) | high |
 | `--on-overage ACT` | Overage action (continue/pause/stop) | continue |
+| `--permission-mode MODE` | Claude permission mode | auto |
 | `--config PATH` | Path to rondo.toml | auto-detect |
 | `--dry-run` | Show prompts, don't invoke Claude | false |
 | `--verbose` | Detailed output | false |
@@ -249,6 +250,7 @@ effort = "high"                 # low, medium, high, max
 output_format = "stream-json"   # text, json, stream-json
 claude_binary = "claude"        # path to claude binary
 task_timeout_sec = 300          # kill task after N seconds
+permission_mode = "auto"        # default, acceptEdits, plan, auto, bypassPermissions
 
 # -- Parallel execution
 workers = 4                     # max concurrent dispatches
@@ -266,6 +268,37 @@ report_dir = "reports"
 
 **Resolution order:** CLI flag > `rondo.toml` > built-in default. If a flag isn't
 set on the command line and isn't in the config file, the default applies.
+
+---
+
+## Permission Modes
+
+When Rondo dispatches tasks via `claude -p`, Claude Code may prompt for tool
+permissions (file edits, bash commands, etc.). In non-interactive overnight runs,
+these prompts hang forever. The `--permission-mode` flag controls this behavior.
+
+| Mode | Behavior | When to use |
+|------|----------|-------------|
+| `auto` | Claude decides based on context | Default — good for interactive use |
+| `default` | Prompt for every tool permission | Maximum safety, manual approval |
+| `acceptEdits` | Auto-allow file edits, prompt for others | Code review / generation tasks |
+| `plan` | Plan-only mode, no tool execution | Dry-run-like analysis tasks |
+| `bypassPermissions` | Allow all tools without prompting | Overnight automation (trusted rounds) |
+
+**COALESCE resolution:** `--permission-mode` flag > `permission_mode` in `rondo.toml` > default `"auto"`.
+
+```bash
+# -- Overnight: bypass prompts (tasks are pre-reviewed)
+rondo overnight phases.py --permission-mode bypassPermissions
+
+# -- Code review: allow edits but prompt for bash
+rondo run review.py --permission-mode acceptEdits
+```
+
+**In config:**
+```toml
+permission_mode = "bypassPermissions"  # recommended for overnight automation
+```
 
 ---
 
@@ -471,7 +504,7 @@ rondo/
 │   ├── overnight.py     # multi-phase scheduler
 │   ├── report.py        # morning report generator
 │   └── cli.py           # command-line interface
-├── tests/               # 354 tests (~4,000 LOC)
+├── tests/               # 480 tests (~4,700 LOC)
 ├── examples/            # 8 working examples (~400 LOC)
 ├── specs/               # 7 requirement/standard specs
 ├── rondo.toml           # example config (all defaults)
@@ -489,8 +522,8 @@ rondo/
 | Ruff lint | clean |
 | Ruff format | clean |
 | Bandit security | 0 medium/high (3 low — subprocess by design) |
-| Tests | 354 |
-| Test:code ratio | 1.75:1 |
+| Tests | 480 |
+| Test:code ratio | 2.0:1 |
 | Type coverage | 100% (every function annotated) |
 | Docstring coverage | 100% (every public function/class) |
 

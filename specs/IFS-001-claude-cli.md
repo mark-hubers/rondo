@@ -34,7 +34,7 @@ Documents the interface between Rondo (the conductor) and Claude Code's `claude 
 ### Invocation
 
 ```
-claude -p <prompt> [--model <model>] [--effort <effort>] [--output-format <format>]
+claude -p <prompt> [--model <model>] [--effort <effort>] [--output-format <format>] [--permission-mode <mode>]
 ```
 
 | Flag | Values | Required | Default |
@@ -43,6 +43,13 @@ claude -p <prompt> [--model <model>] [--effort <effort>] [--output-format <forma
 | `--model` | `opus`, `sonnet`, `haiku`, `opus[1m]`, `sonnet[1m]` | NO | sonnet |
 | `--effort` | `low`, `medium`, `high`, `max` | NO | high |
 | `--output-format` | `text`, `json`, `stream-json` | NO | text |
+| `--permission-mode` | `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | NO | auto |
+
+**Permission mode:** Controls how Claude Code handles tool permission prompts during dispatch.
+Since `claude -p` runs non-interactively (stdin disconnected), a permission prompt would hang
+the subprocess until timeout kills it. `auto` lets Claude Code decide; `bypassPermissions`
+skips all prompts (safest for unattended/overnight runs); `acceptEdits` auto-approves file
+edits but still asks for other tools.
 
 **Model variants:** The `[1m]` suffix enables the 1M token context window (vs 200K default).
 Both Opus and Sonnet support `[1m]`. Available on Max plan at no extra cost.
@@ -332,3 +339,4 @@ This interface was tested against Claude Code as of 2026-03-13. Anthropic may ch
 | 0.1 | 2026-03-13 | Initial interface documentation |
 | 0.2 | 2026-03-14 | Added stream-json output format, rate_limit_event, result metadata, 1M context, 4 new assumptions |
 | 0.3 | 2026-03-14 | Deep review fixes: added 10 numbered requirements, stream-json-to-dataclass mapping tables (rate_limit_event→DispatchUsage, result→DispatchUsage, assistant→TaskResult) |
+| 0.4 | 2026-03-14 | Added `--permission-mode` to invocation table — controls tool access prompts in non-interactive dispatch |

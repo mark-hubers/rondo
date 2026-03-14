@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo config — TOML loading, COALESCE resolution, validation.
 
 STD-002 rules 1-10.
@@ -47,6 +49,9 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     # -- parallel
     workers: int = 4
     throttle_sec: float = 2.0
+
+    # -- permissions
+    permission_mode: str = "auto"
 
     # -- self-healing (REQ-002 watchdog + usage gating)
     watchdog_timeout_sec: int = 60
@@ -98,6 +103,10 @@ def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
     valid_models = ("opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]")
     if config.default_model not in valid_models:
         errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
+
+    valid_perms = ("default", "acceptEdits", "plan", "auto", "bypassPermissions")
+    if config.permission_mode not in valid_perms:
+        errors.append(f"permission_mode must be one of {valid_perms}, got '{config.permission_mode}'")
 
 
 def _validate_ranges(config: RondoConfig, errors: list[str]) -> None:

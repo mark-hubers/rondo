@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo — Define AI tasks in Python, send them to Claude, get structured results back.
 
 Public API (REQ-001 req 35):

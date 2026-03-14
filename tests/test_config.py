@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.config — STD-002 rules 1-10, STD-001 rule 4.
 
 VER-001 verification matrix: every test maps to a numbered rule.
@@ -380,3 +382,42 @@ class TestAllConfigFields:
             config = RondoConfig(on_overage=action)
             errors = validate_config(config)
             assert errors == [], f"Action '{action}' should be valid"
+
+    def test_permission_mode_default(self):
+        """REQ-001 req 48: default permission_mode is 'auto'."""
+        config = RondoConfig()
+        assert config.permission_mode == "auto"
+
+    def test_all_valid_permission_modes(self):
+        """REQ-001 req 49: all documented permission modes are accepted."""
+        for mode in ("default", "acceptEdits", "plan", "auto", "bypassPermissions"):
+            config = RondoConfig(permission_mode=mode)
+            errors = validate_config(config)
+            assert errors == [], f"Permission mode '{mode}' should be valid"
+
+    def test_invalid_permission_mode(self):
+        """REQ-001 req 49: invalid permission mode rejected."""
+        config = RondoConfig(permission_mode="yolo")
+        errors = validate_config(config)
+        assert any("permission_mode" in e for e in errors)
+
+    def test_permission_mode_coalesce(self, tmp_path):
+        """REQ-001 req 48: COALESCE — CLI → config → default 'auto'."""
+        # -- Config file sets bypassPermissions
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text('permission_mode = "bypassPermissions"\n')
+
+        # -- No CLI override → config wins
+        config = load_config(config_path=toml_file)
+        assert config.permission_mode == "bypassPermissions"
+
+        # -- CLI override → CLI wins
+        config = load_config(
+            config_path=toml_file,
+            cli_overrides={"permission_mode": "acceptEdits"},
+        )
+        assert config.permission_mode == "acceptEdits"
+
+        # -- No config, no CLI → default wins
+        config = load_config(config_path=None, search_dir=tmp_path / "empty")
+        assert config.permission_mode == "auto"

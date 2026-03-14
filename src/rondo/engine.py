@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo engine — data model, state machine, gate execution, serialization.
 
 REQ-001 reqs 1-11, 23, 29, 31, 46.

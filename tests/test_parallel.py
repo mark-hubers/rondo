@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.parallel — REQ-002 reqs 1-9, STD-003 C1-C7.
 
 VER-001 verification matrix: parallel dispatch + conflict detection.

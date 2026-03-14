@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for Rondo living examples — REQ-001 reqs 42-44.
 
 VER-001 verification matrix: example rounds as test fixtures.

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Rondo overnight — phase scheduler, watchdog response, usage gating.
 
 REQ-002 reqs 10-28.

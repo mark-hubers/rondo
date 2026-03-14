@@ -9,6 +9,7 @@
 # output_format = "stream-json"   # text, json, stream-json (stream-json recommended)
 # claude_binary = "claude"        # path to claude binary (usually just "claude")
 # task_timeout_sec = 300          # seconds before killing a hung task
+# permission_mode = "auto"       # default, acceptEdits, plan, auto, bypassPermissions
 
 # -- Parallel execution
 # workers = 4                     # max concurrent task dispatches

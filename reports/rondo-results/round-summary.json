@@ -1,0 +1,19 @@
+{
+  "round_name": "state",
+  "status": "done",
+  "summary": "1/1 tasks done",
+  "started_at": "2026-03-14T20:42:18.849971+00:00",
+  "completed_at": "2026-03-14T20:42:18.850060+00:00",
+  "duration_sec": 8.920789696276188e-05,
+  "parallelism": 1,
+  "task_count": 1,
+  "tasks": [
+    {
+      "task_name": "t1",
+      "status": "done"
+    }
+  ],
+  "pre_gates": [],
+  "post_gates": [],
+  "total_cost_usd": 0.01
+}

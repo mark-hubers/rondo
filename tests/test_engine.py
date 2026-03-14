@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 """Tests for rondo.engine — REQ-001 reqs 1-11, 23, 29, 31, 46.
 
 VER-001 verification matrix: every test maps to a numbered requirement.

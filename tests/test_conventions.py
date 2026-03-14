@@ -186,11 +186,18 @@ class TestWriteTextEncoding:
 class TestCommentConvention:
     """Real comments use '# --' prefix per coding style.
 
-    This is a soft check — counts the ratio of '# --' comments to bare '#'
-    comments. A low ratio indicates the convention isn't being followed.
-    Threshold: at least 60% of comments should use '# --'.
+    The convention:
+        # -- explanation     = real comment (WHY)
+        # ──────             = section divider
+        #  Section Title     = section header (between dividers)
+        # code_here()        = disabled code (no --)
 
-    Exemptions: shebangs, type: ignore, pylint, noqa, SPDX headers.
+    Bare '#' without '--' means disabled code. Section headers
+    (indented text between ────── dividers) are structural, not comments.
+
+    Threshold: 90%+ of non-exempt comments must use '# --'.
+
+    Exemptions: shebangs, type: ignore, pylint, noqa, SPDX, section headers.
     """
 
     EXEMPT_PATTERNS = re.compile(
@@ -199,9 +206,12 @@ class TestCommentConvention:
         r")"
     )
 
+    # -- Section headers: '#  Title — context' between ────── dividers
+    SECTION_HEADER = re.compile(r"^\s*#\s{2,}\S")
+
     @pytest.mark.parametrize("filepath", SRC_FILES, ids=lambda p: p.name)
     def test_comment_ratio(self, filepath):
-        """Majority of comments use '# --' convention."""
+        """90%+ of comments use '# --' convention."""
         lines = filepath.read_text(encoding="utf-8").splitlines()
         convention_comments = 0
         bare_comments = 0
@@ -211,6 +221,9 @@ class TestCommentConvention:
             if not stripped.startswith("#"):
                 continue
             if self.EXEMPT_PATTERNS.match(stripped):
+                continue
+            # -- Section headers (e.g., '#  Prompt Building — REQ-001') are structural
+            if self.SECTION_HEADER.match(stripped):
                 continue
             if stripped.startswith("# --") or stripped.startswith("# ──"):
                 convention_comments += 1
@@ -222,8 +235,9 @@ class TestCommentConvention:
             return  # -- too few comments to judge
 
         ratio = convention_comments / total
-        assert ratio >= 0.6, (
-            f"{filepath.name}: only {ratio:.0%} of comments use '# --' convention ({convention_comments}/{total})"
+        assert ratio >= 0.9, (
+            f"{filepath.name}: only {ratio:.0%} of comments use '# --' convention "
+            f"({convention_comments}/{total}, {bare_comments} bare)"
         )
 
 

@@ -510,3 +510,5 @@ class TestEmptyRound:
         result = run_parallel(r, config)
         assert result.status == "skipped"
         assert result.summary == "No tasks in round"
+
+# -- sig: ace-a8867b56

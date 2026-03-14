@@ -421,3 +421,5 @@ class TestAllConfigFields:
         # -- No config, no CLI → default wins
         config = load_config(config_path=None, search_dir=tmp_path / "empty")
         assert config.permission_mode == "auto"
+
+# -- sig: ace-51dcb1e3

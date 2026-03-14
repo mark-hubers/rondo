@@ -346,3 +346,5 @@ def _log_watchdog_events(phase_result: RoundResult, event_log: EventLog) -> None
                     "phase": phase_result.round_name,
                 }
             )
+
+# -- sig: ace-2bc45c0b

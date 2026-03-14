@@ -538,3 +538,5 @@ class TestOvernightResult:
         with patch("rondo.overnight.run_round", side_effect=_make_run_round_mock()):
             result = run_overnight(phases=phases, config=config)
             assert result.status == "done"
+
+# -- sig: ace-a91c4a25

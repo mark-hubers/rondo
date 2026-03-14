@@ -379,3 +379,5 @@ class TestUsageSummary:
         )
         report = generate_report(result)
         assert "2" in report  # -- 2 watchdog interventions
+
+# -- sig: ace-eed4f33b

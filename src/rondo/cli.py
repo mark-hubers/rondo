@@ -267,3 +267,5 @@ def _cmd_report(args: argparse.Namespace) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# -- sig: ace-682e1b29

@@ -293,3 +293,5 @@ def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
     for task in tasks:
         if task.name in status_map:
             task.status = status_map[task.name]
+
+# -- sig: ace-590731ef

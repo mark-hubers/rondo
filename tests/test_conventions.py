@@ -277,3 +277,25 @@ class TestErrorHandlingInCli:
                 has_try = True
                 break
         assert has_try, "_cmd_overnight() must wrap load_phases_file() in try/except"
+
+
+class TestAceSignature:
+    """Every .py file MUST have an ACE cryptographic signature.
+
+    The signature is an HMAC-SHA256 watermark burned into the last line.
+    Format: # -- sig: ace-{8 hex chars}
+    Only Mark's system has the key to generate or verify these.
+    """
+
+    SIG_PATTERN = re.compile(r"^# -- sig: ace-[0-9a-f]{8}$")
+
+    @pytest.mark.parametrize("filepath", ALL_PY_FILES, ids=lambda p: p.name)
+    def test_has_signature(self, filepath):
+        """File has ACE signature line."""
+        lines = filepath.read_text(encoding="utf-8").rstrip().splitlines()
+        assert lines, f"{filepath.name} is empty"
+        assert self.SIG_PATTERN.match(lines[-1]), (
+            f"{filepath.name} missing ACE signature (expected: # -- sig: ace-xxxxxxxx)"
+        )
+
+# -- sig: ace-c1b9fb85

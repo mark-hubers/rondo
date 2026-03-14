@@ -309,3 +309,5 @@ class TestExampleSize:
         """Practical examples stay reasonable — under 100 lines."""
         lines = example_file.read_text().splitlines()
         assert len(lines) <= 100, f"{example_file.name} is {len(lines)} lines (max 100)"
+
+# -- sig: ace-7ca8100c

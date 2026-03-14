@@ -291,3 +291,5 @@ class TestMainIntegration:
         """main() with no args shows help and exits."""
         with pytest.raises(SystemExit):
             main([])
+
+# -- sig: ace-d125935b

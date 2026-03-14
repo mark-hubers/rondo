@@ -448,3 +448,5 @@ class TestRoundResultStatusCalculation:
             TaskResult(task_name="t2", status="blocked"),
         ]
         assert calculate_round_status(results) == "error"
+
+# -- sig: ace-cb8a98c3

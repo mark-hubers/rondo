@@ -54,7 +54,7 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 
 | Req | Requirement (short) | Method | Test/Evidence |
 |-----|---------------------|--------|--------------|
-| 8 | State: pending→running→passed/failed/skipped | Test | `test_engine.py::test_state_transitions` |
+| 8 | State: pending→running→done/blocked/partial/error/skipped | Test | `test_engine.py::test_state_transitions` |
 | 9 | Round complete when all tasks terminal | Test | `test_engine.py::test_round_completion` |
 | 10 | Serializable to JSON | Test | `test_engine.py::test_serialize_round` |
 | 11 | Resumable from JSON | Test | `test_engine.py::test_resume_round` |
@@ -188,7 +188,7 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 ### Stream-JSON Metadata Parsing
 
 | Req | Requirement (short) | Method | Test/Evidence |
-|-----|---------------------|--------|--------------
+|-----|---------------------|--------|--------------|
 | 1 | Reads stream-json line by line | Test | `test_dispatch.py::test_stream_json_parsing` |
 | 2 | Extracts rate_limit_event | Test | `test_dispatch.py::test_rate_limit_extraction` |
 | 3 | Extracts result event (cost/tokens) | Test | `test_dispatch.py::test_result_metadata_extraction` |
@@ -206,12 +206,12 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 
 | Spec | Total Reqs | Test | Demo | Analysis | Inspection |
 |------|-----------|------|------|----------|------------|
-| REQ-001 | 33 | 28 | 0 | 3 | 2 |
-| REQ-002 | 41 | 34 | 2 | 1 | 2 |
+| REQ-001 | 33 | 29 | 0 | 2 | 2 |
+| REQ-002 | 41 | 35 | 3 | 2 | 1 |
 | IFS-001 | 10 | 10 | 0 | 0 | 0 |
-| **Total** | **84** | **72** | **2** | **4** | **4** |
+| **Total** | **84** | **74** | **3** | **4** | **3** |
 
-86% verified by automated test. 100% covered by at least one method.
+88% verified by automated test. 100% covered by at least one method.
 
 ---
 
@@ -222,3 +222,4 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | 0.1 | 2026-03-13 | Initial verification matrix for REQ-001 + REQ-002 |
 | 0.2 | 2026-03-14 | Added IFS-001 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
 | 0.3 | 2026-03-14 | Added REQ-002 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
+| 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with STD-001 |

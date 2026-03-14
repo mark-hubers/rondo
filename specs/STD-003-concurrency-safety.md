@@ -194,16 +194,25 @@ if config.auth == "max":
 ### S3: Credentials never in output
 
 ```python
+from dataclasses import replace as dc_replace
+
 # -- Before writing result to file, verify no credentials leaked
 def sanitize_result(result: TaskResult) -> TaskResult:
-    """Remove any credential patterns from result fields."""
+    """Remove any credential patterns from result fields.
+    Returns a NEW TaskResult (dataclass may be frozen).
+    """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if api_key:
-        # -- Check all string fields
-        for field in ["raw_output", "stderr", "error_message"]:
-            value = getattr(result, field, "")
-            if api_key in value:
-                setattr(result, field, value.replace(api_key, "[REDACTED]"))
+    if not api_key:
+        return result
+
+    replacements = {}
+    for field_name in ("raw_output", "stderr", "error_message"):
+        value = getattr(result, field_name, "") or ""
+        if api_key in value:
+            replacements[field_name] = value.replace(api_key, "[REDACTED]")
+
+    if replacements:
+        return dc_replace(result, **replacements)
     return result
 ```
 
@@ -346,3 +355,4 @@ def append_event_log(log_path: str, entry: dict) -> None:
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial draft — 15 rules in 3 categories |
 | 0.2 | 2026-03-14 | Beefed up: code patterns for every rule, attack prevention table, thread safety matrix, conflict detection pattern |
+| 0.3 | 2026-03-14 | Deep review fix: sanitize_result() uses dc_replace() instead of setattr (frozen dataclass safe) |

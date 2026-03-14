@@ -240,6 +240,67 @@ required tools/MCPs are available before trusting the result.
 
 ---
 
+## Requirements
+
+Numbered requirements for VER-001 traceability:
+
+1. Rondo MUST read stream-json output line by line, parsing each as a JSON object.
+2. Rondo MUST extract `rate_limit_event` and populate `DispatchUsage` rate limit fields.
+3. Rondo MUST extract `result` event and populate `DispatchUsage` cost/token/duration fields.
+4. Rondo MUST extract `system:init` event and verify the model matches the requested model.
+5. Rondo MUST verify that `system:init.model` matches the `--model` flag sent. Log warning on mismatch.
+6. Rondo MUST capture `isUsingOverage` from `rate_limit_event` into `DispatchUsage.is_using_overage`.
+7. Rondo MUST capture `total_cost_usd` from `result` event into `DispatchUsage.cost_usd`.
+8. Rondo MUST capture `duration_ms` from `result` event into `DispatchUsage.duration_ms`.
+9. Rondo MUST handle missing `rate_limit_event` gracefully — set rate limit fields to defaults (`status="unknown"`, `is_using_overage=False`).
+10. Rondo MUST accept `[1m]` model suffix variants (e.g., `opus[1m]`, `sonnet[1m]`) as valid model names.
+
+---
+
+## Stream-JSON to Dataclass Mapping
+
+How each stream-json event maps to Rondo's dataclasses (REQ-001, STD-001):
+
+### `rate_limit_event` → `DispatchUsage` fields
+
+| Stream-JSON Path | Dataclass Field | Transform |
+|-----------------|-----------------|-----------|
+| `rate_limit_info.status` | `DispatchUsage.rate_limit_status` | Direct string copy |
+| `rate_limit_info.isUsingOverage` | `DispatchUsage.is_using_overage` | Direct bool copy |
+| `rate_limit_info.resetsAt` | `DispatchUsage.rate_limit_resets_at` | Direct int copy |
+
+### `result` → `DispatchUsage` fields
+
+| Stream-JSON Path | Dataclass Field | Transform |
+|-----------------|-----------------|-----------|
+| `total_cost_usd` | `DispatchUsage.cost_usd` | Direct float copy |
+| `duration_ms` | `DispatchUsage.duration_ms` | Direct int copy |
+| `duration_api_ms` | `DispatchUsage.duration_api_ms` | Direct int copy |
+| `num_turns` | `DispatchUsage.num_turns` | Direct int copy |
+| `usage.input_tokens` | `DispatchUsage.input_tokens` | Direct int copy |
+| `usage.output_tokens` | `DispatchUsage.output_tokens` | Direct int copy |
+| `usage.cache_read_input_tokens` | `DispatchUsage.cache_read_tokens` | Direct int copy |
+| `usage.cache_creation_input_tokens` | `DispatchUsage.cache_create_tokens` | Direct int copy |
+| `modelUsage.{model}.contextWindow` | `DispatchUsage.context_window` | First model's value |
+
+### `system:init` → verification only (not stored)
+
+| Stream-JSON Path | Action |
+|-----------------|--------|
+| `model` | Verify matches `--model` flag. Log warning on mismatch. |
+| `claude_code_version` | Store in result metadata for debugging. |
+
+### `assistant` messages → `TaskResult` fields
+
+| Stream-JSON Path | Dataclass Field | Transform |
+|-----------------|-----------------|-----------|
+| `message.content` (concatenated) | `TaskResult.raw_output` | Join all assistant text blocks |
+| JSON block in text | `TaskResult.parsed_result` | Parse last JSON block matching schema |
+| parsed `status` | `TaskResult.status` | Map "done"→"done", "blocked"→"blocked" |
+| parsed `confidence` | `TaskResult.parsed_result.confidence` | Stored inside parsed dict |
+
+---
+
 ## Assumptions
 
 | # | Assumption | If Wrong |
@@ -270,3 +331,4 @@ This interface was tested against Claude Code as of 2026-03-13. Anthropic may ch
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial interface documentation |
 | 0.2 | 2026-03-14 | Added stream-json output format, rate_limit_event, result metadata, 1M context, 4 new assumptions |
+| 0.3 | 2026-03-14 | Deep review fixes: added 10 numbered requirements, stream-json-to-dataclass mapping tables (rate_limit_event→DispatchUsage, result→DispatchUsage, assistant→TaskResult) |

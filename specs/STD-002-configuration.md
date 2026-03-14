@@ -139,6 +139,12 @@ class RondoConfig:
     workers: int = 4
     throttle_sec: float = 2.0
 
+    # -- self-healing (REQ-002 watchdog + usage gating)
+    watchdog_timeout_sec: int = 60
+    rate_limit_backoff_sec: int = 60
+    on_overage: str = "continue"
+    worktree_isolation: bool = False
+
     # -- paths
     results_dir: str = "reports/rondo-results"
     report_dir: str = "reports"
@@ -150,6 +156,10 @@ class RondoConfig:
 
 **Why frozen:** Config is immutable after creation. No mid-session changes.
 Thread-safe by design (STD-003 concurrency safety).
+
+**Note on `dry_run`:** CLI-only (not settable in TOML config file). The dataclass
+holds it because COALESCE resolves CLI → config → default into one object. The TOML
+parser simply never populates it.
 
 ---
 
@@ -170,6 +180,12 @@ task_timeout_sec = 300          # seconds before killing a hung task
 # -- Parallel execution
 workers = 4                     # max concurrent task dispatches
 throttle_sec = 2.0              # seconds between task launches
+
+# -- Self-healing (REQ-002 watchdog + usage gating)
+watchdog_timeout_sec = 60       # seconds of no output before watchdog kills task
+rate_limit_backoff_sec = 60     # seconds to wait after rate limit hit
+on_overage = "continue"         # continue, pause, stop — action when isUsingOverage=true
+worktree_isolation = false      # optional git worktree per worker for parallel safety
 
 # -- Output paths
 results_dir = "reports/rondo-results"   # task result JSON files
@@ -221,6 +237,15 @@ def validate_config(config: RondoConfig) -> list[str]:
     if config.effort not in ("low", "medium", "high", "max"):
         errors.append(f"effort must be low/medium/high/max, got '{config.effort}'")
 
+    if config.watchdog_timeout_sec < 10 or config.watchdog_timeout_sec > 600:
+        errors.append(f"watchdog_timeout_sec must be 10-600, got {config.watchdog_timeout_sec}")
+
+    if config.rate_limit_backoff_sec < 10 or config.rate_limit_backoff_sec > 600:
+        errors.append(f"rate_limit_backoff_sec must be 10-600, got {config.rate_limit_backoff_sec}")
+
+    if config.on_overage not in ("continue", "pause", "stop"):
+        errors.append(f"on_overage must be continue/pause/stop, got '{config.on_overage}'")
+
     return errors
 ```
 
@@ -263,3 +288,4 @@ Startup
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial draft — 6 rules, settings table, TOML example |
 | 0.2 | 2026-03-14 | Beefed up: COALESCE walkthrough, dataclass, validation, discovery, flow diagram, output_format + effort settings |
+| 0.3 | 2026-03-14 | Deep review fixes: added 4 missing fields to RondoConfig (watchdog_timeout_sec, rate_limit_backoff_sec, on_overage, worktree_isolation), completed validate_config(), added dry_run note, updated TOML example |

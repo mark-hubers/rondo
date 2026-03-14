@@ -54,7 +54,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 ### Engine — Data Model
 
 1. A **Round** MUST contain: a name, zero or more pre-gates, one or more tasks, zero or more post-gates.
-2. A **Task** MUST have: a name, a mode (auto or interactive), and a status.
+2. A **Task** MUST have: a name, a mode (auto or interactive), a status, and an optional description and model hint.
 3. An **interactive task** MUST have three fields: instruction (Do), context_files (Read), done_when (Done). This is the **three-field contract**.
 4. An **auto task** MUST have: a Python callable that returns `(passed: bool, detail: str)`.
 5. A **Gate** MUST have: a name, a check function, and a blocking flag. Blocking gates halt the round on failure.
@@ -63,8 +63,8 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 
 ### Engine — State Machine
 
-8. Task status MUST follow this state machine: `pending → running → passed | failed | skipped`. No other transitions.
-9. A round is "complete" when all tasks are in a terminal state (passed, failed, or skipped).
+8. Task status MUST follow this state machine: `pending → running → done | blocked | partial | error | skipped`. No other transitions. See "Task State Machine" below and STD-001 for definitions.
+9. A round is "complete" when all tasks are in a terminal state (done, blocked, partial, error, or skipped).
 10. Round state (task statuses, gate results) MUST be serializable to JSON for recovery after interruption.
 11. A round MUST be resumable from serialized state — load JSON, skip completed tasks, continue from next pending.
 
@@ -217,12 +217,12 @@ Claude returns:
  "result": "what was accomplished", "question": "if blocked, what is needed"}
 ```
 
-Rondo wraps that with execution metadata:
+Rondo wraps that with execution metadata (see STD-001 `TaskResult` for full structure):
 ```json
-{"task_name": "...", "status": "done|blocked|error",
- "model": "opus|sonnet|haiku", "auth": "max|api",
+{"task_name": "...", "status": "done|blocked|partial|error|skipped",
+ "model": "opus|sonnet|haiku", "auth_mode": "max|api",
  "duration_sec": 42.3, "confidence": 0.85,
- "result": "...", "raw_output": "...", "prompt": "...",
+ "result": "...", "raw_output": "...", "prompt_sent": "...",
  "timestamp": "2026-03-13T22:00:00Z"}
 ```
 
@@ -240,6 +240,7 @@ def build_my_round(target_file: str) -> Round:
         tasks=[
             Task(
                 name="Analyze file",
+                description="Find all public functions in the target file",
                 instruction=f"Read {target_file} and list all public functions.",
                 context_files=[target_file],
                 done_when="List of public functions with line numbers",
@@ -253,13 +254,74 @@ def build_my_round(target_file: str) -> Round:
 
 ## States & Modes
 
+### Core Dataclasses
+
+```python
+@dataclass
+class Task:
+    """A single unit of AI work."""
+
+    # -- identity
+    name: str                              # -- unique within round
+    description: str = ""                  # -- brief human summary (for prompts + reports)
+
+    # -- three-field contract (interactive tasks)
+    instruction: str = ""                  # -- Do: what Claude should do
+    context_files: list[str] = field(default_factory=list)  # -- Read: files for context
+    done_when: str = ""                    # -- Done: completion criteria
+
+    # -- auto task (alternative to three-field)
+    auto_fn: Callable | None = None        # -- returns (passed: bool, detail: str)
+
+    # -- dispatch hints
+    model: str | None = None               # -- recommended model (COALESCE chain)
+    mode: str = "interactive"              # -- "interactive" or "auto"
+
+    @property
+    def is_auto(self) -> bool:
+        return self.auto_fn is not None
+
+
+@dataclass
+class Gate:
+    """Boolean check that guards round entry or exit."""
+
+    name: str
+    check_fn: Callable[..., tuple[bool, str]]  # -- returns (passed, detail)
+    blocking: bool = True                  # -- if False, failure is a warning only
+
+
+@dataclass
+class GateResult:
+    """Outcome of running a gate check."""
+
+    gate_name: str
+    passed: bool
+    detail: str                            # -- human-readable reason
+
+
+@dataclass
+class Round:
+    """A collection of tasks with pre/post gates. The unit of work."""
+
+    name: str
+    tasks: list[Task] = field(default_factory=list)
+    pre_gates: list[Gate] = field(default_factory=list)
+    post_gates: list[Gate] = field(default_factory=list)
+```
+
 ### Task State Machine
 
 ```
-pending ──→ running ──→ passed   (terminal)
-                   ├──→ failed   (terminal)
-                   └──→ skipped  (terminal)
+pending ──→ running ──→ done     (terminal — task completed successfully)
+                   ├──→ blocked  (terminal — Claude said it can't proceed)
+                   ├──→ partial  (terminal — got output, couldn't parse JSON)
+                   ├──→ error    (terminal — dispatch-level failure)
+                   └──→ skipped  (terminal — pre-gate blocked the round)
 ```
+
+**Status vocabulary is shared with STD-001.** These 5 values are the only valid
+task statuses across all of Rondo: `done`, `blocked`, `partial`, `error`, `skipped`.
 
 No backward transitions. No re-running. A failed task stays failed for this round.
 
@@ -326,7 +388,8 @@ class RoundResult:
     usage: list[DispatchUsage]             # -- one per task dispatch
 
     # -- overall
-    status: str                            # -- "passed", "failed", "partial"
+    status: str                            # -- "done" (all tasks done), "partial" (some failed),
+                                           # -- "error" (majority/all failed), "skipped" (gate blocked)
     summary: str                           # -- one-line human summary
 ```
 
@@ -344,11 +407,11 @@ class DispatchUsage:
     output_tokens: int
     cache_read_tokens: int
     cache_create_tokens: int
-    duration_ms: int                       # -- wall-clock
-    duration_api_ms: int                   # -- API time only
+    duration_ms: int                       # -- wall-clock (ms — from stream-json, matches result event)
+    duration_api_ms: int                   # -- API time only (ms — from stream-json)
     num_turns: int                         # -- tool-use loops
     context_window: int                    # -- 200000 or 1000000
-    rate_limit_status: str                 # -- "allowed" or "blocked"
+    rate_limit_status: str                 # -- "allowed" or "blocked" (from rate_limit_event.status)
     is_using_overage: bool                 # -- past plan allocation?
     rate_limit_resets_at: int              # -- epoch timestamp
 ```
@@ -360,7 +423,7 @@ The consumer calls Rondo and receives `RoundResult`. From that single object:
 | Consumer Wants | Where In RoundResult |
 |---------------|---------------------|
 | What tasks ran | `task_results[*].task_name` |
-| What passed/failed | `task_results[*].status` (done/blocked/partial/error/skipped) |
+| What passed/failed | `task_results[*].status` — done, blocked, partial, error, skipped (STD-001) |
 | What each task returned | `task_results[*].parsed_result` (the AI's JSON response) |
 | What errors happened | `task_results[*].error_code` + `error_message` |
 | Full AI output | `task_results[*].raw_output` |
@@ -456,6 +519,10 @@ reports/rondo-results/
 | **Conductor** | Python — manages scheduling, state, errors. |
 | **Orchestra** | Claude — does the thinking work. |
 | **COALESCE** | First non-null wins: CLI → config → task → default. |
+| **GateResult** | Outcome of a gate check: gate_name, passed, detail. |
+| **TaskResult** | Full outcome of a dispatched task. Defined in STD-001. |
+| **RoundResult** | Aggregate of all task + gate results. Returned to consumer. |
+| **DispatchUsage** | Per-dispatch metadata from stream-json (cost, tokens, rate limit). |
 | **Capacity mining** | Using idle subscription capacity for automated AI work at $0 extra cost. |
 
 ---
@@ -479,3 +546,4 @@ reports/rondo-results/
 | 0.1 | 2026-03-13 | Initial draft from spike learnings (Session 75) |
 | 0.2 | 2026-03-13 | Split from monolithic spec. REQ-001=core, REQ-002=automation. Removed OB/ACE references. Own foundations. |
 | 0.3 | 2026-03-14 | Added Data Boundary section: RoundResult, DispatchUsage, result file structure. Answered Q1 (no DB), Q2 (rate_limit_event), Q3 (configurable binary). |
+| 0.4 | 2026-03-14 | Deep review fixes: formal Task/Gate/GateResult/Round dataclasses, aligned status vocabulary (done/blocked/partial/error/skipped) with STD-001, added description field to Task, added model hint to Task, RoundResult.status uses same vocabulary, duration units clarified (ms from stream-json, sec for wall-clock) |

@@ -71,8 +71,8 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ### Self-Healing Watchdog
 
-19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions beyond the task timeout.
-20. If a dispatch subprocess does not produce output for a configurable duration (default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT".
+19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-001). The task timeout is a hard wall-clock limit. The watchdog detects output silence.
+20. If a dispatch subprocess does not produce new stdout for a configurable duration (`watchdog_timeout_sec`, default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT". A task producing output can run longer than `watchdog_timeout_sec` — the watchdog only fires on silence.
 21. After a watchdog kill, the scheduler MUST continue to the next task — never halt the pipeline.
 22. If a dispatch fails with a rate limit error (ERR_RATE_LIMIT), the watchdog MUST pause for a configurable backoff duration (default: 60 seconds) before the next dispatch.
 23. The watchdog MUST log every intervention (kill, pause, skip) to the event log with timestamp and reason.
@@ -272,3 +272,4 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Split from monolithic RONDO-01. Parallel + overnight + report as optional layer. |
 | 0.2 | 2026-03-14 | Added: self-healing watchdog (reqs 19-23), usage threshold gating (reqs 24-28), morning report usage summary (req 36), worktree isolation (reqs 37-41). 25→41 requirements. |
+| 0.3 | 2026-03-14 | Deep review fixes: clarified watchdog vs task timeout relationship (reqs 19-20), cross-referenced STD-001 error codes |

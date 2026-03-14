@@ -88,6 +88,7 @@ resumed from serialized state in a new run).
 | `ERR_NETWORK` | Connection failure | 1 | Log, continue | DNS failure, API unreachable |
 | `ERR_NESTED_SESSION` | CLAUDECODE not stripped | 1 | Log, fix env stripping | "Cannot launch inside another session" |
 | `ERR_RATE_LIMIT` | Rate limited by Anthropic | 1 | Log, pause or stop | "Rate limit reached" |
+| `ERR_WATCHDOG_TIMEOUT` | No output for watchdog period | — | Kill process, log, continue | Task alive but silent |
 | `ERR_INTERNAL` | Bug in Rondo itself | — | Log full traceback, continue | Unhandled exception |
 
 ---
@@ -99,21 +100,56 @@ Every task result — success or failure — uses this structure:
 ```python
 @dataclass
 class TaskResult:
-    task_name: str               # -- which task
+    """Outcome of dispatching a single task. Created per-thread, returned to caller."""
+
+    # -- identity
+    task_name: str               # -- which task (unique within round)
+
+    # -- outcome
     status: str                  # -- done, blocked, partial, error, skipped
     error_code: str | None       # -- ERR_TIMEOUT, ERR_AUTH, etc. (None on success)
     error_message: str | None    # -- human-readable failure description
+
+    # -- dispatch I/O
     prompt_sent: str             # -- the exact prompt dispatched (for debugging)
     raw_output: str              # -- full stdout from Claude
     parsed_result: dict | None   # -- parsed JSON if available, None if malformed
     stderr: str                  # -- stderr from subprocess (never shown in reports)
     exit_code: int | None        # -- subprocess exit code (None if timeout/kill)
+
+    # -- execution metadata
     duration_sec: float          # -- wall-clock seconds
     model: str                   # -- which model was used
     auth_mode: str               # -- "max" or "api"
     timestamp: str               # -- ISO-8601 UTC when dispatch started
     cost_usd: float | None       # -- from stream-json result event (None if unavailable)
+
+    # -- file tracking (for conflict detection — STD-003)
+    files_modified: list[str] = field(default_factory=list)
+                                 # -- files mentioned in Claude's output as modified
+                                 # -- populated by parsing raw_output for file paths
+                                 # -- used by detect_conflicts() in parallel dispatch
 ```
+
+### Populating `files_modified`
+
+Rondo scans `raw_output` for file paths after each dispatch:
+
+```python
+import re
+
+def extract_modified_files(raw_output: str) -> list[str]:
+    """Extract file paths from Claude's output (heuristic)."""
+    # -- Match paths with common extensions
+    pattern = r'(?:^|\s)((?:\./|/)?(?:[\w.-]+/)*[\w.-]+\.(?:py|md|toml|json|sql|sh|ts|js|yaml|yml))\b'
+    matches = re.findall(pattern, raw_output)
+    # -- Deduplicate, preserve order
+    seen = set()
+    return [m for m in matches if not (m in seen or seen.add(m))]
+```
+
+This is a heuristic — it may catch false positives (file paths in read context).
+STD-003's conflict detection uses this as an advisory signal, not a prevention mechanism.
 
 ---
 
@@ -177,19 +213,44 @@ Rondo checks stderr to distinguish error subtypes:
 
 ---
 
-## Timeout Kill Sequence
+## Two Timeout Mechanisms
+
+Rondo has two independent timeout mechanisms. They serve different purposes:
+
+| Mechanism | Default | Trigger | Error Code | Scope |
+|-----------|---------|---------|-----------|-------|
+| **Task timeout** (`task_timeout_sec`) | 300s | Total elapsed time exceeds limit | `ERR_TIMEOUT` | REQ-001 dispatch |
+| **Watchdog timeout** (`watchdog_timeout_sec`) | 60s | No new stdout for this duration | `ERR_WATCHDOG_TIMEOUT` | REQ-002 overnight |
+
+**Task timeout:** Hard wall-clock limit. If a task takes longer than `task_timeout_sec`,
+it's killed regardless of whether it's producing output. This catches tasks that are
+running but will never finish.
+
+**Watchdog timeout:** Output-silence detector. If a running task produces no stdout for
+`watchdog_timeout_sec`, the watchdog kills it. A task can run for 400 seconds as long as
+it keeps producing output — the watchdog only fires on silence. This catches tasks that
+are hung (process alive but not working).
+
+Both use the same kill sequence:
+
+## Kill Sequence
 
 ```
-1. Timer expires (default: 300 seconds)
-2. Send SIGTERM to subprocess
+1. Timer expires (task_timeout_sec OR watchdog_timeout_sec)
+2. Send SIGTERM to subprocess process group
 3. Wait 5 seconds for graceful shutdown
 4. If still running: send SIGKILL
 5. Record:
    - status = "error"
-   - error_code = "ERR_TIMEOUT"
+   - error_code = "ERR_TIMEOUT" or "ERR_WATCHDOG_TIMEOUT"
    - duration_sec = actual elapsed time
-   - raw_output = whatever was captured before timeout
+   - raw_output = whatever was captured before kill
 ```
+
+**Implementation note:** Python's `subprocess.run(timeout=)` sends SIGKILL directly.
+Rondo MUST NOT use `subprocess.run(timeout=)` for the kill sequence. Instead, use
+`subprocess.Popen()` with a manual timer thread that sends SIGTERM first, then SIGKILL
+after 5 seconds if the process hasn't exited.
 
 ---
 
@@ -199,3 +260,4 @@ Rondo checks stderr to distinguish error subtypes:
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial draft — 10 rules, 7 error categories |
 | 0.2 | 2026-03-14 | Beefed up: error codes, result structure, flow diagram, stderr patterns, credential safety, timeout sequence |
+| 0.3 | 2026-03-14 | Deep review fixes: added files_modified + extract_modified_files(), ERR_WATCHDOG_TIMEOUT code, two-timeout explanation, SIGTERM-first kill sequence, Popen implementation note |

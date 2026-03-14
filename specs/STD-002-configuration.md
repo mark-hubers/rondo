@@ -246,6 +246,19 @@ def validate_config(config: RondoConfig) -> list[str]:
     if config.on_overage not in ("continue", "pause", "stop"):
         errors.append(f"on_overage must be continue/pause/stop, got '{config.on_overage}'")
 
+    valid_models = ("opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]")
+    if config.default_model not in valid_models:
+        errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
+
+    if not config.claude_binary:
+        errors.append("claude_binary must not be empty")
+
+    if not config.results_dir:
+        errors.append("results_dir must not be empty")
+
+    if not config.report_dir:
+        errors.append("report_dir must not be empty")
+
     return errors
 ```
 
@@ -289,3 +302,4 @@ Startup
 | 0.1 | 2026-03-13 | Initial draft — 6 rules, settings table, TOML example |
 | 0.2 | 2026-03-14 | Beefed up: COALESCE walkthrough, dataclass, validation, discovery, flow diagram, output_format + effort settings |
 | 0.3 | 2026-03-14 | Deep review fixes: added 4 missing fields to RondoConfig (watchdog_timeout_sec, rate_limit_backoff_sec, on_overage, worktree_isolation), completed validate_config(), added dry_run note, updated TOML example |
+| 0.4 | 2026-03-14 | Deep review v2: added 4 missing validations to validate_config() (default_model, claude_binary, results_dir, report_dir) |

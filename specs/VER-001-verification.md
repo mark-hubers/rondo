@@ -119,6 +119,13 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | 40 | Auto-detect sequential vs parallel | Test | `test_cli.py::test_auto_runner_selection` |
 | 41 | All STD-002 CLI flags on `run` subcommand | Test | `test_cli.py::test_cli_flags` |
 
+### Public API Contract
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 45 | run_round() accepts Round + optional config, returns RoundResult | Test | `test_engine.py::test_run_round_contract` |
+| 46 | RoundResult.status calculated from task statuses (done/partial/error/skipped) | Test | `test_engine.py::test_round_result_status_calculation` |
+
 ### Living Example Rounds
 
 | Req | Requirement (short) | Method | Test/Evidence |
@@ -223,16 +230,86 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 
 ---
 
+## STD-001 (Error Handling) Verification Matrix
+
+STD-001 defines 10 rules. Most are verified implicitly through REQ tests,
+but explicit traceability is tracked here.
+
+| Rule | Rule (short) | Method | Test/Evidence |
+|------|-------------|--------|--------------|
+| 1 | Every result includes name, status, duration, prompt | Test | `test_dispatch.py::test_result_metadata` (REQ-001 req 28) |
+| 2 | Subprocess vs task-logic errors distinguishable | Test | `test_dispatch.py::test_error_exit_code` (REQ-001 req 27) |
+| 3 | Malformed JSON → status partial | Test | `test_dispatch.py::test_malformed_json` (REQ-001 req 26) |
+| 4 | Configurable timeout, default 5 min | Test | `test_config.py::test_timeout_config` (STD-002) |
+| 5 | Kill sequence: SIGTERM → 5s → SIGKILL | Test | `test_dispatch.py::test_kill_sequence` |
+| 6 | Single failure doesn't crash framework | Test | `test_parallel.py::test_task_isolation` (REQ-002 req 8) |
+| 7 | Failed phase doesn't block next | Test | `test_overnight.py::test_phase_isolation` (REQ-002 req 12) |
+| 8 | No credentials in result files | Test | `test_dispatch.py::test_credential_sanitization` |
+| 9 | All exceptions caught, logged, converted to error results | Analysis | Code review: dispatch wraps in try/except |
+| 10 | Morning report always generated | Test | `test_report.py::test_report_on_all_failures` |
+
+## STD-002 (Configuration) Verification Matrix
+
+| Rule | Rule (short) | Method | Test/Evidence |
+|------|-------------|--------|--------------|
+| 1 | Works with zero config | Test | `test_config.py::test_zero_config` |
+| 2 | TOML format | Test | `test_config.py::test_toml_loading` |
+| 3 | Config discovery (--config or CWD) | Test | `test_config.py::test_config_discovery` |
+| 4 | CLI overrides config | Test | `test_config.py::test_cli_override` |
+| 5 | Config overrides defaults | Test | `test_config.py::test_config_override` |
+| 6 | COALESCE resolution | Test | `test_config.py::test_coalesce` |
+| 7 | Unknown keys ignored with warning | Test | `test_config.py::test_unknown_keys` |
+| 8 | Invalid values error at startup | Test | `test_config.py::test_validation_errors` |
+| 9 | Config loaded once, immutable | Analysis | RondoConfig is frozen dataclass |
+| 10 | Config is a dataclass | Inspection | STD-002 code review |
+
+## STD-003 (Concurrency & Safety) Verification Matrix
+
+| Rule | Rule (short) | Method | Test/Evidence |
+|------|-------------|--------|--------------|
+| C1 | ThreadPoolExecutor for I/O-bound | Analysis | Code review (REQ-002 req 1) |
+| C2 | No shared mutable state | Analysis | Each thread creates own TaskResult |
+| C3 | Throttle between launches | Test | `test_parallel.py::test_throttle` (REQ-002 req 3) |
+| C4 | Conflict detection | Test | `test_parallel.py::test_conflict_detection` (REQ-002 req 5) |
+| C5 | Conflict is advisory | Test | `test_parallel.py::test_conflict_in_summary` (REQ-002 req 6) |
+| C6 | Bounded workers (1-32) | Test | `test_config.py::test_validation_errors` (STD-002) |
+| C7 | Task thread isolation | Test | `test_parallel.py::test_task_isolation` (REQ-002 req 8) |
+| S1 | List args, never shell=True | Analysis | Code review: all subprocess calls use list |
+| S2 | Credential stripping | Test | `test_dispatch.py::test_claudecode_stripped` + `test_auth_max_strips_key` (REQ-001 reqs 13, 17) |
+| S3 | No credentials in output | Test | `test_dispatch.py::test_credential_sanitization` (STD-001 rule 8) |
+| S4 | Prompts don't contain secrets | Inspection | Round definition review |
+| S5 | Restrictive file permissions (0o600) | Test | `test_dispatch.py::test_result_file_permissions` |
+| R1 | Subprocess timeout with SIGTERM-first kill | Test | `test_dispatch.py::test_kill_sequence` (STD-001 rule 5) |
+| R2 | Bounded result files (1MB) | Test | `test_dispatch.py::test_output_truncation` |
+| R3 | Rolling event log (100 entries) | Test | `test_overnight.py::test_rolling_log` (REQ-002 req 18) |
+
+---
+
 ## Coverage Summary
+
+### Requirements (REQ + IFS)
 
 | Spec | Total Reqs | Test | Demo | Analysis | Inspection |
 |------|-----------|------|------|----------|------------|
-| REQ-001 | 44 | 39 | 0 | 2 | 3 |
+| REQ-001 | 46 | 41 | 0 | 2 | 3 |
 | REQ-002 | 41 | 35 | 3 | 2 | 1 |
 | IFS-001 | 10 | 10 | 0 | 0 | 0 |
-| **Total** | **95** | **84** | **3** | **4** | **4** |
+| **Total** | **97** | **86** | **3** | **4** | **4** |
 
-88% verified by automated test. 100% covered by at least one method.
+89% verified by automated test. 100% covered by at least one method.
+
+### Standards (STD — cross-referenced)
+
+| Spec | Total Rules | Test | Analysis | Inspection | Cross-ref to REQ |
+|------|------------|------|----------|------------|-----------------|
+| STD-001 | 10 | 7 | 1 | 0 | 6 rules also tested via REQ |
+| STD-002 | 10 | 7 | 1 | 1 | 4 rules also tested via REQ |
+| STD-003 | 15 | 9 | 4 | 1 | 8 rules also tested via REQ |
+| **Total** | **35** | **23** | **6** | **2** | — |
+
+Most STD rules are verified implicitly through REQ tests (noted in cross-ref column).
+4 new tests added for previously uncovered rules: kill_sequence, credential_sanitization,
+result_file_permissions, output_truncation.
 
 ---
 
@@ -282,3 +359,4 @@ specs, not spikes. Full gap analysis: `rondo/spikes/SPIKE-TRACKER.md`.
 | 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with STD-001 |
 | 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |
 | 0.6 | 2026-03-14 | Added REQ-001 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |
+| 0.7 | 2026-03-14 | Deep review v2: added REQ-001 reqs 45-46 (run_round, RoundResult.status). Added STD-001/002/003 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |

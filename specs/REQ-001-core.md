@@ -110,7 +110,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 34. Rondo MUST be an importable Python package: `from rondo import run_round, RoundResult`.
 35. The public API (`rondo/__init__.py`) MUST export: `Round`, `Task`, `Gate`, `GateResult`, `TaskResult`, `RoundResult`, `DispatchUsage`, `RondoConfig`, `run_round`.
 36. Rondo MUST provide a CLI entry point: `rondo <subcommand> [options]`.
-37. CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report), `dry-run` (show prompts without dispatch).
+37. CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-002).
 38. The `run` subcommand MUST accept a path to a Python file containing a `build_round()` function that returns a `Round` object.
 39. Round definition files MUST be loadable by path — Rondo dynamically imports the file and calls `build_round()`.
 40. Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py`.
@@ -135,6 +135,8 @@ rondo/
 │   ├── test_engine.py
 │   ├── test_config.py
 │   ├── test_dispatch.py
+│   ├── test_cli.py
+│   ├── test_examples.py
 │   ├── test_parallel.py
 │   ├── test_overnight.py
 │   └── test_report.py
@@ -209,6 +211,21 @@ print(f"Cost: ${sum(u.cost_usd for u in result.usage):.4f}")
 for tr in result.task_results:
     print(f"  {tr.task_name}: {tr.status}")
 ```
+
+### Living Example Rounds
+
+Example rounds in `examples/` serve dual purpose: documentation for users AND
+test fixtures for Rondo's own test suite. They MUST be real, runnable rounds.
+
+### Public API Contract
+
+45. `run_round(round: Round, config: RondoConfig | None = None) -> RoundResult` MUST be the primary library entry point. It accepts a Round object and optional config (defaults to `RondoConfig()` zero-config), picks sequential or parallel runner based on `config.workers`, executes the round, and returns a RoundResult.
+46. `RoundResult.status` MUST be calculated from task statuses using these rules:
+    - `"done"` — all tasks have status `done`
+    - `"partial"` — at least one task `done` and at least one `blocked`, `partial`, or `error`
+    - `"error"` — all tasks are `error` or `blocked` (none succeeded)
+    - `"skipped"` — a blocking pre-gate failed, no tasks were dispatched
+    - Note: `"blocked"` is a task-level status only. At round level, blocked tasks contribute to `"partial"` or `"error"`.
 
 ### Living Example Rounds
 
@@ -510,6 +527,20 @@ class Gate:
     blocking: bool = True                  # -- if False, failure is a warning only
 
 
+**Gate calling convention:** The runner calls `gate.check_fn()` with **no arguments**.
+Gates that need external context (e.g., task results for post-gates, config values)
+MUST capture it via closure at round-definition time. The `Callable[..., tuple[bool, str]]`
+type allows any signature, but the runner always invokes with zero args.
+
+```python
+# -- CORRECT: closure captures what the gate needs
+results = []  # -- runner appends TaskResults before calling post-gates
+Gate("All passed", check_fn=lambda: (all(r.status == "done" for r in results), "checked"))
+
+# -- WRONG: gate expects arguments the runner won't pass
+Gate("Needs args", check_fn=lambda results: (...))  # -- runner calls with 0 args → crash
+```
+
 @dataclass
 class GateResult:
     """Outcome of running a gate check."""
@@ -606,9 +637,8 @@ class RoundResult:
     # -- usage metadata (from stream-json, per dispatch)
     usage: list[DispatchUsage]             # -- one per task dispatch
 
-    # -- overall
-    status: str                            # -- "done" (all tasks done), "partial" (some failed),
-                                           # -- "error" (majority/all failed), "skipped" (gate blocked)
+    # -- overall (see req 46 for calculation rules)
+    status: str                            # -- "done", "partial", "error", "skipped" (4 values — no "blocked" at round level)
     summary: str                           # -- one-line human summary
 ```
 
@@ -630,9 +660,9 @@ class DispatchUsage:
     duration_api_ms: int                   # -- API time only (ms — from stream-json)
     num_turns: int                         # -- tool-use loops
     context_window: int                    # -- 200000 or 1000000
-    rate_limit_status: str                 # -- "allowed" or "blocked" (from rate_limit_event.status)
-    is_using_overage: bool                 # -- past plan allocation?
-    rate_limit_resets_at: int              # -- epoch timestamp
+    rate_limit_status: str = "unknown"     # -- "allowed", "blocked", or "unknown" (default per IFS-001 req 9)
+    is_using_overage: bool = False         # -- past plan allocation? (default per IFS-001 req 9)
+    rate_limit_resets_at: int = 0          # -- epoch timestamp (0 = not available)
 ```
 
 ### How OB/ACE Gets Total Visibility
@@ -767,3 +797,4 @@ reports/rondo-results/
 | 0.3 | 2026-03-14 | Added Data Boundary section: RoundResult, DispatchUsage, result file structure. Answered Q1 (no DB), Q2 (rate_limit_event), Q3 (configurable binary). |
 | 0.4 | 2026-03-14 | Deep review fixes: formal Task/Gate/GateResult/Round dataclasses, aligned status vocabulary (done/blocked/partial/error/skipped) with STD-001, added description field to Task, added model hint to Task, RoundResult.status uses same vocabulary, duration units clarified (ms from stream-json, sec for wall-clock) |
 | 0.5 | 2026-03-14 | Added reqs 34-44: package structure, CLI entry point (run/overnight/report/dry-run subcommands), dynamic round loading, auto sequential/parallel detection, living example rounds (3 examples as test fixtures), library usage pattern, call chain diagram |
+| 0.6 | 2026-03-14 | Deep review v2 fixes: added reqs 45-46 (run_round contract, RoundResult.status calculation), gate calling convention documented, DispatchUsage defaults for rate limit fields, dry-run changed from subcommand to --dry-run flag on run, test_cli.py + test_examples.py added to package layout |

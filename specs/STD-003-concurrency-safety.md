@@ -259,25 +259,48 @@ def write_result_file(path: str, content: str) -> None:
 
 ## Resource Rules
 
-### R1: Subprocess timeout with kill sequence
+### R1: Subprocess timeout with SIGTERM-first kill sequence
+
+MUST use `subprocess.Popen()` with a manual timer thread. MUST NOT use
+`subprocess.run(timeout=)` which sends SIGKILL directly, skipping graceful shutdown.
+Matches STD-001 kill sequence: SIGTERM → 5s grace → SIGKILL.
 
 ```python
+import threading
+
+proc = subprocess.Popen(
+    cmd,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
+    env=child_env,
+)
+
+timed_out = threading.Event()
+
+def kill_on_timeout():
+    """SIGTERM → 5s → SIGKILL. Matches STD-001 kill sequence."""
+    timed_out.set()
+    proc.terminate()               # -- SIGTERM (graceful)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()                # -- SIGKILL (force)
+
+timer = threading.Timer(config.task_timeout_sec, kill_on_timeout)
+timer.start()
 try:
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=config.task_timeout_sec,   # -- default 300s
-        env=child_env,
-    )
-except subprocess.TimeoutExpired as exc:
-    # -- subprocess.run sends SIGKILL on timeout by default
-    # -- but we want the graceful SIGTERM first pattern from STD-001
+    stdout, stderr = proc.communicate()
+finally:
+    timer.cancel()
+
+if timed_out.is_set():
     return TaskResult(
         status="error",
         error_code="ERR_TIMEOUT",
-        raw_output=exc.stdout or "",
-        stderr=exc.stderr or "",
+        raw_output=stdout or "",
+        stderr=stderr or "",
+        duration_sec=config.task_timeout_sec,
         ...
     )
 ```
@@ -356,3 +379,4 @@ def append_event_log(log_path: str, entry: dict) -> None:
 | 0.1 | 2026-03-13 | Initial draft — 15 rules in 3 categories |
 | 0.2 | 2026-03-14 | Beefed up: code patterns for every rule, attack prevention table, thread safety matrix, conflict detection pattern |
 | 0.3 | 2026-03-14 | Deep review fix: sanitize_result() uses dc_replace() instead of setattr (frozen dataclass safe) |
+| 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches STD-001) |

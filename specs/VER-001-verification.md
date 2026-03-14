@@ -138,17 +138,48 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | 17 | Logs start/end events | Test | `test_overnight.py::test_event_logging` |
 | 18 | Rolling 100-entry log | Test | `test_overnight.py::test_rolling_log` |
 
+### Self-Healing Watchdog
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 19 | Monitors dispatch for hung conditions | Test | `test_overnight.py::test_watchdog_detects_hung` |
+| 20 | Kills no-output dispatch after timeout | Test | `test_overnight.py::test_watchdog_kills_hung` |
+| 21 | Continues after watchdog kill | Test | `test_overnight.py::test_watchdog_continues` |
+| 22 | Rate limit backoff pause | Test | `test_overnight.py::test_rate_limit_backoff` |
+| 23 | Watchdog logs every intervention | Test | `test_overnight.py::test_watchdog_logging` |
+
+### Usage Threshold Gating
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 24 | Checks rate_limit_event before each phase | Test | `test_overnight.py::test_usage_check_before_phase` |
+| 25 | isUsingOverage triggers configurable action | Test | `test_overnight.py::test_overage_action` |
+| 26 | Blocked status pauses until reset | Test | `test_overnight.py::test_blocked_pause` |
+| 27 | on_overage configurable (continue/pause/stop) | Test | `test_overnight.py::test_overage_config` |
+| 28 | Usage decisions logged to event log | Test | `test_overnight.py::test_usage_decision_logging` |
+
 ### Morning Report
 
 | Req | Requirement (short) | Method | Test/Evidence |
 |-----|---------------------|--------|--------------|
-| 19 | Aggregates all phases | Test | `test_report.py::test_aggregation` |
-| 20 | Grouped by round type | Inspection | Review report output |
-| 21 | Shows done/failed/duration per round | Test | `test_report.py::test_round_stats` |
-| 22 | Health indicators | Test | `test_report.py::test_health_colors` |
-| 23 | Action items from failures | Test | `test_report.py::test_action_items` |
-| 24 | Saves to dated file | Test | `test_report.py::test_dated_filename` |
-| 25 | Includes totals and timestamp | Test | `test_report.py::test_report_totals` |
+| 29 | Aggregates all phases | Test | `test_report.py::test_aggregation` |
+| 30 | Grouped by round type | Inspection | Review report output |
+| 31 | Shows done/failed/duration per round | Test | `test_report.py::test_round_stats` |
+| 32 | Health indicators | Test | `test_report.py::test_health_colors` |
+| 33 | Action items from failures | Test | `test_report.py::test_action_items` |
+| 34 | Saves to dated file | Test | `test_report.py::test_dated_filename` |
+| 35 | Includes totals and timestamp | Test | `test_report.py::test_report_totals` |
+| 36 | Includes usage summary (cost, tokens, overage, watchdog) | Test | `test_report.py::test_usage_summary` |
+
+### Worktree Isolation
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 37 | Supports optional git worktree per worker | Test | `test_parallel.py::test_worktree_creation` |
+| 38 | Each task runs in own worktree, results merged | Demo | Run parallel with worktree isolation enabled |
+| 39 | Worktree opt-in via config or CLI | Test | `test_parallel.py::test_worktree_config` |
+| 40 | Without worktree, conflict detection is active | Test | `test_parallel.py::test_conflict_without_worktree` |
+| 41 | Worktrees cleaned up after round | Test | `test_parallel.py::test_worktree_cleanup` |
 
 ---
 
@@ -176,11 +207,11 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | Spec | Total Reqs | Test | Demo | Analysis | Inspection |
 |------|-----------|------|------|----------|------------|
 | REQ-001 | 33 | 28 | 0 | 3 | 2 |
-| REQ-002 | 25 | 20 | 2 | 1 | 2 |
+| REQ-002 | 41 | 34 | 2 | 1 | 2 |
 | IFS-001 | 10 | 10 | 0 | 0 | 0 |
-| **Total** | **68** | **58** | **2** | **4** | **4** |
+| **Total** | **84** | **72** | **2** | **4** | **4** |
 
-85% verified by automated test. 100% covered by at least one method.
+86% verified by automated test. 100% covered by at least one method.
 
 ---
 
@@ -190,3 +221,4 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial verification matrix for REQ-001 + REQ-002 |
 | 0.2 | 2026-03-14 | Added IFS-001 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
+| 0.3 | 2026-03-14 | Added REQ-002 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |

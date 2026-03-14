@@ -113,6 +113,10 @@ Example:
 | Verbose | `--verbose` | `verbose` | bool | `false` | — |
 | Output format | `--output-format` | `output_format` | str | `"stream-json"` | "text", "json", "stream-json" |
 | Effort | `--effort` | `effort` | str | `"high"` | "low", "medium", "high", "max" |
+| Watchdog timeout | `--watchdog-timeout` | `watchdog_timeout_sec` | int | `60` | 10-600 |
+| Rate limit backoff | `--backoff` | `rate_limit_backoff_sec` | int | `60` | 10-600 |
+| On overage | `--on-overage` | `on_overage` | str | `"continue"` | "continue", "pause", "stop" |
+| Worktree isolation | `--worktree` | `worktree_isolation` | bool | `false` | — |
 
 ---
 

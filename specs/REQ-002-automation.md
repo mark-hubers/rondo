@@ -16,8 +16,11 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 **IN scope:**
 - Parallel dispatch: concurrent task execution with throttling
 - Conflict detection: flag files touched by multiple parallel tasks
+- Self-healing watchdog: auto-kill hung tasks, rate limit backoff
+- Usage threshold gating: react to overage/blocked status from stream-json
+- Worktree isolation: optional per-task git worktree for parallel safety
 - Overnight scheduler: phased batch execution with configurable modes
-- Morning report: aggregated results with health indicators
+- Morning report: aggregated results with health indicators and usage summary
 - Event logging: rolling log for overnight post-mortem
 
 **OUT of scope:**
@@ -66,15 +69,40 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 17. The scheduler MUST log start and end events with timestamps and mode.
 18. The event log MUST be a rolling JSON file that keeps the last 100 entries.
 
+### Self-Healing Watchdog
+
+19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions beyond the task timeout.
+20. If a dispatch subprocess does not produce output for a configurable duration (default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT".
+21. After a watchdog kill, the scheduler MUST continue to the next task — never halt the pipeline.
+22. If a dispatch fails with a rate limit error (ERR_RATE_LIMIT), the watchdog MUST pause for a configurable backoff duration (default: 60 seconds) before the next dispatch.
+23. The watchdog MUST log every intervention (kill, pause, skip) to the event log with timestamp and reason.
+
+### Usage Threshold Gating
+
+24. Before each phase, the scheduler MUST check the most recent `rate_limit_event` from the previous dispatch.
+25. If `isUsingOverage` is `true`, the scheduler MUST take a configurable action: `continue` (default), `pause` (wait for reset), or `stop` (end overnight run early).
+26. If `rate_limit_status` is `"blocked"`, the scheduler MUST pause until `resetsAt` epoch and then retry the phase.
+27. The overage action MUST be configurable via CLI (`--on-overage`) and config file (`on_overage`). Default: `continue`.
+28. Usage threshold decisions MUST be logged to the event log with the rate_limit_event data that triggered them.
+
 ### Morning Report
 
-19. The morning report MUST aggregate results from all phases in one document.
-20. Results MUST be grouped by round type (one section per round).
-21. Each round section MUST show: tasks done, tasks failed, total duration.
-22. The report MUST use health indicators: pass (all tasks succeeded), partial (some failed), fail (majority failed).
-23. The report MUST list action items: tasks that failed or returned "blocked" status.
-24. The report MUST save to a dated file: `rondo-morning-YYYYMMDD.md` (or configurable pattern).
-25. The report MUST include: total duration, total tasks run, total errors, timestamp.
+29. The morning report MUST aggregate results from all phases in one document.
+30. Results MUST be grouped by round type (one section per round).
+31. Each round section MUST show: tasks done, tasks failed, total duration.
+32. The report MUST use health indicators: pass (all tasks succeeded), partial (some failed), fail (majority failed).
+33. The report MUST list action items: tasks that failed or returned "blocked" status.
+34. The report MUST save to a dated file: `rondo-morning-YYYYMMDD.md` (or configurable pattern).
+35. The report MUST include: total duration, total tasks run, total errors, timestamp.
+36. The report MUST include a usage summary: total cost, total tokens, overage status, watchdog interventions.
+
+### Worktree Isolation (Parallel Safety)
+
+37. Parallel dispatch SHOULD support optional git worktree isolation: each worker gets its own worktree copy of the repo.
+38. When worktree isolation is enabled, each task runs in its own worktree. After all tasks complete, results are merged back to the main worktree.
+39. Worktree isolation MUST be opt-in via config (`worktree_isolation = true`) or CLI (`--worktree`). Default: off.
+40. When worktree isolation is off, conflict detection (reqs 5-6) remains the safety mechanism.
+41. Worktrees MUST be cleaned up after the round completes (success or failure).
 
 ---
 
@@ -233,6 +261,8 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Q2 | Should overnight support `--resume` from a failed phase? | Open |
 | Q3 | Should the morning report support multiple output formats (markdown, JSON, HTML)? | Open |
 | Q4 | How should the scheduler handle system-level scheduling (cron vs LaunchAgent vs systemd)? | Deferred — platform-specific |
+| Q5 | Should Rondo support alternative backends (Codex CLI, Ollama, direct API)? | Deferred — IFS-001 isolates the interface. Adding IFS-002 for other backends is architecturally possible without changing REQ-001/002. |
+| Q6 | Should worktree isolation use `git worktree` directly or Claude Code's `--worktree` flag? | Open — Claude Code has native worktree support via `--worktree` flag |
 
 ---
 
@@ -241,3 +271,4 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Split from monolithic RONDO-01. Parallel + overnight + report as optional layer. |
+| 0.2 | 2026-03-14 | Added: self-healing watchdog (reqs 19-23), usage threshold gating (reqs 24-28), morning report usage summary (req 36), worktree isolation (reqs 37-41). 25→41 requirements. |

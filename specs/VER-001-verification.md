@@ -215,6 +215,42 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 
 ---
 
+## Spike Validation Evidence
+
+Requirements validated by spike prototypes (Session 74-75). Spikes proved concepts
+work but diverge from current spec vocabulary/structure. Production code built from
+specs, not spikes. Full gap analysis: `rondo/spikes/SPIKE-TRACKER.md`.
+
+### REQ-001 — Validated by Spikes
+
+| Req Range | Spike File | What Was Proved | Divergence |
+|-----------|-----------|----------------|-----------|
+| 1-7 (Engine) | `spikes/engine.py` | Round/Task/Gate model, pre/post gates, three-field contract | Status vocab (PASSED→done), DB coupling removed |
+| 8-11 (State) | `spikes/engine.py` | State transitions, serialization, resume | Status vocab changed to 5-value |
+| 12-16 (Subprocess) | `spikes/dispatch.py` | `claude -p` invocation, env stripping, result capture, dry-run | Uses text mode, not stream-json |
+| 17-19 (Auth) | `spikes/dispatch.py` | Auth switching works (max strips key, api keeps key) | Aligned with spec |
+| 20-23 (Model) | `spikes/dispatch.py` | `--model` flag, COALESCE per-task hints | Aligned with spec |
+| 25-28 (Results) | `spikes/dispatch.py` | JSON parsing, malformed fallback, error handling | Returns dict, not TaskResult dataclass |
+
+### REQ-002 — Validated by Spikes
+
+| Req Range | Spike File | What Was Proved | Divergence |
+|-----------|-----------|----------------|-----------|
+| 1-9 (Parallel) | `spikes/parallel.py` | ThreadPoolExecutor, throttle, conflict detection, isolation | No files_modified field, no DispatchUsage |
+| 10-18 (Overnight) | `spikes/overnight.py` | Phase execution, failure isolation, event log, no stdin | Hardcoded OB rounds (spec: configurable modes) |
+| 19-23 (Watchdog) | — | **Not spiked** | Must be built from spec |
+| 24-28 (Usage) | — | **Not spiked** | Must be built from spec |
+| 29-36 (Report) | `spikes/report.py` | Result aggregation, grouping, dated file | Missing health indicators, usage summary |
+| 37-41 (Worktree) | — | **Not spiked** | Must be built from spec |
+
+### IFS-001 — Validated by Spikes
+
+| Req Range | Spike File | What Was Proved | Divergence |
+|-----------|-----------|----------------|-----------|
+| 1-10 (Stream-JSON) | — | **Not spiked** (text mode only) | Session 76 spike proved stream-json output works via `env -u CLAUDECODE -u ANTHROPIC_API_KEY claude -p --output-format stream-json` |
+
+---
+
 ## Change History
 
 | Version | Date | What Changed |
@@ -223,3 +259,4 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | 0.2 | 2026-03-14 | Added IFS-001 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
 | 0.3 | 2026-03-14 | Added REQ-002 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
 | 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with STD-001 |
+| 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |

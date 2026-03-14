@@ -15,6 +15,7 @@ Import direction:
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -24,13 +25,15 @@ from rondo.config import RondoConfig
 from rondo.engine import DispatchUsage, Round, RoundResult
 from rondo.runner import run_round
 
+logger = logging.getLogger(__name__)
+
 # ──────────────────────────────────────────────────────────────────
 #  OvernightResult — aggregated output
 # ──────────────────────────────────────────────────────────────────
 
 
 @dataclass
-class OvernightResult:
+class OvernightResult:  # pylint: disable=too-many-instance-attributes
     """Everything a consumer needs from an overnight run."""
 
     # -- identity
@@ -73,7 +76,7 @@ class EventLog:
         path = Path(self.log_path)
         if path.exists():
             try:
-                self.entries = json.loads(path.read_text())
+                self.entries = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, ValueError):
                 self.entries = []
 
@@ -89,7 +92,7 @@ class EventLog:
             return
         path = Path(self.log_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(self.entries, indent=2, default=str))
+        path.write_text(json.dumps(self.entries, indent=2, default=str), encoding="utf-8")
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -190,7 +193,7 @@ def run_overnight(
             if gate_action == "stop":
                 stopped = True
                 break
-            elif gate_action == "blocked":
+            if gate_action == "blocked":
                 # -- REQ-002 req 26: wait for reset
                 if last_usage.rate_limit_resets_at > 0:
                     wait_sec = max(0, last_usage.rate_limit_resets_at - time.time())
@@ -209,7 +212,8 @@ def run_overnight(
         # -- Execute phase (REQ-002 req 12: failure isolation)
         try:
             phase_result = run_round(phase, config=config)
-        except Exception as exc:
+        except (OSError, ValueError, RuntimeError, TypeError) as exc:
+            logger.warning("Phase %s failed: %s", phase.name, exc)
             phase_result = RoundResult(
                 round_name=phase.name,
                 status="error",

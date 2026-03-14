@@ -74,8 +74,21 @@ def generate_report(result: OvernightResult) -> str:
     REQ-002 req 36: usage summary (cost, tokens, watchdog).
     """
     lines: list[str] = []
+    _emit_header(result, lines)
+    _emit_summary(result, lines)
+    _emit_usage(result, lines)
+    _emit_phases(result, lines)
+    _emit_action_items(result, lines)
+    return "\n".join(lines)
 
-    # -- Header
+
+# ──────────────────────────────────────────────────────────────────
+#  Report sections — extracted for clarity + pylint statement count
+# ──────────────────────────────────────────────────────────────────
+
+
+def _emit_header(result: OvernightResult, lines: list[str]) -> None:
+    """Emit report header section."""
     lines.append("# Rondo Morning Report")
     lines.append("")
     lines.append(f"**Mode:** {result.mode}")
@@ -85,7 +98,9 @@ def generate_report(result: OvernightResult) -> str:
     lines.append(f"**Status:** {result.status}")
     lines.append("")
 
-    # -- Totals (REQ-002 req 35)
+
+def _emit_summary(result: OvernightResult, lines: list[str]) -> None:
+    """Emit totals section (REQ-002 req 35)."""
     total_tasks = sum(len(pr.task_results) for pr in result.phase_results)
     total_done = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done")
     total_errors = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "error")
@@ -103,7 +118,9 @@ def generate_report(result: OvernightResult) -> str:
     lines.append(f"| Health | {_health_indicator(total_done, total_tasks)} |")
     lines.append("")
 
-    # -- Usage summary (REQ-002 req 36)
+
+def _emit_usage(result: OvernightResult, lines: list[str]) -> None:
+    """Emit usage summary section (REQ-002 req 36)."""
     total_input_tokens = sum(u.input_tokens for pr in result.phase_results for u in pr.usage)
     total_output_tokens = sum(u.output_tokens for pr in result.phase_results for u in pr.usage)
     total_tokens = total_input_tokens + total_output_tokens
@@ -120,7 +137,9 @@ def generate_report(result: OvernightResult) -> str:
     lines.append(f"| Watchdog interventions | {watchdog_count} |")
     lines.append("")
 
-    # -- Phase sections (REQ-002 reqs 30-31)
+
+def _emit_phases(result: OvernightResult, lines: list[str]) -> None:
+    """Emit per-phase sections (REQ-002 reqs 30-31)."""
     lines.append("## Phases")
     lines.append("")
 
@@ -140,7 +159,9 @@ def generate_report(result: OvernightResult) -> str:
         lines.append(f"| Duration | {_format_duration(pr.duration_sec)} ({pr.duration_sec:.1f}s) |")
         lines.append("")
 
-    # -- Action items (REQ-002 req 33)
+
+def _emit_action_items(result: OvernightResult, lines: list[str]) -> None:
+    """Emit action items section (REQ-002 req 33)."""
     action_items: list[str] = []
     for pr in result.phase_results:
         for tr in pr.task_results:
@@ -157,8 +178,6 @@ def generate_report(result: OvernightResult) -> str:
     else:
         lines.append("No action items — all tasks completed successfully.")
     lines.append("")
-
-    return "\n".join(lines)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -183,5 +202,5 @@ def save_report(
     filename = f"rondo-morning-{date_str}.md"
     filepath = out_dir / filename
 
-    filepath.write_text(report)
+    filepath.write_text(report, encoding="utf-8")
     return str(filepath)

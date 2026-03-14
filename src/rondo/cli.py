@@ -154,9 +154,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         return _cmd_run(args)
-    elif args.command == "overnight":
+    if args.command == "overnight":
         return _cmd_overnight(args)
-    elif args.command == "report":
+    if args.command == "report":
         return _cmd_report(args)
 
     return 0
@@ -185,8 +185,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 def _cmd_overnight(args: argparse.Namespace) -> int:
     """Execute 'rondo overnight <file>' subcommand."""
-    from rondo.overnight import run_overnight
-    from rondo.report import save_report
+    from rondo.overnight import run_overnight  # pylint: disable=import-outside-toplevel
+    from rondo.report import save_report  # pylint: disable=import-outside-toplevel
 
     # -- Load phases file (expects build_phases() → list[Round])
     path = Path(args.file)
@@ -218,7 +218,7 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
     try:
         report_path = save_report(result, config)
         print(f"Report saved: {report_path}")
-    except Exception as exc:
+    except (OSError, ValueError, TypeError) as exc:
         print(f"Warning: could not save report: {exc}", file=sys.stderr)
 
     print(f"{result.status}: {len(result.phase_results)} phases, ${result.total_cost_usd:.2f}")

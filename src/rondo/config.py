@@ -33,7 +33,7 @@ def resolve(cli_value: Any, config_value: Any, default_value: Any) -> Any:
 
 
 @dataclass(frozen=True)
-class RondoConfig:
+class RondoConfig:  # pylint: disable=too-many-instance-attributes
     """Immutable configuration — loaded once at startup (STD-002 rule 9)."""
 
     # -- dispatch
@@ -75,10 +75,33 @@ def validate_config(config: RondoConfig) -> list[str]:
     whether to exit or warn.
     """
     errors: list[str] = []
+    _validate_enums(config, errors)
+    _validate_ranges(config, errors)
+    _validate_non_empty(config, errors)
+    return errors
 
+
+def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
+    """Validate enum-style fields against allowed values."""
     if config.auth not in ("max", "api"):
         errors.append(f"auth must be 'max' or 'api', got '{config.auth}'")
 
+    if config.output_format not in ("text", "json", "stream-json"):
+        errors.append(f"output_format must be text/json/stream-json, got '{config.output_format}'")
+
+    if config.effort not in ("low", "medium", "high", "max"):
+        errors.append(f"effort must be low/medium/high/max, got '{config.effort}'")
+
+    if config.on_overage not in ("continue", "pause", "stop"):
+        errors.append(f"on_overage must be continue/pause/stop, got '{config.on_overage}'")
+
+    valid_models = ("opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]")
+    if config.default_model not in valid_models:
+        errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
+
+
+def _validate_ranges(config: RondoConfig, errors: list[str]) -> None:
+    """Validate numeric fields against min/max bounds."""
     if config.workers < 1 or config.workers > 32:
         errors.append(f"workers must be 1-32, got {config.workers}")
 
@@ -88,25 +111,15 @@ def validate_config(config: RondoConfig) -> list[str]:
     if config.task_timeout_sec < 10 or config.task_timeout_sec > 3600:
         errors.append(f"task_timeout_sec must be 10-3600, got {config.task_timeout_sec}")
 
-    if config.output_format not in ("text", "json", "stream-json"):
-        errors.append(f"output_format must be text/json/stream-json, got '{config.output_format}'")
-
-    if config.effort not in ("low", "medium", "high", "max"):
-        errors.append(f"effort must be low/medium/high/max, got '{config.effort}'")
-
     if config.watchdog_timeout_sec < 10 or config.watchdog_timeout_sec > 600:
         errors.append(f"watchdog_timeout_sec must be 10-600, got {config.watchdog_timeout_sec}")
 
     if config.rate_limit_backoff_sec < 10 or config.rate_limit_backoff_sec > 600:
         errors.append(f"rate_limit_backoff_sec must be 10-600, got {config.rate_limit_backoff_sec}")
 
-    if config.on_overage not in ("continue", "pause", "stop"):
-        errors.append(f"on_overage must be continue/pause/stop, got '{config.on_overage}'")
 
-    valid_models = ("opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]")
-    if config.default_model not in valid_models:
-        errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
-
+def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
+    """Validate string fields that must not be empty."""
     if not config.claude_binary:
         errors.append("claude_binary must not be empty")
 
@@ -115,8 +128,6 @@ def validate_config(config: RondoConfig) -> list[str]:
 
     if not config.report_dir:
         errors.append("report_dir must not be empty")
-
-    return errors
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -185,15 +196,23 @@ def _load_toml(
     if config_path is not None:
         path = Path(config_path)
         if path.is_file():
-            with open(path, "rb") as f:
-                return tomllib.load(f)
+            try:
+                with open(path, "rb") as f:
+                    return tomllib.load(f)
+            except tomllib.TOMLDecodeError as exc:
+                warnings.warn(f"TOML parse error in {path}: {exc}", stacklevel=3)
+                return {}
         return {}
 
     # -- Discovery: search_dir or CWD
     base = Path(search_dir) if search_dir is not None else Path.cwd()
     candidate = base / "rondo.toml"
     if candidate.is_file():
-        with open(candidate, "rb") as f:
-            return tomllib.load(f)
+        try:
+            with open(candidate, "rb") as f:
+                return tomllib.load(f)
+        except tomllib.TOMLDecodeError as exc:
+            warnings.warn(f"TOML parse error in {candidate}: {exc}", stacklevel=3)
+            return {}
 
     return {}

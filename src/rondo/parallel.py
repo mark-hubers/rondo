@@ -12,6 +12,7 @@ Import direction:
 
 from __future__ import annotations
 
+import logging
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
@@ -28,6 +29,8 @@ from rondo.engine import (
     run_gates,
     should_proceed,
 )
+
+logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────
 #  Conflict detection — REQ-002 reqs 5-6, STD-003 C4-C5
@@ -54,7 +57,7 @@ def detect_conflicts(results: list[TaskResult]) -> list[str]:
 
 
 def run_parallel(
-    round: Round,
+    round_def: Round,
     config: RondoConfig,
 ) -> RoundResult:
     """Execute a round with parallel task dispatch.
@@ -70,13 +73,13 @@ def run_parallel(
     start_time = time.monotonic()
 
     result = RoundResult(
-        round_name=round.name,
+        round_name=round_def.name,
         started_at=started_at,
         parallelism=config.workers,
     )
 
     # -- Handle empty round
-    if not round.tasks:
+    if not round_def.tasks:
         result.status = "skipped"
         result.summary = "No tasks in round"
         result.completed_at = datetime.now(UTC).isoformat()
@@ -84,8 +87,8 @@ def run_parallel(
         return result
 
     # -- Phase 1: Pre-gates (same contract as sequential)
-    if round.pre_gates:
-        result.pre_gate_results = run_gates(round.pre_gates)
+    if round_def.pre_gates:
+        result.pre_gate_results = run_gates(round_def.pre_gates)
         if not should_proceed(result.pre_gate_results):
             result.status = "skipped"
             failed = [g for g in result.pre_gate_results if not g.passed and g.blocking]
@@ -96,59 +99,7 @@ def run_parallel(
             return result
 
     # -- Phase 2: Parallel dispatch (REQ-002 reqs 1-4, 8)
-    task_results: list[TaskResult] = []
-    usage_list: list[DispatchUsage] = []
-
-    with ThreadPoolExecutor(max_workers=config.workers) as pool:
-        # -- Submit tasks with throttle delay (REQ-002 req 3, STD-003 C3)
-        futures: dict[Future, str] = {}
-        for i, task in enumerate(round.tasks):
-            task.status = "running"
-
-            # -- Throttle between launches (skip first)
-            if i > 0 and config.throttle_sec > 0:
-                time.sleep(config.throttle_sec)
-
-            future = pool.submit(_dispatch_worker, task, config)
-            futures[future] = task.name
-
-        # -- Collect results as they complete (REQ-002 req 4)
-        for future in as_completed(futures):
-            task_name = futures[future]
-            try:
-                task_result, task_usage = future.result()
-            except Exception as exc:
-                # -- STD-003 C7: exception in thread → error result, not crash
-                task_result = TaskResult(
-                    task_name=task_name,
-                    status="error",
-                    error_code="ERR_INTERNAL",
-                    error_message=f"Thread exception: {exc}",
-                    model=config.default_model,
-                    auth_mode=config.auth,
-                    timestamp=datetime.now(UTC).isoformat(),
-                )
-                task_usage = DispatchUsage(
-                    task_name=task_name,
-                    model=config.default_model,
-                )
-
-            task_results.append(task_result)
-            usage_list.append(task_usage)
-
-            # -- Update task status from result
-            for task in round.tasks:
-                if task.name == task_name:
-                    task.status = task_result.status
-                    break
-
-            # -- Save individual result to disk
-            try:
-                save_result(task_result, task_usage, config.results_dir)
-            except Exception:
-                pass  # -- File save failure shouldn't block the round
-
-    # -- Assign collected results
+    task_results, usage_list = _execute_parallel(round_def.tasks, config)
     result.task_results = task_results
     result.usage = usage_list
 
@@ -156,8 +107,8 @@ def run_parallel(
     result.conflicts = detect_conflicts(task_results)
 
     # -- Phase 3: Post-gates (same contract as sequential)
-    if round.post_gates:
-        result.post_gate_results = run_gates(round.post_gates)
+    if round_def.post_gates:
+        result.post_gate_results = run_gates(round_def.post_gates)
 
     # -- Calculate round status (REQ-001 req 46 — DRY: reuse engine function)
     result.status = calculate_round_status(result.task_results)
@@ -172,6 +123,91 @@ def run_parallel(
     result.duration_sec = time.monotonic() - start_time
 
     return result
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Parallel execution — extracted for statement count + clarity
+# ──────────────────────────────────────────────────────────────────
+
+
+def _execute_parallel(
+    tasks: list[Task],
+    config: RondoConfig,
+) -> tuple[list[TaskResult], list[DispatchUsage]]:
+    """Submit tasks to ThreadPoolExecutor and collect results.
+
+    STD-003 C3: Throttle delay between submissions.
+    STD-003 C7: Exception in thread → error result, not crash.
+    """
+    task_results: list[TaskResult] = []
+    usage_list: list[DispatchUsage] = []
+    task_map = {t.name: t for t in tasks}
+
+    with ThreadPoolExecutor(max_workers=config.workers) as pool:
+        # -- Submit tasks with throttle delay (REQ-002 req 3, STD-003 C3)
+        futures: dict[Future[tuple[TaskResult, DispatchUsage]], str] = {}
+        for i, task in enumerate(tasks):
+            task.status = "running"
+            if i > 0 and config.throttle_sec > 0:
+                time.sleep(config.throttle_sec)
+            future = pool.submit(_dispatch_worker, task, config)
+            futures[future] = task.name
+
+        # -- Collect results as they complete (REQ-002 req 4)
+        for future in as_completed(futures):
+            task_name = futures[future]
+            task_result, task_usage = _collect_future(future, task_name, config)
+            task_results.append(task_result)
+            usage_list.append(task_usage)
+
+            # -- Update task status from result (O(1) via map)
+            if task_name in task_map:
+                task_map[task_name].status = task_result.status
+
+            # -- Save individual result to disk
+            _save_result_safe(task_result, task_usage, config.results_dir)
+
+    return task_results, usage_list
+
+
+def _collect_future(
+    future: Future[tuple[TaskResult, DispatchUsage]],
+    task_name: str,
+    config: RondoConfig,
+) -> tuple[TaskResult, DispatchUsage]:
+    """Collect result from a completed future. Converts exceptions to error results."""
+    try:
+        return future.result()
+    except (OSError, ValueError, RuntimeError) as exc:
+        # -- STD-003 C7: exception in thread → error result, not crash
+        logger.warning("Thread exception for task %s: %s", task_name, exc)
+        return (
+            TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code="ERR_INTERNAL",
+                error_message=f"Thread exception: {exc}",
+                model=config.default_model,
+                auth_mode=config.auth,
+                timestamp=datetime.now(UTC).isoformat(),
+            ),
+            DispatchUsage(
+                task_name=task_name,
+                model=config.default_model,
+            ),
+        )
+
+
+def _save_result_safe(
+    task_result: TaskResult,
+    task_usage: DispatchUsage,
+    results_dir: str,
+) -> None:
+    """Save task result to disk. Logs on failure but never raises."""
+    try:
+        save_result(task_result, task_usage, results_dir)
+    except (OSError, ValueError, TypeError) as exc:
+        logger.warning("Failed to save result for %s: %s", task_result.task_name, exc)
 
 
 # ──────────────────────────────────────────────────────────────────

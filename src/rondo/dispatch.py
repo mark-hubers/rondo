@@ -12,6 +12,7 @@ Import direction:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -24,6 +25,8 @@ from typing import Any
 
 from rondo.config import RondoConfig
 from rondo.engine import DispatchUsage, Task, TaskResult
+
+logger = logging.getLogger(__name__)
 
 # -- Maximum size for raw_output in result files (STD-003 R2)
 _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
@@ -402,7 +405,8 @@ def _dispatch_auto(
             ),
             DispatchUsage(task_name=task.name, model=model),
         )
-    except Exception as exc:
+    except (TypeError, ValueError, RuntimeError, OSError, KeyError, AttributeError) as exc:
+        logger.warning("Auto task %s failed: %s", task.name, exc)
         return (
             TaskResult(
                 task_name=task.name,
@@ -450,7 +454,8 @@ def _dispatch_interactive(
 
     try:
         # -- Launch subprocess (STD-003 R1: Popen for SIGTERM-first kill)
-        proc = subprocess.Popen(
+        # -- pylint: disable=consider-using-with  # Popen needs explicit lifetime for SIGTERM-first kill
+        proc = subprocess.Popen(  # pylint: disable=consider-using-with
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -593,15 +598,16 @@ def _dispatch_interactive(
 
         return result, usage
 
-    except Exception as exc:
-        # -- STD-001 rule 9: all exceptions caught
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+        # -- STD-001 rule 9: subprocess + I/O failures caught
+        logger.warning("Interactive dispatch failed for task %s: %s", task.name, exc)
         return (
             TaskResult(
                 task_name=task.name,
                 status="error",
                 error_code="ERR_INTERNAL",
                 error_message=str(exc),
-                prompt_sent=prompt if "prompt" in dir() else "",
+                prompt_sent=prompt,
                 raw_output="",
                 duration_sec=time.monotonic() - start,
                 model=model,

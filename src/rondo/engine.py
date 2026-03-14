@@ -26,7 +26,7 @@ VALID_STATES: set[str] = {"pending", "running"} | TERMINAL_STATES
 
 
 @dataclass
-class Task:
+class Task:  # pylint: disable=too-many-instance-attributes
     """A single unit of AI work (REQ-001 req 2)."""
 
     # -- identity
@@ -78,7 +78,7 @@ class GateResult:
 
 
 @dataclass
-class TaskResult:
+class TaskResult:  # pylint: disable=too-many-instance-attributes
     """Outcome of dispatching a single task (STD-001).
 
     Created by dispatch.py, consumed by runner.py and consumers.
@@ -112,7 +112,7 @@ class TaskResult:
 
 
 @dataclass
-class DispatchUsage:
+class DispatchUsage:  # pylint: disable=too-many-instance-attributes
     """Stream-json metadata captured from each claude -p call (IFS-001)."""
 
     task_name: str = ""
@@ -132,7 +132,7 @@ class DispatchUsage:
 
 
 @dataclass
-class RoundResult:
+class RoundResult:  # pylint: disable=too-many-instance-attributes
     """Everything a consumer needs to know about a round execution (REQ-001)."""
 
     # -- identity
@@ -179,7 +179,7 @@ def run_gate(gate: Gate) -> GateResult:
     """Execute a single gate check. Returns GateResult with blocking flag."""
     try:
         passed, detail = gate.check_fn()
-    except Exception as exc:
+    except (TypeError, ValueError, RuntimeError, OSError, KeyError, AttributeError) as exc:
         passed = False
         detail = f"Gate exception: {exc}"
     return GateResult(

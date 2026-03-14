@@ -3,7 +3,7 @@
 Public API (REQ-001 req 35):
     Round, Task, Gate, GateResult, TaskResult, RoundResult, DispatchUsage
     RondoConfig, load_config, validate_config
-    dispatch_task
+    dispatch_task, run_round
 """
 from rondo.config import (
     RondoConfig,
@@ -20,6 +20,7 @@ from rondo.engine import (
     Task,
     TaskResult,
 )
+from rondo.runner import run_round
 
 __all__ = [
     "Round",
@@ -33,4 +34,5 @@ __all__ = [
     "load_config",
     "validate_config",
     "dispatch_task",
+    "run_round",
 ]

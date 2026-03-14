@@ -6,11 +6,12 @@ TDD: tests written BEFORE overnight.py exists.
 Overnight tests mock run_round to test orchestration logic
 without invoking real subprocesses.
 """
+
 import json
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -26,36 +27,29 @@ from rondo.engine import (
     TaskResult,
 )
 from rondo.overnight import (
-    run_overnight,
-    OvernightResult,
     EventLog,
+    OvernightResult,
     check_usage_gate,
+    run_overnight,
 )
-
 
 # ──────────────────────────────────────────────────────────────────
 #  Helpers
 # ──────────────────────────────────────────────────────────────────
 
+
 def _make_round(name, n_tasks=1):
     """Create a simple Round with n tasks."""
     tasks = [
-        Task(name=f"{name}-t{i+1}", instruction=f"do {i+1}", done_when=f"done {i+1}")
-        for i in range(n_tasks)
+        Task(name=f"{name}-t{i + 1}", instruction=f"do {i + 1}", done_when=f"done {i + 1}") for i in range(n_tasks)
     ]
     return Round(name=name, tasks=tasks)
 
 
 def _mock_round_result(round_name, status="done", n_tasks=1):
     """Create a RoundResult for mocking run_round."""
-    task_results = [
-        TaskResult(task_name=f"{round_name}-t{i+1}", status=status)
-        for i in range(n_tasks)
-    ]
-    usage = [
-        DispatchUsage(task_name=f"{round_name}-t{i+1}", model="sonnet", cost_usd=0.01)
-        for i in range(n_tasks)
-    ]
+    task_results = [TaskResult(task_name=f"{round_name}-t{i + 1}", status=status) for i in range(n_tasks)]
+    usage = [DispatchUsage(task_name=f"{round_name}-t{i + 1}", model="sonnet", cost_usd=0.01) for i in range(n_tasks)]
     return RoundResult(
         round_name=round_name,
         status=status,
@@ -74,11 +68,13 @@ def _make_run_round_mock(status_map=None):
 
     status_map: dict of round_name -> status. Default: all "done".
     """
+
     def _mock(round_def, config=None):
         status = "done"
         if status_map and round_def.name in status_map:
             status = status_map[round_def.name]
         return _mock_round_result(round_def.name, status=status, n_tasks=len(round_def.tasks))
+
     return _mock
 
 
@@ -86,8 +82,8 @@ def _make_run_round_mock(status_map=None):
 #  Phase list acceptance — REQ-002 req 10
 # ──────────────────────────────────────────────────────────────────
 
-class TestPhaseList:
 
+class TestPhaseList:
     def test_accepts_phase_list(self):
         """REQ-002 req 10: accepts list of round definitions."""
         phases = [_make_round("phase-1"), _make_round("phase-2")]
@@ -118,8 +114,8 @@ class TestPhaseList:
 #  Phase sequencing — REQ-002 req 11
 # ──────────────────────────────────────────────────────────────────
 
-class TestPhaseSequencing:
 
+class TestPhaseSequencing:
     def test_phases_execute_in_order(self):
         """REQ-002 req 11: phases execute sequentially."""
         execution_order = []
@@ -139,8 +135,8 @@ class TestPhaseSequencing:
 #  Phase failure isolation — REQ-002 req 12
 # ──────────────────────────────────────────────────────────────────
 
-class TestPhaseIsolation:
 
+class TestPhaseIsolation:
     def test_phase_failure_doesnt_block_next(self):
         """REQ-002 req 12: phase failure continues to next phase."""
         phases = [_make_round("fail-phase"), _make_round("ok-phase")]
@@ -193,8 +189,8 @@ class TestPhaseIsolation:
 #  Mode configuration — REQ-002 reqs 13-15
 # ──────────────────────────────────────────────────────────────────
 
-class TestModeConfig:
 
+class TestModeConfig:
     def test_mode_selects_phases(self):
         """REQ-002 req 13: mode selects which phases run."""
         all_phases = [_make_round("lint"), _make_round("test"), _make_round("build")]
@@ -206,19 +202,23 @@ class TestModeConfig:
         config = RondoConfig(workers=1)
 
         execution_order = []
+
         def _tracking_mock(round_def, config=None):
             execution_order.append(round_def.name)
             return _mock_round_result(round_def.name)
 
         with patch("rondo.overnight.run_round", side_effect=_tracking_mock):
             result = run_overnight(
-                phases=all_phases, config=config, mode="minimal", modes=modes,
+                phases=all_phases,
+                config=config,
+                mode="minimal",
+                modes=modes,
             )
             assert execution_order == ["lint"]
             assert len(result.phase_results) == 1
 
     def test_standard_mode(self):
-        """standard mode runs 3-4 phases."""
+        """Standard mode runs 3-4 phases."""
         all_phases = [_make_round("a"), _make_round("b"), _make_round("c"), _make_round("d")]
         modes = {
             "minimal": ["a"],
@@ -251,8 +251,8 @@ class TestModeConfig:
 #  Event logging — REQ-002 reqs 17-18
 # ──────────────────────────────────────────────────────────────────
 
-class TestEventLogging:
 
+class TestEventLogging:
     def test_start_event_logged(self):
         """REQ-002 req 17: start event logged."""
         phases = [_make_round("a")]
@@ -313,13 +313,15 @@ class TestEventLogging:
 #  Usage gating — REQ-002 reqs 24-28
 # ──────────────────────────────────────────────────────────────────
 
-class TestUsageGating:
 
+class TestUsageGating:
     def test_no_overage_continues(self):
         """REQ-002 req 25: no overage → continue."""
         usage = DispatchUsage(
-            task_name="t1", model="sonnet",
-            rate_limit_status="active", is_using_overage=False,
+            task_name="t1",
+            model="sonnet",
+            rate_limit_status="active",
+            is_using_overage=False,
         )
         action = check_usage_gate(usage, on_overage="continue")
         assert action == "continue"
@@ -327,8 +329,10 @@ class TestUsageGating:
     def test_overage_continue_action(self):
         """REQ-002 req 25: overage + on_overage=continue → continue."""
         usage = DispatchUsage(
-            task_name="t1", model="sonnet",
-            rate_limit_status="active", is_using_overage=True,
+            task_name="t1",
+            model="sonnet",
+            rate_limit_status="active",
+            is_using_overage=True,
         )
         action = check_usage_gate(usage, on_overage="continue")
         assert action == "continue"
@@ -336,8 +340,10 @@ class TestUsageGating:
     def test_overage_stop_action(self):
         """REQ-002 req 25: overage + on_overage=stop → stop."""
         usage = DispatchUsage(
-            task_name="t1", model="sonnet",
-            rate_limit_status="active", is_using_overage=True,
+            task_name="t1",
+            model="sonnet",
+            rate_limit_status="active",
+            is_using_overage=True,
         )
         action = check_usage_gate(usage, on_overage="stop")
         assert action == "stop"
@@ -345,8 +351,10 @@ class TestUsageGating:
     def test_overage_pause_action(self):
         """REQ-002 req 25: overage + on_overage=pause → pause."""
         usage = DispatchUsage(
-            task_name="t1", model="sonnet",
-            rate_limit_status="active", is_using_overage=True,
+            task_name="t1",
+            model="sonnet",
+            rate_limit_status="active",
+            is_using_overage=True,
         )
         action = check_usage_gate(usage, on_overage="pause")
         assert action == "pause"
@@ -354,8 +362,10 @@ class TestUsageGating:
     def test_blocked_status_returns_blocked(self):
         """REQ-002 req 26: rate_limit_status=blocked → blocked action."""
         usage = DispatchUsage(
-            task_name="t1", model="sonnet",
-            rate_limit_status="blocked", is_using_overage=False,
+            task_name="t1",
+            model="sonnet",
+            rate_limit_status="blocked",
+            is_using_overage=False,
             rate_limit_resets_at=9999999999,
         )
         action = check_usage_gate(usage, on_overage="continue")
@@ -367,15 +377,21 @@ class TestUsageGating:
         config = RondoConfig(workers=1, on_overage="stop")
 
         call_count = [0]
+
         def _overage_mock(round_def, config=None):
             call_count[0] += 1
             result = _mock_round_result(round_def.name)
             # -- Simulate overage on first phase
             if call_count[0] == 1:
-                result.usage = [DispatchUsage(
-                    task_name=f"{round_def.name}-t1", model="sonnet", cost_usd=0.01,
-                    rate_limit_status="active", is_using_overage=True,
-                )]
+                result.usage = [
+                    DispatchUsage(
+                        task_name=f"{round_def.name}-t1",
+                        model="sonnet",
+                        cost_usd=0.01,
+                        rate_limit_status="active",
+                        is_using_overage=True,
+                    )
+                ]
             return result
 
         with patch("rondo.overnight.run_round", side_effect=_overage_mock):
@@ -391,10 +407,14 @@ class TestUsageGating:
 
         def _overage_mock(round_def, config=None):
             result = _mock_round_result(round_def.name)
-            result.usage = [DispatchUsage(
-                task_name=f"{round_def.name}-t1", model="sonnet",
-                rate_limit_status="active", is_using_overage=True,
-            )]
+            result.usage = [
+                DispatchUsage(
+                    task_name=f"{round_def.name}-t1",
+                    model="sonnet",
+                    rate_limit_status="active",
+                    is_using_overage=True,
+                )
+            ]
             return result
 
         with patch("rondo.overnight.run_round", side_effect=_overage_mock):
@@ -408,14 +428,15 @@ class TestUsageGating:
 #  Rate limit backoff — REQ-002 req 22
 # ──────────────────────────────────────────────────────────────────
 
-class TestRateLimitBackoff:
 
+class TestRateLimitBackoff:
     def test_rate_limit_error_triggers_backoff(self):
         """REQ-002 req 22: ERR_RATE_LIMIT triggers backoff pause."""
         phases = [_make_round("a"), _make_round("b")]
         config = RondoConfig(workers=1, rate_limit_backoff_sec=0.1)
 
         call_count = [0]
+
         def _rate_limit_mock(round_def, config=None):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -426,7 +447,7 @@ class TestRateLimitBackoff:
 
         with patch("rondo.overnight.run_round", side_effect=_rate_limit_mock):
             start = time.monotonic()
-            result = run_overnight(phases=phases, config=config)
+            run_overnight(phases=phases, config=config)
             elapsed = time.monotonic() - start
             # -- Should have paused at least backoff_sec between phases
             assert elapsed >= 0.08  # -- 0.1s with tolerance
@@ -436,14 +457,15 @@ class TestRateLimitBackoff:
 #  Watchdog response — REQ-002 reqs 19-23
 # ──────────────────────────────────────────────────────────────────
 
-class TestWatchdogResponse:
 
+class TestWatchdogResponse:
     def test_watchdog_error_continues_to_next_phase(self):
         """REQ-002 req 21: after watchdog kill, continue to next phase."""
         phases = [_make_round("hung"), _make_round("ok")]
         config = RondoConfig(workers=1)
 
         call_count = [0]
+
         def _watchdog_mock(round_def, config=None):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -477,8 +499,8 @@ class TestWatchdogResponse:
 #  OvernightResult structure
 # ──────────────────────────────────────────────────────────────────
 
-class TestOvernightResult:
 
+class TestOvernightResult:
     def test_has_timing_fields(self):
         """OvernightResult has started_at, completed_at, duration_sec."""
         phases = [_make_round("a")]

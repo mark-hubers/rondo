@@ -4,6 +4,7 @@ Pattern: multiple independent tasks that can run in parallel (workers > 1).
 Shows: parallel-safe tasks, per-task model hints, context_files per task.
 Auto-filters to files that actually exist — safe to run in any project.
 """
+
 from pathlib import Path
 
 from rondo.engine import Round, Task

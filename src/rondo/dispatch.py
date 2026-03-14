@@ -8,6 +8,7 @@ Import direction:
     config.py → (no rondo imports)
     dispatch.py → imports engine + config
 """
+
 from __future__ import annotations
 
 import json
@@ -17,13 +18,12 @@ import subprocess
 import threading
 import time
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from rondo.config import RondoConfig
 from rondo.engine import DispatchUsage, Task, TaskResult
-
 
 # -- Maximum size for raw_output in result files (STD-003 R2)
 _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
@@ -32,6 +32,7 @@ _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
 # ──────────────────────────────────────────────────────────────────
 #  Prompt Building — REQ-001 reqs 12, 24
 # ──────────────────────────────────────────────────────────────────
+
 
 def build_prompt(task: Task) -> str:
     """Build the dispatch prompt from a task's three-field contract.
@@ -66,6 +67,7 @@ def build_prompt(task: Task) -> str:
 #  Environment Preparation — REQ-001 reqs 13, 17, 18
 # ──────────────────────────────────────────────────────────────────
 
+
 def prepare_env(config: RondoConfig) -> dict[str, str]:
     """Build child process environment.
 
@@ -89,6 +91,7 @@ def prepare_env(config: RondoConfig) -> dict[str, str]:
 #  Model Resolution — REQ-001 reqs 20-23
 # ──────────────────────────────────────────────────────────────────
 
+
 def resolve_model(
     cli_model: str | None,
     task: Task,
@@ -108,6 +111,7 @@ def resolve_model(
 # ──────────────────────────────────────────────────────────────────
 #  Task JSON Parsing — REQ-001 reqs 25, 26
 # ──────────────────────────────────────────────────────────────────
+
 
 def parse_task_json(text: str) -> dict[str, Any] | None:
     """Extract the last valid JSON block from Claude's text output.
@@ -142,6 +146,7 @@ def parse_task_json(text: str) -> dict[str, Any] | None:
 #  Error Classification — STD-001 error categories
 # ──────────────────────────────────────────────────────────────────
 
+
 def classify_error(stderr: str) -> str:
     """Classify error from stderr content (STD-001 stderr patterns)."""
     if not stderr:
@@ -164,6 +169,7 @@ def classify_error(stderr: str) -> str:
 # ──────────────────────────────────────────────────────────────────
 #  Stream-JSON Parsing — IFS-001 reqs 1-10
 # ──────────────────────────────────────────────────────────────────
+
 
 def parse_stream_json_events(
     lines: list[str],
@@ -258,6 +264,7 @@ def _collect_assistant_text(events: list[dict[str, Any]]) -> str:
 #  File Extraction — STD-001 files_modified
 # ──────────────────────────────────────────────────────────────────
 
+
 def extract_modified_files(raw_output: str) -> list[str]:
     """Extract file paths from Claude's output (heuristic).
 
@@ -273,12 +280,18 @@ def extract_modified_files(raw_output: str) -> list[str]:
     matches = re.findall(pattern, raw_output)
     # -- Deduplicate, preserve order
     seen: set[str] = set()
-    return [m for m in matches if not (m in seen or seen.add(m))]
+    result: list[str] = []
+    for m in matches:
+        if m not in seen:
+            seen.add(m)
+            result.append(m)
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────
 #  Result Saving — REQ-001 req 15, STD-003 S5, R2
 # ──────────────────────────────────────────────────────────────────
+
 
 def save_result(
     result: TaskResult,
@@ -299,10 +312,7 @@ def save_result(
 
     # -- Truncate raw_output if needed (STD-003 R2)
     if len(data.get("raw_output", "")) > _MAX_OUTPUT_BYTES:
-        data["raw_output"] = (
-            data["raw_output"][:_MAX_OUTPUT_BYTES]
-            + "\n... [TRUNCATED — exceeded 1MB limit]"
-        )
+        data["raw_output"] = data["raw_output"][:_MAX_OUTPUT_BYTES] + "\n... [TRUNCATED — exceeded 1MB limit]"
 
     # -- Add usage data
     data["usage"] = asdict(usage)
@@ -326,6 +336,7 @@ def save_result(
 #  Dispatch — REQ-001 reqs 12-28, STD-001, STD-003
 # ──────────────────────────────────────────────────────────────────
 
+
 def dispatch_task(
     task: Task,
     config: RondoConfig,
@@ -339,7 +350,7 @@ def dispatch_task(
         2. auto task — call task.auto_fn() directly
         3. interactive task — invoke claude -p subprocess
     """
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     model = resolve_model(cli_model, task, config)
 
     # -- Case 1: Dry run (REQ-001 req 16)
@@ -375,6 +386,8 @@ def _dispatch_auto(
     """Execute an auto task by calling its callable directly."""
     start = time.monotonic()
     try:
+        if task.auto_fn is None:
+            raise ValueError(f"Task '{task.name}' has no auto_fn")
         passed, detail = task.auto_fn()
         status = "done" if passed else "error"
         return (
@@ -425,9 +438,12 @@ def _dispatch_interactive(
     # -- Build command (STD-003 S1: list args, never shell=True)
     cmd = [
         config.claude_binary,
-        "-p", prompt,
-        "--model", model,
-        "--output-format", config.output_format,
+        "-p",
+        prompt,
+        "--model",
+        model,
+        "--output-format",
+        config.output_format,
     ]
     if config.effort:
         cmd.extend(["--effort", config.effort])
@@ -445,7 +461,7 @@ def _dispatch_interactive(
         # -- Timer thread for SIGTERM-first kill (STD-001 rule 5)
         timed_out = threading.Event()
 
-        def _kill_on_timeout():
+        def _kill_on_timeout() -> None:
             timed_out.set()
             proc.terminate()  # -- SIGTERM
             try:
@@ -526,7 +542,8 @@ def _dispatch_interactive(
 
         # -- Parse stream-json events (IFS-001)
         events, usage = parse_stream_json_events(
-            stdout.split("\n"), task_name=task.name,
+            stdout.split("\n"),
+            task_name=task.name,
         )
         usage = DispatchUsage(
             task_name=task.name,

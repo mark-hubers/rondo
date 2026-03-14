@@ -6,11 +6,10 @@ TDD: these tests are written BEFORE runner.py exists.
 Runner tests mock dispatch_task to test orchestration logic
 without invoking real subprocesses.
 """
+
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -19,13 +18,12 @@ from rondo.config import RondoConfig
 from rondo.engine import (
     DispatchUsage,
     Gate,
-    GateResult,
     Round,
     RoundResult,
     Task,
     TaskResult,
 )
-from rondo.runner import run_round, run_sequential
+from rondo.runner import run_round
 
 
 def _mock_dispatch(task, config, **kwargs):
@@ -70,8 +68,8 @@ SEQ_CONFIG = RondoConfig(workers=1)
 #  run_round() contract — REQ-001 req 45
 # ──────────────────────────────────────────────────────────────────
 
-class TestRunRoundContract:
 
+class TestRunRoundContract:
     def test_returns_round_result(self):
         """run_round() returns a RoundResult."""
         r = Round(name="test", tasks=[Task(name="t1", instruction="do", done_when="done")])
@@ -107,8 +105,8 @@ class TestRunRoundContract:
 #  Pre-gates — REQ-001 req 6
 # ──────────────────────────────────────────────────────────────────
 
-class TestPreGates:
 
+class TestPreGates:
     def test_blocking_pregate_fails_skips_tasks(self):
         """Blocking pre-gate failure → no tasks dispatched, status skipped."""
         r = Round(
@@ -166,8 +164,8 @@ class TestPreGates:
 #  Post-gates — REQ-001 req 7
 # ──────────────────────────────────────────────────────────────────
 
-class TestPostGates:
 
+class TestPostGates:
     def test_post_gates_run_after_tasks(self):
         """Post-gates execute after all tasks complete."""
         post_gate_ran = []
@@ -220,8 +218,8 @@ class TestPostGates:
 #  Task Dispatch Orchestration
 # ──────────────────────────────────────────────────────────────────
 
-class TestTaskOrchestration:
 
+class TestTaskOrchestration:
     def test_all_tasks_dispatched(self):
         """Every task in the round gets dispatched."""
         r = Round(
@@ -252,6 +250,7 @@ class TestTaskOrchestration:
     def test_mixed_results_partial_status(self):
         """Mix of done + error tasks → round status partial."""
         call_count = [0]
+
         def _mixed_dispatch(task, config, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -306,6 +305,7 @@ class TestTaskOrchestration:
     def test_task_failure_doesnt_crash_others(self):
         """STD-001 rule 6: one failure doesn't block remaining tasks."""
         call_count = [0]
+
         def _first_fails(task, config, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -329,8 +329,8 @@ class TestTaskOrchestration:
 #  Auto-detect sequential vs parallel — REQ-001 req 40
 # ──────────────────────────────────────────────────────────────────
 
-class TestAutoDetect:
 
+class TestAutoDetect:
     def test_workers_1_uses_sequential(self):
         """workers=1 → run_sequential."""
         r = Round(name="seq", tasks=[Task(name="t1", instruction="do", done_when="done")])
@@ -352,11 +352,12 @@ class TestAutoDetect:
 #  Task State Updates
 # ──────────────────────────────────────────────────────────────────
 
-class TestTaskStateUpdates:
 
+class TestTaskStateUpdates:
     def test_task_status_updated_to_running(self):
         """Task status set to 'running' before dispatch."""
         states_seen = []
+
         def _capture_dispatch(task, config, **kw):
             states_seen.append(task.status)
             return _mock_dispatch(task, config, **kw)
@@ -370,7 +371,7 @@ class TestTaskStateUpdates:
         """Task status set to terminal state after dispatch."""
         r = Round(name="state", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r, config=SEQ_CONFIG)
+            run_round(r, config=SEQ_CONFIG)
             # -- Task object's status should be updated
             assert r.tasks[0].status in ("done", "error", "partial", "blocked", "skipped")
 
@@ -379,14 +380,14 @@ class TestTaskStateUpdates:
 #  Result Saving
 # ──────────────────────────────────────────────────────────────────
 
-class TestResultSaving:
 
+class TestResultSaving:
     def test_results_saved_to_dir(self, tmp_path):
         """Task results saved to results_dir."""
         r = Round(name="save", tasks=[Task(name="t1", instruction="do", done_when="done")])
         config = RondoConfig(results_dir=str(tmp_path / "results"), workers=1)
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r, config=config)
+            run_round(r, config=config)
             # -- Check that results dir was created and has files
             results_dir = tmp_path / "results"
             assert results_dir.exists()
@@ -396,7 +397,7 @@ class TestResultSaving:
         r = Round(name="save", tasks=[Task(name="t1", instruction="do", done_when="done")])
         config = RondoConfig(results_dir=str(tmp_path / "results"), workers=1)
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r, config=config)
+            run_round(r, config=config)
             # -- Should have at least one file in results dir
             results_dir = tmp_path / "results"
             files = list(results_dir.glob("*.json"))

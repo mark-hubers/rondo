@@ -3,6 +3,7 @@
 Pattern: gates verify preconditions before work and postconditions after.
 Shows: blocking vs non-blocking gates, subprocess gates, multi-step workflow.
 """
+
 import subprocess
 
 from rondo.engine import Gate, Round, Task
@@ -12,7 +13,8 @@ def _git_clean() -> tuple[bool, str]:
     """Blocking gate: working tree must be clean before refactoring."""
     result = subprocess.run(
         ["git", "status", "--porcelain"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.stdout.strip():
         lines = result.stdout.strip().splitlines()
@@ -24,7 +26,8 @@ def _on_branch() -> tuple[bool, str]:
     """Non-blocking gate: warn if on main branch."""
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     branch = result.stdout.strip()
     if branch in ("main", "master"):

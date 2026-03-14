@@ -7,6 +7,7 @@ Two categories:
   - Spec examples (round_hello, round_file_check, round_multi_task): minimal, under 50 lines
   - Practical examples (round_code_review, etc.): real-world patterns, no size limit
 """
+
 import importlib.util
 import sys
 from pathlib import Path
@@ -16,7 +17,7 @@ import pytest
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from rondo.engine import Gate, Round, Task
+from rondo.engine import Round
 
 # -- Example directory
 EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
@@ -35,6 +36,7 @@ SPEC_EXAMPLES = {"round_hello.py", "round_file_check.py", "round_multi_task.py"}
 #  Helpers
 # ──────────────────────────────────────────────────────────────────
 
+
 def _load_example(name: str):
     """Dynamically import an example file and return the module."""
     path = EXAMPLES_DIR / name
@@ -49,8 +51,8 @@ def _load_example(name: str):
 #  REQ-001 req 44 — at least 3 examples ship
 # ──────────────────────────────────────────────────────────────────
 
-class TestExampleCount:
 
+class TestExampleCount:
     def test_at_least_three_examples(self):
         """REQ-001 req 44: at minimum 3 examples ship."""
         assert len(ALL_ROUND_FILES) >= 3, f"Expected 3+ examples, found {len(ALL_ROUND_FILES)}"
@@ -76,8 +78,8 @@ class TestExampleCount:
 #  REQ-001 req 42 — build_round() function exists on all round files
 # ──────────────────────────────────────────────────────────────────
 
-class TestExampleBuildRound:
 
+class TestExampleBuildRound:
     @pytest.mark.parametrize("example_file", ALL_ROUND_FILES, ids=lambda p: p.name)
     def test_has_build_round(self, example_file):
         """REQ-001 req 42: every round example has build_round()."""
@@ -97,8 +99,8 @@ class TestExampleBuildRound:
 #  REQ-001 req 43 — spec examples used as test fixtures
 # ──────────────────────────────────────────────────────────────────
 
-class TestSpecExamplesAsFixtures:
 
+class TestSpecExamplesAsFixtures:
     def test_hello_round_structure(self):
         """round_hello.py: 1 task, no gates."""
         module = _load_example("round_hello.py")
@@ -145,8 +147,8 @@ class TestSpecExamplesAsFixtures:
 #  Practical examples — structure validation
 # ──────────────────────────────────────────────────────────────────
 
-class TestPracticalExamples:
 
+class TestPracticalExamples:
     def test_code_review_structure(self):
         """round_code_review.py: pre-gate (git), 1 review task."""
         module = _load_example("round_code_review.py")
@@ -214,8 +216,8 @@ class TestPracticalExamples:
 #  Overnight phases example
 # ──────────────────────────────────────────────────────────────────
 
-class TestOvernightExample:
 
+class TestOvernightExample:
     def test_has_build_phases(self):
         """phases_overnight.py: has build_phases() function."""
         module = _load_example("phases_overnight.py")
@@ -263,8 +265,8 @@ class TestOvernightExample:
 #  REQ-001 req 32 — examples only import engine module
 # ──────────────────────────────────────────────────────────────────
 
-class TestExampleImports:
 
+class TestExampleImports:
     @pytest.mark.parametrize(
         "example_file",
         ALL_ROUND_FILES + ALL_PHASE_FILES,
@@ -274,22 +276,18 @@ class TestExampleImports:
         """REQ-001 req 32: round files only import rondo.engine (+ stdlib)."""
         content = example_file.read_text()
         rondo_imports = [
-            line.strip()
-            for line in content.splitlines()
-            if "from rondo" in line or "import rondo" in line
+            line.strip() for line in content.splitlines() if "from rondo" in line or "import rondo" in line
         ]
         for imp in rondo_imports:
-            assert "rondo.engine" in imp, (
-                f"{example_file.name} imports non-engine rondo module: {imp}"
-            )
+            assert "rondo.engine" in imp, f"{example_file.name} imports non-engine rondo module: {imp}"
 
 
 # ──────────────────────────────────────────────────────────────────
 #  REQ-001 req 33 — SPEC examples under 50 lines (practical exempt)
 # ──────────────────────────────────────────────────────────────────
 
-class TestExampleSize:
 
+class TestExampleSize:
     @pytest.mark.parametrize(
         "example_file",
         [f for f in ALL_ROUND_FILES if f.name in SPEC_EXAMPLES],

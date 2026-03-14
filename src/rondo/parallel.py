@@ -9,11 +9,12 @@ Import direction:
     dispatch.py → imports engine + config
     parallel.py → imports engine + config + dispatch
 """
+
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed, Future
-from datetime import datetime, timezone
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from datetime import UTC, datetime
 
 from rondo.config import RondoConfig
 from rondo.dispatch import dispatch_task, save_result
@@ -21,16 +22,17 @@ from rondo.engine import (
     DispatchUsage,
     Round,
     RoundResult,
+    Task,
     TaskResult,
     calculate_round_status,
     run_gates,
     should_proceed,
 )
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Conflict detection — REQ-002 reqs 5-6, STD-003 C4-C5
 # ──────────────────────────────────────────────────────────────────
+
 
 def detect_conflicts(results: list[TaskResult]) -> list[str]:
     """Find files touched by multiple tasks (STD-003 C4).
@@ -43,16 +45,13 @@ def detect_conflicts(results: list[TaskResult]) -> list[str]:
         for filepath in result.files_modified:
             file_tasks.setdefault(filepath, []).append(result.task_name)
 
-    return [
-        f"{path} modified by: {', '.join(tasks)}"
-        for path, tasks in file_tasks.items()
-        if len(tasks) > 1
-    ]
+    return [f"{path} modified by: {', '.join(tasks)}" for path, tasks in file_tasks.items() if len(tasks) > 1]
 
 
 # ──────────────────────────────────────────────────────────────────
 #  run_parallel() — REQ-002 reqs 1-9
 # ──────────────────────────────────────────────────────────────────
+
 
 def run_parallel(
     round: Round,
@@ -67,7 +66,7 @@ def run_parallel(
     REQ-002 req 8: Single task failure doesn't crash others.
     REQ-002 req 9: Returns same RoundResult format as sequential.
     """
-    started_at = datetime.now(timezone.utc).isoformat()
+    started_at = datetime.now(UTC).isoformat()
     start_time = time.monotonic()
 
     result = RoundResult(
@@ -80,7 +79,7 @@ def run_parallel(
     if not round.tasks:
         result.status = "skipped"
         result.summary = "No tasks in round"
-        result.completed_at = datetime.now(timezone.utc).isoformat()
+        result.completed_at = datetime.now(UTC).isoformat()
         result.duration_sec = time.monotonic() - start_time
         return result
 
@@ -92,7 +91,7 @@ def run_parallel(
             failed = [g for g in result.pre_gate_results if not g.passed and g.blocking]
             names = ", ".join(g.gate_name for g in failed)
             result.summary = f"Blocked by pre-gate: {names}"
-            result.completed_at = datetime.now(timezone.utc).isoformat()
+            result.completed_at = datetime.now(UTC).isoformat()
             result.duration_sec = time.monotonic() - start_time
             return result
 
@@ -127,10 +126,11 @@ def run_parallel(
                     error_message=f"Thread exception: {exc}",
                     model=config.default_model,
                     auth_mode=config.auth,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
                 task_usage = DispatchUsage(
-                    task_name=task_name, model=config.default_model,
+                    task_name=task_name,
+                    model=config.default_model,
                 )
 
             task_results.append(task_result)
@@ -168,7 +168,7 @@ def run_parallel(
     result.summary = f"{done_count}/{total} tasks done"
 
     # -- Timing
-    result.completed_at = datetime.now(timezone.utc).isoformat()
+    result.completed_at = datetime.now(UTC).isoformat()
     result.duration_sec = time.monotonic() - start_time
 
     return result
@@ -178,8 +178,9 @@ def run_parallel(
 #  Worker function — STD-003 C2 (no shared state)
 # ──────────────────────────────────────────────────────────────────
 
+
 def _dispatch_worker(
-    task,
+    task: Task,
     config: RondoConfig,
 ) -> tuple[TaskResult, DispatchUsage]:
     """Worker function for ThreadPoolExecutor.

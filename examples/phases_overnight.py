@@ -6,6 +6,7 @@ Shows: sequential phases, mixed auto/interactive, escalating model tiers.
 Usage:
     rondo overnight examples/phases_overnight.py --mode standard
 """
+
 from pathlib import Path
 
 from rondo.engine import Gate, Round, Task

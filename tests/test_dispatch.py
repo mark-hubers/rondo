@@ -3,20 +3,17 @@
 VER-001 verification matrix: every test maps to a numbered requirement.
 TDD: these tests are written BEFORE dispatch.py exists.
 """
+
 import json
 import os
 import sys
-import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.config import RondoConfig
-from rondo.engine import DispatchUsage, Task, TaskResult
 from rondo.dispatch import (
     build_prompt,
     classify_error,
@@ -28,14 +25,14 @@ from rondo.dispatch import (
     resolve_model,
     save_result,
 )
-
+from rondo.engine import DispatchUsage, Task, TaskResult
 
 # ──────────────────────────────────────────────────────────────────
 #  Prompt Building — REQ-001 req 12, 24
 # ──────────────────────────────────────────────────────────────────
 
-class TestPromptBuilder:
 
+class TestPromptBuilder:
     def test_prompt_contains_task_name(self):
         task = Task(name="check-spec", instruction="Check it", done_when="List found")
         prompt = build_prompt(task)
@@ -84,8 +81,8 @@ class TestPromptBuilder:
 #  Environment Preparation — REQ-001 reqs 13, 17, 18
 # ──────────────────────────────────────────────────────────────────
 
-class TestEnvPrep:
 
+class TestEnvPrep:
     def test_claudecode_stripped(self):
         """REQ-001 req 13: CLAUDECODE removed from child env."""
         config = RondoConfig(auth="max")
@@ -118,8 +115,8 @@ class TestEnvPrep:
 #  Model Resolution — REQ-001 reqs 20, 21, 22, 23
 # ──────────────────────────────────────────────────────────────────
 
-class TestModelResolution:
 
+class TestModelResolution:
     def test_model_default_sonnet(self):
         """REQ-001 req 22: default model is sonnet."""
         task = Task(name="t")
@@ -161,11 +158,13 @@ class TestModelResolution:
 #  Task JSON Parsing — REQ-001 reqs 25, 26
 # ──────────────────────────────────────────────────────────────────
 
-class TestTaskJsonParsing:
 
+class TestTaskJsonParsing:
     def test_valid_json_parsed(self):
         """REQ-001 req 25: valid JSON extracted and returned."""
-        text = 'Here is the result:\n```json\n{"status": "done", "confidence": 0.9, "result": "ok", "question": ""}\n```'
+        text = (
+            'Here is the result:\n```json\n{"status": "done", "confidence": 0.9, "result": "ok", "question": ""}\n```'
+        )
         parsed = parse_task_json(text)
         assert parsed is not None
         assert parsed["status"] == "done"
@@ -180,7 +179,7 @@ class TestTaskJsonParsing:
 
     def test_malformed_json_returns_none(self):
         """REQ-001 req 26: malformed JSON returns None."""
-        text = 'This is not JSON at all, just regular text output.'
+        text = "This is not JSON at all, just regular text output."
         parsed = parse_task_json(text)
         assert parsed is None
 
@@ -202,7 +201,7 @@ class TestTaskJsonParsing:
         """When multiple JSON blocks exist, the last valid one is used."""
         text = (
             '```json\n{"status": "blocked", "result": "first"}\n```\n'
-            'Then more work:\n'
+            "Then more work:\n"
             '```json\n{"status": "done", "result": "final"}\n```'
         )
         parsed = parse_task_json(text)
@@ -215,8 +214,8 @@ class TestTaskJsonParsing:
 #  Error Classification — STD-001 error categories
 # ──────────────────────────────────────────────────────────────────
 
-class TestErrorClassification:
 
+class TestErrorClassification:
     def test_auth_error_credit(self):
         assert classify_error("Credit balance is too low") == "ERR_AUTH"
 
@@ -243,8 +242,8 @@ class TestErrorClassification:
 #  Stream-JSON Parsing — IFS-001 reqs 1-9
 # ──────────────────────────────────────────────────────────────────
 
-class TestStreamJsonParsing:
 
+class TestStreamJsonParsing:
     def _make_stream_output(
         self,
         *,
@@ -266,44 +265,66 @@ class TestStreamJsonParsing:
         """Build a realistic stream-json output string."""
         lines = []
         # -- system init
-        lines.append(json.dumps({
-            "type": "system", "subtype": "init",
-            "model": model, "claude_code_version": "2.1.76",
-            "tools": ["Bash", "Read"], "mcp_servers": [],
-            "permissionMode": "acceptEdits",
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "type": "system",
+                    "subtype": "init",
+                    "model": model,
+                    "claude_code_version": "2.1.76",
+                    "tools": ["Bash", "Read"],
+                    "mcp_servers": [],
+                    "permissionMode": "acceptEdits",
+                }
+            )
+        )
         # -- rate_limit_event
-        lines.append(json.dumps({
-            "type": "rate_limit_event",
-            "rate_limit_info": {
-                "status": rate_status,
-                "resetsAt": resets_at,
-                "rateLimitType": "five_hour",
-                "overageStatus": "allowed",
-                "overageResetsAt": 0,
-                "isUsingOverage": is_overage,
-            },
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "type": "rate_limit_event",
+                    "rate_limit_info": {
+                        "status": rate_status,
+                        "resetsAt": resets_at,
+                        "rateLimitType": "five_hour",
+                        "overageStatus": "allowed",
+                        "overageResetsAt": 0,
+                        "isUsingOverage": is_overage,
+                    },
+                }
+            )
+        )
         # -- assistant message
-        lines.append(json.dumps({
-            "type": "assistant",
-            "message": {"content": [{"type": "text", "text": assistant_text}]},
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": assistant_text}]},
+                }
+            )
+        )
         # -- result event
-        lines.append(json.dumps({
-            "type": "result", "subtype": "success",
-            "duration_ms": duration_ms, "duration_api_ms": duration_api_ms,
-            "num_turns": num_turns, "total_cost_usd": cost,
-            "usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "cache_read_input_tokens": cache_read,
-                "cache_creation_input_tokens": cache_create,
-            },
-            "modelUsage": {
-                model: {"contextWindow": context_window},
-            },
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": duration_ms,
+                    "duration_api_ms": duration_api_ms,
+                    "num_turns": num_turns,
+                    "total_cost_usd": cost,
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "cache_read_input_tokens": cache_read,
+                        "cache_creation_input_tokens": cache_create,
+                    },
+                    "modelUsage": {
+                        model: {"contextWindow": context_window},
+                    },
+                }
+            )
+        )
         return "\n".join(lines)
 
     def test_parse_lines(self):
@@ -359,11 +380,23 @@ class TestStreamJsonParsing:
         lines = [
             json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"}),
             json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": "hi"}]}}),
-            json.dumps({"type": "result", "subtype": "success", "duration_ms": 1000,
-                        "duration_api_ms": 900, "num_turns": 1, "total_cost_usd": 0.01,
-                        "usage": {"input_tokens": 10, "output_tokens": 20,
-                                  "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
-                        "modelUsage": {}}),
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 1000,
+                    "duration_api_ms": 900,
+                    "num_turns": 1,
+                    "total_cost_usd": 0.01,
+                    "usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 20,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "modelUsage": {},
+                }
+            ),
         ]
         _, usage = parse_stream_json_events(lines, task_name="t")
         assert usage.rate_limit_status == "unknown"
@@ -394,8 +427,8 @@ class TestStreamJsonParsing:
 #  File Extraction — STD-001 files_modified
 # ──────────────────────────────────────────────────────────────────
 
-class TestFileExtraction:
 
+class TestFileExtraction:
     def test_extract_python_files(self):
         text = "I modified src/main.py and tests/test_main.py"
         files = extract_modified_files(text)
@@ -424,14 +457,19 @@ class TestFileExtraction:
 #  Credential Sanitization — STD-001 rule 8
 # ──────────────────────────────────────────────────────────────────
 
-class TestCredentialSanitization:
 
+class TestCredentialSanitization:
     def test_api_key_not_in_saved_result(self, tmp_path):
         """STD-001 rule 8: API keys never in result files."""
         result = TaskResult(
-            task_name="t", status="done", prompt_sent="Check this",
-            raw_output="done", duration_sec=1.0, model="sonnet",
-            auth_mode="max", timestamp="2026-03-14T00:00:00Z",
+            task_name="t",
+            status="done",
+            prompt_sent="Check this",
+            raw_output="done",
+            duration_sec=1.0,
+            model="sonnet",
+            auth_mode="max",
+            timestamp="2026-03-14T00:00:00Z",
         )
         usage = DispatchUsage(task_name="t", model="sonnet", cost_usd=0.01)
         filepath = save_result(result, usage, str(tmp_path))
@@ -444,14 +482,19 @@ class TestCredentialSanitization:
 #  Result Saving — REQ-001 req 15, STD-003 S5, R2
 # ──────────────────────────────────────────────────────────────────
 
-class TestResultSaving:
 
+class TestResultSaving:
     def test_result_saved_to_json(self, tmp_path):
         """REQ-001 req 15: result saved to JSON file."""
         result = TaskResult(
-            task_name="my-task", status="done", prompt_sent="do it",
-            raw_output='{"status":"done"}', duration_sec=5.0,
-            model="sonnet", auth_mode="max", timestamp="2026-03-14T00:00:00Z",
+            task_name="my-task",
+            status="done",
+            prompt_sent="do it",
+            raw_output='{"status":"done"}',
+            duration_sec=5.0,
+            model="sonnet",
+            auth_mode="max",
+            timestamp="2026-03-14T00:00:00Z",
         )
         usage = DispatchUsage(task_name="my-task", model="sonnet", cost_usd=0.05)
         filepath = save_result(result, usage, str(tmp_path))
@@ -463,9 +506,14 @@ class TestResultSaving:
     def test_result_file_permissions(self, tmp_path):
         """STD-003 S5: result files have restrictive permissions (0o600)."""
         result = TaskResult(
-            task_name="t", status="done", prompt_sent="do",
-            raw_output="ok", duration_sec=1.0, model="sonnet",
-            auth_mode="max", timestamp="2026-03-14T00:00:00Z",
+            task_name="t",
+            status="done",
+            prompt_sent="do",
+            raw_output="ok",
+            duration_sec=1.0,
+            model="sonnet",
+            auth_mode="max",
+            timestamp="2026-03-14T00:00:00Z",
         )
         usage = DispatchUsage(task_name="t", model="sonnet")
         filepath = save_result(result, usage, str(tmp_path))
@@ -476,9 +524,14 @@ class TestResultSaving:
         """STD-003 R2: output bounded at 1MB."""
         big_output = "x" * (2 * 1024 * 1024)  # -- 2MB
         result = TaskResult(
-            task_name="t", status="done", prompt_sent="do",
-            raw_output=big_output, duration_sec=1.0, model="sonnet",
-            auth_mode="max", timestamp="2026-03-14T00:00:00Z",
+            task_name="t",
+            status="done",
+            prompt_sent="do",
+            raw_output=big_output,
+            duration_sec=1.0,
+            model="sonnet",
+            auth_mode="max",
+            timestamp="2026-03-14T00:00:00Z",
         )
         usage = DispatchUsage(task_name="t", model="sonnet")
         filepath = save_result(result, usage, str(tmp_path))
@@ -489,9 +542,14 @@ class TestResultSaving:
     def test_result_includes_metadata(self, tmp_path):
         """REQ-001 req 28: result includes task_name, status, model, auth, duration, timestamp."""
         result = TaskResult(
-            task_name="check", status="done", prompt_sent="do",
-            raw_output="ok", duration_sec=42.3, model="opus",
-            auth_mode="api", timestamp="2026-03-14T01:00:00Z",
+            task_name="check",
+            status="done",
+            prompt_sent="do",
+            raw_output="ok",
+            duration_sec=42.3,
+            model="opus",
+            auth_mode="api",
+            timestamp="2026-03-14T01:00:00Z",
             cost_usd=0.10,
         )
         usage = DispatchUsage(task_name="check", model="opus", cost_usd=0.10)
@@ -509,8 +567,8 @@ class TestResultSaving:
 #  Dry Run — REQ-001 req 16
 # ──────────────────────────────────────────────────────────────────
 
-class TestDryRun:
 
+class TestDryRun:
     def test_dry_run_returns_prompt(self):
         """REQ-001 req 16: dry-run shows prompt without invoking."""
         task = Task(name="t", instruction="Check spec", done_when="List found")
@@ -533,8 +591,8 @@ class TestDryRun:
 #  Auto Task Dispatch — REQ-001 req 4
 # ──────────────────────────────────────────────────────────────────
 
-class TestAutoTaskDispatch:
 
+class TestAutoTaskDispatch:
     def test_auto_task_calls_fn(self):
         """Auto tasks call auto_fn directly, no subprocess."""
         task = Task(name="count", auto_fn=lambda: (True, "42 lines"))
@@ -553,8 +611,10 @@ class TestAutoTaskDispatch:
 
     def test_auto_task_exception(self):
         """Auto task raising exception gets status error."""
+
         def bad_fn():
             raise ValueError("boom")
+
         task = Task(name="boom", auto_fn=bad_fn)
         config = RondoConfig()
         result, usage = dispatch_task(task, config)
@@ -574,8 +634,8 @@ class TestAutoTaskDispatch:
 #  Dispatch Integration (mocked subprocess) — REQ-001 reqs 12-14, 27
 # ──────────────────────────────────────────────────────────────────
 
-class TestDispatchIntegration:
 
+class TestDispatchIntegration:
     def _mock_popen(self, stdout="", stderr="", returncode=0):
         """Create a mock Popen object."""
         mock_proc = MagicMock()
@@ -589,13 +649,23 @@ class TestDispatchIntegration:
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()
         mock_proc = self._mock_popen(
-            stdout=json.dumps({"type": "result", "subtype": "success",
-                               "duration_ms": 100, "duration_api_ms": 90,
-                               "num_turns": 1, "total_cost_usd": 0.01,
-                               "usage": {"input_tokens": 5, "output_tokens": 10,
-                                         "cache_read_input_tokens": 0,
-                                         "cache_creation_input_tokens": 0},
-                               "modelUsage": {}})
+            stdout=json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 100,
+                    "duration_api_ms": 90,
+                    "num_turns": 1,
+                    "total_cost_usd": 0.01,
+                    "usage": {
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "modelUsage": {},
+                }
+            )
         )
         with patch("rondo.dispatch.subprocess.Popen", return_value=mock_proc) as mock_popen:
             dispatch_task(task, config)
@@ -608,13 +678,23 @@ class TestDispatchIntegration:
         task = Task(name="t", instruction="do", done_when="done", model="opus")
         config = RondoConfig()
         mock_proc = self._mock_popen(
-            stdout=json.dumps({"type": "result", "subtype": "success",
-                               "duration_ms": 100, "duration_api_ms": 90,
-                               "num_turns": 1, "total_cost_usd": 0.01,
-                               "usage": {"input_tokens": 5, "output_tokens": 10,
-                                         "cache_read_input_tokens": 0,
-                                         "cache_creation_input_tokens": 0},
-                               "modelUsage": {}})
+            stdout=json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 100,
+                    "duration_api_ms": 90,
+                    "num_turns": 1,
+                    "total_cost_usd": 0.01,
+                    "usage": {
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "modelUsage": {},
+                }
+            )
         )
         with patch("rondo.dispatch.subprocess.Popen", return_value=mock_proc) as mock_popen:
             dispatch_task(task, config)
@@ -650,14 +730,29 @@ class TestDispatchIntegration:
         # -- Non-JSON assistant output
         stream_lines = [
             json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"}),
-            json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": "I did the work but no JSON block here."}]}}),
-            json.dumps({"type": "result", "subtype": "success",
-                        "duration_ms": 100, "duration_api_ms": 90,
-                        "num_turns": 1, "total_cost_usd": 0.01,
-                        "usage": {"input_tokens": 5, "output_tokens": 10,
-                                  "cache_read_input_tokens": 0,
-                                  "cache_creation_input_tokens": 0},
-                        "modelUsage": {}}),
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": "I did the work but no JSON block here."}]},
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 100,
+                    "duration_api_ms": 90,
+                    "num_turns": 1,
+                    "total_cost_usd": 0.01,
+                    "usage": {
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                    "modelUsage": {},
+                }
+            ),
         ]
         mock_proc = self._mock_popen(stdout="\n".join(stream_lines), stderr="", returncode=0)
         with patch("rondo.dispatch.subprocess.Popen", return_value=mock_proc):
@@ -672,14 +767,36 @@ class TestDispatchIntegration:
         config = RondoConfig()
         stream_lines = [
             json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"}),
-            json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": '```json\n{"status":"done","confidence":0.9,"result":"ok","question":""}\n```'}]}}),
-            json.dumps({"type": "result", "subtype": "success",
-                        "duration_ms": 5000, "duration_api_ms": 4500,
-                        "num_turns": 2, "total_cost_usd": 0.05,
-                        "usage": {"input_tokens": 100, "output_tokens": 200,
-                                  "cache_read_input_tokens": 50,
-                                  "cache_creation_input_tokens": 30},
-                        "modelUsage": {"claude-sonnet-4-6": {"contextWindow": 200000}}}),
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": '```json\n{"status":"done","confidence":0.9,"result":"ok","question":""}\n```',
+                            }
+                        ]
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "duration_ms": 5000,
+                    "duration_api_ms": 4500,
+                    "num_turns": 2,
+                    "total_cost_usd": 0.05,
+                    "usage": {
+                        "input_tokens": 100,
+                        "output_tokens": 200,
+                        "cache_read_input_tokens": 50,
+                        "cache_creation_input_tokens": 30,
+                    },
+                    "modelUsage": {"claude-sonnet-4-6": {"contextWindow": 200000}},
+                }
+            ),
         ]
         mock_proc = self._mock_popen(
             stdout="\n".join(stream_lines),

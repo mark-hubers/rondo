@@ -7,12 +7,11 @@ Parallel tests mock dispatch_task to test orchestration logic
 without invoking real subprocesses. Threading behavior tested
 via controlled execution.
 """
+
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock, call
-
-import pytest
+from unittest.mock import patch
 
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -21,18 +20,17 @@ from rondo.config import RondoConfig
 from rondo.engine import (
     DispatchUsage,
     Gate,
-    GateResult,
     Round,
     RoundResult,
     Task,
     TaskResult,
 )
-from rondo.parallel import run_parallel, detect_conflicts
-
+from rondo.parallel import detect_conflicts, run_parallel
 
 # ──────────────────────────────────────────────────────────────────
 #  Helpers — mock dispatchers
 # ──────────────────────────────────────────────────────────────────
+
 
 def _mock_dispatch(task, config, **kwargs):
     """Simulate a successful dispatch with small delay for timing tests."""
@@ -90,6 +88,7 @@ def _mock_dispatch_error(task, config, **kwargs):
 
 def _mock_dispatch_with_files(file_map):
     """Return a dispatch mock that sets files_modified per task name."""
+
     def _dispatch(task, config, **kwargs):
         return (
             TaskResult(
@@ -104,23 +103,21 @@ def _mock_dispatch_with_files(file_map):
             ),
             DispatchUsage(task_name=task.name, model="sonnet", cost_usd=0.01),
         )
+
     return _dispatch
 
 
 def _make_tasks(n):
     """Create n simple tasks."""
-    return [
-        Task(name=f"t{i+1}", instruction=f"do {i+1}", done_when=f"done {i+1}")
-        for i in range(n)
-    ]
+    return [Task(name=f"t{i + 1}", instruction=f"do {i + 1}", done_when=f"done {i + 1}") for i in range(n)]
 
 
 # ──────────────────────────────────────────────────────────────────
 #  ThreadPoolExecutor usage — REQ-002 req 1, STD-003 C1
 # ──────────────────────────────────────────────────────────────────
 
-class TestThreadPoolUsage:
 
+class TestThreadPoolUsage:
     def test_uses_thread_pool_executor(self):
         """REQ-002 req 1: parallel dispatch uses ThreadPoolExecutor.
 
@@ -139,8 +136,8 @@ class TestThreadPoolUsage:
 #  Worker count — REQ-002 req 2
 # ──────────────────────────────────────────────────────────────────
 
-class TestWorkerConfig:
 
+class TestWorkerConfig:
     def test_workers_from_config(self):
         """REQ-002 req 2: worker count from config."""
         r = Round(name="workers", tasks=_make_tasks(3))
@@ -163,8 +160,8 @@ class TestWorkerConfig:
 #  Throttle — REQ-002 req 3, STD-003 C3
 # ──────────────────────────────────────────────────────────────────
 
-class TestThrottle:
 
+class TestThrottle:
     def test_throttle_delay_between_submissions(self):
         """REQ-002 req 3: configurable delay between submit() calls."""
         r = Round(name="throttle", tasks=_make_tasks(3))
@@ -202,8 +199,8 @@ class TestThrottle:
 #  Result collection — REQ-002 req 4
 # ──────────────────────────────────────────────────────────────────
 
-class TestResultCollection:
 
+class TestResultCollection:
     def test_all_results_collected(self):
         """REQ-002 req 4: results collected as futures complete."""
         r = Round(name="collect", tasks=_make_tasks(4))
@@ -230,8 +227,8 @@ class TestResultCollection:
 #  Conflict detection — REQ-002 reqs 5-6, STD-003 C4-C5
 # ──────────────────────────────────────────────────────────────────
 
-class TestConflictDetection:
 
+class TestConflictDetection:
     def test_no_conflicts_when_no_overlapping_files(self):
         """REQ-002 req 5: no conflicts when tasks touch different files."""
         results = [
@@ -317,11 +314,12 @@ class TestConflictDetection:
 #  Summary stats — REQ-002 req 7
 # ──────────────────────────────────────────────────────────────────
 
-class TestSummaryStats:
 
+class TestSummaryStats:
     def test_done_and_error_counts_in_summary(self):
         """REQ-002 req 7: summary includes done/error counts."""
         call_count = [0]
+
         def _mixed(task, config, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -367,11 +365,12 @@ class TestSummaryStats:
 #  Task isolation — REQ-002 req 8, STD-003 C2, C7
 # ──────────────────────────────────────────────────────────────────
 
-class TestTaskIsolation:
 
+class TestTaskIsolation:
     def test_one_failure_doesnt_crash_others(self):
         """REQ-002 req 8: single task failure doesn't block others."""
         call_count = [0]
+
         def _first_fails(task, config, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -391,6 +390,7 @@ class TestTaskIsolation:
     def test_exception_in_dispatch_caught(self):
         """STD-003 C7: exception in one thread produces error result, not crash."""
         call_count = [0]
+
         def _raises(task, config, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -422,8 +422,8 @@ class TestTaskIsolation:
 #  Result format compatibility — REQ-002 req 9
 # ──────────────────────────────────────────────────────────────────
 
-class TestResultFormat:
 
+class TestResultFormat:
     def test_returns_round_result(self):
         """REQ-002 req 9: parallel returns same RoundResult as sequential."""
         r = Round(name="format", tasks=_make_tasks(2))
@@ -463,8 +463,8 @@ class TestResultFormat:
 #  Pre/Post Gates — same contract as sequential runner
 # ──────────────────────────────────────────────────────────────────
 
-class TestGatesInParallel:
 
+class TestGatesInParallel:
     def test_blocking_pregate_skips_tasks(self):
         """Blocking pre-gate failure → no tasks dispatched."""
         r = Round(
@@ -499,8 +499,8 @@ class TestGatesInParallel:
 #  Empty round — edge case
 # ──────────────────────────────────────────────────────────────────
 
-class TestEmptyRound:
 
+class TestEmptyRound:
     def test_empty_round_skipped(self):
         """Round with no tasks → status skipped."""
         r = Round(name="empty", tasks=[])

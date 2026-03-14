@@ -3,6 +3,7 @@
 Pattern: auto_fn scans the filesystem, Claude writes tests for uncovered modules.
 Shows: auto tasks for discovery, parameterized build_round(), model hints.
 """
+
 from pathlib import Path
 
 from rondo.engine import Gate, Round, Task

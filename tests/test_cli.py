@@ -6,28 +6,28 @@ TDD: tests written BEFORE cli.py exists.
 CLI tests verify argument parsing, dynamic loading, and
 integration wiring without invoking real subprocesses.
 """
+
 import sys
 import textwrap
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from rondo.config import RondoConfig
-from rondo.engine import Round, RoundResult, Task, TaskResult, DispatchUsage
 from rondo.cli import (
     build_parser,
     load_round_file,
     main,
 )
-
+from rondo.engine import DispatchUsage, Round, RoundResult, TaskResult
 
 # ──────────────────────────────────────────────────────────────────
 #  Helpers
 # ──────────────────────────────────────────────────────────────────
+
 
 def _mock_round_result(name="test"):
     return RoundResult(
@@ -64,8 +64,8 @@ def _write_round_file(tmp_path, content=None):
 #  CLI entry point — REQ-001 req 36
 # ──────────────────────────────────────────────────────────────────
 
-class TestCliEntryPoint:
 
+class TestCliEntryPoint:
     def test_parser_exists(self):
         """REQ-001 req 36: CLI entry point exists."""
         parser = build_parser()
@@ -83,8 +83,8 @@ class TestCliEntryPoint:
 #  Subcommands — REQ-001 req 37
 # ──────────────────────────────────────────────────────────────────
 
-class TestSubcommands:
 
+class TestSubcommands:
     def test_run_subcommand(self):
         """REQ-001 req 37: 'run' subcommand exists."""
         parser = build_parser()
@@ -108,8 +108,8 @@ class TestSubcommands:
 #  Run with file — REQ-001 req 38
 # ──────────────────────────────────────────────────────────────────
 
-class TestRunWithFile:
 
+class TestRunWithFile:
     def test_run_accepts_file_path(self):
         """REQ-001 req 38: run accepts round definition file."""
         parser = build_parser()
@@ -127,8 +127,8 @@ class TestRunWithFile:
 #  Dynamic loading — REQ-001 req 39
 # ──────────────────────────────────────────────────────────────────
 
-class TestDynamicImport:
 
+class TestDynamicImport:
     def test_load_round_file(self, tmp_path):
         """REQ-001 req 39: load round definition from file."""
         filepath = _write_round_file(tmp_path)
@@ -161,8 +161,8 @@ class TestDynamicImport:
 #  CLI flags — REQ-001 req 41
 # ──────────────────────────────────────────────────────────────────
 
-class TestCliFlags:
 
+class TestCliFlags:
     def test_workers_flag(self):
         """--workers flag parsed."""
         parser = build_parser()
@@ -234,8 +234,8 @@ class TestCliFlags:
 #  Main integration — runs run_round with correct config
 # ──────────────────────────────────────────────────────────────────
 
-class TestMainIntegration:
 
+class TestMainIntegration:
     def test_main_run_calls_run_round(self, tmp_path):
         """main() with 'run' subcommand calls run_round."""
         filepath = _write_round_file(tmp_path)

@@ -3,20 +3,19 @@
 VER-001 verification matrix: every test maps to a numbered requirement.
 TDD: these tests are written BEFORE engine.py exists.
 """
+
 import json
 import sys
 from pathlib import Path
-
-import pytest
 
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.engine import (
+    TERMINAL_STATES,
     Gate,
     GateResult,
     Round,
-    RoundResult,
     Task,
     TaskResult,
     calculate_round_status,
@@ -27,13 +26,11 @@ from rondo.engine import (
     run_gate,
     run_gates,
     should_proceed,
-    TERMINAL_STATES,
 )
 
 
 # -- REQ-001 Req 1: Round contains name, gates, tasks
 class TestRoundStructure:
-
     def test_round_has_name(self):
         r = Round(name="test-round")
         assert r.name == "test-round"
@@ -63,7 +60,6 @@ class TestRoundStructure:
 
 # -- REQ-001 Req 2: Task has name, mode, status
 class TestTaskFields:
-
     def test_task_has_name(self):
         t = Task(name="my-task")
         assert t.name == "my-task"
@@ -87,7 +83,6 @@ class TestTaskFields:
 
 # -- REQ-001 Req 3: Interactive task — Do/Read/Done (three-field contract)
 class TestThreeFieldContract:
-
     def test_instruction_field(self):
         t = Task(name="t", instruction="Do this thing")
         assert t.instruction == "Do this thing"
@@ -114,7 +109,6 @@ class TestThreeFieldContract:
 
 # -- REQ-001 Req 4: Auto task — callable returns (bool, str)
 class TestAutoTaskRun:
-
     def test_auto_fn_callable(self):
         t = Task(name="t", auto_fn=lambda: (True, "done"))
         assert t.auto_fn is not None
@@ -135,7 +129,6 @@ class TestAutoTaskRun:
 
 # -- REQ-001 Req 5: Gate — name, check_fn, blocking
 class TestGateCheck:
-
     def test_gate_has_name(self):
         g = Gate(name="check", check_fn=lambda: (True, "ok"))
         assert g.name == "check"
@@ -171,7 +164,6 @@ class TestGateCheck:
 
 # -- REQ-001 Req 6: Pre-gates block on failure
 class TestBlockingPregate:
-
     def test_blocking_gate_fails_should_not_proceed(self):
         gates = [
             Gate(name="blocker", check_fn=lambda: (False, "nope"), blocking=True),
@@ -207,10 +199,11 @@ class TestBlockingPregate:
 
 # -- REQ-001 Req 7: Post-gates after all tasks
 class TestPostgateTiming:
-
     def test_run_gates_works_for_post_gates(self):
         """Post-gates use the same run_gates function.
-        Timing (after all tasks) is runner.py's job — we test gate execution here."""
+
+        Timing (after all tasks) is runner.py's job — we test gate execution here.
+        """
         gates = [
             Gate(name="quality", check_fn=lambda: (True, "looks good"), blocking=False),
         ]
@@ -231,7 +224,6 @@ class TestPostgateTiming:
 
 # -- REQ-001 Req 8: State machine — pending → running → terminal
 class TestStateTransitions:
-
     def test_terminal_states(self):
         assert TERMINAL_STATES == {"done", "blocked", "partial", "error", "skipped"}
 
@@ -257,7 +249,6 @@ class TestStateTransitions:
 
 # -- REQ-001 Req 9: Round complete when all tasks terminal
 class TestRoundCompletion:
-
     def test_all_done_is_complete(self):
         tasks = [Task(name="t1"), Task(name="t2")]
         tasks[0].status = "done"
@@ -288,7 +279,6 @@ class TestRoundCompletion:
 
 # -- REQ-001 Req 10: Serializable to JSON
 class TestSerializeRound:
-
     def test_serialize_round_state(self):
         tasks = [Task(name="t1"), Task(name="t2")]
         tasks[0].status = "done"
@@ -316,7 +306,6 @@ class TestSerializeRound:
 
 # -- REQ-001 Req 11: Resumable from JSON
 class TestResumeRound:
-
     def test_resume_sets_task_statuses(self):
         tasks = [Task(name="t1"), Task(name="t2"), Task(name="t3")]
         state = {
@@ -344,7 +333,6 @@ class TestResumeRound:
 
 # -- REQ-001 Req 23: Task can hint a model
 class TestTaskModelHint:
-
     def test_model_default_none(self):
         t = Task(name="t")
         assert t.model is None
@@ -360,7 +348,6 @@ class TestTaskModelHint:
 
 # -- REQ-001 Req 29: Round definition returns Round object
 class TestRoundBuilder:
-
     def test_function_returns_round(self):
         def build_round():
             return Round(
@@ -376,7 +363,6 @@ class TestRoundBuilder:
 
 # -- REQ-001 Req 31: Round definitions accept parameters
 class TestParameterizedRound:
-
     def test_parameterized_round(self):
         def build_round(target: str = "src/"):
             return Round(
@@ -401,7 +387,6 @@ class TestParameterizedRound:
 
 # -- REQ-001 Req 46: RoundResult.status calculation
 class TestRoundResultStatusCalculation:
-
     def test_all_done(self):
         results = [
             TaskResult(task_name="t1", status="done"),

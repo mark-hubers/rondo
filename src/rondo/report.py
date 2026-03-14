@@ -9,19 +9,19 @@ Import direction:
     overnight.py → imports engine + config + runner
     report.py → imports engine + config + overnight (types only)
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rondo.config import RondoConfig
-from rondo.engine import RoundResult, TaskResult
 from rondo.overnight import OvernightResult
-
 
 # ──────────────────────────────────────────────────────────────────
 #  Health indicator — REQ-002 req 32
 # ──────────────────────────────────────────────────────────────────
+
 
 def _health_indicator(done: int, total: int) -> str:
     """Return health string based on done/total ratio.
@@ -43,6 +43,7 @@ def _health_indicator(done: int, total: int) -> str:
 #  Format helpers
 # ──────────────────────────────────────────────────────────────────
 
+
 def _format_duration(seconds: float) -> str:
     """Format seconds as human-readable duration."""
     if seconds < 60:
@@ -59,6 +60,7 @@ def _format_duration(seconds: float) -> str:
 # ──────────────────────────────────────────────────────────────────
 #  generate_report() — REQ-002 reqs 29-36
 # ──────────────────────────────────────────────────────────────────
+
 
 def generate_report(result: OvernightResult) -> str:
     """Generate morning report markdown from OvernightResult.
@@ -85,20 +87,14 @@ def generate_report(result: OvernightResult) -> str:
 
     # -- Totals (REQ-002 req 35)
     total_tasks = sum(len(pr.task_results) for pr in result.phase_results)
-    total_done = sum(
-        1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done"
-    )
-    total_errors = sum(
-        1 for pr in result.phase_results for tr in pr.task_results if tr.status == "error"
-    )
-    total_blocked = sum(
-        1 for pr in result.phase_results for tr in pr.task_results if tr.status == "blocked"
-    )
+    total_done = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done")
+    total_errors = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "error")
+    total_blocked = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "blocked")
 
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Total tasks | {total_tasks} |")
     lines.append(f"| Done | {total_done} |")
     lines.append(f"| Errors | {total_errors} |")
@@ -108,21 +104,15 @@ def generate_report(result: OvernightResult) -> str:
     lines.append("")
 
     # -- Usage summary (REQ-002 req 36)
-    total_input_tokens = sum(
-        u.input_tokens for pr in result.phase_results for u in pr.usage
-    )
-    total_output_tokens = sum(
-        u.output_tokens for pr in result.phase_results for u in pr.usage
-    )
+    total_input_tokens = sum(u.input_tokens for pr in result.phase_results for u in pr.usage)
+    total_output_tokens = sum(u.output_tokens for pr in result.phase_results for u in pr.usage)
     total_tokens = total_input_tokens + total_output_tokens
-    watchdog_count = sum(
-        1 for e in result.event_log if e.get("type") == "watchdog_kill"
-    )
+    watchdog_count = sum(1 for e in result.event_log if e.get("type") == "watchdog_kill")
 
     lines.append("## Usage")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Total cost | ${result.total_cost_usd:.2f} |")
     lines.append(f"| Input tokens | {total_input_tokens:,} |")
     lines.append(f"| Output tokens | {total_output_tokens:,} |")
@@ -142,8 +132,8 @@ def generate_report(result: OvernightResult) -> str:
 
         lines.append(f"### {pr.round_name} — {health}")
         lines.append("")
-        lines.append(f"| Stat | Value |")
-        lines.append(f"|------|-------|")
+        lines.append("| Stat | Value |")
+        lines.append("|------|-------|")
         lines.append(f"| Tasks done | {phase_done} |")
         lines.append(f"| Tasks failed | {phase_errors} |")
         lines.append(f"| Total tasks | {phase_total} |")
@@ -156,9 +146,7 @@ def generate_report(result: OvernightResult) -> str:
         for tr in pr.task_results:
             if tr.status in ("error", "blocked"):
                 detail = tr.error_message or tr.status
-                action_items.append(
-                    f"- **{pr.round_name}/{tr.task_name}** [{tr.status}]: {detail}"
-                )
+                action_items.append(f"- **{pr.round_name}/{tr.task_name}** [{tr.status}]: {detail}")
 
     lines.append("## Action Items")
     lines.append("")
@@ -177,6 +165,7 @@ def generate_report(result: OvernightResult) -> str:
 #  save_report() — REQ-002 req 34
 # ──────────────────────────────────────────────────────────────────
 
+
 def save_report(
     result: OvernightResult,
     config: RondoConfig,
@@ -190,7 +179,7 @@ def save_report(
     out_dir = Path(config.report_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
     filename = f"rondo-morning-{date_str}.md"
     filepath = out_dir / filename
 

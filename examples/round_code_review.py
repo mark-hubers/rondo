@@ -3,6 +3,7 @@
 Pattern: gate checks for uncommitted changes, then Claude reviews the diff.
 Shows: pre-gate with subprocess, context_files, done_when criteria.
 """
+
 import subprocess
 
 from rondo.engine import Gate, Round, Task
@@ -12,7 +13,8 @@ def _has_staged_changes() -> tuple[bool, str]:
     """Pre-gate: verify there are staged changes to review."""
     result = subprocess.run(
         ["git", "diff", "--cached", "--stat"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     lines = result.stdout.strip().splitlines()
     if lines:

@@ -1,4 +1,5 @@
 """Rondo example: 3 tasks with model hints, pre/post gates. Parallel-safe."""
+
 from pathlib import Path
 
 from rondo.engine import Gate, Round, Task

@@ -1,4 +1,5 @@
 """Rondo example: simplest possible round — one task, no gates."""
+
 from rondo.engine import Round, Task
 
 

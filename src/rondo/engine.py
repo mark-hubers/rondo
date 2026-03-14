@@ -8,11 +8,12 @@ Status vocabulary (shared with STD-001):
     done, blocked, partial, error, skipped  (terminal)
     pending, running                        (non-terminal)
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
-
+from typing import Any
 
 # -- Status constants (REQ-001 req 8)
 TERMINAL_STATES: set[str] = {"done", "blocked", "partial", "error", "skipped"}
@@ -23,28 +24,29 @@ VALID_STATES: set[str] = {"pending", "running"} | TERMINAL_STATES
 #  Dataclasses — REQ-001 reqs 1-5, STD-001, REQ-001 Data Boundary
 # ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Task:
     """A single unit of AI work (REQ-001 req 2)."""
 
     # -- identity
-    name: str                              # -- unique within round
-    description: str = ""                  # -- brief human summary
+    name: str  # -- unique within round
+    description: str = ""  # -- brief human summary
 
     # -- three-field contract (interactive tasks — REQ-001 req 3)
-    instruction: str = ""                  # -- Do: what Claude should do
+    instruction: str = ""  # -- Do: what Claude should do
     context_files: list[str] = field(default_factory=list)  # -- Read: files for context
-    done_when: str = ""                    # -- Done: completion criteria
+    done_when: str = ""  # -- Done: completion criteria
 
     # -- auto task (alternative to three-field — REQ-001 req 4)
     auto_fn: Callable[..., tuple[bool, str]] | None = None
 
     # -- dispatch hints
-    model: str | None = None               # -- recommended model (COALESCE — REQ-001 req 23)
-    mode: str = "interactive"              # -- "interactive" or "auto"
+    model: str | None = None  # -- recommended model (COALESCE — REQ-001 req 23)
+    mode: str = "interactive"  # -- "interactive" or "auto"
 
     # -- state (REQ-001 req 8)
-    status: str = "pending"                # -- pending → running → terminal
+    status: str = "pending"  # -- pending → running → terminal
 
     @property
     def is_auto(self) -> bool:
@@ -72,7 +74,7 @@ class GateResult:
     gate_name: str
     passed: bool
     detail: str
-    blocking: bool = True                  # -- carried from Gate for should_proceed()
+    blocking: bool = True  # -- carried from Gate for should_proceed()
 
 
 @dataclass
@@ -87,7 +89,7 @@ class TaskResult:
     task_name: str
 
     # -- outcome
-    status: str = "pending"                # -- done, blocked, partial, error, skipped
+    status: str = "pending"  # -- done, blocked, partial, error, skipped
     error_code: str | None = None
     error_message: str | None = None
 
@@ -124,9 +126,9 @@ class DispatchUsage:
     duration_api_ms: int = 0
     num_turns: int = 0
     context_window: int = 0
-    rate_limit_status: str = "unknown"     # -- default per IFS-001 req 9
-    is_using_overage: bool = False         # -- default per IFS-001 req 9
-    rate_limit_resets_at: int = 0          # -- 0 = not available
+    rate_limit_status: str = "unknown"  # -- default per IFS-001 req 9
+    is_using_overage: bool = False  # -- default per IFS-001 req 9
+    rate_limit_resets_at: int = 0  # -- 0 = not available
 
 
 @dataclass
@@ -154,7 +156,7 @@ class RoundResult:
     usage: list[DispatchUsage] = field(default_factory=list)
 
     # -- overall (req 46 for calculation rules)
-    status: str = "pending"                # -- done, partial, error, skipped
+    status: str = "pending"  # -- done, partial, error, skipped
     summary: str = ""
 
 
@@ -171,6 +173,7 @@ class Round:
 # ──────────────────────────────────────────────────────────────────
 #  Gate execution (REQ-001 reqs 5-7)
 # ──────────────────────────────────────────────────────────────────
+
 
 def run_gate(gate: Gate) -> GateResult:
     """Execute a single gate check. Returns GateResult with blocking flag."""
@@ -203,9 +206,11 @@ def should_proceed(gate_results: list[GateResult]) -> bool:
             return False
     return True
 
+
 # ──────────────────────────────────────────────────────────────────
 #  State management (REQ-001 reqs 8-9)
 # ──────────────────────────────────────────────────────────────────
+
 
 def is_terminal(status: str) -> bool:
     """Check if a task status is terminal (REQ-001 req 8)."""
@@ -220,6 +225,7 @@ def is_round_complete(tasks: list[Task]) -> bool:
 # ──────────────────────────────────────────────────────────────────
 #  Round status calculation (REQ-001 req 46)
 # ──────────────────────────────────────────────────────────────────
+
 
 def calculate_round_status(task_results: list[TaskResult]) -> str:
     """Calculate RoundResult.status from task statuses (REQ-001 req 46).
@@ -255,6 +261,7 @@ def calculate_round_status(task_results: list[TaskResult]) -> str:
 # ──────────────────────────────────────────────────────────────────
 #  Serialization (REQ-001 reqs 10-11)
 # ──────────────────────────────────────────────────────────────────
+
 
 def round_state_to_dict(
     tasks: list[Task],

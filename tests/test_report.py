@@ -3,11 +3,9 @@
 VER-001 verification matrix: morning report generation.
 TDD: tests written BEFORE report.py exists.
 """
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
 
-import pytest
+import sys
+from pathlib import Path
 
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -21,10 +19,10 @@ from rondo.engine import (
 from rondo.overnight import OvernightResult
 from rondo.report import generate_report
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Helpers
 # ──────────────────────────────────────────────────────────────────
+
 
 def _make_overnight_result(
     phase_configs=None,
@@ -43,12 +41,11 @@ def _make_overnight_result(
 
     for pc in phase_configs:
         done_results = [
-            TaskResult(task_name=f"{pc['name']}-t{i+1}", status="done")
-            for i in range(pc.get("n_done", 0))
+            TaskResult(task_name=f"{pc['name']}-t{i + 1}", status="done") for i in range(pc.get("n_done", 0))
         ]
         error_results = [
             TaskResult(
-                task_name=f"{pc['name']}-err{i+1}",
+                task_name=f"{pc['name']}-err{i + 1}",
                 status="error",
                 error_code="ERR_SUBPROCESS",
                 error_message="Failed",
@@ -57,7 +54,7 @@ def _make_overnight_result(
         ]
         blocked_results = [
             TaskResult(
-                task_name=f"{pc['name']}-blk{i+1}",
+                task_name=f"{pc['name']}-blk{i + 1}",
                 status="blocked",
                 error_message="Needs input",
             )
@@ -86,17 +83,19 @@ def _make_overnight_result(
         ]
         total_cost += pc.get("cost", 0.01)
 
-        phase_results.append(RoundResult(
-            round_name=pc["name"],
-            status=status,
-            summary=f"{pc.get('n_done', 0)}/{total_tasks} tasks done",
-            started_at="2026-03-14T00:00:00Z",
-            completed_at="2026-03-14T00:01:00Z",
-            duration_sec=pc.get("duration", 60.0),
-            task_results=all_tasks,
-            usage=usage,
-            parallelism=1,
-        ))
+        phase_results.append(
+            RoundResult(
+                round_name=pc["name"],
+                status=status,
+                summary=f"{pc.get('n_done', 0)}/{total_tasks} tasks done",
+                started_at="2026-03-14T00:00:00Z",
+                completed_at="2026-03-14T00:01:00Z",
+                duration_sec=pc.get("duration", 60.0),
+                task_results=all_tasks,
+                usage=usage,
+                parallelism=1,
+            )
+        )
 
     return OvernightResult(
         mode=mode,
@@ -114,14 +113,16 @@ def _make_overnight_result(
 #  Aggregation — REQ-002 req 29
 # ──────────────────────────────────────────────────────────────────
 
-class TestAggregation:
 
+class TestAggregation:
     def test_report_aggregates_all_phases(self):
         """REQ-002 req 29: aggregate results from all phases."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "lint", "n_done": 3, "n_error": 0, "cost": 0.01, "duration": 30.0},
-            {"name": "test", "n_done": 5, "n_error": 1, "cost": 0.05, "duration": 120.0},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "lint", "n_done": 3, "n_error": 0, "cost": 0.01, "duration": 30.0},
+                {"name": "test", "n_done": 5, "n_error": 1, "cost": 0.05, "duration": 120.0},
+            ]
+        )
         report = generate_report(result)
         assert "lint" in report
         assert "test" in report
@@ -138,14 +139,16 @@ class TestAggregation:
 #  Grouping by round — REQ-002 req 30
 # ──────────────────────────────────────────────────────────────────
 
-class TestGrouping:
 
+class TestGrouping:
     def test_each_phase_has_section(self):
         """REQ-002 req 30: results grouped by round type."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "phase-alpha", "n_done": 1, "n_error": 0, "cost": 0.01},
-            {"name": "phase-beta", "n_done": 2, "n_error": 0, "cost": 0.02},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "phase-alpha", "n_done": 1, "n_error": 0, "cost": 0.01},
+                {"name": "phase-beta", "n_done": 2, "n_error": 0, "cost": 0.02},
+            ]
+        )
         report = generate_report(result)
         # -- Each phase should have a section header
         assert "phase-alpha" in report
@@ -156,29 +159,35 @@ class TestGrouping:
 #  Round stats — REQ-002 req 31
 # ──────────────────────────────────────────────────────────────────
 
-class TestRoundStats:
 
+class TestRoundStats:
     def test_tasks_done_count(self):
         """REQ-002 req 31: show tasks done."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "work", "n_done": 3, "n_error": 1, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "work", "n_done": 3, "n_error": 1, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "3" in report  # -- 3 done
 
     def test_tasks_failed_count(self):
         """REQ-002 req 31: show tasks failed."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "work", "n_done": 2, "n_error": 2, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "work", "n_done": 2, "n_error": 2, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "2" in report  # -- 2 failed
 
     def test_duration_shown(self):
         """REQ-002 req 31: show total duration."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "work", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 90.5},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "work", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 90.5},
+            ]
+        )
         report = generate_report(result)
         # -- Duration should appear somewhere (formatted)
         assert "90" in report or "1m" in report or "1:30" in report
@@ -188,29 +197,35 @@ class TestRoundStats:
 #  Health indicators — REQ-002 req 32
 # ──────────────────────────────────────────────────────────────────
 
-class TestHealthIndicators:
 
+class TestHealthIndicators:
     def test_all_pass_health(self):
         """REQ-002 req 32: all succeeded → PASS."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "clean", "n_done": 5, "n_error": 0, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "clean", "n_done": 5, "n_error": 0, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "PASS" in report
 
     def test_partial_health(self):
         """REQ-002 req 32: some failed → PARTIAL."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "mixed", "n_done": 3, "n_error": 1, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "mixed", "n_done": 3, "n_error": 1, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "PARTIAL" in report
 
     def test_fail_health(self):
         """REQ-002 req 32: majority failed → FAIL."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "bad", "n_done": 0, "n_error": 5, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "bad", "n_done": 0, "n_error": 5, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "FAIL" in report
 
@@ -219,29 +234,35 @@ class TestHealthIndicators:
 #  Action items — REQ-002 req 33
 # ──────────────────────────────────────────────────────────────────
 
-class TestActionItems:
 
+class TestActionItems:
     def test_failed_tasks_listed(self):
         """REQ-002 req 33: failed tasks appear in action items."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "run", "n_done": 1, "n_error": 1, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "run", "n_done": 1, "n_error": 1, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "err1" in report  # -- error task name
 
     def test_blocked_tasks_listed(self):
         """REQ-002 req 33: blocked tasks appear in action items."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "run", "n_done": 1, "n_error": 0, "n_blocked": 1, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "run", "n_done": 1, "n_error": 0, "n_blocked": 1, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "blk1" in report  # -- blocked task name
 
     def test_no_action_items_when_clean(self):
         """No action items when all tasks succeeded."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "clean", "n_done": 3, "n_error": 0, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "clean", "n_done": 3, "n_error": 0, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "No action items" in report or "action items" not in report.lower() or "0 action" in report.lower()
 
@@ -250,13 +271,14 @@ class TestActionItems:
 #  Dated filename — REQ-002 req 34
 # ──────────────────────────────────────────────────────────────────
 
-class TestDatedFilename:
 
+class TestDatedFilename:
     def test_save_to_dated_file(self, tmp_path):
         """REQ-002 req 34: report saved with dated filename."""
         result = _make_overnight_result()
         config = RondoConfig(report_dir=str(tmp_path))
         from rondo.report import save_report
+
         filepath = save_report(result, config)
         assert "rondo-morning-" in filepath
         assert filepath.endswith(".md")
@@ -267,6 +289,7 @@ class TestDatedFilename:
         result = _make_overnight_result()
         config = RondoConfig(report_dir=str(tmp_path))
         from rondo.report import save_report
+
         filepath = save_report(result, config)
         content = Path(filepath).read_text()
         assert "test" in content  # -- phase name
@@ -276,33 +299,39 @@ class TestDatedFilename:
 #  Report totals — REQ-002 req 35
 # ──────────────────────────────────────────────────────────────────
 
-class TestReportTotals:
 
+class TestReportTotals:
     def test_total_duration(self):
         """REQ-002 req 35: total duration in report."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "a", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 60.0},
-            {"name": "b", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 120.0},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "a", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 60.0},
+                {"name": "b", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 120.0},
+            ]
+        )
         report = generate_report(result)
         # -- Total: 180s = 3m
         assert "180" in report or "3m" in report or "3:00" in report
 
     def test_total_tasks(self):
         """REQ-002 req 35: total tasks run."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "a", "n_done": 3, "n_error": 0, "cost": 0.01},
-            {"name": "b", "n_done": 2, "n_error": 1, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "a", "n_done": 3, "n_error": 0, "cost": 0.01},
+                {"name": "b", "n_done": 2, "n_error": 1, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         assert "6" in report  # -- 3 + 2 + 1 = 6 total tasks
 
     def test_total_errors(self):
         """REQ-002 req 35: total errors."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "a", "n_done": 1, "n_error": 2, "cost": 0.01},
-            {"name": "b", "n_done": 1, "n_error": 1, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "a", "n_done": 1, "n_error": 2, "cost": 0.01},
+                {"name": "b", "n_done": 1, "n_error": 1, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         # -- 2 + 1 = 3 errors
         assert "3" in report
@@ -312,22 +341,26 @@ class TestReportTotals:
 #  Usage summary — REQ-002 req 36
 # ──────────────────────────────────────────────────────────────────
 
-class TestUsageSummary:
 
+class TestUsageSummary:
     def test_total_cost_in_report(self):
         """REQ-002 req 36: total cost in report."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "a", "n_done": 1, "n_error": 0, "cost": 0.05},
-            {"name": "b", "n_done": 1, "n_error": 0, "cost": 0.10},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "a", "n_done": 1, "n_error": 0, "cost": 0.05},
+                {"name": "b", "n_done": 1, "n_error": 0, "cost": 0.10},
+            ]
+        )
         report = generate_report(result)
         assert "$0.15" in report or "0.15" in report
 
     def test_total_tokens_in_report(self):
         """REQ-002 req 36: total tokens in report."""
-        result = _make_overnight_result(phase_configs=[
-            {"name": "a", "n_done": 2, "n_error": 0, "cost": 0.01},
-        ])
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "a", "n_done": 2, "n_error": 0, "cost": 0.01},
+            ]
+        )
         report = generate_report(result)
         # -- 2 tasks × (100 input + 50 output) = 300 total tokens
         assert "300" in report or "token" in report.lower()

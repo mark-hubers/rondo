@@ -4,6 +4,7 @@ STD-002 rules 1-10.
 Every setting resolved via COALESCE(cli_flag, config_file, default).
 Config is frozen (immutable) after creation — thread-safe by design.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -12,10 +13,10 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
-
 # ──────────────────────────────────────────────────────────────────
 #  COALESCE — STD-002 rule 6
 # ──────────────────────────────────────────────────────────────────
+
 
 def resolve(cli_value: Any, config_value: Any, default_value: Any) -> Any:
     """COALESCE: first non-None wins."""
@@ -29,6 +30,7 @@ def resolve(cli_value: Any, config_value: Any, default_value: Any) -> Any:
 # ──────────────────────────────────────────────────────────────────
 #  Config dataclass — STD-002 rules 9-10
 # ──────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class RondoConfig:
@@ -64,6 +66,7 @@ class RondoConfig:
 # ──────────────────────────────────────────────────────────────────
 #  Validation — STD-002 rule 8
 # ──────────────────────────────────────────────────────────────────
+
 
 def validate_config(config: RondoConfig) -> list[str]:
     """Return list of validation errors (empty = valid).

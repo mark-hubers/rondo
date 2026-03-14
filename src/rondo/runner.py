@@ -9,12 +9,12 @@ Import direction:
     dispatch.py → imports engine + config
     runner.py → imports engine + config + dispatch
 """
+
 from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rondo.config import RondoConfig
@@ -27,10 +27,10 @@ from rondo.engine import (
     should_proceed,
 )
 
-
 # ──────────────────────────────────────────────────────────────────
 #  run_round() — REQ-001 req 45 (primary library entry point)
 # ──────────────────────────────────────────────────────────────────
+
 
 def run_round(
     round: Round,
@@ -54,6 +54,7 @@ def run_round(
     # -- REQ-001 req 40: auto-detect sequential vs parallel
     if config.workers > 1:
         from rondo.parallel import run_parallel
+
         return run_parallel(round, config)
     return run_sequential(round, config)
 
@@ -62,13 +63,14 @@ def run_round(
 #  Sequential Runner
 # ──────────────────────────────────────────────────────────────────
 
+
 def run_sequential(round: Round, config: RondoConfig) -> RoundResult:
     """Execute a round sequentially: pre-gates → tasks → post-gates.
 
     REQ-001 reqs 6, 7: gate ordering and blocking behavior.
     STD-001 rule 6: single task failure doesn't crash framework.
     """
-    started_at = datetime.now(timezone.utc).isoformat()
+    started_at = datetime.now(UTC).isoformat()
     start_time = time.monotonic()
 
     result = RoundResult(
@@ -81,7 +83,7 @@ def run_sequential(round: Round, config: RondoConfig) -> RoundResult:
     if not round.tasks:
         result.status = "skipped"
         result.summary = "No tasks in round"
-        result.completed_at = datetime.now(timezone.utc).isoformat()
+        result.completed_at = datetime.now(UTC).isoformat()
         result.duration_sec = time.monotonic() - start_time
         return result
 
@@ -94,7 +96,7 @@ def run_sequential(round: Round, config: RondoConfig) -> RoundResult:
             failed = [g for g in result.pre_gate_results if not g.passed and g.blocking]
             names = ", ".join(g.gate_name for g in failed)
             result.summary = f"Blocked by pre-gate: {names}"
-            result.completed_at = datetime.now(timezone.utc).isoformat()
+            result.completed_at = datetime.now(UTC).isoformat()
             result.duration_sec = time.monotonic() - start_time
             return result
 
@@ -108,7 +110,8 @@ def run_sequential(round: Round, config: RondoConfig) -> RoundResult:
             task_result, usage = dispatch_task(task, config)
         except Exception as exc:
             # -- Shouldn't happen (dispatch catches all), but safety net
-            from rondo.engine import TaskResult, DispatchUsage
+            from rondo.engine import DispatchUsage, TaskResult
+
             task_result = TaskResult(
                 task_name=task.name,
                 status="error",
@@ -116,7 +119,7 @@ def run_sequential(round: Round, config: RondoConfig) -> RoundResult:
                 error_message=f"Runner exception: {exc}",
                 model=config.default_model,
                 auth_mode=config.auth,
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
             usage = DispatchUsage(task_name=task.name, model=config.default_model)
 
@@ -146,7 +149,7 @@ def run_sequential(round: Round, config: RondoConfig) -> RoundResult:
     result.summary = f"{done_count}/{total} tasks done"
 
     # -- Timing
-    result.completed_at = datetime.now(timezone.utc).isoformat()
+    result.completed_at = datetime.now(UTC).isoformat()
     result.duration_sec = time.monotonic() - start_time
 
     # -- Save round summary
@@ -172,17 +175,12 @@ def _save_round_summary(result: RoundResult, results_dir: str) -> None:
             "duration_sec": result.duration_sec,
             "parallelism": result.parallelism,
             "task_count": len(result.task_results),
-            "tasks": [
-                {"task_name": tr.task_name, "status": tr.status}
-                for tr in result.task_results
-            ],
+            "tasks": [{"task_name": tr.task_name, "status": tr.status} for tr in result.task_results],
             "pre_gates": [
-                {"gate_name": gr.gate_name, "passed": gr.passed, "detail": gr.detail}
-                for gr in result.pre_gate_results
+                {"gate_name": gr.gate_name, "passed": gr.passed, "detail": gr.detail} for gr in result.pre_gate_results
             ],
             "post_gates": [
-                {"gate_name": gr.gate_name, "passed": gr.passed, "detail": gr.detail}
-                for gr in result.post_gate_results
+                {"gate_name": gr.gate_name, "passed": gr.passed, "detail": gr.detail} for gr in result.post_gate_results
             ],
             "total_cost_usd": sum(u.cost_usd for u in result.usage),
         }

@@ -1,4 +1,5 @@
 """Rondo example: auto task gate + interactive task."""
+
 from pathlib import Path
 
 from rondo.engine import Gate, Round, Task

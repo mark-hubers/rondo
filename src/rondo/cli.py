@@ -7,6 +7,7 @@ Import direction:
     cli.py → imports config + engine + runner + overnight + report
     (never imported by other rondo modules)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,10 +19,10 @@ from rondo.config import RondoConfig, load_config
 from rondo.engine import Round
 from rondo.runner import run_round
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Argument parser — REQ-001 reqs 36-37, 41
 # ──────────────────────────────────────────────────────────────────
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser.
@@ -72,6 +73,7 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
 #  Dynamic loading — REQ-001 req 39
 # ──────────────────────────────────────────────────────────────────
 
+
 def load_round_file(filepath: str) -> Round:
     """Dynamically import a round definition file and call build_round().
 
@@ -82,20 +84,18 @@ def load_round_file(filepath: str) -> Round:
         raise FileNotFoundError(f"Round file not found: {filepath}")
 
     spec = importlib.util.spec_from_file_location("round_def", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module spec from: {filepath}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
     if not hasattr(module, "build_round"):
-        raise AttributeError(
-            f"Round file '{filepath}' must define a build_round() function"
-        )
+        raise AttributeError(f"Round file '{filepath}' must define a build_round() function")
 
     result = module.build_round()
 
     if not isinstance(result, Round):
-        raise TypeError(
-            f"build_round() must return a Round, got {type(result).__name__}"
-        )
+        raise TypeError(f"build_round() must return a Round, got {type(result).__name__}")
 
     return result
 
@@ -103,6 +103,7 @@ def load_round_file(filepath: str) -> Round:
 # ──────────────────────────────────────────────────────────────────
 #  Config construction — COALESCE: CLI → TOML → defaults
 # ──────────────────────────────────────────────────────────────────
+
 
 def _build_config(args: argparse.Namespace) -> RondoConfig:
     """Construct RondoConfig from CLI args with COALESCE."""
@@ -136,6 +137,7 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
 # ──────────────────────────────────────────────────────────────────
 #  main() — REQ-001 req 36
 # ──────────────────────────────────────────────────────────────────
+
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns exit code (0=success, 1=error).
@@ -193,6 +195,9 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
         return 1
 
     spec = importlib.util.spec_from_file_location("phases_def", path)
+    if spec is None or spec.loader is None:
+        print(f"Error: cannot load module spec from: {args.file}", file=sys.stderr)
+        return 1
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 

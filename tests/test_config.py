@@ -3,6 +3,7 @@
 VER-001 verification matrix: every test maps to a numbered rule.
 TDD: these tests are written BEFORE config.py exists.
 """
+
 import sys
 import warnings
 from dataclasses import FrozenInstanceError
@@ -23,7 +24,6 @@ from rondo.config import (
 
 # -- STD-002 Rule 1: Works with zero config
 class TestZeroConfig:
-
     def test_default_config_all_fields_populated(self):
         """RondoConfig() with no args produces a valid config."""
         config = RondoConfig()
@@ -54,15 +54,10 @@ class TestZeroConfig:
 
 # -- STD-002 Rule 2: TOML format
 class TestTomlLoading:
-
     def test_load_from_toml_file(self, tmp_path):
         """Config loaded from TOML file populates fields."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text(
-            'auth = "api"\n'
-            'default_model = "opus"\n'
-            "workers = 8\n"
-        )
+        toml_file.write_text('auth = "api"\ndefault_model = "opus"\nworkers = 8\n')
         config = load_config(config_path=toml_file)
         assert config.auth == "api"
         assert config.default_model == "opus"
@@ -71,7 +66,7 @@ class TestTomlLoading:
     def test_partial_toml_fills_defaults(self, tmp_path):
         """TOML file with only some settings fills rest from defaults."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text('workers = 16\n')
+        toml_file.write_text("workers = 16\n")
         config = load_config(config_path=toml_file)
         assert config.workers == 16
         assert config.auth == "max"  # -- default
@@ -80,18 +75,17 @@ class TestTomlLoading:
 
 # -- STD-002 Rule 3: Config discovery (--config or CWD)
 class TestConfigDiscovery:
-
     def test_explicit_config_path(self, tmp_path):
         """--config flag path is used directly."""
         toml_file = tmp_path / "custom.toml"
-        toml_file.write_text('workers = 12\n')
+        toml_file.write_text("workers = 12\n")
         config = load_config(config_path=toml_file)
         assert config.workers == 12
 
     def test_discover_in_search_dir(self, tmp_path):
         """Discovers rondo.toml in search_dir."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text('workers = 6\n')
+        toml_file.write_text("workers = 6\n")
         config = load_config(config_path=None, search_dir=tmp_path)
         assert config.workers == 6
 
@@ -102,7 +96,7 @@ class TestConfigDiscovery:
         child = tmp_path / "subdir"
         child.mkdir()
         toml_file = parent / "rondo.toml"
-        toml_file.write_text('workers = 99\n')
+        toml_file.write_text("workers = 99\n")
         # -- Searching in child should NOT find parent's config
         config = load_config(config_path=None, search_dir=child)
         assert config.workers == 4  # -- default, not 99
@@ -110,11 +104,10 @@ class TestConfigDiscovery:
 
 # -- STD-002 Rule 4: CLI overrides config
 class TestCliOverride:
-
     def test_cli_overrides_config_file(self, tmp_path):
         """CLI flag value wins over config file value."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text('workers = 8\n')
+        toml_file.write_text("workers = 8\n")
         config = load_config(
             config_path=toml_file,
             cli_overrides={"workers": 2},
@@ -124,10 +117,7 @@ class TestCliOverride:
     def test_cli_overrides_multiple_fields(self, tmp_path):
         """Multiple CLI overrides all take effect."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text(
-            'auth = "api"\n'
-            'default_model = "opus"\n'
-        )
+        toml_file.write_text('auth = "api"\ndefault_model = "opus"\n')
         config = load_config(
             config_path=toml_file,
             cli_overrides={"auth": "max", "default_model": "haiku"},
@@ -138,18 +128,16 @@ class TestCliOverride:
 
 # -- STD-002 Rule 5: Config overrides defaults
 class TestConfigOverride:
-
     def test_config_file_overrides_defaults(self, tmp_path):
         """Config file value wins over hardcoded default."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text('throttle_sec = 5.0\n')
+        toml_file.write_text("throttle_sec = 5.0\n")
         config = load_config(config_path=toml_file)
         assert config.throttle_sec == 5.0  # -- not the default 2.0
 
 
 # -- STD-002 Rule 6: COALESCE resolution
 class TestCoalesce:
-
     def test_resolve_cli_wins(self):
         """CLI value wins when all three provided."""
         assert resolve("cli", "config", "default") == "cli"
@@ -169,30 +157,22 @@ class TestCoalesce:
     def test_full_coalesce_chain(self, tmp_path):
         """End-to-end: CLI → config → default."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text(
-            'workers = 8\n'
-            'throttle_sec = 5.0\n'
-        )
+        toml_file.write_text("workers = 8\nthrottle_sec = 5.0\n")
         config = load_config(
             config_path=toml_file,
             cli_overrides={"workers": 2},  # -- CLI overrides config
         )
-        assert config.workers == 2       # -- CLI won
+        assert config.workers == 2  # -- CLI won
         assert config.throttle_sec == 5.0  # -- config won (no CLI)
-        assert config.auth == "max"       # -- default won (no CLI, no config)
+        assert config.auth == "max"  # -- default won (no CLI, no config)
 
 
 # -- STD-002 Rule 7: Unknown keys ignored with warning
 class TestUnknownKeys:
-
     def test_unknown_toml_keys_ignored(self, tmp_path):
         """Unknown keys in TOML are ignored — config still loads."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text(
-            'workers = 8\n'
-            'future_setting = "something"\n'
-            'another_unknown = 42\n'
-        )
+        toml_file.write_text('workers = 8\nfuture_setting = "something"\nanother_unknown = 42\n')
         config = load_config(config_path=toml_file)
         assert config.workers == 8  # -- known key works
         # -- no crash from unknown keys
@@ -200,7 +180,7 @@ class TestUnknownKeys:
     def test_unknown_keys_produce_warning(self, tmp_path):
         """Unknown keys emit a warning."""
         toml_file = tmp_path / "rondo.toml"
-        toml_file.write_text('bogus_key = true\n')
+        toml_file.write_text("bogus_key = true\n")
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             load_config(config_path=toml_file)
@@ -211,7 +191,6 @@ class TestUnknownKeys:
 
 # -- STD-002 Rule 8: Invalid values error at startup
 class TestValidationErrors:
-
     def test_invalid_auth(self):
         config = RondoConfig(auth="bad")
         errors = validate_config(config)
@@ -311,7 +290,6 @@ class TestValidationErrors:
 
 # -- STD-002 Rule 9: Config loaded once, immutable (frozen dataclass)
 class TestConfigImmutable:
-
     def test_frozen_cannot_set_field(self):
         """Frozen dataclass raises on attribute assignment."""
         config = RondoConfig()
@@ -327,9 +305,9 @@ class TestConfigImmutable:
 
 # -- STD-002 Rule 10: Config is a dataclass
 class TestConfigIsDataclass:
-
     def test_is_dataclass(self):
         from dataclasses import fields
+
         config = RondoConfig()
         # -- fields() only works on dataclasses — would raise if not
         field_names = [f.name for f in fields(config)]
@@ -340,7 +318,6 @@ class TestConfigIsDataclass:
 
 # -- STD-001 Rule 4: Configurable timeout, default 5 min
 class TestTimeoutConfig:
-
     def test_timeout_default_300(self):
         config = RondoConfig()
         assert config.task_timeout_sec == 300
@@ -358,7 +335,6 @@ class TestTimeoutConfig:
 
 # -- Additional config fields (STD-002 settings table)
 class TestAllConfigFields:
-
     def test_effort_default(self):
         assert RondoConfig().effort == "high"
 

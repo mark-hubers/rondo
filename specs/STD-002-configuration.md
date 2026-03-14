@@ -1,57 +1,254 @@
 # STD-002: Configuration
 
-*How Rondo is configured — TOML file, CLI flags, sane defaults.*
+*How Rondo is configured — TOML file, CLI flags, sane defaults, COALESCE resolution.*
 
-**Created:** 2026-03-13 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Depends on:** Nothing | **Blocks:** REQ-001 (Core), REQ-002 (Automation)
+**Author:** Mark Hubers — HubersTech
+
+---
+
+## Item 1: Purpose & Scope
+
+**What this spec does (plain English):**
+Defines how every Rondo setting is resolved — from CLI flags, config files, and
+defaults — using a single consistent pattern. Rondo works out of the box with
+zero config. A TOML file adds project-level customization. CLI flags override
+everything.
+
+**IN scope:**
+- Config resolution order (COALESCE)
+- TOML config file format and location
+- All configurable settings with types and defaults
+- Config validation rules
+- Config discovery (how Rondo finds the config file)
+
+**OUT of scope:**
+- Round definitions (consumer's responsibility)
+- Claude Code configuration (Anthropic's product)
+- Environment variables beyond ANTHROPIC_API_KEY and CLAUDECODE
 
 ---
 
 ## Principle
 
-Rondo works with zero config. Every setting has a sane default. A config file adds project-level customization. CLI flags override everything. The resolution pattern is COALESCE: CLI → config → default.
+Rondo works with zero config. Every setting has a sane default. A config file
+adds project-level customization. CLI flags override everything. The resolution
+pattern is COALESCE: first non-null wins.
 
 ---
 
 ## Rules
 
 1. Rondo MUST work out of the box with no config file. All settings have defaults.
-2. Project-level config MUST be TOML format (Python 3.12 has `tomllib` in stdlib — zero dependencies).
-3. Config file location: `rondo.toml` in the project root, or path specified via `--config` flag.
+2. Project-level config MUST be TOML format (Python 3.12+ has `tomllib` in
+   stdlib — zero external dependencies).
+3. Config file location: `rondo.toml` in the project root, or path specified
+   via `--config` flag.
 4. CLI flags MUST override config file values.
 5. Config file values MUST override defaults.
-6. Resolution order: CLI flag → config file → hardcoded default. First non-null wins (COALESCE).
+6. Resolution order: CLI flag → config file → hardcoded default. First non-null
+   wins (COALESCE pattern).
+7. Unknown config keys MUST be ignored with a warning (forward compatibility).
+8. Invalid config values MUST raise a clear error at startup, not at dispatch time.
+9. Config MUST be loaded once at startup and be immutable for the session.
+10. Config MUST be representable as a single Python dataclass for type safety.
+
+---
+
+## COALESCE Resolution
+
+The core configuration pattern. Same concept as SQL COALESCE: first non-null wins.
+
+```
+COALESCE(cli_flag, config_file, default)
+
+Example — resolving the model:
+  CLI: --model opus        → "opus"       (wins if provided)
+  Config: default_model    → "sonnet"     (wins if CLI not provided)
+  Default:                 → "sonnet"     (fallback)
+```
+
+### Resolution Walkthrough
+
+```python
+def resolve(cli_value, config_value, default_value):
+    """COALESCE: first non-None wins."""
+    if cli_value is not None:
+        return cli_value
+    if config_value is not None:
+        return config_value
+    return default_value
+```
+
+### Per-Task COALESCE (Model Routing)
+
+Tasks can hint a model. This extends the chain:
+
+```
+COALESCE(cli_flag, task_hint, config_file, default)
+
+Example:
+  CLI: --model opus        → "opus"       (global override — wins)
+  Task: model="haiku"      → "haiku"      (task-specific — wins if no CLI)
+  Config: default_model    → "sonnet"     (project default)
+  Default:                 → "sonnet"     (hardcoded fallback)
+```
 
 ---
 
 ## Configurable Settings
 
-| Setting | CLI Flag | Config Key | Default |
-|---------|----------|-----------|---------|
-| Auth mode | `--auth max\|api` | `auth` | `max` |
-| Model | `--model opus\|sonnet\|haiku` | `default_model` | `sonnet` |
-| Workers | `--workers N` | `workers` | `4` |
-| Throttle | `--throttle N` | `throttle_sec` | `2.0` |
-| Task timeout | `--timeout N` | `task_timeout_sec` | `300` |
-| Results dir | — | `results_dir` | `reports/rondo-results` |
-| Report dir | — | `report_dir` | `reports` |
-| Claude binary | — | `claude_binary` | `claude` |
-| Dry run | `--dry-run` | — | `false` |
+| Setting | CLI Flag | Config Key | Type | Default | Validation |
+|---------|----------|-----------|------|---------|------------|
+| Auth mode | `--auth` | `auth` | str | `"max"` | Must be "max" or "api" |
+| Model | `--model` | `default_model` | str | `"sonnet"` | Must be valid model name |
+| Workers | `--workers` | `workers` | int | `4` | 1-32 |
+| Throttle | `--throttle` | `throttle_sec` | float | `2.0` | 0.0-60.0 |
+| Task timeout | `--timeout` | `task_timeout_sec` | int | `300` | 10-3600 |
+| Results dir | `--results-dir` | `results_dir` | str | `"reports/rondo-results"` | Valid path |
+| Report dir | `--report-dir` | `report_dir` | str | `"reports"` | Valid path |
+| Claude binary | — | `claude_binary` | str | `"claude"` | Executable on PATH |
+| Dry run | `--dry-run` | — | bool | `false` | CLI only (not in config) |
+| Verbose | `--verbose` | `verbose` | bool | `false` | — |
+| Output format | `--output-format` | `output_format` | str | `"stream-json"` | "text", "json", "stream-json" |
+| Effort | `--effort` | `effort` | str | `"high"` | "low", "medium", "high", "max" |
 
 ---
 
-## Config File Example
+## Config Dataclass
+
+```python
+@dataclass(frozen=True)
+class RondoConfig:
+    """Immutable configuration — loaded once at startup."""
+
+    # -- dispatch
+    auth: str = "max"
+    default_model: str = "sonnet"
+    effort: str = "high"
+    output_format: str = "stream-json"
+    claude_binary: str = "claude"
+    task_timeout_sec: int = 300
+
+    # -- parallel
+    workers: int = 4
+    throttle_sec: float = 2.0
+
+    # -- paths
+    results_dir: str = "reports/rondo-results"
+    report_dir: str = "reports"
+
+    # -- flags
+    dry_run: bool = False
+    verbose: bool = False
+```
+
+**Why frozen:** Config is immutable after creation. No mid-session changes.
+Thread-safe by design (STD-003 concurrency safety).
+
+---
+
+## Config File Format
 
 ```toml
-## -- Rondo project configuration
+# -- Rondo project configuration
+# -- Location: rondo.toml (project root) or --config path
 
-auth = "max"
-default_model = "sonnet"
-workers = 4
-throttle_sec = 2.0
-task_timeout_sec = 300
-results_dir = "reports/rondo-results"
-report_dir = "reports"
-claude_binary = "claude"
+# -- Dispatch settings
+auth = "max"                    # "max" (subscription) or "api" (pay-per-token)
+default_model = "sonnet"        # opus, sonnet, haiku, opus[1m], sonnet[1m]
+effort = "high"                 # low, medium, high, max
+output_format = "stream-json"   # text, json, stream-json (stream-json recommended)
+claude_binary = "claude"        # path to claude binary (usually just "claude")
+task_timeout_sec = 300          # seconds before killing a hung task
+
+# -- Parallel execution
+workers = 4                     # max concurrent task dispatches
+throttle_sec = 2.0              # seconds between task launches
+
+# -- Output paths
+results_dir = "reports/rondo-results"   # task result JSON files
+report_dir = "reports"                  # morning report output
+```
+
+---
+
+## Config Discovery
+
+How Rondo finds the config file:
+
+```
+1. If --config flag provided → use that path exactly
+2. Else: look for rondo.toml in current working directory
+3. If not found → use all defaults (zero-config mode)
+```
+
+**No walk-up search.** Unlike some tools that search parent directories,
+Rondo only looks in the CWD or the explicit path. This keeps behavior
+predictable and avoids surprises in CI/CD environments.
+
+---
+
+## Validation
+
+Config is validated at load time. Errors are clear and immediate:
+
+```python
+def validate_config(config: RondoConfig) -> list[str]:
+    """Return list of validation errors (empty = valid)."""
+    errors = []
+
+    if config.auth not in ("max", "api"):
+        errors.append(f"auth must be 'max' or 'api', got '{config.auth}'")
+
+    if config.workers < 1 or config.workers > 32:
+        errors.append(f"workers must be 1-32, got {config.workers}")
+
+    if config.throttle_sec < 0 or config.throttle_sec > 60:
+        errors.append(f"throttle_sec must be 0-60, got {config.throttle_sec}")
+
+    if config.task_timeout_sec < 10 or config.task_timeout_sec > 3600:
+        errors.append(f"task_timeout_sec must be 10-3600, got {config.task_timeout_sec}")
+
+    if config.output_format not in ("text", "json", "stream-json"):
+        errors.append(f"output_format must be text/json/stream-json, got '{config.output_format}'")
+
+    if config.effort not in ("low", "medium", "high", "max"):
+        errors.append(f"effort must be low/medium/high/max, got '{config.effort}'")
+
+    return errors
+```
+
+**Startup behavior:** If validation returns errors, Rondo prints them all and
+exits with code 1. No partial config — either everything is valid or nothing runs.
+
+---
+
+## Config Loading Flow
+
+```
+Startup
+    │
+    ├── Parse CLI flags
+    │
+    ├── Find config file (--config or CWD/rondo.toml)
+    │       │
+    │       ├── Found → parse TOML with tomllib
+    │       │
+    │       └── Not found → empty dict (all defaults)
+    │
+    ├── COALESCE each setting: CLI → config → default
+    │
+    ├── Create frozen RondoConfig dataclass
+    │
+    ├── Validate all fields
+    │       │
+    │       ├── Valid → proceed
+    │       │
+    │       └── Invalid → print errors, exit 1
+    │
+    └── Config is immutable for the rest of the session
 ```
 
 ---
@@ -60,4 +257,5 @@ claude_binary = "claude"
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-13 | Initial draft |
+| 0.1 | 2026-03-13 | Initial draft — 6 rules, settings table, TOML example |
+| 0.2 | 2026-03-14 | Beefed up: COALESCE walkthrough, dataclass, validation, discovery, flow diagram, output_format + effort settings |

@@ -3,7 +3,7 @@
 *How every requirement gets proved — test, demonstration, analysis, or inspection.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
-**Depends on:** REQ-001, REQ-002 | **Blocks:** Nothing
+**Depends on:** REQ-001, REQ-002, IFS-001 | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -152,15 +152,35 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 
 ---
 
+## IFS-001 (Interface) Verification Matrix
+
+### Stream-JSON Metadata Parsing
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------
+| 1 | Reads stream-json line by line | Test | `test_dispatch.py::test_stream_json_parsing` |
+| 2 | Extracts rate_limit_event | Test | `test_dispatch.py::test_rate_limit_extraction` |
+| 3 | Extracts result event (cost/tokens) | Test | `test_dispatch.py::test_result_metadata_extraction` |
+| 4 | Extracts system init (model/version) | Test | `test_dispatch.py::test_init_event_extraction` |
+| 5 | Verifies model matches requested | Test | `test_dispatch.py::test_model_verification` |
+| 6 | isUsingOverage flag captured | Test | `test_dispatch.py::test_overage_flag` |
+| 7 | total_cost_usd captured per dispatch | Test | `test_dispatch.py::test_cost_capture` |
+| 8 | duration_ms captured | Test | `test_dispatch.py::test_duration_capture` |
+| 9 | Handles missing rate_limit_event | Test | `test_dispatch.py::test_missing_rate_limit` |
+| 10 | 1M context model variant accepted | Test | `test_dispatch.py::test_1m_model_variant` |
+
+---
+
 ## Coverage Summary
 
 | Spec | Total Reqs | Test | Demo | Analysis | Inspection |
 |------|-----------|------|------|----------|------------|
 | REQ-001 | 33 | 28 | 0 | 3 | 2 |
 | REQ-002 | 25 | 20 | 2 | 1 | 2 |
-| **Total** | **58** | **48** | **2** | **4** | **4** |
+| IFS-001 | 10 | 10 | 0 | 0 | 0 |
+| **Total** | **68** | **58** | **2** | **4** | **4** |
 
-83% verified by automated test. 100% covered by at least one method.
+85% verified by automated test. 100% covered by at least one method.
 
 ---
 
@@ -169,3 +189,4 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial verification matrix for REQ-001 + REQ-002 |
+| 0.2 | 2026-03-14 | Added IFS-001 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |

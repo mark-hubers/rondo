@@ -290,6 +290,113 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 ---
 
+## Data Boundary: Rondo Produces, Consumer Stores
+
+**Rondo has no database.** It is a dispatch framework, not a data store.
+Rondo produces structured output (JSON files, return objects). The consumer
+(OB, ACE, or any project) decides what to persist.
+
+### What Rondo Returns
+
+Every round execution returns a `RoundResult` to the caller:
+
+```python
+@dataclass
+class RoundResult:
+    """Everything a consumer needs to know about a round execution."""
+
+    # -- identity
+    round_name: str                        # -- which round ran
+    started_at: str                        # -- ISO-8601 UTC
+    completed_at: str                      # -- ISO-8601 UTC
+    duration_sec: float                    # -- wall-clock total
+
+    # -- task results (one per task)
+    task_results: list[TaskResult]         # -- see STD-001 for TaskResult fields
+
+    # -- gate results
+    pre_gate_results: list[GateResult]     # -- name, passed, detail
+    post_gate_results: list[GateResult]
+
+    # -- parallel execution info (if applicable)
+    conflicts: list[str]                   # -- files touched by 2+ tasks
+    parallelism: int                       # -- workers used (1 = sequential)
+
+    # -- usage metadata (from stream-json, per dispatch)
+    usage: list[DispatchUsage]             # -- one per task dispatch
+
+    # -- overall
+    status: str                            # -- "passed", "failed", "partial"
+    summary: str                           # -- one-line human summary
+```
+
+### Usage Metadata Per Dispatch
+
+```python
+@dataclass
+class DispatchUsage:
+    """Stream-json metadata captured from each claude -p call."""
+
+    task_name: str
+    model: str                             # -- claude-sonnet-4-6, etc.
+    cost_usd: float                        # -- total_cost_usd from result event
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_create_tokens: int
+    duration_ms: int                       # -- wall-clock
+    duration_api_ms: int                   # -- API time only
+    num_turns: int                         # -- tool-use loops
+    context_window: int                    # -- 200000 or 1000000
+    rate_limit_status: str                 # -- "allowed" or "blocked"
+    is_using_overage: bool                 # -- past plan allocation?
+    rate_limit_resets_at: int              # -- epoch timestamp
+```
+
+### How OB/ACE Gets Total Visibility
+
+The consumer calls Rondo and receives `RoundResult`. From that single object:
+
+| Consumer Wants | Where In RoundResult |
+|---------------|---------------------|
+| What tasks ran | `task_results[*].task_name` |
+| What passed/failed | `task_results[*].status` (done/blocked/partial/error/skipped) |
+| What each task returned | `task_results[*].parsed_result` (the AI's JSON response) |
+| What errors happened | `task_results[*].error_code` + `error_message` |
+| Full AI output | `task_results[*].raw_output` |
+| What prompt was sent | `task_results[*].prompt_sent` |
+| How long each task took | `task_results[*].duration_sec` |
+| How much it cost | `usage[*].cost_usd` (per task) |
+| Token breakdown | `usage[*].input_tokens`, `output_tokens`, cache fields |
+| Rate limit status | `usage[*].rate_limit_status`, `is_using_overage` |
+| File conflicts | `conflicts` list |
+| Gate results | `pre_gate_results`, `post_gate_results` |
+| Overall pass/fail | `status` |
+| Wall-clock total | `duration_sec` |
+
+**The consumer stores whatever they want.** OB might write everything to
+`sprint_results` and `round_states`. ACE might feed it to the knowledge engine.
+A simple script might just print the summary. Rondo doesn't care — it returns
+the data and moves on.
+
+### Result Files (Backup)
+
+In addition to the return object, Rondo writes each task result to a JSON file
+in `results_dir` (STD-002). These files are a backup — the consumer should use
+the return object as the primary data source. Result files persist across crashes
+and let consumers replay results without re-dispatching.
+
+```
+reports/rondo-results/
+├── 2026-03-14T03-00-00Z/              # -- one dir per round execution
+│   ├── round-summary.json             # -- RoundResult as JSON
+│   ├── task-01-spec-health.json       # -- TaskResult + DispatchUsage
+│   ├── task-02-digest-refresh.json
+│   └── task-03-convention-check.json
+```
+
+---
+
 ## Foundations Applied
 
 | Standard | How Applied |
@@ -329,10 +436,10 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 | # | Question | Status |
 |---|----------|--------|
-| Q1 | Should Rondo have its own lightweight DB for run history? | Open |
-| Q2 | What's the rate limit on Max plan `claude -p`? | Open — needs testing |
-| Q3 | Should the binary path for `claude` be configurable? | Open |
-| Q4 | Should round definitions live in TOML or Python? | Answered: Python — they need logic |
+| Q1 | Should Rondo have its own lightweight DB for run history? | **Answered: No.** Rondo produces structured output (RoundResult). Consumer stores it. See "Data Boundary" section. |
+| Q2 | What's the rate limit on Max plan `claude -p`? | **Partially answered.** rate_limit_event gives 5-hour window status. Weekly % not available programmatically. (Spike: Session 76) |
+| Q3 | Should the binary path for `claude` be configurable? | **Answered: Yes.** `claude_binary` in STD-002 config. Default: "claude" |
+| Q4 | Should round definitions live in TOML or Python? | **Answered: Python** — they need logic |
 | Q5 | Should Rondo support alternative backends (Ollama, API-direct)? | Deferred |
 
 ---
@@ -371,3 +478,4 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial draft from spike learnings (Session 75) |
 | 0.2 | 2026-03-13 | Split from monolithic spec. REQ-001=core, REQ-002=automation. Removed OB/ACE references. Own foundations. |
+| 0.3 | 2026-03-14 | Added Data Boundary section: RoundResult, DispatchUsage, result file structure. Answered Q1 (no DB), Q2 (rate_limit_event), Q3 (configurable binary). |

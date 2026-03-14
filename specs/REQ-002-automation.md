@@ -1,9 +1,9 @@
-# R02: Automation — Parallel + Overnight + Report
+# REQ-002: Automation — Parallel + Overnight + Report
 
 *Run many tasks fast, schedule them overnight, get a morning report.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
-**Depends on:** R01 (Core) | **Blocks:** Nothing
+**Depends on:** REQ-001 (Core) | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -11,7 +11,7 @@
 ## Item 1: Purpose & Scope
 
 **What this spec does (plain English):**
-Adds parallel execution, overnight batch scheduling, and morning reports on top of R01's core. R01 dispatches one task at a time. R02 dispatches many tasks at once, chains rounds into overnight phases, and summarizes results for the morning.
+Adds parallel execution, overnight batch scheduling, and morning reports on top of REQ-001's core. REQ-001 dispatches one task at a time. REQ-002 dispatches many tasks at once, chains rounds into overnight phases, and summarizes results for the morning.
 
 **IN scope:**
 - Parallel dispatch: concurrent task execution with throttling
@@ -21,7 +21,7 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 - Event logging: rolling log for overnight post-mortem
 
 **OUT of scope:**
-- Engine, dispatch, auth, model routing (R01: Core)
+- Engine, dispatch, auth, model routing (REQ-001: Core)
 - Specific round definitions (consumer's responsibility)
 - System-level scheduling (cron/LaunchAgent config — platform-specific)
 - Real-time monitoring / dashboards (future work)
@@ -30,7 +30,7 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 
 ## The Problem
 
-R01 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes each takes 24 minutes. Running 32 specs through that takes 12+ hours. That exceeds overnight capacity.
+REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes each takes 24 minutes. Running 32 specs through that takes 12+ hours. That exceeds overnight capacity.
 
 **Parallel execution** solves throughput: 4 workers cut wall time by ~4x. But parallel introduces risks — two tasks modifying the same file, rate limiting from too many concurrent Claude sessions, results arriving out of order.
 
@@ -52,7 +52,7 @@ R01 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes
 6. Detected conflicts MUST be listed in the round summary (not silently ignored).
 7. Parallel dispatch MUST report: done count, error count, wall time, sum of task times, speedup ratio.
 8. If a single task fails or raises an exception, other tasks MUST NOT be affected.
-9. Parallel results MUST be saved to the same JSON format as sequential results (R01 compatibility).
+9. Parallel results MUST be saved to the same JSON format as sequential results (REQ-001 compatibility).
 
 ### Overnight Scheduler
 
@@ -110,11 +110,11 @@ R01 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes
 
 ## Design
 
-### Architecture (R02 on top of R01)
+### Architecture (REQ-002 on top of REQ-001)
 
 ```
 ┌────────────────────────────────────────────────────┐
-│                   R02: AUTOMATION                   │
+│                   REQ-002: AUTOMATION                   │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
 │  │           OVERNIGHT (L3)                      │  │
@@ -131,7 +131,7 @@ R01 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes
 │  │   Aggregation, health indicators, actions     │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                     │
-│         ▼ Uses R01: Engine + Dispatch + Runner ▼    │
+│         ▼ Uses REQ-001: Engine + Dispatch + Runner ▼    │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -185,7 +185,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Rule | Rationale |
 |------|-----------|
 | Phases don't block each other | One bad phase must not kill the whole overnight run. Resilience over strictness. |
-| Parallel is opt-in | Default is sequential (R01). Parallel requires explicit --workers flag. |
+| Parallel is opt-in | Default is sequential (REQ-001). Parallel requires explicit --workers flag. |
 | Conflict detection is advisory | Flags potential issues but doesn't prevent execution. Consumer decides. |
 | No interactive input in overnight | Must run unattended from cron/LaunchAgent. Zero stdin. |
 | Morning report is always generated | Even if all phases fail. "Everything failed" is still a useful report. |
@@ -205,11 +205,11 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ## Foundations Applied
 
-| Rondo F | How Applied |
+| Standard | How Applied |
 |---------|-------------|
-| F01 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
-| F02 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
-| F03 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
+| STD-001 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
+| STD-002 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
+| STD-003 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
 
 ---
 

@@ -1,4 +1,4 @@
-# F02: Configuration
+# STD-002: Configuration
 
 *How Rondo is configured — TOML file, CLI flags, sane defaults.*
 

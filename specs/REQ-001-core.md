@@ -1,9 +1,9 @@
-# R01: Core — Engine + Dispatch
+# REQ-001: Core — Engine + Dispatch
 
 *Define AI tasks in Python, send them to Claude, get structured results back.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
-**Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** R02 (Automation)
+**Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** REQ-002 (Automation)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -24,9 +24,9 @@ Defines Rondo's core: the data model for describing AI work (Rounds, Tasks, Gate
 - Round state serialization (JSON, for recovery)
 
 **OUT of scope:**
-- Parallel execution (R02: Automation)
-- Overnight scheduling (R02: Automation)
-- Morning reports (R02: Automation)
+- Parallel execution (REQ-002: Automation)
+- Overnight scheduling (REQ-002: Automation)
+- Morning reports (REQ-002: Automation)
 - Specific round definitions (consumer's responsibility — e.g., OB defines its own rounds)
 - Claude Code internals (Anthropic's product)
 - Alternative AI backends (future work)
@@ -146,7 +146,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 
 ```
 ┌────────────────────────────────────────────────────┐
-│                     R01: CORE                       │
+│                     REQ-001: CORE                       │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
 │  │              ENGINE (L0)                      │  │
@@ -167,7 +167,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 │  │   Result collection, summary                  │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                     │
-│         ▲ R02 builds on top of this ▲               │
+│         ▲ REQ-002 builds on top of this ▲               │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -273,7 +273,7 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 | Three-field contract is mandatory | Do, Read, Done. Every interactive task needs all three. Prevents vague instructions. |
 | CLAUDECODE env var always stripped | Claude Code blocks nested sessions. This is non-negotiable. |
 | Results always saved to disk | Even on error. Can't rely on terminal output or memory. |
-| Sequential is the safe default | Parallel is opt-in (R02). One task at a time is predictable. |
+| Sequential is the safe default | Parallel is opt-in (REQ-002). One task at a time is predictable. |
 | Zero external dependencies | stdlib only. Maximizes portability and ease of installation. |
 | Round definitions import only engine | Keeps definitions portable. They shouldn't know about dispatch internals. |
 
@@ -292,11 +292,11 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 ## Foundations Applied
 
-| Rondo F | How Applied |
-|---------|-------------|
-| F01 Error & Resilience | Every failure includes task name, error, duration, prompt. Subprocess errors vs logic errors distinguished. |
-| F02 Configuration | TOML config. COALESCE: CLI → config → default. Zero-config works out of the box. |
-| F03 Concurrency & Safety | (R01 is sequential only. F03 applied fully in R02.) Subprocess args as list, never shell=True. API keys stripped from result files. |
+| Standard | How Applied |
+|----------|-------------|
+| STD-001 Error & Resilience | Every failure includes task name, error, duration, prompt. Subprocess errors vs logic errors distinguished. |
+| STD-002 Configuration | TOML config. COALESCE: CLI → config → default. Zero-config works out of the box. |
+| STD-003 Concurrency & Safety | (REQ-001 is sequential only. STD-003 applied fully in REQ-002.) Subprocess args as list, never shell=True. API keys stripped from result files. |
 
 ---
 
@@ -321,7 +321,7 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 | D5 | Results always to JSON files | 2026-03-13 | Files survive crashes, restarts, compaction. Terminal output doesn't |
 | D6 | Zero external dependencies | 2026-03-13 | stdlib only. Anyone with Python + Claude Code can use Rondo |
 | D7 | Rondo is its own product | 2026-03-13 | Not an OB feature. Not an ACE feature. A standalone framework |
-| D8 | Sequential default | 2026-03-13 | Parallel is R02's concern. R01 is simple and predictable |
+| D8 | Sequential default | 2026-03-13 | Parallel is REQ-002's concern. REQ-001 is simple and predictable |
 
 ---
 
@@ -370,4 +370,4 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial draft from spike learnings (Session 75) |
-| 0.2 | 2026-03-13 | Split from monolithic spec. R01=core, R02=automation. Removed OB/ACE references. Own foundations. |
+| 0.2 | 2026-03-13 | Split from monolithic spec. REQ-001=core, REQ-002=automation. Removed OB/ACE references. Own foundations. |

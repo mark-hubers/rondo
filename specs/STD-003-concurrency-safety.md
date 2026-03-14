@@ -1,4 +1,4 @@
-# F03: Concurrency & Safety
+# STD-003: Concurrency & Safety
 
 *How Rondo runs tasks in parallel safely — no injection, no leaks, no corruption.*
 

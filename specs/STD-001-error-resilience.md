@@ -1,4 +1,4 @@
-# F01: Error Handling & Resilience
+# STD-001: Error Handling & Resilience
 
 *How Rondo handles failures — subprocess crashes, bad output, timeouts.*
 

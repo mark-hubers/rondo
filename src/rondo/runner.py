@@ -51,9 +51,10 @@ def run_round(
     if config is None:
         config = RondoConfig()
 
-    # -- REQ-001 req 40: auto-detect runner
-    # -- parallel.py not built yet — sequential for now
-    # -- When parallel.py exists: if config.workers > 1, delegate there
+    # -- REQ-001 req 40: auto-detect sequential vs parallel
+    if config.workers > 1:
+        from rondo.parallel import run_parallel
+        return run_parallel(round, config)
     return run_sequential(round, config)
 
 

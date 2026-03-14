@@ -62,6 +62,10 @@ def _mock_dispatch_error(task, config, **kwargs):
     )
 
 
+# -- Sequential config: forces run_round() to use run_sequential()
+SEQ_CONFIG = RondoConfig(workers=1)
+
+
 # ──────────────────────────────────────────────────────────────────
 #  run_round() contract — REQ-001 req 45
 # ──────────────────────────────────────────────────────────────────
@@ -72,28 +76,28 @@ class TestRunRoundContract:
         """run_round() returns a RoundResult."""
         r = Round(name="test", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert isinstance(result, RoundResult)
 
     def test_default_config_when_none(self):
-        """run_round() with no config uses defaults."""
+        """run_round() with no config uses defaults (workers=4 → parallel)."""
         r = Round(name="test", tasks=[Task(name="t1", instruction="do", done_when="done")])
-        with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
             result = run_round(r)
-            assert result.parallelism == 1  # -- default workers=4 but sequential for now
+            assert result.parallelism == 4  # -- default workers=4 routes to parallel
 
     def test_round_name_in_result(self):
         """RoundResult has the correct round_name."""
         r = Round(name="my-round", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert result.round_name == "my-round"
 
     def test_timing_fields_populated(self):
         """started_at, completed_at, duration_sec are populated."""
         r = Round(name="test", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert result.started_at != ""
             assert result.completed_at != ""
             assert result.duration_sec >= 0
@@ -113,7 +117,7 @@ class TestPreGates:
             tasks=[Task(name="t1", instruction="do", done_when="done")],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch) as mock_disp:
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             mock_disp.assert_not_called()
             assert result.status == "skipped"
 
@@ -125,7 +129,7 @@ class TestPreGates:
             tasks=[Task(name="t1", instruction="do", done_when="done")],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch) as mock_disp:
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             mock_disp.assert_called_once()
             assert result.status == "done"
 
@@ -140,7 +144,7 @@ class TestPreGates:
             tasks=[Task(name="t1", instruction="do", done_when="done")],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch) as mock_disp:
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             mock_disp.assert_called_once()
             assert result.status == "done"
 
@@ -152,7 +156,7 @@ class TestPreGates:
             tasks=[Task(name="t1", instruction="do", done_when="done")],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert len(result.pre_gate_results) == 1
             assert result.pre_gate_results[0].gate_name == "check"
             assert result.pre_gate_results[0].passed is True
@@ -175,7 +179,7 @@ class TestPostGates:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert len(post_gate_ran) == 1
             assert len(result.post_gate_results) == 1
 
@@ -191,7 +195,7 @@ class TestPostGates:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert len(post_gate_ran) == 0
             assert len(result.post_gate_results) == 0
 
@@ -206,7 +210,7 @@ class TestPostGates:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert len(result.post_gate_results) == 2
             assert result.post_gate_results[0].passed is True
             assert result.post_gate_results[1].passed is False
@@ -229,7 +233,7 @@ class TestTaskOrchestration:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch) as mock_disp:
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert mock_disp.call_count == 3
             assert len(result.task_results) == 3
 
@@ -240,7 +244,7 @@ class TestTaskOrchestration:
             tasks=[Task(name="my-task", instruction="do", done_when="done")],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert len(result.task_results) == 1
             assert result.task_results[0].task_name == "my-task"
             assert result.task_results[0].status == "done"
@@ -262,7 +266,7 @@ class TestTaskOrchestration:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mixed_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert result.status == "partial"
 
     def test_all_error_status(self):
@@ -275,7 +279,7 @@ class TestTaskOrchestration:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch_error):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert result.status == "error"
 
     def test_usage_collected(self):
@@ -288,7 +292,7 @@ class TestTaskOrchestration:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert len(result.usage) == 2
             assert result.usage[0].task_name == "t1"
             assert result.usage[1].task_name == "t2"
@@ -296,7 +300,7 @@ class TestTaskOrchestration:
     def test_empty_round_skipped(self):
         """Round with no tasks → status skipped."""
         r = Round(name="empty", tasks=[])
-        result = run_round(r)
+        result = run_round(r, config=SEQ_CONFIG)
         assert result.status == "skipped"
 
     def test_task_failure_doesnt_crash_others(self):
@@ -316,7 +320,7 @@ class TestTaskOrchestration:
             ],
         )
         with patch("rondo.runner.dispatch_task", side_effect=_first_fails) as mock_disp:
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             assert mock_disp.call_count == 2  # -- second still ran
             assert result.status == "partial"  # -- mix of done + error
 
@@ -335,14 +339,13 @@ class TestAutoDetect:
             result = run_round(r, config=config)
             assert result.parallelism == 1
 
-    def test_default_config_sequential(self):
-        """Default config with workers=4 would use parallel, but run_round
-        should still work (delegates to parallel when built)."""
+    def test_default_config_routes_to_parallel(self):
+        """Default config with workers=4 routes to run_parallel."""
         r = Round(name="test", tasks=[Task(name="t1", instruction="do", done_when="done")])
-        # -- For now, run_round falls back to sequential if parallel not ready
-        with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
             result = run_round(r)
             assert isinstance(result, RoundResult)
+            assert result.parallelism == 4
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -360,14 +363,14 @@ class TestTaskStateUpdates:
 
         r = Round(name="state", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_capture_dispatch):
-            run_round(r)
+            run_round(r, config=SEQ_CONFIG)
             assert "running" in states_seen
 
     def test_task_status_updated_after_dispatch(self):
         """Task status set to terminal state after dispatch."""
         r = Round(name="state", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
-            result = run_round(r)
+            result = run_round(r, config=SEQ_CONFIG)
             # -- Task object's status should be updated
             assert r.tasks[0].status in ("done", "error", "partial", "blocked", "skipped")
 
@@ -381,7 +384,7 @@ class TestResultSaving:
     def test_results_saved_to_dir(self, tmp_path):
         """Task results saved to results_dir."""
         r = Round(name="save", tasks=[Task(name="t1", instruction="do", done_when="done")])
-        config = RondoConfig(results_dir=str(tmp_path / "results"))
+        config = RondoConfig(results_dir=str(tmp_path / "results"), workers=1)
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
             result = run_round(r, config=config)
             # -- Check that results dir was created and has files
@@ -391,7 +394,7 @@ class TestResultSaving:
     def test_round_summary_saved(self, tmp_path):
         """Round summary JSON saved to results_dir."""
         r = Round(name="save", tasks=[Task(name="t1", instruction="do", done_when="done")])
-        config = RondoConfig(results_dir=str(tmp_path / "results"))
+        config = RondoConfig(results_dir=str(tmp_path / "results"), workers=1)
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
             result = run_round(r, config=config)
             # -- Should have at least one file in results dir

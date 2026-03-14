@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "rondo"
+version = "0.1.0"
+description = "Define AI tasks in Python, send them to Claude, get structured results back."
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Mark Hubers" },
+]
+
+[project.scripts]
+rondo = "rondo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,25 @@
+# -- Rondo project configuration
+# -- Location: rondo.toml (project root) or --config path
+# -- All values below are the defaults — uncomment to override.
+
+# -- Dispatch settings
+# auth = "max"                    # "max" (subscription) or "api" (pay-per-token)
+# default_model = "sonnet"        # opus, sonnet, haiku, opus[1m], sonnet[1m]
+# effort = "high"                 # low, medium, high, max
+# output_format = "stream-json"   # text, json, stream-json (stream-json recommended)
+# claude_binary = "claude"        # path to claude binary (usually just "claude")
+# task_timeout_sec = 300          # seconds before killing a hung task
+
+# -- Parallel execution
+# workers = 4                     # max concurrent task dispatches
+# throttle_sec = 2.0              # seconds between task launches
+
+# -- Self-healing (watchdog + usage gating)
+# watchdog_timeout_sec = 60       # seconds of no output before watchdog kills task
+# rate_limit_backoff_sec = 60     # seconds to wait after rate limit hit
+# on_overage = "continue"         # continue, pause, stop — action when isUsingOverage=true
+# worktree_isolation = false      # optional git worktree per worker for parallel safety
+
+# -- Output paths
+# results_dir = "reports/rondo-results"   # task result JSON files
+# report_dir = "reports"                  # morning report output

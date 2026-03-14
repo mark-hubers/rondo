@@ -106,6 +106,27 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 | 32 | Only imports engine module | Analysis | Import check via AST or grep |
 | 33 | Under 50 lines | Inspection | `wc -l` on round definition files |
 
+### Package Structure & CLI
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 34 | Importable Python package | Test | `test_engine.py::test_public_imports` |
+| 35 | __init__.py exports all public types | Test | `test_engine.py::test_init_exports` |
+| 36 | CLI entry point `rondo` command | Test | `test_cli.py::test_cli_entrypoint` |
+| 37 | Subcommands: run, overnight, report, dry-run | Test | `test_cli.py::test_subcommands` |
+| 38 | `run` accepts path to round definition file | Test | `test_cli.py::test_run_with_file` |
+| 39 | Dynamic import of round definition | Test | `test_cli.py::test_dynamic_import` |
+| 40 | Auto-detect sequential vs parallel | Test | `test_cli.py::test_auto_runner_selection` |
+| 41 | All STD-002 CLI flags on `run` subcommand | Test | `test_cli.py::test_cli_flags` |
+
+### Living Example Rounds
+
+| Req | Requirement (short) | Method | Test/Evidence |
+|-----|---------------------|--------|--------------|
+| 42 | Example rounds have build_round() function | Test | `test_examples.py::test_example_build_round` |
+| 43 | Examples used as test fixtures | Test | `test_examples.py::test_examples_as_fixtures` |
+| 44 | 3+ examples ship (minimal, gated, multi-task) | Inspection | Count files in `examples/` |
+
 ---
 
 ## REQ-002 (Automation) Verification Matrix
@@ -206,10 +227,10 @@ Maps every requirement in REQ-001 and REQ-002 to a verification method. For each
 
 | Spec | Total Reqs | Test | Demo | Analysis | Inspection |
 |------|-----------|------|------|----------|------------|
-| REQ-001 | 33 | 29 | 0 | 2 | 2 |
+| REQ-001 | 44 | 39 | 0 | 2 | 3 |
 | REQ-002 | 41 | 35 | 3 | 2 | 1 |
 | IFS-001 | 10 | 10 | 0 | 0 | 0 |
-| **Total** | **84** | **74** | **3** | **4** | **3** |
+| **Total** | **95** | **84** | **3** | **4** | **4** |
 
 88% verified by automated test. 100% covered by at least one method.
 
@@ -260,3 +281,4 @@ specs, not spikes. Full gap analysis: `rondo/spikes/SPIKE-TRACKER.md`.
 | 0.3 | 2026-03-14 | Added REQ-002 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
 | 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with STD-001 |
 | 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |
+| 0.6 | 2026-03-14 | Added REQ-001 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |

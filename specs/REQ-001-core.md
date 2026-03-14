@@ -105,6 +105,225 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 32. Round definitions MUST NOT import Rondo internals beyond the engine module (Round, Task, Gate).
 33. A new round definition SHOULD be writable in under 50 lines of Python.
 
+### Package Structure & Public API
+
+34. Rondo MUST be an importable Python package: `from rondo import run_round, RoundResult`.
+35. The public API (`rondo/__init__.py`) MUST export: `Round`, `Task`, `Gate`, `GateResult`, `TaskResult`, `RoundResult`, `DispatchUsage`, `RondoConfig`, `run_round`.
+36. Rondo MUST provide a CLI entry point: `rondo <subcommand> [options]`.
+37. CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report), `dry-run` (show prompts without dispatch).
+38. The `run` subcommand MUST accept a path to a Python file containing a `build_round()` function that returns a `Round` object.
+39. Round definition files MUST be loadable by path — Rondo dynamically imports the file and calls `build_round()`.
+40. Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py`.
+41. All CLI flags from STD-002 (--workers, --model, --auth, etc.) MUST be available on the `run` subcommand.
+
+### Package Layout
+
+```
+rondo/
+├── src/
+│   └── rondo/                    # -- Python package (importable)
+│       ├── __init__.py           # -- public API exports
+│       ├── engine.py             # -- Round, Task, Gate, GateResult, state machine
+│       ├── config.py             # -- RondoConfig, TOML loading, COALESCE, validation
+│       ├── dispatch.py           # -- claude -p subprocess, stream-json, TaskResult
+│       ├── runner.py             # -- sequential: pre-gates → tasks → post-gates → RoundResult
+│       ├── parallel.py           # -- ThreadPoolExecutor, throttle, conflicts
+│       ├── overnight.py          # -- phase scheduler, watchdog, usage gating
+│       ├── report.py             # -- morning report generator
+│       └── cli.py                # -- CLI entry point (argparse)
+├── tests/                        # -- pytest test suite (VER-001)
+│   ├── test_engine.py
+│   ├── test_config.py
+│   ├── test_dispatch.py
+│   ├── test_parallel.py
+│   ├── test_overnight.py
+│   └── test_report.py
+├── examples/                     # -- living example rounds (also used as test fixtures)
+│   ├── round_hello.py            # -- simplest possible round (1 task, no gates)
+│   ├── round_file_check.py       # -- auto task + gate example
+│   └── round_multi_task.py       # -- 3 tasks with model hints, pre/post gates
+├── specs/                        # -- specification documents
+├── spikes/                       # -- prototypes (reference only, not production)
+└── rondo.toml                    # -- example config file
+```
+
+### Call Chain
+
+```
+CLI: rondo run rounds/my_round.py --workers 4 --auth max
+
+cli.py (entry point)
+  │
+  ├── config.py: load_config()
+  │     Find rondo.toml → parse TOML → COALESCE(CLI, config, defaults)
+  │     Return frozen RondoConfig
+  │
+  ├── Dynamic import: load round definition file
+  │     importlib.util.spec_from_file_location(path)
+  │     Call module.build_round() → returns Round object
+  │
+  ├── Pick runner based on config.workers:
+  │     workers == 1 → runner.run_sequential(round, config)
+  │     workers > 1  → parallel.run_parallel(round, config)
+  │
+  ├── Runner dispatches each task:
+  │     For each task: dispatch.dispatch_task(task, config) → TaskResult
+  │     dispatch.py: subprocess Popen → stream-json parsing → TaskResult
+  │
+  ├── Runner assembles RoundResult:
+  │     task_results + gate_results + usage + conflicts + summary
+  │
+  └── Output: print summary + save result files + return RoundResult
+```
+
+### Library Usage (for OB/ACE integration)
+
+```python
+from rondo import run_round, Round, Task, Gate, RondoConfig, RoundResult
+
+# -- Consumer defines their round
+def build_health_check(spec_id: str) -> Round:
+    return Round(
+        name=f"health-{spec_id}",
+        pre_gates=[
+            Gate("Spec exists", check_fn=lambda: (Path(f"specs/{spec_id}.md").exists(), "Found")),
+        ],
+        tasks=[
+            Task(
+                name="Check spec completeness",
+                description=f"Verify {spec_id} has all required sections",
+                instruction=f"Read specs/{spec_id}.md and check for: Purpose, Requirements, Assumptions, Decisions.",
+                context_files=[f"specs/{spec_id}.md"],
+                done_when="List of present/missing sections with pass/fail per section",
+            ),
+        ],
+    )
+
+# -- Consumer runs it
+config = RondoConfig(auth="max", workers=1)
+result: RoundResult = run_round(build_health_check("R027"), config=config)
+
+# -- Consumer stores whatever they want
+print(f"Status: {result.status}")
+print(f"Cost: ${sum(u.cost_usd for u in result.usage):.4f}")
+for tr in result.task_results:
+    print(f"  {tr.task_name}: {tr.status}")
+```
+
+### Living Example Rounds
+
+Example rounds in `examples/` serve dual purpose: documentation for users AND
+test fixtures for Rondo's own test suite. They MUST be real, runnable rounds.
+
+42. Example rounds MUST be valid Python files with a `build_round()` function.
+43. Example rounds MUST be used as test fixtures in the test suite (living tests, not dead docs).
+44. At minimum 3 examples MUST ship: minimal (1 task), gated (auto tasks + gates), multi-task (parallel-ready with model hints).
+
+#### Example: `examples/round_hello.py` — Simplest Possible Round
+
+```python
+"""Rondo example: simplest possible round — one task, no gates."""
+from rondo.engine import Round, Task
+
+def build_round() -> Round:
+    return Round(
+        name="hello",
+        tasks=[
+            Task(
+                name="Say hello",
+                description="Verify Rondo can dispatch a task to Claude",
+                instruction="Say 'Hello from Rondo!' and confirm you received this prompt.",
+                done_when="Response contains 'Hello from Rondo' or equivalent greeting",
+            ),
+        ],
+    )
+```
+
+#### Example: `examples/round_file_check.py` — Auto Tasks + Gates
+
+```python
+"""Rondo example: auto task gate + interactive task."""
+from pathlib import Path
+from rondo.engine import Round, Task, Gate
+
+TARGET = "README.md"
+
+def build_round() -> Round:
+    return Round(
+        name="file-check",
+        pre_gates=[
+            Gate(
+                "Target file exists",
+                check_fn=lambda: (Path(TARGET).exists(), f"{TARGET} {'found' if Path(TARGET).exists() else 'missing'}"),
+            ),
+        ],
+        tasks=[
+            Task(
+                name="Count lines",
+                description=f"Auto-count lines in {TARGET}",
+                auto_fn=lambda: (True, f"{sum(1 for _ in open(TARGET))} lines"),
+            ),
+            Task(
+                name="Summarize file",
+                description=f"Ask Claude to summarize {TARGET}",
+                instruction=f"Read {TARGET} and write a 2-sentence summary.",
+                context_files=[TARGET],
+                done_when="2-sentence summary of the file's purpose",
+                model="haiku",
+            ),
+        ],
+    )
+```
+
+#### Example: `examples/round_multi_task.py` — Parallel-Ready
+
+```python
+"""Rondo example: 3 tasks with model hints, pre/post gates. Parallel-safe."""
+from pathlib import Path
+from rondo.engine import Round, Task, Gate
+
+def build_round(target_dir: str = "src/") -> Round:
+    return Round(
+        name="code-survey",
+        pre_gates=[
+            Gate(
+                "Directory exists",
+                check_fn=lambda: (Path(target_dir).is_dir(), f"{target_dir} exists"),
+            ),
+        ],
+        tasks=[
+            Task(
+                name="Count Python files",
+                description="Auto-count .py files",
+                auto_fn=lambda: (True, f"{len(list(Path(target_dir).rglob('*.py')))} files"),
+            ),
+            Task(
+                name="Find TODOs",
+                description="Search for TODO comments in source",
+                instruction=f"Search all .py files under {target_dir} for TODO comments. List each with file and line number.",
+                context_files=[target_dir],
+                done_when="List of TODOs with file:line, or 'No TODOs found'",
+                model="haiku",
+            ),
+            Task(
+                name="Architecture summary",
+                description="Describe the module structure",
+                instruction=f"Read the top-level .py files in {target_dir} and describe the architecture in 5 bullet points.",
+                context_files=[target_dir],
+                done_when="5-bullet architecture summary",
+                model="sonnet",
+            ),
+        ],
+        post_gates=[
+            Gate(
+                "All tasks complete",
+                check_fn=lambda: (True, "Post-gate placeholder"),
+                blocking=False,
+            ),
+        ],
+    )
+```
+
 ---
 
 ## Assumptions
@@ -547,3 +766,4 @@ reports/rondo-results/
 | 0.2 | 2026-03-13 | Split from monolithic spec. REQ-001=core, REQ-002=automation. Removed OB/ACE references. Own foundations. |
 | 0.3 | 2026-03-14 | Added Data Boundary section: RoundResult, DispatchUsage, result file structure. Answered Q1 (no DB), Q2 (rate_limit_event), Q3 (configurable binary). |
 | 0.4 | 2026-03-14 | Deep review fixes: formal Task/Gate/GateResult/Round dataclasses, aligned status vocabulary (done/blocked/partial/error/skipped) with STD-001, added description field to Task, added model hint to Task, RoundResult.status uses same vocabulary, duration units clarified (ms from stream-json, sec for wall-clock) |
+| 0.5 | 2026-03-14 | Added reqs 34-44: package structure, CLI entry point (run/overnight/report/dry-run subcommands), dynamic round loading, auto sequential/parallel detection, living example rounds (3 examples as test fixtures), library usage pattern, call chain diagram |

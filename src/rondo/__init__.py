@@ -20,6 +20,7 @@ from rondo.engine import (
     Task,
     TaskResult,
 )
+from rondo.overnight import EventLog, OvernightResult, check_usage_gate, run_overnight
 from rondo.parallel import detect_conflicts, run_parallel
 from rondo.runner import run_round
 
@@ -38,4 +39,8 @@ __all__ = [
     "run_round",
     "run_parallel",
     "detect_conflicts",
+    "run_overnight",
+    "OvernightResult",
+    "EventLog",
+    "check_usage_gate",
 ]

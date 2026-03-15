@@ -3,7 +3,7 @@
 *How every requirement gets proved — test, demonstration, analysis, or inspection.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
-**Depends on:** REQ-001, REQ-002, IFS-001 | **Blocks:** Nothing
+**Depends on:** REQ-001, REQ-002, IFS-001, STD-004 | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -293,6 +293,31 @@ but explicit traceability is tracked here.
 
 ---
 
+## STD-004 (Code Quality Gates) Verification Matrix
+
+| Rule | Rule (short) | Method | Test/Evidence |
+|------|-------------|--------|--------------|
+| 1 | Ruff lint passes with zero errors | Test | `test_conventions.py::TestNoStarImports` + build gate |
+| 2 | Ruff format passes | Test | Build gate (ruff format --check) |
+| 3 | Bandit passes with zero issues | Test | Build gate (bandit -r src/) |
+| 4 | Coverage ≥90% (fail_under) | Test | pytest-cov `fail_under = 90` in pyproject.toml |
+| 5 | Cyclomatic complexity ≤15 | Test | `test_conventions.py::TestCyclomaticComplexity` |
+| 6 | SPDX headers on all files | Test | `test_conventions.py::TestSPDXHeaders` |
+| 7 | Module docstrings on all source | Test | `test_conventions.py::TestModuleDocstrings` |
+| 8 | No relative imports | Test | `test_conventions.py::TestNoRelativeImports` |
+| 9 | No print() in source (use logging) | Test | `test_conventions.py::TestNoPrintInSource` |
+| 10 | No wildcard imports | Test | `test_conventions.py::TestNoWildcardImports` |
+| 11 | No bare `dict` annotations | Test | `test_conventions.py::TestNoBareDictAnnotation` |
+| 12 | orbit-sign signature on all files | Test | `test_conventions.py::TestSignaturePresent` |
+| 13 | Test files match test_*.py | Test | `test_conventions.py::TestTestFileNaming` |
+| 14 | Test classes start with Test | Test | `test_conventions.py::TestTestClassNaming` |
+| 15 | Public functions have docstrings | Test | `test_conventions.py::TestPublicFunctionDocstrings` |
+| 16 | Public functions have return types | Test | `test_conventions.py::TestPublicFunctionTypeAnnotations` |
+| 17 | No TODO/FIXME/HACK/XXX markers | Test | `test_conventions.py::TestNoTodoFixmeHack` |
+| 18 | No mutable default arguments | Test | `test_conventions.py::TestNoMutableDefaultArgs` |
+
+---
+
 ## Coverage Summary
 
 ### Requirements (REQ + IFS)
@@ -313,11 +338,11 @@ but explicit traceability is tracked here.
 | STD-001 | 10 | 7 | 1 | 0 | 6 rules also tested via REQ |
 | STD-002 | 10 | 7 | 1 | 1 | 4 rules also tested via REQ |
 | STD-003 | 15 | 9 | 4 | 1 | 8 rules also tested via REQ |
-| **Total** | **35** | **23** | **6** | **2** | — |
+| STD-004 | 18 | 18 | 0 | 0 | All automated via convention tests |
+| **Total** | **53** | **41** | **6** | **2** | — |
 
 Most STD rules are verified implicitly through REQ tests (noted in cross-ref column).
-4 new tests added for previously uncovered rules: kill_sequence, credential_sanitization,
-result_file_permissions, output_truncation.
+STD-004 rules are all verified by automated convention lock tests (15 classes, 18 rules).
 
 ---
 
@@ -369,3 +394,4 @@ specs, not spikes. Full gap analysis: `rondo/spikes/SPIKE-TRACKER.md`.
 | 0.6 | 2026-03-14 | Added REQ-001 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |
 | 0.7 | 2026-03-14 | Deep review v2: added REQ-001 reqs 45-46 (run_round, RoundResult.status). Added STD-001/002/003 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
 | 0.8 | 2026-03-14 | Added REQ-001 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
+| 0.9 | 2026-03-14 | Added STD-004 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |

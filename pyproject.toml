@@ -18,5 +18,18 @@ rondo = "rondo.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.bandit]
+# -- B404: subprocess import is required — Rondo's core function is invoking Claude via subprocess
+# -- B603: Popen without shell=True is the SAFE pattern (we never use shell=True)
+skips = ["B404", "B603"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["rondo"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_empty = true

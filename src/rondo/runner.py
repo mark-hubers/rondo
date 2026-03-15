@@ -32,6 +32,7 @@ from rondo.engine import (
     calculate_round_status,
     run_gates,
     should_proceed,
+    validate_round,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,17 @@ def run_round(
     """
     if config is None:
         config = RondoConfig()
+
+    # -- Round pre-flight validation (STD-001 defensive check)
+    round_errors = validate_round(round_def)
+    if round_errors:
+        msg = "; ".join(round_errors)
+        logger.warning("Round '%s' failed validation: %s", round_def.name, msg)
+        return RoundResult(
+            round_name=round_def.name,
+            status="error",
+            summary=f"Validation failed: {msg}",
+        )
 
     # -- REQ-001 req 40: auto-detect sequential vs parallel
     if config.workers > 1:
@@ -218,4 +230,5 @@ def _build_summary_dict(result: RoundResult) -> dict:
         "total_cost_usd": sum(u.cost_usd for u in result.usage),
     }
 
-# -- sig: MgH-48e184.7eb581
+
+# -- sig: mgh-6201.cd.bd955f.34cd.35e2e7

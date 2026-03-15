@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from rondo.config import RondoConfig
-from rondo.engine import DispatchUsage, Task, TaskResult
+from rondo.engine import DispatchUsage, Task, TaskResult, validate_task
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,9 @@ def prepare_env(config: RondoConfig) -> dict[str, str]:
 # ──────────────────────────────────────────────────────────────────
 
 
+VALID_MODELS: set[str] = {"opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]"}
+
+
 def resolve_model(
     cli_model: str | None,
     task: Task,
@@ -105,12 +108,12 @@ def resolve_model(
     """COALESCE: CLI → task.model → config.default_model.
 
     REQ-001 req 21: CLI override → task hint → config default.
+    Validates against VALID_MODELS — fails fast with clear message.
     """
-    if cli_model is not None:
-        return cli_model
-    if task.model is not None:
-        return task.model
-    return config.default_model
+    model = cli_model or task.model or config.default_model
+    if model not in VALID_MODELS:
+        raise ValueError(f"Invalid model '{model}' for task '{task.name}'. Valid: {sorted(VALID_MODELS)}")
+    return model
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -359,6 +362,26 @@ def dispatch_task(
         3. interactive task — invoke claude -p subprocess
     """
     timestamp = datetime.now(UTC).isoformat()
+
+    # -- Pre-dispatch validation (STD-001 defensive check)
+    task_errors = validate_task(task)
+    if task_errors:
+        msg = "; ".join(task_errors)
+        logger.warning("Task '%s' failed validation: %s", task.name, msg)
+        return (
+            TaskResult(
+                task_name=task.name,
+                status="error",
+                error_code="ERR_INTERNAL",
+                error_message=f"Validation failed: {msg}",
+                raw_output="",
+                model="",
+                auth_mode=config.auth,
+                timestamp=timestamp,
+            ),
+            DispatchUsage(task_name=task.name),
+        )
+
     model = resolve_model(cli_model, task, config)
 
     # -- Case 1: Dry run (REQ-001 req 16)
@@ -428,6 +451,44 @@ def _dispatch_auto(
         )
 
 
+def _make_error_result(
+    task_name: str,
+    *,
+    error_code: str,
+    error_message: str,
+    prompt: str,
+    raw_output: str = "",
+    stderr: str = "",
+    exit_code: int | None = None,
+    duration: float = 0.0,
+    model: str = "",
+    auth: str = "",
+    timestamp: str = "",
+) -> tuple[TaskResult, DispatchUsage]:
+    """Build a standardized error TaskResult + empty DispatchUsage.
+
+    Extracted to reduce cyclomatic complexity in _dispatch_interactive().
+    Every error path returns the same shaped result.
+    """
+    return (
+        TaskResult(
+            task_name=task_name,
+            status="error",
+            error_code=error_code,
+            error_message=error_message,
+            prompt_sent=prompt,
+            raw_output=raw_output,
+            stderr=stderr,
+            exit_code=exit_code,
+            duration_sec=duration,
+            model=model,
+            auth_mode=auth,
+            timestamp=timestamp,
+        ),
+        DispatchUsage(task_name=task_name, model=model),
+    )
+
+
 def _dispatch_interactive(
     task: Task,
     config: RondoConfig,
@@ -443,8 +504,78 @@ def _dispatch_interactive(
     prompt = build_prompt(task)
     env = prepare_env(config)
     start = time.monotonic()
+    cmd = _build_subprocess_cmd(config, prompt, model)
 
-    # -- Build command (STD-003 S1: list args, never shell=True)
+    try:
+        stdout, stderr, returncode, timed_out = _run_subprocess(cmd, env, config.task_timeout_sec)
+        duration = time.monotonic() - start
+
+        # -- Handle timeout
+        if timed_out:
+            return _make_error_result(
+                task.name,
+                error_code="ERR_TIMEOUT",
+                error_message=f"Task timed out after {config.task_timeout_sec}s",
+                prompt=prompt,
+                raw_output=stdout,
+                stderr=stderr,
+                duration=duration,
+                model=model,
+                auth=config.auth,
+                timestamp=timestamp,
+            )
+
+        # -- Handle non-zero exit (REQ-001 req 27)
+        if returncode != 0:
+            return _make_error_result(
+                task.name,
+                error_code=classify_error(stderr),
+                error_message=stderr[:500] if stderr else "Non-zero exit code",
+                prompt=prompt,
+                raw_output=stdout,
+                stderr=stderr,
+                exit_code=returncode,
+                duration=duration,
+                model=model,
+                auth=config.auth,
+                timestamp=timestamp,
+            )
+
+        # -- Handle empty stdout (STD-001: ERR_EMPTY_OUTPUT)
+        if not stdout or not stdout.strip():
+            return _make_error_result(
+                task.name,
+                error_code="ERR_EMPTY_OUTPUT",
+                error_message="Empty stdout — possible auth failure",
+                prompt=prompt,
+                stderr=stderr,
+                exit_code=returncode,
+                duration=duration,
+                model=model,
+                auth=config.auth,
+                timestamp=timestamp,
+            )
+
+        # -- Parse and build success result
+        return _parse_and_build_result(task, config, model, timestamp, prompt, stdout, stderr, returncode, duration)
+
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+        # -- STD-001 rule 9: subprocess + I/O failures caught
+        logger.warning("Interactive dispatch failed for task %s: %s", task.name, exc)
+        return _make_error_result(
+            task.name,
+            error_code="ERR_INTERNAL",
+            error_message=str(exc),
+            prompt=prompt,
+            duration=time.monotonic() - start,
+            model=model,
+            auth=config.auth,
+            timestamp=timestamp,
+        )
+
+
+def _build_subprocess_cmd(config: RondoConfig, prompt: str, model: str) -> list[str]:
+    """Build the claude -p command as a list (STD-003 S1: never shell=True)."""
     cmd = [
         config.claude_binary,
         "-p",
@@ -458,170 +589,108 @@ def _dispatch_interactive(
         cmd.extend(["--effort", config.effort])
     if config.permission_mode:
         cmd.extend(["--permission-mode", config.permission_mode])
+    return cmd
 
-    try:
-        # -- Launch subprocess (STD-003 R1: Popen for SIGTERM-first kill)
-        # -- pylint: disable=consider-using-with  # Popen needs explicit lifetime for SIGTERM-first kill
-        proc = subprocess.Popen(  # pylint: disable=consider-using-with
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
 
-        # -- Timer thread for SIGTERM-first kill (STD-001 rule 5)
-        timed_out = threading.Event()
+def _run_subprocess(
+    cmd: list[str],
+    env: dict[str, str],
+    timeout_sec: int,
+) -> tuple[str, str, int, bool]:
+    """Launch subprocess with SIGTERM-first kill timer.
 
-        def _kill_on_timeout() -> None:
-            timed_out.set()
-            proc.terminate()  # -- SIGTERM
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()  # -- SIGKILL after 5s
+    Returns (stdout, stderr, returncode, timed_out).
+    STD-003 R1: Popen for SIGTERM-first kill sequence.
+    """
+    proc = subprocess.Popen(  # pylint: disable=consider-using-with
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
 
-        timer = threading.Timer(config.task_timeout_sec, _kill_on_timeout)
-        timer.start()
+    timed_out = threading.Event()
 
+    def _kill_on_timeout() -> None:
+        timed_out.set()
+        proc.terminate()  # -- SIGTERM
         try:
-            stdout, stderr = proc.communicate()
-        finally:
-            timer.cancel()
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()  # -- SIGKILL after 5s
 
-        duration = time.monotonic() - start
+    timer = threading.Timer(timeout_sec, _kill_on_timeout)
+    timer.start()
+    try:
+        stdout, stderr = proc.communicate()
+    finally:
+        timer.cancel()
 
-        # -- Handle timeout
-        if timed_out.is_set():
-            return (
-                TaskResult(
-                    task_name=task.name,
-                    status="error",
-                    error_code="ERR_TIMEOUT",
-                    error_message=f"Task timed out after {config.task_timeout_sec}s",
-                    prompt_sent=prompt,
-                    raw_output=stdout or "",
-                    stderr=stderr or "",
-                    exit_code=None,
-                    duration_sec=duration,
-                    model=model,
-                    auth_mode=config.auth,
-                    timestamp=timestamp,
-                ),
-                DispatchUsage(task_name=task.name, model=model),
-            )
+    return stdout or "", stderr or "", proc.returncode, timed_out.is_set()
 
-        # -- Handle non-zero exit (REQ-001 req 27)
-        if proc.returncode != 0:
-            error_code = classify_error(stderr)
-            return (
-                TaskResult(
-                    task_name=task.name,
-                    status="error",
-                    error_code=error_code,
-                    error_message=stderr[:500] if stderr else "Non-zero exit code",
-                    prompt_sent=prompt,
-                    raw_output=stdout or "",
-                    stderr=stderr or "",
-                    exit_code=proc.returncode,
-                    duration_sec=duration,
-                    model=model,
-                    auth_mode=config.auth,
-                    timestamp=timestamp,
-                ),
-                DispatchUsage(task_name=task.name, model=model),
-            )
 
-        # -- Handle empty stdout (STD-001: ERR_EMPTY_OUTPUT)
-        if not stdout or not stdout.strip():
-            return (
-                TaskResult(
-                    task_name=task.name,
-                    status="error",
-                    error_code="ERR_EMPTY_OUTPUT",
-                    error_message="Empty stdout — possible auth failure",
-                    prompt_sent=prompt,
-                    raw_output="",
-                    stderr=stderr or "",
-                    exit_code=proc.returncode,
-                    duration_sec=duration,
-                    model=model,
-                    auth_mode=config.auth,
-                    timestamp=timestamp,
-                ),
-                DispatchUsage(task_name=task.name, model=model),
-            )
+def _parse_and_build_result(
+    task: Task,
+    config: RondoConfig,
+    model: str,
+    timestamp: str,
+    prompt: str,
+    stdout: str,
+    stderr: str,
+    returncode: int,
+    duration: float,
+) -> tuple[TaskResult, DispatchUsage]:
+    """Parse stream-json output and build success/partial TaskResult.
 
-        # -- Parse stream-json events (IFS-001)
-        events, usage = parse_stream_json_events(
-            stdout.split("\n"),
-            task_name=task.name,
-        )
-        usage = DispatchUsage(
-            task_name=task.name,
-            model=model,
-            cost_usd=usage.cost_usd,
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            cache_read_tokens=usage.cache_read_tokens,
-            cache_create_tokens=usage.cache_create_tokens,
-            duration_ms=usage.duration_ms,
-            duration_api_ms=usage.duration_api_ms,
-            num_turns=usage.num_turns,
-            context_window=usage.context_window,
-            rate_limit_status=usage.rate_limit_status,
-            is_using_overage=usage.is_using_overage,
-            rate_limit_resets_at=usage.rate_limit_resets_at,
-        )
+    Extracted from _dispatch_interactive() for complexity reduction.
+    """
+    events, usage = parse_stream_json_events(stdout.split("\n"), task_name=task.name)
+    usage = DispatchUsage(
+        task_name=task.name,
+        model=model,
+        cost_usd=usage.cost_usd,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        cache_read_tokens=usage.cache_read_tokens,
+        cache_create_tokens=usage.cache_create_tokens,
+        duration_ms=usage.duration_ms,
+        duration_api_ms=usage.duration_api_ms,
+        num_turns=usage.num_turns,
+        context_window=usage.context_window,
+        rate_limit_status=usage.rate_limit_status,
+        is_using_overage=usage.is_using_overage,
+        rate_limit_resets_at=usage.rate_limit_resets_at,
+    )
 
-        # -- Extract assistant text and parse task JSON
-        assistant_text = _collect_assistant_text(events)
-        parsed = parse_task_json(assistant_text)
+    assistant_text = _collect_assistant_text(events)
+    parsed = parse_task_json(assistant_text)
 
-        if parsed is not None:
-            task_status = parsed.get("status", "done")
-            if task_status not in ("done", "blocked"):
-                task_status = "done"
-        else:
-            task_status = "partial"
+    if parsed is not None:
+        task_status = parsed.get("status", "done")
+        if task_status not in ("done", "blocked"):
+            task_status = "done"
+    else:
+        task_status = "partial"
 
-        # -- Build result
-        result = TaskResult(
-            task_name=task.name,
-            status=task_status,
-            error_code="ERR_MALFORMED_JSON" if parsed is None else None,
-            prompt_sent=prompt,
-            raw_output=assistant_text,
-            parsed_result=parsed,
-            stderr=stderr or "",
-            exit_code=proc.returncode,
-            duration_sec=duration,
-            model=model,
-            auth_mode=config.auth,
-            timestamp=timestamp,
-            cost_usd=usage.cost_usd,
-            files_modified=extract_modified_files(assistant_text),
-        )
+    result = TaskResult(
+        task_name=task.name,
+        status=task_status,
+        error_code="ERR_MALFORMED_JSON" if parsed is None else None,
+        prompt_sent=prompt,
+        raw_output=assistant_text,
+        parsed_result=parsed,
+        stderr=stderr,
+        exit_code=returncode,
+        duration_sec=duration,
+        model=model,
+        auth_mode=config.auth,
+        timestamp=timestamp,
+        cost_usd=usage.cost_usd,
+        files_modified=extract_modified_files(assistant_text),
+    )
 
-        return result, usage
+    return result, usage
 
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
-        # -- STD-001 rule 9: subprocess + I/O failures caught
-        logger.warning("Interactive dispatch failed for task %s: %s", task.name, exc)
-        return (
-            TaskResult(
-                task_name=task.name,
-                status="error",
-                error_code="ERR_INTERNAL",
-                error_message=str(exc),
-                prompt_sent=prompt,
-                raw_output="",
-                duration_sec=time.monotonic() - start,
-                model=model,
-                auth_mode=config.auth,
-                timestamp=timestamp,
-            ),
-            DispatchUsage(task_name=task.name, model=model),
-        )
 
-# -- sig: MgH-bdf95a.2ed0f8
+# -- sig: mgh-6201.cd.bd955f.e969.bc3711

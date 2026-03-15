@@ -28,6 +28,8 @@ from rondo.engine import (
     run_gate,
     run_gates,
     should_proceed,
+    validate_round,
+    validate_task,
 )
 
 
@@ -449,4 +451,111 @@ class TestRoundResultStatusCalculation:
         ]
         assert calculate_round_status(results) == "error"
 
-# -- sig: MgH-40130b.cb8a98
+
+# ──────────────────────────────────────────────────────────────────
+#  Task Validation — validate_task()
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestValidateTask:
+    def test_valid_interactive_task(self):
+        """Valid interactive task returns no errors."""
+        task = Task(name="check", instruction="Do thing", done_when="Thing done")
+        assert validate_task(task) == []
+
+    def test_valid_auto_task(self):
+        """Valid auto task returns no errors."""
+        task = Task(name="count", auto_fn=lambda: (True, "42"))
+        assert validate_task(task) == []
+
+    def test_empty_name(self):
+        """Empty task name is an error."""
+        task = Task(name="", instruction="do", done_when="done")
+        errors = validate_task(task)
+        assert any("empty name" in e for e in errors)
+
+    def test_whitespace_name(self):
+        """Whitespace-only task name is an error."""
+        task = Task(name="   ", instruction="do", done_when="done")
+        errors = validate_task(task)
+        assert any("empty name" in e for e in errors)
+
+    def test_missing_instruction(self):
+        """Interactive task without instruction is an error."""
+        task = Task(name="t", instruction="", done_when="done")
+        errors = validate_task(task)
+        assert any("instruction" in e.lower() or "Do field" in e for e in errors)
+
+    def test_missing_done_when(self):
+        """Interactive task without done_when is an error."""
+        task = Task(name="t", instruction="do", done_when="")
+        errors = validate_task(task)
+        assert any("done_when" in e.lower() or "Done field" in e for e in errors)
+
+    def test_neither_auto_nor_interactive(self):
+        """Task with no auto_fn and no instruction/done_when is an error."""
+        task = Task(name="empty-task")
+        errors = validate_task(task)
+        assert any("neither" in e for e in errors)
+
+    def test_both_auto_and_interactive(self):
+        """Task with both auto_fn AND instruction/done_when is an error."""
+        task = Task(name="confused", instruction="do", done_when="done", auto_fn=lambda: (True, "ok"))
+        errors = validate_task(task)
+        assert any("both" in e.lower() for e in errors)
+
+    def test_multiple_errors_returned(self):
+        """A task can have multiple validation errors at once."""
+        task = Task(name="")  # -- empty name AND no contract
+        errors = validate_task(task)
+        assert len(errors) >= 2
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Round Validation — validate_round()
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestValidateRound:
+    def test_valid_round(self):
+        """Valid round returns no errors."""
+        r = Round(
+            name="my-round",
+            tasks=[Task(name="t1", instruction="do", done_when="done")],
+        )
+        assert validate_round(r) == []
+
+    def test_empty_round_name(self):
+        """Empty round name is an error."""
+        r = Round(name="", tasks=[Task(name="t1", instruction="do", done_when="done")])
+        errors = validate_round(r)
+        assert any("Round name" in e for e in errors)
+
+    def test_duplicate_task_names(self):
+        """Duplicate task names are caught."""
+        r = Round(
+            name="dup-round",
+            tasks=[
+                Task(name="same", instruction="do A", done_when="A done"),
+                Task(name="same", instruction="do B", done_when="B done"),
+            ],
+        )
+        errors = validate_round(r)
+        assert any("Duplicate" in e for e in errors)
+
+    def test_invalid_task_in_round(self):
+        """Invalid task inside a round is caught."""
+        r = Round(
+            name="bad-task-round",
+            tasks=[Task(name="bad", instruction="", done_when="")],
+        )
+        errors = validate_round(r)
+        assert len(errors) > 0
+
+    def test_empty_tasks_valid(self):
+        """Round with no tasks is valid (handled at runner level)."""
+        r = Round(name="empty-round")
+        assert validate_round(r) == []
+
+
+# -- sig: mgh-6201.cd.bd955f.39ed.655d8b

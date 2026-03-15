@@ -22,6 +22,8 @@ from rondo.engine import (
     RoundResult,
     Task,
     TaskResult,
+    validate_round,
+    validate_task,
 )
 from rondo.overnight import EventLog, OvernightResult, check_usage_gate, run_overnight
 from rondo.parallel import detect_conflicts, run_parallel
@@ -49,6 +51,9 @@ __all__ = [
     "check_usage_gate",
     "generate_report",
     "save_report",
+    "validate_round",
+    "validate_task",
 ]
 
-# -- sig: MgH-a12f78.2e8dd8
+
+# -- sig: mgh-6201.cd.bd955f.8e2c.008cb8

@@ -8,4 +8,5 @@ from rondo.cli import main
 
 sys.exit(main())
 
-# -- sig: MgH-53b5a4.82f2ab
+
+# -- sig: mgh-6201.cd.bd955f.5b63.82f2ab

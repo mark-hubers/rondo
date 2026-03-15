@@ -82,6 +82,7 @@ def validate_config(config: RondoConfig) -> list[str]:
     errors: list[str] = []
     _validate_enums(config, errors)
     _validate_ranges(config, errors)
+    _validate_relationships(config, errors)
     _validate_non_empty(config, errors)
     return errors
 
@@ -125,6 +126,16 @@ def _validate_ranges(config: RondoConfig, errors: list[str]) -> None:
 
     if config.rate_limit_backoff_sec < 10 or config.rate_limit_backoff_sec > 600:
         errors.append(f"rate_limit_backoff_sec must be 10-600, got {config.rate_limit_backoff_sec}")
+
+
+def _validate_relationships(config: RondoConfig, errors: list[str]) -> None:
+    """Validate cross-field relationships between config values."""
+    if config.watchdog_timeout_sec >= config.task_timeout_sec:
+        errors.append(
+            f"watchdog_timeout_sec ({config.watchdog_timeout_sec}) must be less than "
+            f"task_timeout_sec ({config.task_timeout_sec}) — watchdog detects silence "
+            f"within a task, so it must fire before the task times out"
+        )
 
 
 def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
@@ -226,4 +237,5 @@ def _load_toml(
 
     return {}
 
-# -- sig: MgH-ec11b3.6437d9
+
+# -- sig: mgh-6201.cd.bd955f.1174.b6fb32

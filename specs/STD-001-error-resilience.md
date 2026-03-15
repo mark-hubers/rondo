@@ -213,6 +213,68 @@ Rondo checks stderr to distinguish error subtypes:
 
 ---
 
+## Pre-Dispatch Validation (Defense in Depth)
+
+Validation happens at THREE levels before any subprocess launches:
+
+### Level 1: Task Contract Validation (`validate_task()`)
+
+Every task is validated before dispatch. Returns list of errors (empty = valid).
+
+| Check | Error |
+|-------|-------|
+| Empty or whitespace-only name | "Task has empty name" |
+| No auto_fn AND no instruction/done_when | "has neither auto_fn nor instruction/done_when" |
+| Both auto_fn AND instruction/done_when set | "has both auto_fn AND three-field contract" |
+| Interactive task with empty instruction | "Do field (instruction) is empty" |
+| Interactive task with empty done_when | "Done field (done_when) is empty" |
+
+If validation fails, dispatch returns `TaskResult(status="error", error_code="ERR_INTERNAL")`
+without ever launching a subprocess.
+
+### Level 2: Round Pre-flight Validation (`validate_round()`)
+
+Every round is validated before any tasks dispatch. Returns list of errors.
+
+| Check | Error |
+|-------|-------|
+| Empty round name | "Round name is empty" |
+| Duplicate task names | "Duplicate task name: 'X'" |
+| Any task fails validate_task() | (task-level errors propagated) |
+
+If validation fails, `run_round()` returns `RoundResult(status="error")` immediately.
+
+### Level 3: Model Validation (`resolve_model()`)
+
+Model names are validated against `VALID_MODELS = {"opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]"}`.
+Invalid model raises `ValueError` with clear message listing valid options.
+
+### Level 4: Config Validation (`validate_config()`)
+
+Config is validated at the CLI boundary before `run_round()` or `run_overnight()` is called.
+Errors print to stderr and return `EXIT_FAILURE`.
+
+---
+
+## CLI Exit Code Contract
+
+The CLI returns these exit codes per Unix convention:
+
+| Constant | Code | Meaning |
+|----------|------|---------|
+| `EXIT_SUCCESS` | 0 | All tasks completed successfully |
+| `EXIT_FAILURE` | 1 | Task failure, config error, or unexpected error |
+| `EXIT_USAGE` | 2 | Bad arguments or missing subcommand |
+| `EXIT_INTERRUPTED` | 130 | User pressed Ctrl+C (128 + SIGINT=2) |
+
+**Exception handling in `main()`:**
+- `KeyboardInterrupt` → prints "Interrupted." to stderr, returns 130
+- `SystemExit` → extracts exit code, returns it as integer
+- `Exception` (catch-all) → prints "Unexpected error: {exc}" to stderr, returns 1
+- No raw tracebacks ever reach the user
+
+---
+
 ## Two Timeout Mechanisms
 
 Rondo has two independent timeout mechanisms. They serve different purposes:
@@ -261,3 +323,4 @@ after 5 seconds if the process hasn't exited.
 | 0.1 | 2026-03-13 | Initial draft — 10 rules, 7 error categories |
 | 0.2 | 2026-03-14 | Beefed up: error codes, result structure, flow diagram, stderr patterns, credential safety, timeout sequence |
 | 0.3 | 2026-03-14 | Deep review fixes: added files_modified + extract_modified_files(), ERR_WATCHDOG_TIMEOUT code, two-timeout explanation, SIGTERM-first kill sequence, Popen implementation note |
+| 0.4 | 2026-03-14 | Defense in depth: pre-dispatch validation (task/round/model/config), CLI exit code contract, KeyboardInterrupt handling, top-level exception safety net |

@@ -20,11 +20,18 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.cli import (
+    EXIT_FAILURE,
+    EXIT_INTERRUPTED,
+    EXIT_SUCCESS,
+    EXIT_USAGE,
+    _build_config,
     build_parser,
+    load_phases_file,
     load_round_file,
     main,
 )
 from rondo.engine import DispatchUsage, Round, RoundResult, TaskResult
+from rondo.overnight import OvernightResult
 
 # ──────────────────────────────────────────────────────────────────
 #  Helpers
@@ -288,8 +295,409 @@ class TestMainIntegration:
             assert exit_code == 1
 
     def test_main_no_args(self):
-        """main() with no args shows help and exits."""
-        with pytest.raises(SystemExit):
-            main([])
+        """main() with no args shows help and returns EXIT_USAGE."""
+        exit_code = main([])
+        assert exit_code == EXIT_USAGE
 
-# -- sig: MgH-073422.d12593
+
+# ──────────────────────────────────────────────────────────────────
+#  Exit code contract — REQ-001 req 36
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestExitCodes:
+    def test_exit_constants_defined(self):
+        """Exit code constants follow Unix convention."""
+        assert EXIT_SUCCESS == 0
+        assert EXIT_FAILURE == 1
+        assert EXIT_USAGE == 2
+        assert EXIT_INTERRUPTED == 130
+
+    def test_success_exit_code(self, tmp_path):
+        """Successful round returns EXIT_SUCCESS (0)."""
+        filepath = _write_round_file(tmp_path)
+        with patch("rondo.cli.run_round", return_value=_mock_round_result()):
+            assert main(["run", filepath]) == EXIT_SUCCESS
+
+    def test_error_exit_code(self, tmp_path):
+        """Failed round returns EXIT_FAILURE (1)."""
+        filepath = _write_round_file(tmp_path)
+        result = _mock_round_result()
+        result.status = "error"
+        with patch("rondo.cli.run_round", return_value=result):
+            assert main(["run", filepath]) == EXIT_FAILURE
+
+    def test_no_subcommand_exit_code(self):
+        """No subcommand returns EXIT_USAGE (2)."""
+        assert main([]) == EXIT_USAGE
+
+    def test_keyboard_interrupt_exit_code(self, tmp_path):
+        """KeyboardInterrupt returns EXIT_INTERRUPTED (130)."""
+        filepath = _write_round_file(tmp_path)
+        with patch("rondo.cli.run_round", side_effect=KeyboardInterrupt):
+            assert main(["run", filepath]) == EXIT_INTERRUPTED
+
+    def test_unexpected_error_exit_code(self, tmp_path):
+        """Unexpected exception returns EXIT_FAILURE (1)."""
+        filepath = _write_round_file(tmp_path)
+        with patch("rondo.cli.run_round", side_effect=RuntimeError("boom")):
+            assert main(["run", filepath]) == EXIT_FAILURE
+
+    def test_file_not_found_exit_code(self):
+        """Missing round file returns EXIT_FAILURE (1)."""
+        assert main(["run", "/nonexistent/file.py"]) == EXIT_FAILURE
+
+    def test_config_validation_error(self, tmp_path):
+        """Invalid config returns EXIT_FAILURE before running."""
+        filepath = _write_round_file(tmp_path)
+        with patch("rondo.cli.validate_config", return_value=["workers must be positive"]):
+            assert main(["run", filepath]) == EXIT_FAILURE
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Round validation at runner level
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestRunnerValidation:
+    def test_invalid_round_returns_error_result(self, tmp_path):
+        """Round with validation errors returns error status without dispatch."""
+        bad_content = textwrap.dedent("""\
+            from rondo.engine import Round, Task
+
+            def build_round():
+                return Round(
+                    name="",
+                    tasks=[Task(name="t1", instruction="do", done_when="done")],
+                )
+        """)
+        filepath = _write_round_file(tmp_path, content=bad_content)
+        with patch("rondo.cli.run_round") as mock_run:
+            # -- run_round should see validate_round errors and return error result
+            mock_run.return_value = RoundResult(
+                round_name="",
+                status="error",
+                summary="Validation failed: Round name is empty",
+            )
+            exit_code = main(["run", filepath])
+            assert exit_code == EXIT_FAILURE
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Dynamic loading — load_phases_file() (REQ-001 req 39)
+# ──────────────────────────────────────────────────────────────────
+
+
+def _write_phases_file(tmp_path, content=None):
+    """Write a minimal phases definition file and return path."""
+    if content is None:
+        content = textwrap.dedent("""\
+            from rondo.engine import Round, Task
+
+            def build_phases():
+                return [
+                    Round(
+                        name="phase-1",
+                        tasks=[Task(name="t1", instruction="do work", done_when="done")],
+                    ),
+                ]
+        """)
+    filepath = tmp_path / "my_phases.py"
+    filepath.write_text(content)
+    return str(filepath)
+
+
+class TestLoadPhasesFile:
+    def test_load_phases_file_success(self, tmp_path):
+        """load_phases_file returns list[Round] from build_phases()."""
+        filepath = _write_phases_file(tmp_path)
+        phases = load_phases_file(filepath)
+        assert isinstance(phases, list)
+        assert len(phases) == 1
+        assert isinstance(phases[0], Round)
+        assert phases[0].name == "phase-1"
+
+    def test_load_phases_file_not_found(self):
+        """Missing file raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            load_phases_file("/nonexistent/phases.py")
+
+    def test_load_phases_file_no_build_phases(self, tmp_path):
+        """File without build_phases() raises AttributeError."""
+        filepath = tmp_path / "bad_phases.py"
+        filepath.write_text("x = 42\n")
+        with pytest.raises(AttributeError, match="build_phases"):
+            load_phases_file(str(filepath))
+
+    def test_load_phases_file_wrong_return_type(self, tmp_path):
+        """build_phases() returning wrong type raises TypeError."""
+        filepath = tmp_path / "wrong_type.py"
+        filepath.write_text("def build_phases(): return 'not a list'\n")
+        with pytest.raises(TypeError, match="list"):
+            load_phases_file(str(filepath))
+
+    def test_load_phases_file_import_error(self, tmp_path):
+        """File that can't produce a module spec raises ImportError."""
+        # -- A directory can't be loaded as a module
+        dirpath = tmp_path / "not_a_file.py"
+        dirpath.mkdir()
+        with pytest.raises((ImportError, IsADirectoryError)):
+            load_phases_file(str(dirpath))
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Config construction — _build_config()
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestBuildConfig:
+    def test_build_config_no_overrides(self):
+        """_build_config with no flags returns defaults."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py"])
+        config = _build_config(args)
+        assert config.workers == 4
+        assert config.default_model == "sonnet"
+        assert config.dry_run is False
+        assert config.verbose is False
+
+    def test_build_config_workers_override(self):
+        """--workers flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--workers", "8"])
+        config = _build_config(args)
+        assert config.workers == 8
+
+    def test_build_config_model_override(self):
+        """--model flag flows into config as default_model."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--model", "opus"])
+        config = _build_config(args)
+        assert config.default_model == "opus"
+
+    def test_build_config_auth_override(self):
+        """--auth flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--auth", "api"])
+        config = _build_config(args)
+        assert config.auth == "api"
+
+    def test_build_config_timeout_override(self):
+        """--timeout flag flows into config as task_timeout_sec."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--timeout", "600"])
+        config = _build_config(args)
+        assert config.task_timeout_sec == 600
+
+    def test_build_config_effort_override(self):
+        """--effort flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--effort", "low"])
+        config = _build_config(args)
+        assert config.effort == "low"
+
+    def test_build_config_on_overage_override(self):
+        """--on-overage flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--on-overage", "stop"])
+        config = _build_config(args)
+        assert config.on_overage == "stop"
+
+    def test_build_config_permission_mode_override(self):
+        """--permission-mode flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--permission-mode", "plan"])
+        config = _build_config(args)
+        assert config.permission_mode == "plan"
+
+    def test_build_config_dry_run_flag(self):
+        """--dry-run boolean flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--dry-run"])
+        config = _build_config(args)
+        assert config.dry_run is True
+
+    def test_build_config_verbose_flag(self):
+        """--verbose boolean flag flows into config."""
+        parser = build_parser()
+        args = parser.parse_args(["run", "file.py", "--verbose"])
+        config = _build_config(args)
+        assert config.verbose is True
+
+    def test_build_config_all_overrides(self):
+        """All flags at once flow into config correctly."""
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "run",
+                "file.py",
+                "--workers",
+                "2",
+                "--model",
+                "haiku",
+                "--auth",
+                "api",
+                "--timeout",
+                "120",
+                "--effort",
+                "medium",
+                "--on-overage",
+                "pause",
+                "--permission-mode",
+                "acceptEdits",
+                "--dry-run",
+                "--verbose",
+            ]
+        )
+        config = _build_config(args)
+        assert config.workers == 2
+        assert config.default_model == "haiku"
+        assert config.auth == "api"
+        assert config.task_timeout_sec == 120
+        assert config.effort == "medium"
+        assert config.on_overage == "pause"
+        assert config.permission_mode == "acceptEdits"
+        assert config.dry_run is True
+        assert config.verbose is True
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Overnight subcommand — _cmd_overnight()
+# ──────────────────────────────────────────────────────────────────
+
+
+def _mock_overnight_result(status="done"):
+    """Build a minimal OvernightResult for testing."""
+    return OvernightResult(
+        mode="all",
+        started_at="2026-03-14T00:00:00Z",
+        completed_at="2026-03-14T01:00:00Z",
+        duration_sec=3600.0,
+        phase_results=[_mock_round_result("phase-1")],
+        total_cost_usd=0.50,
+        status=status,
+    )
+
+
+class TestOvernightSubcommand:
+    def test_overnight_file_not_found(self):
+        """Overnight with missing file returns EXIT_FAILURE."""
+        assert main(["overnight", "/nonexistent/phases.py"]) == EXIT_FAILURE
+
+    def test_overnight_success(self, tmp_path):
+        """Overnight with valid phases returns EXIT_SUCCESS."""
+        filepath = _write_phases_file(tmp_path)
+        result = _mock_overnight_result("done")
+        with (
+            patch("rondo.overnight.run_overnight", return_value=result),
+            patch("rondo.report.save_report", return_value="/tmp/report.md"),
+        ):
+            assert main(["overnight", filepath]) == EXIT_SUCCESS
+
+    def test_overnight_error_status(self, tmp_path):
+        """Overnight with error status returns EXIT_FAILURE."""
+        filepath = _write_phases_file(tmp_path)
+        result = _mock_overnight_result("error")
+        with (
+            patch("rondo.overnight.run_overnight", return_value=result),
+            patch("rondo.report.save_report", return_value="/tmp/report.md"),
+        ):
+            assert main(["overnight", filepath]) == EXIT_FAILURE
+
+    def test_overnight_config_validation_error(self, tmp_path):
+        """Overnight with invalid config returns EXIT_FAILURE before running."""
+        filepath = _write_phases_file(tmp_path)
+        with patch("rondo.cli.validate_config", return_value=["workers out of range"]):
+            assert main(["overnight", filepath]) == EXIT_FAILURE
+
+    def test_overnight_report_save_failure(self, tmp_path):
+        """Overnight continues even if report save fails."""
+        filepath = _write_phases_file(tmp_path)
+        result = _mock_overnight_result("done")
+        with (
+            patch("rondo.overnight.run_overnight", return_value=result),
+            patch("rondo.report.save_report", side_effect=OSError("disk full")),
+        ):
+            # -- Still returns EXIT_SUCCESS because phases succeeded
+            assert main(["overnight", filepath]) == EXIT_SUCCESS
+
+    def test_overnight_with_mode_flag(self, tmp_path):
+        """--mode flag passed through to run_overnight."""
+        filepath = _write_phases_file(tmp_path)
+        result = _mock_overnight_result("done")
+        with (
+            patch("rondo.overnight.run_overnight", return_value=result) as mock_run,
+            patch("rondo.report.save_report", return_value="/tmp/report.md"),
+        ):
+            main(["overnight", filepath, "--mode", "minimal"])
+            call_kwargs = mock_run.call_args
+            assert call_kwargs[1]["mode"] == "minimal"
+
+    def test_overnight_no_build_phases(self, tmp_path):
+        """Overnight with file missing build_phases() returns EXIT_FAILURE."""
+        filepath = tmp_path / "bad_phases.py"
+        filepath.write_text("x = 42\n")
+        assert main(["overnight", str(filepath)]) == EXIT_FAILURE
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Report subcommand — _cmd_report()
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestReportSubcommand:
+    def test_report_not_yet_implemented(self):
+        """Report subcommand returns EXIT_FAILURE (not yet implemented)."""
+        assert main(["report", "/some/results/"]) == EXIT_FAILURE
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Verbose output path
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestVerboseOutput:
+    def test_verbose_run_prints_details(self, tmp_path, capsys):
+        """Verbose mode prints round name, status, summary, duration, tasks."""
+        filepath = _write_round_file(tmp_path)
+        result = _mock_round_result("verbose-test")
+        with patch("rondo.cli.run_round", return_value=result):
+            main(["run", filepath, "--verbose"])
+        captured = capsys.readouterr()
+        assert "Round: verbose-test" in captured.out
+        assert "Status: done" in captured.out
+        assert "Duration:" in captured.out
+
+    def test_non_verbose_run_prints_summary_only(self, tmp_path, capsys):
+        """Non-verbose mode prints only status: summary."""
+        filepath = _write_round_file(tmp_path)
+        result = _mock_round_result("quiet-test")
+        with patch("rondo.cli.run_round", return_value=result):
+            main(["run", filepath])
+        captured = capsys.readouterr()
+        assert "done: 1/1 tasks done" in captured.out
+        assert "Round:" not in captured.out
+
+
+# ──────────────────────────────────────────────────────────────────
+#  __main__.py entry point
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestMainModule:
+    def test_main_module_calls_main(self):
+        """Python -m rondo calls main() and sys.exit()."""
+        with (
+            patch("rondo.cli.main", return_value=0) as mock_main,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            import importlib
+
+            import rondo.__main__  # noqa: F811
+
+            importlib.reload(rondo.__main__)
+        mock_main.assert_called_once()
+        assert exc_info.value.code == 0
+
+
+# -- sig: mgh-6201.cd.bd955f.90ef.7572f7

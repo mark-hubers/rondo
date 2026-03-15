@@ -422,4 +422,36 @@ class TestAllConfigFields:
         config = load_config(config_path=None, search_dir=tmp_path / "empty")
         assert config.permission_mode == "auto"
 
-# -- sig: MgH-7eeecd.51dcb1
+
+# ──────────────────────────────────────────────────────────────────
+#  Cross-field relationship validation
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestRelationshipValidation:
+    def test_watchdog_must_be_less_than_task_timeout(self):
+        """Watchdog fires within a task — must be shorter than task timeout."""
+        config = RondoConfig(watchdog_timeout_sec=300, task_timeout_sec=60)
+        errors = validate_config(config)
+        assert any("watchdog_timeout_sec" in e and "task_timeout_sec" in e for e in errors)
+
+    def test_watchdog_equal_to_task_timeout_fails(self):
+        """Equal values also invalid — watchdog must be strictly less."""
+        config = RondoConfig(watchdog_timeout_sec=300, task_timeout_sec=300)
+        errors = validate_config(config)
+        assert any("watchdog_timeout_sec" in e for e in errors)
+
+    def test_watchdog_less_than_task_timeout_passes(self):
+        """Valid: watchdog < task timeout."""
+        config = RondoConfig(watchdog_timeout_sec=60, task_timeout_sec=300)
+        errors = validate_config(config)
+        assert not any("watchdog_timeout_sec" in e for e in errors)
+
+    def test_default_config_relationship_valid(self):
+        """Default config has watchdog (60) < task_timeout (300)."""
+        config = RondoConfig()
+        errors = validate_config(config)
+        assert len(errors) == 0
+
+
+# -- sig: mgh-6201.cd.bd955f.e6d7.bf1b3b

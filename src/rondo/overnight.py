@@ -347,4 +347,5 @@ def _log_watchdog_events(phase_result: RoundResult, event_log: EventLog) -> None
                 }
             )
 
-# -- sig: MgH-753838.2bc45c
+
+# -- sig: mgh-6201.cd.bd955f.f73d.2bc45c

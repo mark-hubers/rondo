@@ -261,6 +261,66 @@ def calculate_round_status(task_results: list[TaskResult]) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
+#  Validation — STD-001 defensive checks
+# ──────────────────────────────────────────────────────────────────
+
+
+def validate_task(task: Task) -> list[str]:
+    """Validate a task before dispatch. Returns list of errors (empty = valid).
+
+    Checks:
+        - Name is not empty
+        - Interactive tasks have instruction + done_when
+        - Auto tasks have auto_fn
+        - Task doesn't set both auto_fn AND three-field contract
+    """
+    errors: list[str] = []
+
+    if not task.name.strip():
+        errors.append("Task has empty name")
+
+    has_auto = task.auto_fn is not None
+    has_interactive = bool(task.instruction.strip() or task.done_when.strip())
+
+    if has_auto and has_interactive:
+        errors.append(f"Task '{task.name}' has both auto_fn AND three-field contract — pick one")
+
+    if not has_auto and not has_interactive:
+        errors.append(f"Task '{task.name}' has neither auto_fn nor instruction/done_when")
+
+    if not has_auto:
+        if not task.instruction.strip():
+            errors.append(f"Task '{task.name}' Do field (instruction) is empty")
+        if not task.done_when.strip():
+            errors.append(f"Task '{task.name}' Done field (done_when) is empty")
+
+    return errors
+
+
+def validate_round(round_def: Round) -> list[str]:
+    """Validate a round before execution. Returns list of errors (empty = valid).
+
+    Checks:
+        - Round name is not empty
+        - No duplicate task names
+        - All tasks pass validate_task()
+    """
+    errors: list[str] = []
+
+    if not round_def.name.strip():
+        errors.append("Round name is empty")
+
+    task_names: set[str] = set()
+    for task in round_def.tasks:
+        if task.name in task_names:
+            errors.append(f"Duplicate task name: '{task.name}'")
+        task_names.add(task.name)
+        errors.extend(validate_task(task))
+
+    return errors
+
+
+# ──────────────────────────────────────────────────────────────────
 #  Serialization (REQ-001 reqs 10-11)
 # ──────────────────────────────────────────────────────────────────
 
@@ -294,4 +354,5 @@ def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
         if task.name in status_map:
             task.status = status_map[task.name]
 
-# -- sig: MgH-65114b.590731
+
+# -- sig: mgh-6201.cd.bd955f.773b.af473b

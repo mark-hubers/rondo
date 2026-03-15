@@ -310,4 +310,5 @@ class TestExampleSize:
         lines = example_file.read_text().splitlines()
         assert len(lines) <= 100, f"{example_file.name} is {len(lines)} lines (max 100)"
 
-# -- sig: MgH-574e4d.7ca810
+
+# -- sig: mgh-6201.cd.bd955f.0dcc.7ca810

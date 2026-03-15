@@ -270,8 +270,20 @@ def validate_config(config: RondoConfig) -> list[str]:
     if not config.report_dir:
         errors.append("report_dir must not be empty")
 
+    # -- Cross-field relationships
+    if config.watchdog_timeout_sec >= config.task_timeout_sec:
+        errors.append(
+            f"watchdog_timeout_sec ({config.watchdog_timeout_sec}) must be less than "
+            f"task_timeout_sec ({config.task_timeout_sec})"
+        )
+
     return errors
 ```
+
+**Cross-field relationships:** Some settings have dependencies on each other.
+The watchdog detects silence *within* a running task, so it must always fire
+before the task's total timeout. If `watchdog_timeout_sec >= task_timeout_sec`,
+the watchdog is useless — the task would be killed first.
 
 **Startup behavior:** If validation returns errors, Rondo prints them all and
 exits with code 1. No partial config — either everything is valid or nothing runs.
@@ -315,3 +327,4 @@ Startup
 | 0.3 | 2026-03-14 | Deep review fixes: added 4 missing fields to RondoConfig (watchdog_timeout_sec, rate_limit_backoff_sec, on_overage, worktree_isolation), completed validate_config(), added dry_run note, updated TOML example |
 | 0.4 | 2026-03-14 | Deep review v2: added 4 missing validations to validate_config() (default_model, claude_binary, results_dir, report_dir) |
 | 0.5 | 2026-03-14 | Added permission_mode setting — controls Claude Code's `--permission-mode` flag for tool access in non-interactive dispatch |
+| 0.6 | 2026-03-14 | Added cross-field relationship validation: watchdog_timeout_sec must be < task_timeout_sec |

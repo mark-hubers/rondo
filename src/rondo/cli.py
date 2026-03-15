@@ -17,9 +17,15 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from rondo.config import RondoConfig, load_config
+from rondo.config import RondoConfig, load_config, validate_config
 from rondo.engine import Round
 from rondo.runner import run_round
+
+# -- Exit code contract (documented, consistent)
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_USAGE = 2
+EXIT_INTERRUPTED = 130  # -- standard Unix: 128 + SIGINT(2)
 
 # ──────────────────────────────────────────────────────────────────
 #  Argument parser — REQ-001 reqs 36-37, 41
@@ -175,26 +181,44 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point. Returns exit code (0=success, 1=error).
+    """CLI entry point, returns exit code per contract.
+
+    EXIT_SUCCESS (0):     All tasks completed successfully.
+    EXIT_FAILURE (1):     Task failure, config error, or unexpected error.
+    EXIT_USAGE (2):       Bad arguments or missing subcommand.
+    EXIT_INTERRUPTED (130): User pressed Ctrl+C.
 
     REQ-001 req 36: CLI entry point.
     REQ-001 req 40: auto-detect sequential vs parallel (via run_round).
     """
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    try:
+        parser = build_parser()
+        args = parser.parse_args(argv)
 
-    if not args.command:
-        parser.print_help()
-        raise SystemExit(2)
+        if not args.command:
+            parser.print_help()
+            return EXIT_USAGE
 
-    if args.command == "run":
-        return _cmd_run(args)
-    if args.command == "overnight":
-        return _cmd_overnight(args)
-    if args.command == "report":
-        return _cmd_report(args)
+        if args.command == "run":
+            return _cmd_run(args)
+        if args.command == "overnight":
+            return _cmd_overnight(args)
+        if args.command == "report":
+            return _cmd_report(args)
 
-    return 0
+        return EXIT_SUCCESS
+
+    except KeyboardInterrupt:
+        print("\nInterrupted.", file=sys.stderr)
+        return EXIT_INTERRUPTED
+
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else EXIT_FAILURE
+
+    except Exception as exc:  # pylint: disable=broad-except
+        # -- Top-level safety net: no raw tracebacks for users
+        print(f"Unexpected error: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -203,9 +227,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         round_def = load_round_file(args.file)
     except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     config = _build_config(args)
+
+    # -- Validate config before running (fail fast)
+    config_errors = validate_config(config)
+    if config_errors:
+        for err in config_errors:
+            print(f"Config error: {err}", file=sys.stderr)
+        return EXIT_FAILURE
 
     result = run_round(round_def, config=config)
 
@@ -220,7 +251,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     else:
         print(f"{result.status}: {result.summary}")
 
-    return 0 if result.status == "done" else 1
+    return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
 
 def _cmd_overnight(args: argparse.Namespace) -> int:
@@ -232,9 +263,16 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
         phases = load_phases_file(args.file)
     except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     config = _build_config(args)
+
+    # -- Validate config before running (fail fast)
+    config_errors = validate_config(config)
+    if config_errors:
+        for err in config_errors:
+            print(f"Config error: {err}", file=sys.stderr)
+        return EXIT_FAILURE
 
     result = run_overnight(
         phases=phases,
@@ -251,14 +289,14 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
 
     print(f"{result.status}: {len(result.phase_results)} phases, ${result.total_cost_usd:.2f}")
 
-    return 0 if result.status == "done" else 1
+    return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
 
 def _cmd_report(args: argparse.Namespace) -> int:
     """Execute 'rondo report <results_dir>' subcommand."""
     # -- Future: re-generate report from saved results
-    print(f"Report from {args.results_dir} — not yet implemented")
-    return 0
+    print(f"Report from {args.results_dir} — not yet implemented", file=sys.stderr)
+    return EXIT_FAILURE
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -268,4 +306,5 @@ def _cmd_report(args: argparse.Namespace) -> int:
 if __name__ == "__main__":
     sys.exit(main())
 
-# -- sig: MgH-c637cb.682e1b
+
+# -- sig: mgh-6201.cd.bd955f.7648.92f73b

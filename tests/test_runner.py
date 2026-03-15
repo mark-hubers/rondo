@@ -405,4 +405,49 @@ class TestResultSaving:
             files = list(results_dir.glob("*.json"))
             assert len(files) >= 1
 
-# -- sig: MgH-252076.cf46a2
+
+# ──────────────────────────────────────────────────────────────────
+#  Round Pre-flight Validation — validate_round() in runner
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestRunnerValidation:
+    def test_invalid_round_returns_error(self):
+        """Round with empty name returns error without dispatching."""
+        r = Round(name="", tasks=[Task(name="t1", instruction="do", done_when="done")])
+        result = run_round(r)
+        assert result.status == "error"
+        assert "Validation failed" in result.summary
+
+    def test_duplicate_tasks_returns_error(self):
+        """Round with duplicate task names returns error."""
+        r = Round(
+            name="dup-round",
+            tasks=[
+                Task(name="same", instruction="do A", done_when="A done"),
+                Task(name="same", instruction="do B", done_when="B done"),
+            ],
+        )
+        result = run_round(r)
+        assert result.status == "error"
+        assert "Duplicate" in result.summary
+
+    def test_invalid_task_returns_error(self):
+        """Round containing invalid task returns error."""
+        r = Round(
+            name="bad-task",
+            tasks=[Task(name="empty", instruction="", done_when="")],
+        )
+        result = run_round(r)
+        assert result.status == "error"
+        assert "Validation failed" in result.summary
+
+    def test_valid_round_proceeds(self):
+        """Valid round passes validation and proceeds to dispatch."""
+        r = Round(name="good", tasks=[Task(name="t1", instruction="do", done_when="done")])
+        with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
+            result = run_round(r)
+            assert result.status != "error" or "Validation" not in result.summary
+
+
+# -- sig: mgh-6201.cd.bd955f.d451.a88884

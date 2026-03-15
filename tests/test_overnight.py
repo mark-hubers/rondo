@@ -539,4 +539,5 @@ class TestOvernightResult:
             result = run_overnight(phases=phases, config=config)
             assert result.status == "done"
 
-# -- sig: MgH-34a481.a91c4a
+
+# -- sig: mgh-6201.cd.bd955f.1c5d.a91c4a

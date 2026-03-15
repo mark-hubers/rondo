@@ -15,8 +15,11 @@ from unittest.mock import MagicMock, patch
 # -- Add rondo/src to path so we can import rondo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+import pytest
+
 from rondo.config import RondoConfig
 from rondo.dispatch import (
+    VALID_MODELS,
     build_prompt,
     classify_error,
     dispatch_task,
@@ -873,4 +876,79 @@ class TestDispatchIntegration:
             assert result.duration_sec > 0 or True  # -- duration is wall clock
             assert result.model == "sonnet"
 
-# -- sig: MgH-fd5cbb.a9bc17
+
+# ──────────────────────────────────────────────────────────────────
+#  Model Validation — VALID_MODELS + resolve_model fail-fast
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestModelValidation:
+    def test_valid_models_set_exists(self):
+        """VALID_MODELS contains all expected models."""
+        assert "sonnet" in VALID_MODELS
+        assert "opus" in VALID_MODELS
+        assert "haiku" in VALID_MODELS
+        assert "opus[1m]" in VALID_MODELS
+        assert "sonnet[1m]" in VALID_MODELS
+
+    def test_invalid_model_raises(self):
+        """Invalid model raises ValueError with clear message."""
+        task = Task(name="t", instruction="do", done_when="done", model="gpt-4")
+        config = RondoConfig()
+        with pytest.raises(ValueError, match="Invalid model"):
+            resolve_model(None, task, config)
+
+    def test_invalid_model_from_cli(self):
+        """CLI model override with invalid value raises ValueError."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig()
+        with pytest.raises(ValueError, match="Invalid model"):
+            resolve_model("claude-3", task, config)
+
+    def test_invalid_model_from_config(self):
+        """Config default_model with invalid value raises ValueError."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig(default_model="bad-model")
+        with pytest.raises(ValueError, match="Invalid model"):
+            resolve_model(None, task, config)
+
+    def test_1m_variants_valid(self):
+        """1M context window variants are valid models."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig()
+        assert resolve_model("opus[1m]", task, config) == "opus[1m]"
+        assert resolve_model("sonnet[1m]", task, config) == "sonnet[1m]"
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Task Contract Pre-Dispatch Validation
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestDispatchValidation:
+    def test_invalid_task_returns_error_result(self):
+        """Dispatching an invalid task returns error result without subprocess."""
+        task = Task(name="bad", instruction="", done_when="")
+        config = RondoConfig()
+        result, usage = dispatch_task(task, config)
+        assert result.status == "error"
+        assert result.error_code == "ERR_INTERNAL"
+        assert "Validation failed" in result.error_message
+
+    def test_invalid_task_no_subprocess(self):
+        """Invalid task never invokes subprocess."""
+        task = Task(name="bad", instruction="", done_when="")
+        config = RondoConfig()
+        with patch("rondo.dispatch.subprocess") as mock_sub:
+            dispatch_task(task, config)
+            mock_sub.Popen.assert_not_called()
+
+    def test_valid_task_passes_validation(self):
+        """Valid task proceeds past validation (hits dry-run or subprocess)."""
+        task = Task(name="ok", instruction="do work", done_when="work done")
+        config = RondoConfig(dry_run=True)
+        result, _ = dispatch_task(task, config)
+        assert result.status == "skipped"  # -- dry-run status, not error
+
+
+# -- sig: mgh-6201.cd.bd955f.eae2.2c7525

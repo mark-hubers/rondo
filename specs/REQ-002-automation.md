@@ -266,7 +266,145 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## Change History
+## 5. Data Model
+
+TBD — fill before build.
+
+---
+
+## 6. Data Boundary
+
+TBD — fill before build.
+
+---
+
+## 7. MCP/API Interface
+
+TBD — fill before build.
+
+---
+
+## 8. States & Modes
+
+TBD — fill before build.
+
+---
+
+## 9. Configuration
+
+TBD — fill before build.
+
+---
+
+## 12. Shared Patterns
+
+TBD — fill before build.
+
+---
+
+## 13. Integration Points
+
+TBD — fill before build.
+
+---
+
+## 15. Self-Correction
+
+TBD — fill before build.
+
+---
+
+## 18. Build Notes/Estimate
+
+TBD — fill before build.
+
+---
+
+## 19. Test Categories
+
+TBD — fill before build.
+
+---
+
+## 20. Failure Modes
+
+TBD — fill before build.
+
+---
+
+## 21. Dependencies + Used By
+
+TBD — fill before build.
+
+---
+
+## 24. Glossary
+
+TBD — fill before build.
+
+---
+
+## 25. Risk/Criticality
+
+TBD — fill before build.
+
+---
+
+## 26. External Scan
+
+TBD — fill before build.
+
+---
+
+## 27. Security Considerations
+
+TBD — fill before build.
+
+---
+
+## 28. Performance/Resource
+
+TBD — fill before build.
+
+---
+
+## 29. Approval Record
+
+TBD — fill before build.
+
+---
+
+## 30. AI Review
+
+TBD — fill before build.
+
+---
+
+## 31. AI Went Wrong
+
+TBD — fill before build.
+
+---
+
+## 32. AI Assumptions
+
+TBD — fill before build.
+
+---
+
+## 33. AI Cost
+
+TBD — fill before build.
+
+---
+
+## 34. Notes
+
+TBD — fill before build.
+
+---
+
+## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|

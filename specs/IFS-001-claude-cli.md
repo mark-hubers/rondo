@@ -334,181 +334,181 @@ This interface was tested against Claude Code as of 2026-03-13. Anthropic may ch
 
 ## 2. The Problem
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 4. Architecture/Design
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 5. Data Model
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 6. Data Boundary
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 8. States & Modes
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 9. Configuration
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 10. Rules & Constraints
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 11. Quality Attributes
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 12. Shared Patterns
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 13. Integration Points
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 14. Foundation References
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 15. Self-Correction
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 17. Success Criteria
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 18. Build Notes/Estimate
 
-TBD — fill before build.
+— filled during build.
 
 ---
 
 ## 19. Test Categories
 
-TBD — fill before build.
+— filled during build.
 
 ---
 
 ## 20. Failure Modes
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 21. Dependencies + Used By
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 22. Decisions
 
-TBD — fill before build.
+REQUIRED — fill before build.
 
 ---
 
 ## 23. Open Questions
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 24. Glossary
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 25. Risk/Criticality
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 26. External Scan
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 27. Security Considerations
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 28. Performance/Resource
 
-TBD — fill before build.
+— if applicable.
 
 ---
 
 ## 29. Approval Record
 
-TBD — fill before build.
+— filled after build.
 
 ---
 
 ## 30. AI Review
 
-TBD — fill before build.
+— filled after build.
 
 ---
 
 ## 31. AI Went Wrong
 
-TBD — fill before build.
+— filled during build.
 
 ---
 
 ## 32. AI Assumptions
 
-TBD — fill before build.
+— filled during build.
 
 ---
 
 ## 33. AI Cost
 
-TBD — fill before build.
+— filled during build.
 
 ---
 
 ## 34. Notes
 
-TBD — fill before build.
+— filled after build.
 
 ---
 

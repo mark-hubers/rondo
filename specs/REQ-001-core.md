@@ -82,9 +82,15 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 18. When auth is "api", dispatch MUST preserve `ANTHROPIC_API_KEY` in the child environment for pay-per-token billing.
 19. Auth mode MUST be selectable via CLI flag (`--auth max|api`). Default: max.
 
+### Dispatch — Tool Control (Session 78 — NEW)
+
+20. For code generation tasks (output to stdout): dispatch MUST pass `--tools ""` to disable file tools. Without this, Claude tries to write files and hangs on permission prompts.
+21. For code fixing tasks (needs file access in sandbox): dispatch MUST pass `--dangerously-skip-permissions` (only in containers with no internet).
+22. Task definition MUST include `tool_mode: "none" | "sandbox" | "default"` to control which flag is used.
+
 ### Dispatch — Model Routing
 
-20. Dispatch MUST pass `--model` to the subprocess to select opus, sonnet, or haiku.
+23. Dispatch MUST pass `--model` to the subprocess to select opus, sonnet, or haiku.
 21. Model selection MUST follow the COALESCE pattern: CLI override → task.model hint → default.
 22. Default model MUST be sonnet (best balance of cost and capability).
 23. Round definitions MUST be able to tag each task with a recommended model.

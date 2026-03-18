@@ -4,6 +4,10 @@
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
 **Classification:** open
+**Version:** 0.1
+**Owner:** Mark G. Hubers
+**Reviewed:** not-yet
+**Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-002, Caliber-STD-002

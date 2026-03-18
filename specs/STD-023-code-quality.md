@@ -4,6 +4,10 @@
 
 **Created:** 2026-03-14 | **Updated:** 2026-03-14 | **Status:** DRAFT
 **Classification:** open
+**Version:** 0.1
+**Owner:** Mark G. Hubers
+**Reviewed:** not-yet
+**Supersedes:** none
 **Depends on:** VER-001 (verification matrix) | **Blocks:** REQ-001 (build gate)
 **Author:** Mark Hubers — HubersTech
 

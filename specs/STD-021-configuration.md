@@ -4,6 +4,10 @@
 
 **Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
 **Classification:** open
+**Version:** 0.6
+**Owner:** Mark G. Hubers
+**Reviewed:** not-yet
+**Supersedes:** none
 **Depends on:** Nothing | **Blocks:** REQ-001 (Core), REQ-002 (Automation)
 **Author:** Mark Hubers — HubersTech
 

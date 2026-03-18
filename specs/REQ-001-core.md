@@ -4,6 +4,10 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
+**Version:** 0.8
+**Owner:** Mark G. Hubers
+**Reviewed:** not-yet
+**Supersedes:** none
 **Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** REQ-002 (Automation)
 **Author:** Mark Hubers — HubersTech
 

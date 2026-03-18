@@ -4,6 +4,10 @@
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
 **Classification:** open
+**Version:** 1.0
+**Owner:** Mark G. Hubers
+**Reviewed:** not-yet
+**Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
 **Depends on:** REQ-001 (Core), REQ-002 (Automation)
 **Connects to:** OB-IFS-003 (External Integration), OB-33 (Dispatch), OB-05 (Sprint)

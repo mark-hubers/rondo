@@ -4,6 +4,10 @@
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
 **Classification:** open
+**Version:** 0.1
+**Owner:** Mark G. Hubers
+**Reviewed:** not-yet
+**Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-SOP-001, Caliber-SOP-001, Rondo-SOP-001

@@ -73,6 +73,8 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 12. Dispatch MUST invoke `claude -p` as a subprocess with the task's three-field contract formatted as the prompt.
 13. Dispatch MUST strip the `CLAUDECODE` environment variable from child processes to prevent the nested-session guard.
 14. Dispatch MUST capture stdout, stderr, exit code, and wall-clock duration from each subprocess.
+14a. Dispatch MUST use `--output-format stream-json` to capture real token counts, cost, cache stats, and API timing per call. Text mode cannot capture these. (F20 — Session 78: estimated costs were inaccurate without stream-json.)
+14b. From stream-json, dispatch extracts: input_tokens, output_tokens, cache_read_tokens, cache_create_tokens, cost_usd, duration_ms (API), num_turns. These populate DispatchUsage.
 15. Dispatch MUST save each task result to a JSON file in a configurable results directory.
 16. Dispatch MUST support dry-run mode: show the prompt without invoking Claude.
 

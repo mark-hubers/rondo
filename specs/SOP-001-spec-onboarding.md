@@ -1,4 +1,4 @@
-# SOP-011: Spec Onboarding Procedure
+# SOP-001: Spec Onboarding Procedure
 
 *How to add or create specs for Rondo. The rules any contributor must follow.*
 

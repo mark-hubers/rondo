@@ -1,4 +1,4 @@
-# SOP-001: Build & Run Procedure
+# SOP-002: Build & Run Procedure
 
 *How to build, test, and run Rondo from scratch.*
 

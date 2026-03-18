@@ -1,4 +1,4 @@
-# SOP-010: Release Procedure
+# SOP-003: Release Procedure
 
 *How to ship a new version of Rondo.*
 

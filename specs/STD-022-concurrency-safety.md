@@ -1,9 +1,9 @@
-# STD-003: Concurrency & Safety
+# STD-022: Concurrency & Safety
 
 *How Rondo runs tasks in parallel safely — no injection, no leaks, no corruption.*
 
 **Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
-**Depends on:** STD-001 (Error Handling), STD-002 (Configuration) | **Blocks:** REQ-002 (Parallel)
+**Depends on:** STD-020 (Error Handling), STD-021 (Configuration) | **Blocks:** REQ-002 (Parallel)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -25,8 +25,8 @@ These rules apply to every line of Rondo code — they are not optional.
 
 **OUT of scope:**
 - Parallel scheduling logic (REQ-002)
-- Error recovery (STD-001)
-- Config values for workers/throttle (STD-002 — this spec defines HOW, STD-002 defines WHAT values)
+- Error recovery (STD-020)
+- Config values for workers/throttle (STD-021 — this spec defines HOW, STD-021 defines WHAT values)
 
 ---
 
@@ -69,7 +69,7 @@ Each task gets its own result dict. No locks needed because nothing is shared.
 # -- CORRECT: each task returns its own result
 def dispatch_task(task: Task, config: RondoConfig) -> TaskResult:
     """Each thread gets its own task and config (frozen). Returns a new result."""
-    # -- config is frozen dataclass (STD-002) — safe to share
+    # -- config is frozen dataclass (STD-021) — safe to share
     # -- task is read-only during dispatch
     # -- result is created here, returned to caller
     return TaskResult(task_name=task.name, ...)
@@ -131,7 +131,7 @@ the round definition decides whether conflicts are a problem.
 ### C6: Bounded workers
 
 ```python
-# -- max_workers comes from config (validated 1-32 by STD-002)
+# -- max_workers comes from config (validated 1-32 by STD-021)
 # -- NEVER create unbounded threads
 with ThreadPoolExecutor(max_workers=config.workers) as pool:
     ...
@@ -145,7 +145,7 @@ for future in as_completed(futures):
     try:
         result = future.result()
     except Exception as exc:
-        # -- This should never happen if dispatch catches all (STD-001 rule 9)
+        # -- This should never happen if dispatch catches all (STD-020 rule 9)
         # -- But defense-in-depth: log and continue
         result = TaskResult(
             task_name=futures[future].name,
@@ -263,7 +263,7 @@ def write_result_file(path: str, content: str) -> None:
 
 MUST use `subprocess.Popen()` with a manual timer thread. MUST NOT use
 `subprocess.run(timeout=)` which sends SIGKILL directly, skipping graceful shutdown.
-Matches STD-001 kill sequence: SIGTERM → 5s grace → SIGKILL.
+Matches STD-020 kill sequence: SIGTERM → 5s grace → SIGKILL.
 
 ```python
 import threading
@@ -279,7 +279,7 @@ proc = subprocess.Popen(
 timed_out = threading.Event()
 
 def kill_on_timeout():
-    """SIGTERM → 5s → SIGKILL. Matches STD-001 kill sequence."""
+    """SIGTERM → 5s → SIGKILL. Matches STD-020 kill sequence."""
     timed_out.set()
     proc.terminate()               # -- SIGTERM (graceful)
     try:
@@ -559,4 +559,4 @@ REQUIRED — fill before build.
 | 0.1 | 2026-03-13 | Initial draft — 15 rules in 3 categories |
 | 0.2 | 2026-03-14 | Beefed up: code patterns for every rule, attack prevention table, thread safety matrix, conflict detection pattern |
 | 0.3 | 2026-03-14 | Deep review fix: sanitize_result() uses dc_replace() instead of setattr (frozen dataclass safe) |
-| 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches STD-001) |
+| 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches STD-020) |

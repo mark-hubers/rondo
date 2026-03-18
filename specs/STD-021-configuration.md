@@ -1,4 +1,4 @@
-# STD-002: Configuration
+# STD-021: Configuration
 
 *How Rondo is configured — TOML file, CLI flags, sane defaults, COALESCE resolution.*
 
@@ -159,7 +159,7 @@ class RondoConfig:
 ```
 
 **Why frozen:** Config is immutable after creation. No mid-session changes.
-Thread-safe by design (STD-003 concurrency safety).
+Thread-safe by design (STD-022 concurrency safety).
 
 **Note on `dry_run`:** CLI-only (not settable in TOML config file). The dataclass
 holds it because COALESCE resolves CLI → config → default into one object. The TOML

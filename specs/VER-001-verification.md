@@ -108,7 +108,7 @@
 | 38 | `run` accepts path to round definition file | T | `test_cli.py::test_run_with_file` |
 | 39 | Dynamic import of round definition | T | `test_cli.py::test_dynamic_import` |
 | 40 | Auto-detect sequential vs parallel | T | `test_cli.py::test_auto_runner_selection` |
-| 41 | All STD-002 CLI flags on `run` subcommand | T | `test_cli.py::test_cli_flags` |
+| 41 | All STD-021 CLI flags on `run` subcommand | T | `test_cli.py::test_cli_flags` |
 
 #### Living Example Rounds (Reqs 42-44)
 
@@ -229,14 +229,14 @@
 
 ---
 
-### STD-001: Error Handling and Resilience (10 rules)
+### STD-020: Error Handling and Resilience (10 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence | Cross-ref |
 |------|-------------|--------|--------------|-----------|
 | 1 | Every result includes name, status, duration, prompt | T | `test_dispatch.py::test_result_metadata` | REQ-001 req 28 |
 | 2 | Subprocess vs task-logic errors distinguishable | T | `test_dispatch.py::test_error_exit_code` | REQ-001 req 27 |
 | 3 | Malformed JSON -> status partial | T | `test_dispatch.py::test_malformed_json` | REQ-001 req 26 |
-| 4 | Configurable timeout, default 5 min | T | `test_config.py::test_timeout_config` | STD-002 |
+| 4 | Configurable timeout, default 5 min | T | `test_config.py::test_timeout_config` | STD-021 |
 | 5 | Kill sequence: SIGTERM -> 5s -> SIGKILL | T | `test_dispatch.py::test_kill_sequence` | — |
 | 6 | Single failure doesn't crash framework | T | `test_parallel.py::test_task_isolation` | REQ-002 req 8 |
 | 7 | Failed phase doesn't block next | T | `test_overnight.py::test_phase_isolation` | REQ-002 req 12 |
@@ -246,7 +246,7 @@
 
 ---
 
-### STD-002: Configuration (10 rules)
+### STD-021: Configuration (10 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence | Cross-ref |
 |------|-------------|--------|--------------|-----------|
@@ -259,11 +259,11 @@
 | 7 | Unknown keys ignored with warning | T | `test_config.py::test_unknown_keys` | — |
 | 8 | Invalid values error at startup | T | `test_config.py::test_validation_errors` | — |
 | 9 | Config loaded once, immutable | A | RondoConfig is frozen dataclass | — |
-| 10 | Config is a dataclass | I | STD-002 code review | — |
+| 10 | Config is a dataclass | I | STD-021 code review | — |
 
 ---
 
-### STD-003: Concurrency and Safety (15 rules)
+### STD-022: Concurrency and Safety (15 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence | Cross-ref |
 |------|-------------|--------|--------------|-----------|
@@ -272,20 +272,20 @@
 | C3 | Throttle between launches | T | `test_parallel.py::test_throttle` | REQ-002 req 3 |
 | C4 | Conflict detection | T | `test_parallel.py::test_conflict_detection` | REQ-002 req 5 |
 | C5 | Conflict is advisory | T | `test_parallel.py::test_conflict_in_summary` | REQ-002 req 6 |
-| C6 | Bounded workers (1-32) | T | `test_config.py::test_validation_errors` | STD-002 |
+| C6 | Bounded workers (1-32) | T | `test_config.py::test_validation_errors` | STD-021 |
 | C7 | Task thread isolation | T | `test_parallel.py::test_task_isolation` | REQ-002 req 8 |
 | S1 | List args, never shell=True | A | Code review: all subprocess calls use list | — |
 | S2 | Credential stripping | T | `test_dispatch.py::test_claudecode_stripped` + `test_auth_max_strips_key` | REQ-001 reqs 13, 17 |
-| S3 | No credentials in output | T | `test_dispatch.py::test_credential_sanitization` | STD-001 rule 8 |
+| S3 | No credentials in output | T | `test_dispatch.py::test_credential_sanitization` | STD-020 rule 8 |
 | S4 | Prompts don't contain secrets | I | Round definition review | — |
 | S5 | Restrictive file permissions (0o600) | T | `test_dispatch.py::test_result_file_permissions` | — |
-| R1 | Subprocess timeout with SIGTERM-first kill | T | `test_dispatch.py::test_kill_sequence` | STD-001 rule 5 |
+| R1 | Subprocess timeout with SIGTERM-first kill | T | `test_dispatch.py::test_kill_sequence` | STD-020 rule 5 |
 | R2 | Bounded result files (1MB) | T | `test_dispatch.py::test_output_truncation` | — |
 | R3 | Rolling event log (100 entries) | T | `test_overnight.py::test_rolling_log` | REQ-002 req 18 |
 
 ---
 
-### STD-004: Code Quality Gates (18 rules)
+### STD-023: Code Quality Gates (18 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence |
 |------|-------------|--------|--------------|
@@ -317,15 +317,15 @@ Each test file, what it contains, and which specs it proves.
 | Test File | Tests | Proves Specs | What It Covers |
 |-----------|-------|-------------|----------------|
 | `test_engine.py` | 71 | REQ-001 reqs 1-11, 23, 29-31, 34-35, 45-46 | Round/Task/Gate data model, state machine, serialization, resume, public API |
-| `test_dispatch.py` | 72 | REQ-001 reqs 12-18, 20-22, 24-28, 47; IFS-001 reqs 1-10; STD-001 rules 1-3, 5, 8; STD-003 S2-S3, S5, R1-R2 | Subprocess invocation, auth, model routing, result parsing, stream-json, credential safety, kill sequence |
-| `test_config.py` | 61 | REQ-001 reqs 48-49; STD-002 rules 1-8; STD-003 C6 | TOML loading, COALESCE resolution, CLI override, validation, zero-config, permission modes |
+| `test_dispatch.py` | 72 | REQ-001 reqs 12-18, 20-22, 24-28, 47; IFS-001 reqs 1-10; STD-020 rules 1-3, 5, 8; STD-022 S2-S3, S5, R1-R2 | Subprocess invocation, auth, model routing, result parsing, stream-json, credential safety, kill sequence |
+| `test_config.py` | 61 | REQ-001 reqs 48-49; STD-021 rules 1-8; STD-022 C6 | TOML loading, COALESCE resolution, CLI override, validation, zero-config, permission modes |
 | `test_cli.py` | 64 | REQ-001 reqs 19, 36-41 | CLI entry point, subcommands, flags, dynamic import, auto-runner selection |
 | `test_runner.py` | 28 | REQ-001 (runner orchestration) | Sequential runner, gate enforcement, task dispatch coordination |
-| `test_parallel.py` | 28 | REQ-002 reqs 1-9, 37-41; STD-003 C3-C5, C7 | ThreadPoolExecutor, throttle, conflict detection, worktree isolation, task isolation |
-| `test_overnight.py` | 31 | REQ-002 reqs 10-28; STD-001 rules 6-7; STD-003 R3 | Phase scheduling, watchdog, usage gating, event logging, rolling log |
-| `test_report.py` | 20 | REQ-002 reqs 29-36; STD-001 rule 10 | Aggregation, health indicators, action items, dated files, usage summary |
+| `test_parallel.py` | 28 | REQ-002 reqs 1-9, 37-41; STD-022 C3-C5, C7 | ThreadPoolExecutor, throttle, conflict detection, worktree isolation, task isolation |
+| `test_overnight.py` | 31 | REQ-002 reqs 10-28; STD-020 rules 6-7; STD-022 R3 | Phase scheduling, watchdog, usage gating, event logging, rolling log |
+| `test_report.py` | 20 | REQ-002 reqs 29-36; STD-020 rule 10 | Aggregation, health indicators, action items, dated files, usage summary |
 | `test_examples.py` | 25 | REQ-001 reqs 42-44 | Living example rounds, build_round() contract, examples as test fixtures |
-| `test_conventions.py` | 18 | STD-004 rules 1-18 | Convention lock classes — SPDX, docstrings, complexity, signing, naming |
+| `test_conventions.py` | 18 | STD-023 rules 1-18 | Convention lock classes — SPDX, docstrings, complexity, signing, naming |
 
 **Total: 418 test functions across 10 test files.**
 
@@ -348,10 +348,10 @@ Each test file, what it contains, and which specs it proves.
 
 | Spec | Total Rules | Test (T) | Analysis (A) | Inspection (I) | Cross-ref to REQ |
 |------|------------|----------|--------------|----------------|-----------------|
-| STD-001 | 10 | 8 | 1 | 0 | 6 rules also tested via REQ |
-| STD-002 | 10 | 8 | 1 | 1 | 4 rules also tested via REQ |
-| STD-003 | 15 | 10 | 4 | 1 | 8 rules also tested via REQ |
-| STD-004 | 18 | 18 | 0 | 0 | All automated via convention tests |
+| STD-020 | 10 | 8 | 1 | 0 | 6 rules also tested via REQ |
+| STD-021 | 10 | 8 | 1 | 1 | 4 rules also tested via REQ |
+| STD-022 | 15 | 10 | 4 | 1 | 8 rules also tested via REQ |
+| STD-023 | 18 | 18 | 0 | 0 | All automated via convention tests |
 | **Total** | **53** | **44** | **6** | **2** | -- |
 
 ### Grand Total
@@ -359,7 +359,7 @@ Each test file, what it contains, and which specs it proves.
 | Category | Items | Verified |
 |----------|-------|----------|
 | Requirements (REQ-001, REQ-002, IFS-001) | 100 | 100 (100%) |
-| Standards (STD-001 through STD-004) | 53 | 53 (100%) |
+| Standards (STD-020 through STD-023) | 53 | 53 (100%) |
 | **All verified items** | **153** | **153 (100%)** |
 | Automated tests (T only) | -- | 132 of 153 (86%) |
 
@@ -398,7 +398,7 @@ hard-won methodology lessons — not theoretical analysis.
 | 2 | **Spike code is NOT production code.** Spikes prove ideas. Production code is built from specs. Vocabulary, structure, and contracts diverge. | Day 3 vs Day 5 | Clean separation: `spikes/` vs `src/` |
 | 3 | **Inner orbits form everywhere.** The original model had one inner orbit (07-08-09). Reality shows orbits at every adjacent pair. | Day 4 (3 loops at ORB-03/04) | Dynamic inner orbits are a methodology feature |
 | 4 | **External AI review catches builder blind spots.** Google AI (Gemini) found the cross-field validation gap that Claude missed. | Day 5 evening | ORB-04 should include independent/external review |
-| 5 | **Convention locks are force multipliers.** 15 convention test classes enforce 18 rules automatically. No human discipline needed. | Day 5 hardening | STD-004 exists because of this discovery |
+| 5 | **Convention locks are force multipliers.** 15 convention test classes enforce 18 rules automatically. No human discipline needed. | Day 5 hardening | STD-023 exists because of this discovery |
 | 6 | **ORB compression works for small products.** With <15 source files, ORB-07/08/09 compress into ORB-05/06 without quality loss. | Full journey | Product size determines orbit count |
 | 7 | **REQ-001 went through 8 versions in 5 days.** Spec refinement is iterative and never "done" on first pass. | Day 1-5 | Budget time for spec iterations |
 | 8 | **Deep review v1 found 30 issues (5 build-blockers).** Self-review alone is insufficient. Must do cross-spec consistency checks. | Day 4 | Multi-pass review catches more |
@@ -725,10 +725,10 @@ REQUIRED — fill before build.
 | 0.1 | 2026-03-13 | Initial verification matrix for REQ-001 + REQ-002 |
 | 0.2 | 2026-03-14 | Added IFS-001 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
 | 0.3 | 2026-03-14 | Added REQ-002 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
-| 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with STD-001 |
+| 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with STD-020 |
 | 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |
 | 0.6 | 2026-03-14 | Added REQ-001 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |
-| 0.7 | 2026-03-14 | Deep review v2: added REQ-001 reqs 45-46 (run_round, RoundResult.status). Added STD-001/002/003 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
+| 0.7 | 2026-03-14 | Deep review v2: added REQ-001 reqs 45-46 (run_round, RoundResult.status). Added STD-020/021/022 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
 | 0.8 | 2026-03-14 | Added REQ-001 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
-| 0.9 | 2026-03-14 | Added STD-004 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
+| 0.9 | 2026-03-14 | Added STD-023 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
 | 1.0 | 2026-03-16 | Full rebuild to Caliber VER-001 standard. Added: 6 verification methods, test index (418 tests across 10 files), coverage summary with grand total, 10 key findings, convergence test baseline, Rondo+Caliber buggy.py integration evidence, production targets. All 153 items verified 100%. |

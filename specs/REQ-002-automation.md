@@ -71,7 +71,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ### Self-Healing Watchdog
 
-19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-001). The task timeout is a hard wall-clock limit. The watchdog detects output silence.
+19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-020). The task timeout is a hard wall-clock limit. The watchdog detects output silence.
 20. If a dispatch subprocess does not produce new stdout for a configurable duration (`watchdog_timeout_sec`, default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT". A task producing output can run longer than `watchdog_timeout_sec` — the watchdog only fires on silence.
 21. After a watchdog kill, the scheduler MUST continue to the next task — never halt the pipeline.
 22. If a dispatch fails with a rate limit error (ERR_RATE_LIMIT), the watchdog MUST pause for a configurable backoff duration (default: 60 seconds) before the next dispatch.
@@ -249,9 +249,9 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 | Standard | How Applied |
 |---------|-------------|
-| STD-001 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
-| STD-002 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
-| STD-003 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
+| STD-020 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
+| STD-021 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
+| STD-022 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
 
 ---
 
@@ -424,5 +424,5 @@ REQUIRED — fill before build.
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Split from monolithic RONDO-01. Parallel + overnight + report as optional layer. |
 | 0.2 | 2026-03-14 | Added: self-healing watchdog (reqs 19-23), usage threshold gating (reqs 24-28), morning report usage summary (req 36), worktree isolation (reqs 37-41). 25→41 requirements. |
-| 0.3 | 2026-03-14 | Deep review fixes: clarified watchdog vs task timeout relationship (reqs 19-20), cross-referenced STD-001 error codes |
+| 0.3 | 2026-03-14 | Deep review fixes: clarified watchdog vs task timeout relationship (reqs 19-20), cross-referenced STD-020 error codes |
 | 0.4 | 2026-03-18 | Result Spool — stateless persistence (reqs 42-52). Mailbox-pattern spool directory for disconnected runs. TTL cleanup, CLI commands, export for manual import. 52 requirements total. |

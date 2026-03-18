@@ -1,4 +1,4 @@
-# STD-001: Error Handling & Resilience
+# STD-020: Error Handling & Resilience
 
 *How Rondo handles failures — subprocess crashes, bad output, timeouts.*
 
@@ -124,7 +124,7 @@ class TaskResult:
     timestamp: str               # -- ISO-8601 UTC when dispatch started
     cost_usd: float | None       # -- from stream-json result event (None if unavailable)
 
-    # -- file tracking (for conflict detection — STD-003)
+    # -- file tracking (for conflict detection — STD-022)
     files_modified: list[str] = field(default_factory=list)
                                  # -- files mentioned in Claude's output as modified
                                  # -- populated by parsing raw_output for file paths
@@ -149,7 +149,7 @@ def extract_modified_files(raw_output: str) -> list[str]:
 ```
 
 This is a heuristic — it may catch false positives (file paths in read context).
-STD-003's conflict detection uses this as an advisory signal, not a prevention mechanism.
+STD-022's conflict detection uses this as an advisory signal, not a prevention mechanism.
 
 ---
 

@@ -152,7 +152,7 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 44. OAPayload malformed → Rondo rejects with exit code 2 and structured error: `{"error": "Invalid payload", "detail": "{specifics}", "contract": "OAPayload", "version": "1.0"}`
 45. OAPayload version mismatch (payload $version != supported) → Rondo rejects with clear error: "Unsupported OAPayload version: {v}. Supported: 1.0"
 46. Network timeout (HTTPS/queue transport) → Rondo completes locally, queues result for later delivery. Result file is the fallback — never lose work.
-47. Claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-001 error resilience), and includes the partial round result in the OAResult.
+47. Claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-020 error resilience), and includes the partial round result in the OAResult.
 
 ### Standalone Behavior (Rondo without OB)
 
@@ -440,8 +440,8 @@ OB (schedule builder)           Rondo (overnight executor)
 | REQ-001 | Core engine defines Round, Task, Gate, RoundResult, TaskResult, DispatchUsage, GateResult |
 | REQ-002 | Automation defines parallel dispatch, overnight scheduler, morning report |
 | IFS-001 | Claude CLI interface (how Rondo calls `claude -p`) |
-| STD-001 | Error resilience (task failure → continue, not crash) |
-| STD-002 | Configuration (COALESCE pattern, TOML loading) |
+| STD-020 | Error resilience (task failure → continue, not crash) |
+| STD-021 | Configuration (COALESCE pattern, TOML loading) |
 | OB-33 | OAPayload/OAResult contract format definition |
 | OB-IFS-003 | OB's side of the integration (how OB calls Rondo) |
 | OB-05 | Sprint lifecycle (Rondo reports to, but never modifies) |

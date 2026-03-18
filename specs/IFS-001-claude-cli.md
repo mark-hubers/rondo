@@ -266,7 +266,7 @@ Numbered requirements for VER-001 traceability:
 
 ## Stream-JSON to Dataclass Mapping
 
-How each stream-json event maps to Rondo's dataclasses (REQ-001, STD-001):
+How each stream-json event maps to Rondo's dataclasses (REQ-001, STD-020):
 
 ### `rate_limit_event` → `DispatchUsage` fields
 

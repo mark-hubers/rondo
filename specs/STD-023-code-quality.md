@@ -1,4 +1,4 @@
-# STD-004: Code Quality Gates
+# STD-023: Code Quality Gates
 
 *Automated enforcement of code quality — linting, complexity, coverage, conventions, signing.*
 
@@ -28,8 +28,8 @@ No exceptions without spec-level justification.
 
 **OUT of scope:**
 - Test strategy and verification matrix (VER-001)
-- Error handling patterns (STD-001)
-- Configuration resolution (STD-002)
+- Error handling patterns (STD-020)
+- Configuration resolution (STD-021)
 
 ---
 

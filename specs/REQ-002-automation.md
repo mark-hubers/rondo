@@ -104,6 +104,20 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 40. When worktree isolation is off, conflict detection (reqs 5-6) remains the safety mechanism.
 41. Worktrees MUST be cleaned up after the round completes (success or failure).
 
+### Result Spool (stateless persistence)
+
+42. Rondo MUST maintain a spool directory (`~/.rondo/spool/`) for result files waiting for consumer pickup. Location configurable via `[spool] path` in config.
+43. After each task or round completes, Rondo MUST write a result JSON file to the spool directory with filename format `{ISO-timestamp}-{task_name}.json` (e.g., `2026-03-18T042315-forward-review.json`).
+44. Consumers (OB, ACE, scripts) read and delete spool files — mailbox pattern. Once a consumer picks up a file, it is gone from the spool.
+45. If a consumer is connected at run time (e.g., OB calling Rondo via API), the result MUST go directly to the consumer — no spool file written. Spool is only for unattended/disconnected runs.
+46. Spool files have a configurable TTL: files older than N days are auto-cleaned on next Rondo invocation. Default: 7 days. Configurable via `[spool] ttl_days`.
+47. `rondo spool list` MUST show all pending result files: filename, age, size, task name. Sorted newest first.
+48. `rondo spool clean` MUST delete all expired files (older than TTL). With `--all` flag: delete everything regardless of age.
+49. `rondo spool export --since YYYY-MM-DD` MUST dump all spool files since the given date to a single JSON array on stdout — for manual import into OB or other tools.
+50. The spool is NOT a database — no queries, no indexes, no schema migrations. Just JSON files with timestamps in a directory. Rondo stays stateless; the spool is a buffer between stateless Rondo and stateful consumers.
+51. Spool directory MUST be created automatically on first write if it does not exist. Permissions: user-only (0700).
+52. If spool write fails (disk full, permissions), Rondo MUST log a WARNING and continue — never fail a task because the spool is broken. The task result is still returned to stdout/caller.
+
 ---
 
 ## Assumptions
@@ -411,3 +425,4 @@ REQUIRED — fill before build.
 | 0.1 | 2026-03-13 | Split from monolithic RONDO-01. Parallel + overnight + report as optional layer. |
 | 0.2 | 2026-03-14 | Added: self-healing watchdog (reqs 19-23), usage threshold gating (reqs 24-28), morning report usage summary (req 36), worktree isolation (reqs 37-41). 25→41 requirements. |
 | 0.3 | 2026-03-14 | Deep review fixes: clarified watchdog vs task timeout relationship (reqs 19-20), cross-referenced STD-001 error codes |
+| 0.4 | 2026-03-18 | Result Spool — stateless persistence (reqs 42-52). Mailbox-pattern spool directory for disconnected runs. TTL cleanup, CLI commands, export for manual import. 52 requirements total. |

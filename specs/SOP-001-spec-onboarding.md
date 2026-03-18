@@ -3,6 +3,7 @@
 *How to add or create specs for Rondo. The rules any contributor must follow.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-SOP-011, Caliber-SOP-011, Rondo-SOP-011

@@ -3,6 +3,7 @@
 *How to build, test, and run Rondo from scratch.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-SOP-001, Caliber-SOP-001, Rondo-SOP-001

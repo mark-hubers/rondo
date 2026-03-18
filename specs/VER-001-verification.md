@@ -4,6 +4,7 @@
 
 **Product name:** Rondo — AI Task Orchestration Engine
 **Created:** 2026-03-13 | **Updated:** 2026-03-16 | **Status:** ACTIVE
+**Classification:** open
 **Architect:** Mark G. Hubers — HubersTech
 **AI Assistant:** Claude (Opus 4.6) — production code built to Mark's specifications
 **AI Reviewer:** Gemini (Google AI) — Cold review, found cross-field validation gap

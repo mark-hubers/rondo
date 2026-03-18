@@ -3,6 +3,7 @@
 *Define AI tasks in Python, send them to Claude, get structured results back.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
+**Classification:** open
 **Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** REQ-002 (Automation)
 **Author:** Mark Hubers — HubersTech
 

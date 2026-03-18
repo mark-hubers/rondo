@@ -3,6 +3,7 @@
 *How Rondo handles persistence, concurrency, subprocess isolation, and security. The operational foundation for a stateless dispatch framework.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-005, Caliber-STD-005

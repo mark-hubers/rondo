@@ -3,6 +3,7 @@
 *Run many tasks fast, schedule them overnight, get a morning report.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
+**Classification:** open
 **Depends on:** REQ-001 (Core) | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 

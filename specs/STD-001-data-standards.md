@@ -3,6 +3,7 @@
 *How Rondo handles time, identifiers, status values, naming, and null semantics. The foundation every dataclass and result file follows.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-001, Caliber-STD-001

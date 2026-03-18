@@ -3,6 +3,7 @@
 *How Rondo runs tasks in parallel safely — no injection, no leaks, no corruption.*
 
 **Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Classification:** open
 **Depends on:** STD-020 (Error Handling), STD-021 (Configuration) | **Blocks:** REQ-002 (Parallel)
 **Author:** Mark Hubers — HubersTech
 

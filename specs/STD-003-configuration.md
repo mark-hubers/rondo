@@ -3,6 +3,7 @@
 *How Rondo handles configuration, paths, and round definitions. Config-driven dispatch, code-driven rounds.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-003, Caliber-STD-003

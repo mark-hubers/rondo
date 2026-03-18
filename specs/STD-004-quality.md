@@ -3,6 +3,7 @@
 *How Rondo ensures its own code quality — TDD, convention enforcement, and coverage. Rondo tests itself, not its consumers.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** redacted
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-004, Caliber-STD-004

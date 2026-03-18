@@ -3,6 +3,7 @@
 *How Rondo handles failures — subprocess crashes, bad output, timeouts.*
 
 **Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Classification:** open
 **Depends on:** IFS-001 (exit codes, stderr) | **Blocks:** REQ-001 (Dispatch)
 **Author:** Mark Hubers — HubersTech
 

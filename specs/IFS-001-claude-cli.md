@@ -3,6 +3,7 @@
 *The exact contract between Rondo and Claude Code's `claude -p` command.*
 
 **Created:** 2026-03-13 | **Status:** DRAFT
+**Classification:** open
 **Depends on:** Claude Code CLI (Anthropic) | **Blocks:** REQ-001 (Core)
 **Author:** Mark Hubers — HubersTech
 

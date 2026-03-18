@@ -3,6 +3,7 @@
 *The 28-point checklist that validates specs before any code gets built. Every check proven by catching real bugs.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** redacted
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-007, Caliber-STD-007, Rondo-STD-007

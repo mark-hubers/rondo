@@ -3,6 +3,7 @@
 *How Rondo is configured — TOML file, CLI flags, sane defaults, COALESCE resolution.*
 
 **Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Classification:** open
 **Depends on:** Nothing | **Blocks:** REQ-001 (Core), REQ-002 (Automation)
 **Author:** Mark Hubers — HubersTech
 

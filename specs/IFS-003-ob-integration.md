@@ -3,6 +3,7 @@
 *How Rondo talks to OB — what it sends, what it receives, when it connects, and what it never touches. The execution muscle plugged into the methodology brain.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Architect:** Mark G. Hubers — HubersTech
 **Depends on:** REQ-001 (Core), REQ-002 (Automation)
 **Connects to:** OB-IFS-003 (External Integration), OB-33 (Dispatch), OB-05 (Sprint)

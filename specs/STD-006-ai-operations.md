@@ -3,6 +3,7 @@
 *How Rondo dispatches to AI models, tracks costs, handles rate limits, and supports multi-model routing. Rondo IS the dispatch layer.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** redacted
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-006, Caliber-STD-006

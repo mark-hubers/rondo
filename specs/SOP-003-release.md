@@ -3,6 +3,7 @@
 *How to ship a new version of Rondo.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-SOP-010, Caliber-SOP-010, Rondo-SOP-010

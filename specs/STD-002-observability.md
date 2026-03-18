@@ -3,6 +3,7 @@
 *How Rondo logs, handles errors, and tracks performance. Every dispatch leaves a trace.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
+**Classification:** open
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-STD-002, Caliber-STD-002

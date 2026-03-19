@@ -596,6 +596,31 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 ---
 
+### Live Mode (Session 79-80 — NEW)
+
+*Rondo in the conversation, not just overnight. Human reviews, AI executes, step by step.*
+
+47. `rondo live <round-file>` executes a round definition INSIDE the current Claude session, not as a subprocess.
+48. Live mode presents ONE task at a time. Claude reads the instruction, executes it, proves done_when. Mark reviews. Then next task.
+49. Tasks with `human_input="ask"` PAUSE and present the question to Mark. Mark answers. Task continues.
+50. Tasks with `human_input="defer"` log the finding and move to next task (Mark reviews later).
+51. Live mode uses the SAME round definitions as batch mode. No separate format. `rondo run task.json` and `rondo live task.json` read the same file.
+52. Live mode tracks execution in the event system: creates event, logs each task start/complete/skip, captures timeline.
+53. Live mode output goes to terminal (not spool). Results visible immediately.
+54. If Claude's context is getting large, live mode can `--checkpoint` to save progress and resume after compaction.
+55. Live mode is for ORB-02 through ORB-04 (spec work with human review). Batch mode is for ORB-05+ (code building, overnight).
+56. `rondo live --resume` continues from last completed task (if interrupted by compaction or session end).
+
+**When to use which mode:**
+
+| Mode | Command | Human Present | Use For |
+|------|---------|--------------|---------|
+| **Live** | `rondo live round.py` | YES — Mark reviews | Spec review, design decisions, fix approval |
+| **Batch** | `rondo run round.py` | NO — overnight | Code building, test runs, check scans |
+| **Dry-run** | `rondo run --dry-run round.py` | Either | Preview what would run |
+
+---
+
 ## Rules & Constraints
 
 | Rule | Rationale |

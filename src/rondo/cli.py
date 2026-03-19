@@ -50,6 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("file", help="Path to Python file with build_round()")
     _add_common_flags(run_parser)
 
+    # -- live subcommand (REQ-001 reqs 47-56)
+    live_parser = subparsers.add_parser("live", help="Execute round in live mode (human reviews)")
+    live_parser.add_argument("file", help="Path to Python file with build_round()")
+    live_parser.add_argument("--from", type=int, default=0, dest="from_task", help="Resume from task N")
+    live_parser.add_argument("--task", type=int, default=-1, help="Run only task N")
+    _add_common_flags(live_parser)
+
     # -- overnight subcommand
     overnight_parser = subparsers.add_parser("overnight", help="Run overnight automation")
     overnight_parser.add_argument("file", help="Path to Python file with build_phases()")
@@ -201,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "run":
             return _cmd_run(args)
+        if args.command == "live":
+            return _cmd_live(args)
         if args.command == "overnight":
             return _cmd_overnight(args)
         if args.command == "report":
@@ -252,6 +261,32 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(f"{result.status}: {result.summary}")
 
     return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
+
+
+def _cmd_live(args: argparse.Namespace) -> int:
+    """Execute 'rondo live <file>' subcommand — live mode with human review.
+
+    REQ-001 reqs 47-56.
+    """
+    from rondo.live import run_live  # pylint: disable=import-outside-toplevel
+
+    try:
+        round_def = load_round_file(args.file)
+    except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+
+    start_from = getattr(args, "from_task", 0)
+    single_task = getattr(args, "task", -1)
+
+    presentations = run_live(
+        round_def,
+        start_from=start_from,
+        single_task=single_task,
+    )
+
+    print(f"\n{len(presentations)} task(s) presented in live mode.")
+    return EXIT_SUCCESS
 
 
 def _cmd_overnight(args: argparse.Namespace) -> int:

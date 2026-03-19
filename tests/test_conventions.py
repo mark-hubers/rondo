@@ -76,7 +76,7 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "__main__.py"}
+    EXEMPT = {"cli.py", "live.py", "__main__.py"}
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""
@@ -156,9 +156,10 @@ class TestImportLayering:
         "runner.py": {"engine", "config", "dispatch", "parallel"},
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner"},
-        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report"},
+        "live.py": {"engine"},
+        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "report.py": {"engine", "config", "overnight"},
-        "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report"},
+        "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "__main__.py": {"cli"},
     }
 

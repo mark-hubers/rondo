@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 0.1
+**Version:** 0.2
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -80,6 +80,20 @@ Defines how every Rondo component logs its activity, handles errors, and tracks 
 27. Round summary MUST be written as `round-summary.json` in the same directory after all tasks complete.
 28. Spool files have a configurable TTL (default: 30 days). Cleanup is the consumer's responsibility — Rondo writes, consumers prune.
 
+### Metrics: Store Everything, Prune Later
+
+**GOLDEN RULE: Don't decide what's noise at capture time. Decide at query time.**
+
+29. Default is KEEP ALL. Every measurement stored in spool files. What looks like noise today is the pattern ACE discovers tomorrow.
+30. Spool-based metrics: each TaskResult includes a `metrics` dict with `metric_name`, `metric_value`, `metric_unit`, `context`, `captured_at`. Consumers (OB, ACE) ingest into their DBs.
+31. Store per-dispatch: task name, model, auth_mode, pass/fail, duration_ms, output_length, prompt_length.
+32. Store per-API-call (from stream-json): endpoint, tokens_in, tokens_out, cost_usd, response_time_ms, model, cache_read_tokens, cache_create_tokens.
+33. Store per-file (when dispatching file-scoped tasks): line_count, function_count, complexity score, findings count.
+34. Store per-round (via DispatchUsage fields): duration, working_time, findings, files_changed, total_cost_usd, total_tokens.
+35. Cost: ~200 bytes per metric entry in spool JSON. Store everything for years.
+36. Monthly prune job: flag metrics with zero variance or zero queries. Mark approves deletion. NEVER auto-delete. Rondo spool TTL (28 days default) is separate — metrics survive in consumer DBs.
+37. Cross-project mining via ACE: noise in one project = pattern across five.
+
 ---
 
 ## 10. Rules & Constraints
@@ -145,4 +159,5 @@ RoundResult      spool file
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.2 | 2026-03-19 | Added "Metrics: Store Everything, Prune Later" section (reqs 29-37). Spool-based metrics with consumer ingestion, per-dispatch/per-API/per-file/per-round storage, monthly prune with approval, cross-project ACE mining. Total: 37 requirements. |
 | 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-002 topics (logging, errors, performance) adapted for Rondo's dispatch context. 28 requirements. Stream-json capture, spool file naming, no-retry policy, rate limit detection. |

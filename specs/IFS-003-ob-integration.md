@@ -108,7 +108,7 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 | `TaskResult.task_name` | `sprint_results.task_name` | Matches OA name from payload |
 | `TaskResult.parsed_result` | `sprint_results.result_json` | Structured JSON from Claude response |
 | `TaskResult.raw_stdout` | `sprint_results.raw_output` | Full stdout capture |
-| `TaskResult.findings[]` | `audit_findings.*` | Findings discovered during execution |
+| `TaskResult.findings[]` | `findings.*` | Findings discovered during execution |
 | `DispatchUsage.model` | `sprint_intelligence.model` | Model used (opus/sonnet/haiku) |
 | `DispatchUsage.input_tokens` | `sprint_intelligence.input_tokens` | Prompt tokens |
 | `DispatchUsage.output_tokens` | `sprint_intelligence.output_tokens` | Completion tokens |
@@ -303,7 +303,7 @@ OB (Brain)                    Rondo (Muscle)                  Claude Code
  │  ├── sprint_results           │                               │
  │  ├── sprint_intelligence      │                               │
  │  ├── gate_checks              │                               │
- │  ├── audit_findings           │                               │
+ │  ├── findings           │                               │
  │  └── build_improvement_metrics│                               │
  │                               │                               │
  │  OB writes back to spec:      │                               │
@@ -362,7 +362,7 @@ OB (schedule builder)           Rondo (overnight executor)
 | TaskResult[] (per-task status, output) | JSON array in OAResult.results | sprint_results (OB-05) |
 | DispatchUsage[] (tokens, cost, model) | JSON in OAResult.results[*].ai | sprint_intelligence (OB-12) |
 | GateResult[] (pre-gate, post-gate) | JSON in OAResult.gates | gate_checks (OB-05) |
-| Finding[] (issues found during execution) | JSON in OAResult.results[*].findings | audit_findings (OB-07) |
+| Finding[] (issues found during execution) | JSON in OAResult.results[*].findings | findings (OB-07) |
 | Generated files (code, specs, tests) | JSON in OAResult.results[*].output | file system (via OB import) |
 | Worktree merge status | JSON in OAResult.worktree | sprint_results (merge metadata) |
 | Learn data (mistakes, assumptions, cost) | JSON in OAResult.learn | spec_sections, build_improvement_metrics |

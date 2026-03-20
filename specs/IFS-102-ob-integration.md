@@ -469,7 +469,7 @@ OB (schedule builder)           Rondo (overnight executor)
 
 | # | Decision | Date | Why |
 |---|----------|------|-----|
-| D1 | JSON contracts, never direct DB access | 2026-03-18 | Isolation. Rondo and OB can be developed independently. Same principle as Caliber-IFS-003 D1. |
+| D1 | JSON contracts, never direct DB access | 2026-03-18 | Isolation. Rondo and OB can be developed independently. Same principle as Caliber-IFS-102 D1. |
 | D2 | OB mode detection via .ob/config.toml | 2026-03-18 | Simple, no magic. File exists = OB is here. Same mechanism as Caliber. |
 | D3 | Rondo is the execution authority, OB is the methodology authority | 2026-03-18 | Clear ownership. Rondo knows HOW to dispatch. OB knows WHAT to dispatch and WHY. |
 | D4 | Rondo never advances sprint state | 2026-03-18 | Sprint lifecycle is OB's domain. Rondo reports; OB decides. Prevents split-brain state. |

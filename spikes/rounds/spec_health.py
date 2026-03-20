@@ -9,7 +9,7 @@ across all specs overnight.
 
 Usage:
    from rondo.rounds.spec_health import build_spec_health_round
-   round_def = build_spec_health_round("OB-REQ-001", "orbital/specs/OB-REQ-001-orbital-database.md")
+   round_def = build_spec_health_round("OB-REQ-100", "orbital/specs/OB-REQ-100-orbital-database.md")
 
 Created: 2026-03-13 (Session 75 — Rondo Spike)
 Author: Mark Hubers — HubersTech
@@ -48,7 +48,7 @@ def build_spec_health_round(spec_id: str, spec_path: str) -> Round:
    """Build a health check round for any spec.
 
    Args:
-      spec_id: Spec identifier (e.g., "OB-REQ-001", "R027", "F14")
+      spec_id: Spec identifier (e.g., "OB-REQ-100", "R027", "F14")
       spec_path: Path to the spec markdown file
 
    Returns:

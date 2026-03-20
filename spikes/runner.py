@@ -7,7 +7,7 @@ Runs all tasks in a round sequentially (parallel coming in Level 3),
 collects results, generates summary. This is the overnight workhorse.
 
 Usage:
-   python3 -m rondo.runner spec-health OB-REQ-026
+   python3 -m rondo.runner spec-health OB-REQ-125
    python3 -m rondo.runner spec-health --all-ob
    python3 -m rondo.runner digest-refresh --all
    python3 -m rondo.runner build-check
@@ -144,7 +144,7 @@ def _find_ob_specs() -> list[tuple[str, str]]:
     spec_dir = Path(_PROJECT_ROOT) / "orbital" / "specs"
     specs = []
     for f in sorted(spec_dir.glob("OB-*.md")):
-        ## -- Extract spec ID from filename: OB-REQ-001-orbital-database.md → OB-REQ-001
+        ## -- Extract spec ID from filename: OB-REQ-100-orbital-database.md → OB-REQ-100
         name = f.stem
         parts = name.split("-")
         if len(parts) >= 2:
@@ -195,7 +195,7 @@ def main() -> None:
         ],
         help="Round to run",
     )
-    parser.add_argument("spec", nargs="?", default=None, help="Spec ID (e.g., OB-REQ-026) — for spec-specific rounds")
+    parser.add_argument("spec", nargs="?", default=None, help="Spec ID (e.g., OB-REQ-125) — for spec-specific rounds")
     parser.add_argument("--all-ob", action="store_true", help="Run on ALL OB specs")
     parser.add_argument("--all", action="store_true", help="Run on ALL specs (R+F+OB)")
     parser.add_argument("--auth", choices=["max", "api"], default="max")

@@ -25,7 +25,7 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 - Rondo-specific adaptations (stateless design, 446 tests, sec/ms duration split)
 
 **OUT of scope:**
-- How OB tracks findings from failed checks (OB-REQ-006 domain)
+- How OB tracks findings from failed checks (OB-REQ-105 domain)
 - How Caliber automates these checks (Caliber-STD-007 domain)
 - OB or Caliber product-specific adaptations (CORE-STD-007, Caliber-STD-007)
 
@@ -47,7 +47,7 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 
 8. **WIRING** — IFS contracts match on both sides of every product pair. Rondo-IFS-001 (Claude CLI) and Rondo-IFS-003 (OB) must agree with their counterparts.
 9. **TRANSPORT MATCH** — both sides agree on transport method (pipe/file/HTTPS/queue). No spec says "file" when the other says "pipe."
-10. **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both Rondo-IFS-003 and OB-IFS-004 must exist.
+10. **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both Rondo-IFS-003 and OB-IFS-103 must exist.
 
 ### Data Consistency Checks (checks 11-17)
 
@@ -96,7 +96,7 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 |---------|---------|---------------|
 | 13 | 79 | Severity mismatch: AI returns critical/warning/nit, OB stores block/warn/info. Would have been runtime error. |
 | 19 | 79 | 9 SOP files with heading numbers not matching filenames |
-| 18 | 79 | OB-REQ-004 had 3 purposes — split into OB-REQ-004 + OB-REQ-028 + OB-REQ-029 |
+| 18 | 79 | OB-REQ-103 had 3 purposes — split into OB-REQ-103 + OB-REQ-127 + OB-REQ-128 |
 | 23 | 79 | INTEGRATION-ARCHITECTURE.md said 3 specs "NOT YET" when they were done |
 | 7 | 79 | Zero broken cross-references across 73+ specs after massive renumbering |
 | 24 | 77 | Gemini found 5 vocabulary inconsistencies across OB specs |

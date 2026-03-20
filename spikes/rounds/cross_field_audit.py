@@ -11,7 +11,7 @@ Why: Google AI review caught watchdog_timeout_sec >= task_timeout_sec gap
 that Claude and humans missed. Per-field range checks pass individually
 but the COMBINATION is invalid. This round automates that detection.
 
-Implements: OB-STD-009 Req 24, OB-SOP-020 Req 27-32
+Implements: OB-STD-100 Req 24, OB-SOP-100 Req 27-32
 Category: SEMANTIC convention (3rd category alongside STRUCTURAL and WIRING)
 
 Created: 2026-03-14 (Session 75)

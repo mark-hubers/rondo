@@ -10,7 +10,7 @@
 **Reviewed:** not-yet
 **Supersedes:** none
 **Depends on:** REQ-001 (Core), STD-008 (Security)
-**Connects to:** OB-IFS-004 (Token & Signing — master spec)
+**Connects to:** OB-IFS-103 (Token & Signing — master spec)
 
 ---
 

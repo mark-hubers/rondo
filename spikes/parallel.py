@@ -7,7 +7,7 @@ Uses concurrent.futures to run N tasks in parallel via claude -p.
 Handles result collection, conflict detection, and throttling.
 
 Usage:
-   python3 -m rondo.parallel spec-health OB-REQ-001 --workers 4
+   python3 -m rondo.parallel spec-health OB-REQ-100 --workers 4
    python3 -m rondo.parallel spec-health --all-ob --workers 2
 
 Created: 2026-03-13 (Session 75)

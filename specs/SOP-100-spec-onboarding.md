@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-SOP-011, Caliber-SOP-011, Rondo-SOP-011
+**Matches:** OB-SOP-100, Caliber-SOP-100, Rondo-SOP-100
 
 ---
 
@@ -102,7 +102,7 @@ When referencing specs from other products:
 | Referencing | Format | Example |
 |-------------|--------|---------|
 | Rondo spec from Rondo | `SOP-001` or `REQ-001` | "See REQ-001 (Core)" |
-| OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-SOP-020 defines build integration" |
+| OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-SOP-100 defines build integration" |
 | Caliber spec from Rondo | `Caliber SOP-020` | "Caliber SOP-020 defines the build flow" |
 | Cross-product interface | `IFS-NNN` with product context | "IFS-003 defines OB integration" |
 

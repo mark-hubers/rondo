@@ -268,7 +268,7 @@ def _parse_response(raw: str) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 def main() -> None:
-   """CLI: dispatch tasks from the OB-REQ-001 design round."""
+   """CLI: dispatch tasks from the OB-REQ-100 design round."""
    parser = argparse.ArgumentParser(
       description="Rondo Dispatch — send tasks to Claude via CLI",
    )
@@ -288,7 +288,7 @@ def main() -> None:
                         help="Effort override. Default: task decides (usually high).")
    parser.add_argument("--max-budget", type=float, default=None,
                         help="Max USD per task (API mode only)")
-   parser.add_argument("--spec", default="OB-REQ-001", help="Spec ID (default: OB-REQ-001)")
+   parser.add_argument("--spec", default="OB-REQ-100", help="Spec ID (default: OB-REQ-100)")
 
    args = parser.parse_args()
 

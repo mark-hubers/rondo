@@ -1,4 +1,4 @@
-# STD-020: Error Handling & Resilience
+# STD-108: Error Handling & Resilience
 
 *How Rondo handles failures — subprocess crashes, bad output, timeouts.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** IFS-001 (exit codes, stderr) | **Blocks:** REQ-001 (Dispatch)
+**Depends on:** IFS-100 (exit codes, stderr) | **Blocks:** REQ-100 (Dispatch)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -29,8 +29,8 @@ No silent failures. No crashes from bad output. No hung processes.
 
 **OUT of scope:**
 - Retry logic (caller's responsibility — Rondo reports, caller decides)
-- Notification/alerting (REQ-002 morning report surfaces failures)
-- Error storage backend (REQ-001 defines result file format)
+- Notification/alerting (REQ-101 morning report surfaces failures)
+- Error storage backend (REQ-100 defines result file format)
 
 ---
 
@@ -129,7 +129,7 @@ class TaskResult:
     timestamp: str               # -- ISO-8601 UTC when dispatch started
     cost_usd: float | None       # -- from stream-json result event (None if unavailable)
 
-    # -- file tracking (for conflict detection — STD-022)
+    # -- file tracking (for conflict detection — STD-110)
     files_modified: list[str] = field(default_factory=list)
                                  # -- files mentioned in Claude's output as modified
                                  # -- populated by parsing raw_output for file paths
@@ -154,7 +154,7 @@ def extract_modified_files(raw_output: str) -> list[str]:
 ```
 
 This is a heuristic — it may catch false positives (file paths in read context).
-STD-022's conflict detection uses this as an advisory signal, not a prevention mechanism.
+STD-110's conflict detection uses this as an advisory signal, not a prevention mechanism.
 
 ---
 
@@ -286,8 +286,8 @@ Rondo has two independent timeout mechanisms. They serve different purposes:
 
 | Mechanism | Default | Trigger | Error Code | Scope |
 |-----------|---------|---------|-----------|-------|
-| **Task timeout** (`task_timeout_sec`) | 300s | Total elapsed time exceeds limit | `ERR_TIMEOUT` | REQ-001 dispatch |
-| **Watchdog timeout** (`watchdog_timeout_sec`) | 60s | No new stdout for this duration | `ERR_WATCHDOG_TIMEOUT` | REQ-002 overnight |
+| **Task timeout** (`task_timeout_sec`) | 300s | Total elapsed time exceeds limit | `ERR_TIMEOUT` | REQ-100 dispatch |
+| **Watchdog timeout** (`watchdog_timeout_sec`) | 60s | No new stdout for this duration | `ERR_WATCHDOG_TIMEOUT` | REQ-101 overnight |
 
 **Task timeout:** Hard wall-clock limit. If a task takes longer than `task_timeout_sec`,
 it's killed regardless of whether it's producing output. This catches tasks that are

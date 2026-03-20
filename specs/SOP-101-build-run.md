@@ -1,4 +1,4 @@
-# SOP-002: Build & Run Procedure
+# SOP-101: Build & Run Procedure
 
 *How to build, test, and run Rondo from scratch.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-SOP-001, Caliber-SOP-001, Rondo-SOP-001
+**Matches:** CORE-SOP-001, Caliber-SOP-100, Rondo-SOP-100
 
 ---
 

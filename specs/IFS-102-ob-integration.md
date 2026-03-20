@@ -1,4 +1,4 @@
-# IFS-003: OB Integration Contract
+# IFS-102: OB Integration Contract
 
 *How Rondo talks to OB — what it sends, what it receives, when it connects, and what it never touches. The execution muscle plugged into the methodology brain.*
 
@@ -9,7 +9,7 @@
 **Reviewed:** not-yet
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
-**Depends on:** REQ-001 (Core), REQ-002 (Automation)
+**Depends on:** REQ-100 (Core), REQ-101 (Automation)
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
 **References:** CONTRACTS.md (JSON format), NAMING-MAP.md (field mapping)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
@@ -36,9 +36,9 @@ Defines the exact contract between Rondo and OB. Rondo is a standalone AI dispat
 - OB's internal storage (OB-REQ-100 owns that)
 - OB's dispatch engine (OB-REQ-128 owns that)
 - How OB calls Rondo (OB-IFS-102 owns that)
-- Caliber integration (Caliber-IFS-003 or Rondo's internal Caliber calls)
-- Claude Code CLI details (IFS-001 owns that)
-- Rondo's engine internals (REQ-001 owns that)
+- Caliber integration (Caliber-IFS-102 or Rondo's internal Caliber calls)
+- Claude Code CLI details (IFS-100 owns that)
+- Rondo's engine internals (REQ-100 owns that)
 
 ---
 
@@ -157,11 +157,11 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 44. OAPayload malformed → Rondo rejects with exit code 2 and structured error: `{"error": "Invalid payload", "detail": "{specifics}", "contract": "OAPayload", "version": "1.0"}`
 45. OAPayload version mismatch (payload $version != supported) → Rondo rejects with clear error: "Unsupported OAPayload version: {v}. Supported: 1.0"
 46. Network timeout (HTTPS/queue transport) → Rondo completes locally, queues result for later delivery. Result file is the fallback — never lose work.
-47. Claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-020 error resilience), and includes the partial round result in the OAResult.
+47. Claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-108 error resilience), and includes the partial round result in the OAResult.
 
 ### Standalone Behavior (Rondo without OB)
 
-48. Without OB, Rondo works with Python round definitions (REQ-001): a `build_round()` function returns a `Round` object, Rondo dispatches tasks and returns a `RoundResult`.
+48. Without OB, Rondo works with Python round definitions (REQ-100): a `build_round()` function returns a `Round` object, Rondo dispatches tasks and returns a `RoundResult`.
 49. Standalone results use the same JSON format as OB-connected results. The only difference: no `dispatch.sprint_id` (populated as null), no `spec` digest in the payload.
 50. Standalone Rondo can still accept `--ob-payload` with a hand-crafted JSON file — useful for testing the OB integration path without running OB.
 51. Transition from standalone to OB-connected requires ZERO code changes in Rondo — only adding `.ob/config.toml` with `[rondo] enabled = true`.
@@ -184,7 +184,7 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 62. Sprint advancement: Rondo DOES NOT advance sprint state. Rondo returns the result. OB reads the result and decides whether to advance (BUILD → VERIFY → COMPLETE). This is OB's decision, not Rondo's.
 63. All-gates-pass shortcut: when OB detects that all pre-gates, tasks, and post-gates passed for a sprint, OB MAY advance the sprint without human intervention. Rondo just reports — OB decides.
 64. Overnight failure: if a sprint's round fails, Rondo logs the failure, saves the partial OAResult, and moves to the next sprint in the schedule. Never halt the overnight pipeline for one sprint's failure.
-65. Morning report: Rondo generates its standard morning report (REQ-002 reqs 29-36) covering all sprints processed. OB MAY consume this report or generate its own from the individual OAResults.
+65. Morning report: Rondo generates its standard morning report (REQ-101 reqs 29-36) covering all sprints processed. OB MAY consume this report or generate its own from the individual OAResults.
 
 ### Feedback Loop (the compound intelligence path)
 
@@ -410,7 +410,7 @@ OB (schedule builder)           Rondo (overnight executor)
 | A4 | Rondo's RoundResult/TaskResult is rich enough for OB's needs | May need OB-specific extension fields in the result |
 | A5 | Git worktree is available on all target systems | May need fallback to directory copies on systems without git worktree support |
 | A6 | Overnight sprints are independent enough to process sequentially | If sprints have dependencies, OB must encode that in schedule ordering |
-| A7 | Claude Code's `--output-format stream-json` provides accurate token/cost data | If Anthropic changes the format, IFS-001 and dispatch.py need updates |
+| A7 | Claude Code's `--output-format stream-json` provides accurate token/cost data | If Anthropic changes the format, IFS-100 and dispatch.py need updates |
 | A8 | Post-merge shakedown via Caliber is fast enough to run per-worktree merge | If shakedown is slow, may need to batch post-merge checks |
 
 ---
@@ -442,11 +442,11 @@ OB (schedule builder)           Rondo (overnight executor)
 
 | Depends On | Why |
 |------------|-----|
-| REQ-001 | Core engine defines Round, Task, Gate, RoundResult, TaskResult, DispatchUsage, GateResult |
-| REQ-002 | Automation defines parallel dispatch, overnight scheduler, morning report |
-| IFS-001 | Claude CLI interface (how Rondo calls `claude -p`) |
-| STD-020 | Error resilience (task failure → continue, not crash) |
-| STD-021 | Configuration (COALESCE pattern, TOML loading) |
+| REQ-100 | Core engine defines Round, Task, Gate, RoundResult, TaskResult, DispatchUsage, GateResult |
+| REQ-101 | Automation defines parallel dispatch, overnight scheduler, morning report |
+| IFS-100 | Claude CLI interface (how Rondo calls `claude -p`) |
+| STD-108 | Error resilience (task failure → continue, not crash) |
+| STD-109 | Configuration (COALESCE pattern, TOML loading) |
 | OB-REQ-128 | OAPayload/OAResult contract format definition |
 | OB-IFS-102 | OB's side of the integration (how OB calls Rondo) |
 | OB-REQ-103 | Sprint lifecycle (Rondo reports to, but never modifies) |

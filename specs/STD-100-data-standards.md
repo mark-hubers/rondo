@@ -1,4 +1,4 @@
-# STD-001: Data Standards
+# STD-100: Data Standards
 
 *How Rondo handles time, identifiers, status values, naming, and null semantics. The foundation every dataclass and result file follows.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-001, Caliber-STD-001
+**Matches:** CORE-STD-001, Caliber-STD-100
 
 ---
 

@@ -1,4 +1,4 @@
-# STD-005: Infrastructure
+# STD-104: Infrastructure
 
 *How Rondo handles persistence, concurrency, subprocess isolation, and security. The operational foundation for a stateless dispatch framework.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-005, Caliber-STD-005
+**Matches:** CORE-STD-005, Caliber-STD-104
 
 ---
 
@@ -28,7 +28,7 @@ Defines the infrastructure rules for Rondo: spool-based persistence (no database
 **OUT of scope:**
 - Database abstraction (Rondo has no DB — CORE-STD-005 domain)
 - Backup and migration (Rondo has no schema — CORE-STD-005 domain)
-- Build gate configuration (STD-002: Observability)
+- Build gate configuration (STD-101: Observability)
 - Consumer-side storage (OB decides what to persist)
 
 ---
@@ -64,13 +64,13 @@ Defines the infrastructure rules for Rondo: spool-based persistence (no database
 
 17. Every `claude -p` dispatch runs as a subprocess with a controlled environment. The runner constructs the environment explicitly — no inheriting the full parent environment blindly.
 18. `CLAUDECODE` MUST be stripped from the child environment. This prevents the nested-session guard from blocking dispatch. Non-negotiable.
-19. `ANTHROPIC_API_KEY` handling depends on auth mode: stripped for `max` (use subscription), preserved for `api` (pay-per-token). See STD-003 rules 22-23.
+19. `ANTHROPIC_API_KEY` handling depends on auth mode: stripped for `max` (use subscription), preserved for `api` (pay-per-token). See STD-102 rules 22-23.
 20. Each subprocess gets its own working directory: the project root for sequential tasks, the worktree path for parallel tasks.
 21. Subprocess arguments MUST be constructed as a list, never a string. No `shell=True` anywhere in Rondo. This prevents shell injection and ensures consistent argument parsing.
 
 ### Security
 
-22. No hardcoded secrets in source — API keys, tokens, and credentials via environment variables only. Enforced by convention test (STD-004 rule 20).
+22. No hardcoded secrets in source — API keys, tokens, and credentials via environment variables only. Enforced by convention test (STD-103 rule 20).
 23. Result files MUST NOT contain API keys. Before writing a TaskResult to spool, strip any environment variables from the `prompt_sent` field that might contain secrets.
 24. Spool directory permissions: owner-read-write only (mode 0700 on the directory, 0600 on files). Result files may contain proprietary prompts and AI output.
 25. Pre-commit hook: gitleaks MUST run to prevent secrets from being committed to git.

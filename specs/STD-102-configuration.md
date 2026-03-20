@@ -1,4 +1,4 @@
-# STD-003: Configuration
+# STD-102: Configuration
 
 *How Rondo handles configuration, paths, and round definitions. Config-driven dispatch, code-driven rounds.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-003, Caliber-STD-003
+**Matches:** CORE-STD-003, Caliber-STD-102
 
 ---
 
@@ -27,9 +27,9 @@ Defines how Rondo resolves configuration: TOML for dispatch settings, Python dat
 - Environment variable overrides
 
 **OUT of scope:**
-- Round execution logic (REQ-001: Core)
-- Parallel execution config (REQ-002: Automation)
-- Data format rules (STD-001: Data Standards)
+- Round execution logic (REQ-100: Core)
+- Parallel execution config (REQ-101: Automation)
+- Data format rules (STD-100: Data Standards)
 
 ---
 
@@ -65,11 +65,11 @@ results_dir = "reports/rondo-results"   # spool directory for result files
 rounds_dir = "rounds/"                  # default location for round definition files
 
 [parallel]
-workers = 1                        # 1 = sequential, >1 = parallel (REQ-002)
+workers = 1                        # 1 = sequential, >1 = parallel (REQ-101)
 throttle_sec = 2.0                 # delay between dispatches (rate limit protection)
 
 [overnight]
-enabled = false                    # overnight scheduler (REQ-002)
+enabled = false                    # overnight scheduler (REQ-101)
 phases_dir = "rounds/overnight/"   # phase definition files
 ```
 

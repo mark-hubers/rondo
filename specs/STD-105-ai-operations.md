@@ -1,4 +1,4 @@
-# STD-006: AI Operations
+# STD-105: AI Operations
 
 *How Rondo dispatches to AI models, tracks costs, handles rate limits, and supports multi-model routing. Rondo IS the dispatch layer.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-006, Caliber-STD-006
+**Matches:** CORE-STD-006, Caliber-STD-105
 
 ---
 
@@ -66,15 +66,15 @@ Defines the rules for how Rondo works with AI systems. Unlike OB (which consumes
 | `rate_limit_resets_at` | int | Epoch timestamp (0 = not available) |
 
 7. DispatchUsage field names MUST match NAMING-MAP.md exactly. When OB stores Rondo results, it maps `DispatchUsage.cost_usd` to `sprint_intelligence.cost_usd` — same name, zero translation.
-8. If stream-json parsing fails (STD-002 rule 11), create a DispatchUsage with zeroed token fields and `cost_usd = 0.0`. Never skip the DispatchUsage object — consumers depend on it existing.
+8. If stream-json parsing fails (STD-101 rule 11), create a DispatchUsage with zeroed token fields and `cost_usd = 0.0`. Never skip the DispatchUsage object — consumers depend on it existing.
 9. Round-level cost summary: `sum(usage.cost_usd for usage in round_result.usage)` gives total round cost. This is computed by the consumer, not stored redundantly by Rondo.
 
 ### Rate Limit Handling
 
 10. Stream-json emits `rate_limit_event` with current usage status. Rondo captures: `rate_limit_status` ("allowed" or "blocked"), `is_using_overage`, and `rate_limit_resets_at` (epoch timestamp).
-11. When rate limit status is "blocked": log at WARNING, record in DispatchUsage, and let the consumer decide whether to retry later. Rondo does NOT auto-retry on rate limits (STD-002 rule 17).
+11. When rate limit status is "blocked": log at WARNING, record in DispatchUsage, and let the consumer decide whether to retry later. Rondo does NOT auto-retry on rate limits (STD-101 rule 17).
 12. Rate limit information is per-dispatch, not per-round. Different tasks may hit different rate limit states depending on timing.
-13. For overnight automation (REQ-002): the scheduler reads rate limit status from the previous dispatch and can pause between phases to wait for reset. This is scheduler logic, not dispatch logic.
+13. For overnight automation (REQ-101): the scheduler reads rate limit status from the previous dispatch and can pause between phases to wait for reset. This is scheduler logic, not dispatch logic.
 
 ### Context Window Awareness
 

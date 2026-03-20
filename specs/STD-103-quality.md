@@ -1,4 +1,4 @@
-# STD-004: Quality
+# STD-103: Quality
 
 *How Rondo ensures its own code quality — TDD, convention enforcement, and coverage. Rondo tests itself, not its consumers.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-004, Caliber-STD-004
+**Matches:** CORE-STD-004, Caliber-STD-103
 
 ---
 
@@ -28,7 +28,7 @@ Defines the quality standards for Rondo's own codebase: TDD discipline, conventi
 **OUT of scope:**
 - Self-correction (CORE-STD-004 domain — Rondo is stateless, no iterative AI builds)
 - Consumer test requirements (OB/ACE define their own)
-- Build gate tooling (STD-002: Observability handles prefixes)
+- Build gate tooling (STD-101: Observability handles prefixes)
 
 ---
 
@@ -48,7 +48,7 @@ Defines the quality standards for Rondo's own codebase: TDD discipline, conventi
 
 8. Engine logic: Round/Task/Gate dataclass construction, validation (`validate_task()`, `validate_round()`), state machine transitions (pending > running > terminal states).
 9. Dispatch logic: subprocess argument construction, environment variable stripping (CLAUDECODE, ANTHROPIC_API_KEY), stream-json parsing, result contract parsing, malformed output handling.
-10. Runner logic: pre-gate evaluation, task sequencing, post-gate evaluation, RoundResult assembly, status calculation (req 46 from REQ-001).
+10. Runner logic: pre-gate evaluation, task sequencing, post-gate evaluation, RoundResult assembly, status calculation (req 46 from REQ-100).
 11. Config logic: TOML loading, COALESCE resolution, validation (type checks, range checks), zero-config defaults, env var overrides.
 12. Gate pre/post conditions: blocking gates halt the round, non-blocking gates log warnings, gate results appear in RoundResult.
 13. Round definitions: example rounds in `examples/` are used as test fixtures — they MUST be valid, loadable, and produce correct Round objects.
@@ -105,8 +105,8 @@ tests/
 ├── test_config.py          # TOML, COALESCE, validation, env vars
 ├── test_cli.py             # CLI arg parsing, exit codes
 ├── test_examples.py        # example round loading, structure validation
-├── test_parallel.py        # parallel runner (REQ-002)
-├── test_overnight.py       # overnight scheduler (REQ-002)
+├── test_parallel.py        # parallel runner (REQ-101)
+├── test_overnight.py       # overnight scheduler (REQ-101)
 ├── test_conventions.py     # AST-based convention enforcement
 └── fixtures/
     └── stream-json/        # real stream-json output samples

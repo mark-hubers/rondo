@@ -1,4 +1,4 @@
-# STD-021: Configuration
+# STD-109: Configuration
 
 *How Rondo is configured — TOML file, CLI flags, sane defaults, COALESCE resolution.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Nothing | **Blocks:** REQ-001 (Core), REQ-002 (Automation)
+**Depends on:** Nothing | **Blocks:** REQ-100 (Core), REQ-101 (Automation)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -148,7 +148,7 @@ class RondoConfig:
     # -- permissions
     permission_mode: str = "auto"
 
-    # -- self-healing (REQ-002 watchdog + usage gating)
+    # -- self-healing (REQ-101 watchdog + usage gating)
     watchdog_timeout_sec: int = 60
     rate_limit_backoff_sec: int = 60
     on_overage: str = "continue"
@@ -164,7 +164,7 @@ class RondoConfig:
 ```
 
 **Why frozen:** Config is immutable after creation. No mid-session changes.
-Thread-safe by design (STD-022 concurrency safety).
+Thread-safe by design (STD-110 concurrency safety).
 
 **Note on `dry_run`:** CLI-only (not settable in TOML config file). The dataclass
 holds it because COALESCE resolves CLI → config → default into one object. The TOML
@@ -191,7 +191,7 @@ permission_mode = "auto"        # default, acceptEdits, plan, auto, bypassPermis
 workers = 4                     # max concurrent task dispatches
 throttle_sec = 2.0              # seconds between task launches
 
-# -- Self-healing (REQ-002 watchdog + usage gating)
+# -- Self-healing (REQ-101 watchdog + usage gating)
 watchdog_timeout_sec = 60       # seconds of no output before watchdog kills task
 rate_limit_backoff_sec = 60     # seconds to wait after rate limit hit
 on_overage = "continue"         # continue, pause, stop — action when isUsingOverage=true

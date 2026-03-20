@@ -1,4 +1,4 @@
-# REQ-001: Core — Engine + Dispatch
+# REQ-100: Core — Engine + Dispatch
 
 *Define AI tasks in Python, send them to Claude, get structured results back.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** REQ-002 (Automation)
+**Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** REQ-101 (Automation)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -29,9 +29,9 @@ Defines Rondo's core: the data model for describing AI work (Rounds, Tasks, Gate
 - Round state serialization (JSON, for recovery)
 
 **OUT of scope:**
-- Parallel execution (REQ-002: Automation)
-- Overnight scheduling (REQ-002: Automation)
-- Morning reports (REQ-002: Automation)
+- Parallel execution (REQ-101: Automation)
+- Overnight scheduling (REQ-101: Automation)
+- Morning reports (REQ-101: Automation)
 - Specific round definitions (consumer's responsibility — e.g., OB defines its own rounds)
 - Claude Code internals (Anthropic's product)
 - Alternative AI backends (future work)
@@ -68,7 +68,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 
 ### Engine — State Machine
 
-8. Task status MUST follow this state machine: `pending → running → done | blocked | partial | error | skipped`. No other transitions. See "Task State Machine" below and STD-020 for definitions.
+8. Task status MUST follow this state machine: `pending → running → done | blocked | partial | error | skipped`. No other transitions. See "Task State Machine" below and STD-108 for definitions.
 9. A round is "complete" when all tasks are in a terminal state (done, blocked, partial, error, or skipped).
 10. Round state (task statuses, gate results) MUST be serializable to JSON for recovery after interruption.
 11. A round MUST be resumable from serialized state — load JSON, skip completed tasks, continue from next pending.
@@ -123,11 +123,11 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 34. Rondo MUST be an importable Python package: `from rondo import run_round, RoundResult`.
 35. The public API (`rondo/__init__.py`) MUST export: `Round`, `Task`, `Gate`, `GateResult`, `TaskResult`, `RoundResult`, `DispatchUsage`, `RondoConfig`, `run_round`.
 36. Rondo MUST provide a CLI entry point: `rondo <subcommand> [options]`.
-37. CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-021).
+37. CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-109).
 38. The `run` subcommand MUST accept a path to a Python file containing a `build_round()` function that returns a `Round` object.
 39. Round definition files MUST be loadable by path — Rondo dynamically imports the file and calls `build_round()`.
 40. Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py`.
-41. All CLI flags from STD-021 (--workers, --model, --auth, etc.) MUST be available on the `run` subcommand.
+41. All CLI flags from STD-109 (--workers, --model, --auth, etc.) MUST be available on the `run` subcommand.
 
 ### Dispatch — Permission Mode
 
@@ -150,7 +150,7 @@ rondo/
 │       ├── overnight.py          # -- phase scheduler, watchdog, usage gating
 │       ├── report.py             # -- morning report generator
 │       └── cli.py                # -- CLI entry point (argparse)
-├── tests/                        # -- pytest test suite (VER-001)
+├── tests/                        # -- pytest test suite (VER-100)
 │   ├── test_engine.py
 │   ├── test_config.py
 │   ├── test_dispatch.py
@@ -401,7 +401,7 @@ def build_round(target_dir: str = "src/") -> Round:
 
 ```
 ┌────────────────────────────────────────────────────┐
-│                     REQ-001: CORE                       │
+│                     REQ-100: CORE                       │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
 │  │              ENGINE (L0)                      │  │
@@ -422,7 +422,7 @@ def build_round(target_dir: str = "src/") -> Round:
 │  │   Result collection, summary                  │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                     │
-│         ▲ REQ-002 builds on top of this ▲               │
+│         ▲ REQ-101 builds on top of this ▲               │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -472,7 +472,7 @@ Claude returns:
  "result": "what was accomplished", "question": "if blocked, what is needed"}
 ```
 
-Rondo wraps that with execution metadata (see STD-020 `TaskResult` for full structure):
+Rondo wraps that with execution metadata (see STD-108 `TaskResult` for full structure):
 ```json
 {"task_name": "...", "status": "done|blocked|partial|error|skipped",
  "model": "opus|sonnet|haiku", "auth_mode": "max|api",
@@ -589,7 +589,7 @@ pending ──→ running ──→ done     (terminal — task completed succes
                    └──→ skipped  (terminal — pre-gate blocked the round)
 ```
 
-**Status vocabulary is shared with STD-020.** These 5 values are the only valid
+**Status vocabulary is shared with STD-108.** These 5 values are the only valid
 task statuses across all of Rondo: `done`, `blocked`, `partial`, `error`, `skipped`.
 
 No backward transitions. No re-running. A failed task stays failed for this round.
@@ -629,7 +629,7 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 | Three-field contract is mandatory | Do, Read, Done. Every interactive task needs all three. Prevents vague instructions. |
 | CLAUDECODE env var always stripped | Claude Code blocks nested sessions. This is non-negotiable. |
 | Results always saved to disk | Even on error. Can't rely on terminal output or memory. |
-| Sequential is the safe default | Parallel is opt-in (REQ-002). One task at a time is predictable. |
+| Sequential is the safe default | Parallel is opt-in (REQ-101). One task at a time is predictable. |
 | Zero external dependencies | stdlib only. Maximizes portability and ease of installation. |
 | Round definitions import only engine | Keeps definitions portable. They shouldn't know about dispatch internals. |
 
@@ -668,7 +668,7 @@ class RoundResult:
     duration_sec: float                    # -- wall-clock total
 
     # -- task results (one per task)
-    task_results: list[TaskResult]         # -- see STD-020 for TaskResult fields
+    task_results: list[TaskResult]         # -- see STD-108 for TaskResult fields
 
     # -- gate results
     pre_gate_results: list[GateResult]     # -- name, passed, detail
@@ -704,8 +704,8 @@ class DispatchUsage:
     duration_api_ms: int                   # -- API time only (ms — from stream-json)
     num_turns: int                         # -- tool-use loops
     context_window: int                    # -- 200000 or 1000000
-    rate_limit_status: str = "unknown"     # -- "allowed", "blocked", or "unknown" (default per IFS-001 req 9)
-    is_using_overage: bool = False         # -- past plan allocation? (default per IFS-001 req 9)
+    rate_limit_status: str = "unknown"     # -- "allowed", "blocked", or "unknown" (default per IFS-100 req 9)
+    is_using_overage: bool = False         # -- past plan allocation? (default per IFS-100 req 9)
     rate_limit_resets_at: int = 0          # -- epoch timestamp (0 = not available)
 ```
 
@@ -716,7 +716,7 @@ The consumer calls Rondo and receives `RoundResult`. From that single object:
 | Consumer Wants | Where In RoundResult |
 |---------------|---------------------|
 | What tasks ran | `task_results[*].task_name` |
-| What passed/failed | `task_results[*].status` — done, blocked, partial, error, skipped (STD-020) |
+| What passed/failed | `task_results[*].status` — done, blocked, partial, error, skipped (STD-108) |
 | What each task returned | `task_results[*].parsed_result` (the AI's JSON response) |
 | What errors happened | `task_results[*].error_code` + `error_message` |
 | Full AI output | `task_results[*].raw_output` |
@@ -738,7 +738,7 @@ the data and moves on.
 ### Result Files (Backup)
 
 In addition to the return object, Rondo writes each task result to a JSON file
-in `results_dir` (STD-021). These files are a backup — the consumer should use
+in `results_dir` (STD-109). These files are a backup — the consumer should use
 the return object as the primary data source. Result files persist across crashes
 and let consumers replay results without re-dispatching.
 
@@ -757,9 +757,9 @@ reports/rondo-results/
 
 | Standard | How Applied |
 |----------|-------------|
-| STD-020 Error & Resilience | Every failure includes task name, error, duration, prompt. Subprocess errors vs logic errors distinguished. |
-| STD-021 Configuration | TOML config. COALESCE: CLI → config → default. Zero-config works out of the box. |
-| STD-022 Concurrency & Safety | (REQ-001 is sequential only. STD-022 applied fully in REQ-002.) Subprocess args as list, never shell=True. API keys stripped from result files. |
+| STD-108 Error & Resilience | Every failure includes task name, error, duration, prompt. Subprocess errors vs logic errors distinguished. |
+| STD-109 Configuration | TOML config. COALESCE: CLI → config → default. Zero-config works out of the box. |
+| STD-110 Concurrency & Safety | (REQ-100 is sequential only. STD-110 applied fully in REQ-101.) Subprocess args as list, never shell=True. API keys stripped from result files. |
 
 ---
 
@@ -794,7 +794,7 @@ reports/rondo-results/
 |---|----------|--------|
 | Q1 | Should Rondo have its own lightweight DB for run history? | **Answered: No.** Rondo produces structured output (RoundResult). Consumer stores it. See "Data Boundary" section. |
 | Q2 | What's the rate limit on Max plan `claude -p`? | **Partially answered.** rate_limit_event gives 5-hour window status. Weekly % not available programmatically. (Spike: Session 76) |
-| Q3 | Should the binary path for `claude` be configurable? | **Answered: Yes.** `claude_binary` in STD-021 config. Default: "claude" |
+| Q3 | Should the binary path for `claude` be configurable? | **Answered: Yes.** `claude_binary` in STD-109 config. Default: "claude" |
 | Q4 | Should round definitions live in TOML or Python? | **Answered: Python** — they need logic |
 | Q5 | Should Rondo support alternative backends (Ollama, API-direct)? | Deferred |
 
@@ -813,7 +813,7 @@ reports/rondo-results/
 | **Orchestra** | Claude — does the thinking work. |
 | **COALESCE** | First non-null wins: CLI → config → task → default. |
 | **GateResult** | Outcome of a gate check: gate_name, passed, detail. |
-| **TaskResult** | Full outcome of a dispatched task. Defined in STD-020. |
+| **TaskResult** | Full outcome of a dispatched task. Defined in STD-108. |
 | **RoundResult** | Aggregate of all task + gate results. Returned to consumer. |
 | **DispatchUsage** | Per-dispatch metadata from stream-json (cost, tokens, rate limit). |
 | **Capacity mining** | Using idle subscription capacity for automated AI work at $0 extra cost. |

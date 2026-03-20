@@ -1,4 +1,4 @@
-# REQ-002: Automation — Parallel + Overnight + Report
+# REQ-101: Automation — Parallel + Overnight + Report
 
 *Run many tasks fast, schedule them overnight, get a morning report.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-001 (Core) | **Blocks:** Nothing
+**Depends on:** REQ-100 (Core) | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -16,7 +16,7 @@
 ## 1. Purpose & Scope
 
 **What this spec does (plain English):**
-Adds parallel execution, overnight batch scheduling, and morning reports on top of REQ-001's core. REQ-001 dispatches one task at a time. REQ-002 dispatches many tasks at once, chains rounds into overnight phases, and summarizes results for the morning.
+Adds parallel execution, overnight batch scheduling, and morning reports on top of REQ-100's core. REQ-100 dispatches one task at a time. REQ-101 dispatches many tasks at once, chains rounds into overnight phases, and summarizes results for the morning.
 
 **IN scope:**
 - Parallel dispatch: concurrent task execution with throttling
@@ -29,7 +29,7 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 - Event logging: rolling log for overnight post-mortem
 
 **OUT of scope:**
-- Engine, dispatch, auth, model routing (REQ-001: Core)
+- Engine, dispatch, auth, model routing (REQ-100: Core)
 - Specific round definitions (consumer's responsibility)
 - System-level scheduling (cron/LaunchAgent config — platform-specific)
 - Real-time monitoring / dashboards (future work)
@@ -38,7 +38,7 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 
 ## 2. The Problem
 
-REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes each takes 24 minutes. Running 32 specs through that takes 12+ hours. That exceeds overnight capacity.
+REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes each takes 24 minutes. Running 32 specs through that takes 12+ hours. That exceeds overnight capacity.
 
 **Parallel execution** solves throughput: 4 workers cut wall time by ~4x. But parallel introduces risks — two tasks modifying the same file, rate limiting from too many concurrent Claude sessions, results arriving out of order.
 
@@ -60,7 +60,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 6. Detected conflicts MUST be listed in the round summary (not silently ignored).
 7. Parallel dispatch MUST report: done count, error count, wall time, sum of task times, speedup ratio.
 8. If a single task fails or raises an exception, other tasks MUST NOT be affected.
-9. Parallel results MUST be saved to the same JSON format as sequential results (REQ-001 compatibility).
+9. Parallel results MUST be saved to the same JSON format as sequential results (REQ-100 compatibility).
 
 ### Overnight Scheduler
 
@@ -76,7 +76,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ### Self-Healing Watchdog
 
-19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-020). The task timeout is a hard wall-clock limit. The watchdog detects output silence.
+19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-108). The task timeout is a hard wall-clock limit. The watchdog detects output silence.
 20. If a dispatch subprocess does not produce new stdout for a configurable duration (`watchdog_timeout_sec`, default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT". A task producing output can run longer than `watchdog_timeout_sec` — the watchdog only fires on silence.
 21. After a watchdog kill, the scheduler MUST continue to the next task — never halt the pipeline.
 22. If a dispatch fails with a rate limit error (ERR_RATE_LIMIT), the watchdog MUST pause for a configurable backoff duration (default: 60 seconds) before the next dispatch.
@@ -157,11 +157,11 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ## Design
 
-### Architecture (REQ-002 on top of REQ-001)
+### Architecture (REQ-101 on top of REQ-100)
 
 ```
 ┌────────────────────────────────────────────────────┐
-│                   REQ-002: AUTOMATION                   │
+│                   REQ-101: AUTOMATION                   │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐  │
 │  │           OVERNIGHT (L3)                      │  │
@@ -178,7 +178,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 │  │   Aggregation, health indicators, actions     │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                     │
-│         ▼ Uses REQ-001: Engine + Dispatch + Runner ▼    │
+│         ▼ Uses REQ-100: Engine + Dispatch + Runner ▼    │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -232,7 +232,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Rule | Rationale |
 |------|-----------|
 | Phases don't block each other | One bad phase must not kill the whole overnight run. Resilience over strictness. |
-| Parallel is opt-in | Default is sequential (REQ-001). Parallel requires explicit --workers flag. |
+| Parallel is opt-in | Default is sequential (REQ-100). Parallel requires explicit --workers flag. |
 | Conflict detection is advisory | Flags potential issues but doesn't prevent execution. Consumer decides. |
 | No interactive input in overnight | Must run unattended from cron/LaunchAgent. Zero stdin. |
 | Morning report is always generated | Even if all phases fail. "Everything failed" is still a useful report. |
@@ -254,9 +254,9 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 | Standard | How Applied |
 |---------|-------------|
-| STD-020 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
-| STD-021 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
-| STD-022 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
+| STD-108 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
+| STD-109 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
+| STD-110 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
 
 ---
 
@@ -280,7 +280,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Q2 | Should overnight support `--resume` from a failed phase? | Open |
 | Q3 | Should the morning report support multiple output formats (markdown, JSON, HTML)? | Open |
 | Q4 | How should the scheduler handle system-level scheduling (cron vs LaunchAgent vs systemd)? | Deferred — platform-specific |
-| Q5 | Should Rondo support alternative backends (Codex CLI, Ollama, direct API)? | Deferred — IFS-001 isolates the interface. Adding IFS-002 for other backends is architecturally possible without changing REQ-001/002. |
+| Q5 | Should Rondo support alternative backends (Codex CLI, Ollama, direct API)? | Deferred — IFS-100 isolates the interface. Adding IFS-101 for other backends is architecturally possible without changing REQ-100/002. |
 | Q6 | Should worktree isolation use `git worktree` directly or Claude Code's `--worktree` flag? | Open — Claude Code has native worktree support via `--worktree` flag |
 
 ---

@@ -1,4 +1,4 @@
-# IFS-004: Token & Signing Interface
+# IFS-103: Token & Signing Interface
 
 *How Rondo handles signing tokens — passes tokens to workers so they can sign on behalf of the issuer.*
 
@@ -9,7 +9,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-001 (Core), STD-008 (Security)
+**Depends on:** REQ-100 (Core), STD-107 (Security)
 **Connects to:** OB-IFS-103 (Token & Signing — master spec)
 
 ---

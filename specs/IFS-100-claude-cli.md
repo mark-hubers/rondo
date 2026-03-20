@@ -1,4 +1,4 @@
-# IFS-001: Claude Code CLI Interface
+# IFS-100: Claude Code CLI Interface
 
 *The exact contract between Rondo and Claude Code's `claude -p` command.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Claude Code CLI (Anthropic) | **Blocks:** REQ-001 (Core)
+**Depends on:** Claude Code CLI (Anthropic) | **Blocks:** REQ-100 (Core)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -29,7 +29,7 @@ Documents the interface between Rondo (the conductor) and Claude Code's `claude 
 
 **OUT of scope:**
 - Claude Code internals (Anthropic's product, may change)
-- Rondo's dispatch logic (REQ-001)
+- Rondo's dispatch logic (REQ-100)
 - Authentication with Anthropic's servers
 
 ---
@@ -254,7 +254,7 @@ required tools/MCPs are available before trusting the result.
 
 ## 3. Requirements
 
-Numbered requirements for VER-001 traceability:
+Numbered requirements for VER-100 traceability:
 
 1. Rondo MUST read stream-json output line by line, parsing each as a JSON object.
 2. Rondo MUST extract `rate_limit_event` and populate `DispatchUsage` rate limit fields.
@@ -271,7 +271,7 @@ Numbered requirements for VER-001 traceability:
 
 ## Stream-JSON to Dataclass Mapping
 
-How each stream-json event maps to Rondo's dataclasses (REQ-001, STD-020):
+How each stream-json event maps to Rondo's dataclasses (REQ-100, STD-108):
 
 ### `rate_limit_event` → `DispatchUsage` fields
 

@@ -1,4 +1,4 @@
-# STD-002: Observability
+# STD-101: Observability
 
 *How Rondo logs, handles errors, and tracks performance. Every dispatch leaves a trace.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-002, Caliber-STD-002
+**Matches:** CORE-STD-002, Caliber-STD-101
 
 ---
 
@@ -26,8 +26,8 @@ Defines how every Rondo component logs its activity, handles errors, and tracks 
 - Spool file naming and structure
 
 **OUT of scope:**
-- Data format conventions (STD-001: Data Standards)
-- Configuration loading (STD-003: Configuration)
+- Data format conventions (STD-100: Data Standards)
+- Configuration loading (STD-102: Configuration)
 - Consumer-side storage of results (OB's concern, not Rondo's)
 
 ---
@@ -36,7 +36,7 @@ Defines how every Rondo component logs its activity, handles errors, and tracks 
 
 ### Logging
 
-1. Every log entry MUST include four fields: `timestamp` (ISO 8601 UTC per STD-001 rule 1), `level`, `source` (module name: `dispatch`, `runner`, `config`, etc.), and `message`.
+1. Every log entry MUST include four fields: `timestamp` (ISO 8601 UTC per STD-100 rule 1), `level`, `source` (module name: `dispatch`, `runner`, `config`, etc.), and `message`.
 2. Log levels use standard Python logging: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. No custom levels.
 3. CLI output uses status prefixes for machine-parseable results: `-PASS-`, `-FAIL-`, `-ERROR-`, `-WARNING-`. These prefixes appear at the start of the line.
 4. Log to stderr, not stdout. Stdout is reserved for structured output (JSON result objects, round summaries). This separation allows piping Rondo output.

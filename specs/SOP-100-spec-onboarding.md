@@ -1,4 +1,4 @@
-# SOP-001: Spec Onboarding Procedure
+# SOP-100: Spec Onboarding Procedure
 
 *How to add or create specs for Rondo. The rules any contributor must follow.*
 
@@ -18,28 +18,28 @@
 
 | Prefix | Category | Purpose | Example |
 |--------|----------|---------|---------|
-| REQ | Requirements | What Rondo must do | REQ-001 (Core), REQ-002 (Automation) |
-| STD | Standards | How code must be written | STD-020 (Error Resilience), STD-021 (Configuration) |
-| SOP | Procedures | How to do things (step-by-step) | SOP-001 (Build & Run), SOP-010 (Release) |
-| IFS | Interfaces | How Rondo connects to other products | IFS-001 (Claude CLI), IFS-003 (OB Integration) |
-| VER | Verification | How to prove specs are implemented | VER-001 (Verification Matrix) |
+| REQ | Requirements | What Rondo must do | REQ-100 (Core), REQ-101 (Automation) |
+| STD | Standards | How code must be written | STD-108 (Error Resilience), STD-109 (Configuration) |
+| SOP | Procedures | How to do things (step-by-step) | SOP-100 (Build & Run), SOP-010 (Release) |
+| IFS | Interfaces | How Rondo connects to other products | IFS-100 (Claude CLI), IFS-102 (OB Integration) |
+| VER | Verification | How to prove specs are implemented | VER-100 (Verification Matrix) |
 | TST | Test Plans | Detailed test strategies | (not yet created) |
 | ADR | Decisions | Why we chose X over Y | (not yet created) |
 
 ---
 
-## 2. Universal Standards (STD-001 to STD-006)
+## 2. Universal Standards (STD-100 to STD-105)
 
 Every product has these 6 standards with the same number and topic:
 
 | Number | Topic | What It Covers |
 |--------|-------|----------------|
-| STD-001 | Data Standards | Naming, types, boundaries, validation |
-| STD-002 | Observability | Logging, metrics, alerting |
-| STD-003 | Configuration | Config resolution, COALESCE pattern |
-| STD-004 | Quality | Coverage floors, complexity caps |
-| STD-005 | Infrastructure | Containers, deployment, CI/CD |
-| STD-006 | AI Operations | AI-specific patterns, prompt discipline |
+| STD-100 | Data Standards | Naming, types, boundaries, validation |
+| STD-101 | Observability | Logging, metrics, alerting |
+| STD-102 | Configuration | Config resolution, COALESCE pattern |
+| STD-103 | Quality | Coverage floors, complexity caps |
+| STD-104 | Infrastructure | Containers, deployment, CI/CD |
+| STD-105 | AI Operations | AI-specific patterns, prompt discipline |
 
 Content is adapted for Rondo's context. The number and topic are the same across products.
 
@@ -52,7 +52,7 @@ Content is adapted for Rondo's context. The number and topic are the same across
 | 001-019 | Universal | Same topic across all products. Never product-specific. |
 | 020+ | Product-specific | Unique to Rondo. Free to number as needed. |
 
-**Rondo-specific examples:** STD-020 (Error Resilience), STD-021 (Configuration), STD-022 (Concurrency Safety), STD-023 (Code Quality).
+**Rondo-specific examples:** STD-108 (Error Resilience), STD-109 (Configuration), STD-110 (Concurrency Safety), STD-111 (Code Quality).
 
 ---
 
@@ -101,10 +101,10 @@ When referencing specs from other products:
 
 | Referencing | Format | Example |
 |-------------|--------|---------|
-| Rondo spec from Rondo | `SOP-001` or `REQ-001` | "See REQ-001 (Core)" |
+| Rondo spec from Rondo | `SOP-100` or `REQ-100` | "See REQ-100 (Core)" |
 | OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-SOP-100 defines build integration" |
 | Caliber spec from Rondo | `Caliber SOP-020` | "Caliber SOP-020 defines the build flow" |
-| Cross-product interface | `IFS-NNN` with product context | "IFS-003 defines OB integration" |
+| Cross-product interface | `IFS-NNN` with product context | "IFS-102 defines OB integration" |
 
 Use IFS specs to formally define integration points between products.
 
@@ -124,7 +124,7 @@ Use IFS specs to formally define integration points between products.
 
 Before adding new data structures (classes, config keys, task types):
 
-1. Check existing specs for naming conventions (especially STD-001, REQ-001)
+1. Check existing specs for naming conventions (especially STD-100, REQ-100)
 2. Check OB's `ace/ID-CHEATSHEET.md` for cross-product naming
 3. Ensure no name collision with Rondo's existing task types or config keys
 4. Rondo-specific: check `rondo.toml` schema for config key naming

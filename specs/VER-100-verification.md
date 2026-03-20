@@ -1,4 +1,4 @@
-# VER-001: Rondo Verification Plan
+# VER-100: Rondo Verification Plan
 
 *Every requirement traced to its proof. Every test mapped to what it proves.*
 
@@ -32,7 +32,7 @@
 
 ## 2. Spec-to-Test Traceability Matrix
 
-### REQ-001: Core — Engine + Dispatch (49 requirements)
+### REQ-100: Core — Engine + Dispatch (49 requirements)
 
 #### Engine — Data Model (Reqs 1-7)
 
@@ -113,7 +113,7 @@
 | 38 | `run` accepts path to round definition file | T | `test_cli.py::test_run_with_file` |
 | 39 | Dynamic import of round definition | T | `test_cli.py::test_dynamic_import` |
 | 40 | Auto-detect sequential vs parallel | T | `test_cli.py::test_auto_runner_selection` |
-| 41 | All STD-021 CLI flags on `run` subcommand | T | `test_cli.py::test_cli_flags` |
+| 41 | All STD-109 CLI flags on `run` subcommand | T | `test_cli.py::test_cli_flags` |
 
 #### Living Example Rounds (Reqs 42-44)
 
@@ -140,7 +140,7 @@
 
 ---
 
-### REQ-002: Automation — Parallel + Overnight + Report (41 requirements)
+### REQ-101: Automation — Parallel + Overnight + Report (41 requirements)
 
 #### Parallel Execution (Reqs 1-9)
 
@@ -215,7 +215,7 @@
 
 ---
 
-### IFS-001: Claude Code CLI Interface (10 requirements)
+### IFS-100: Claude Code CLI Interface (10 requirements)
 
 #### Stream-JSON Metadata Parsing
 
@@ -234,24 +234,24 @@
 
 ---
 
-### STD-020: Error Handling and Resilience (10 rules)
+### STD-108: Error Handling and Resilience (10 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence | Cross-ref |
 |------|-------------|--------|--------------|-----------|
-| 1 | Every result includes name, status, duration, prompt | T | `test_dispatch.py::test_result_metadata` | REQ-001 req 28 |
-| 2 | Subprocess vs task-logic errors distinguishable | T | `test_dispatch.py::test_error_exit_code` | REQ-001 req 27 |
-| 3 | Malformed JSON -> status partial | T | `test_dispatch.py::test_malformed_json` | REQ-001 req 26 |
-| 4 | Configurable timeout, default 5 min | T | `test_config.py::test_timeout_config` | STD-021 |
+| 1 | Every result includes name, status, duration, prompt | T | `test_dispatch.py::test_result_metadata` | REQ-100 req 28 |
+| 2 | Subprocess vs task-logic errors distinguishable | T | `test_dispatch.py::test_error_exit_code` | REQ-100 req 27 |
+| 3 | Malformed JSON -> status partial | T | `test_dispatch.py::test_malformed_json` | REQ-100 req 26 |
+| 4 | Configurable timeout, default 5 min | T | `test_config.py::test_timeout_config` | STD-109 |
 | 5 | Kill sequence: SIGTERM -> 5s -> SIGKILL | T | `test_dispatch.py::test_kill_sequence` | — |
-| 6 | Single failure doesn't crash framework | T | `test_parallel.py::test_task_isolation` | REQ-002 req 8 |
-| 7 | Failed phase doesn't block next | T | `test_overnight.py::test_phase_isolation` | REQ-002 req 12 |
+| 6 | Single failure doesn't crash framework | T | `test_parallel.py::test_task_isolation` | REQ-101 req 8 |
+| 7 | Failed phase doesn't block next | T | `test_overnight.py::test_phase_isolation` | REQ-101 req 12 |
 | 8 | No credentials in result files | T | `test_dispatch.py::test_credential_sanitization` | — |
 | 9 | All exceptions caught, logged, converted to error results | A | Code review: dispatch wraps in try/except | — |
 | 10 | Morning report always generated | T | `test_report.py::test_report_on_all_failures` | — |
 
 ---
 
-### STD-021: Configuration (10 rules)
+### STD-109: Configuration (10 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence | Cross-ref |
 |------|-------------|--------|--------------|-----------|
@@ -264,33 +264,33 @@
 | 7 | Unknown keys ignored with warning | T | `test_config.py::test_unknown_keys` | — |
 | 8 | Invalid values error at startup | T | `test_config.py::test_validation_errors` | — |
 | 9 | Config loaded once, immutable | A | RondoConfig is frozen dataclass | — |
-| 10 | Config is a dataclass | I | STD-021 code review | — |
+| 10 | Config is a dataclass | I | STD-109 code review | — |
 
 ---
 
-### STD-022: Concurrency and Safety (15 rules)
+### STD-110: Concurrency and Safety (15 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence | Cross-ref |
 |------|-------------|--------|--------------|-----------|
-| C1 | ThreadPoolExecutor for I/O-bound | A | Code review | REQ-002 req 1 |
+| C1 | ThreadPoolExecutor for I/O-bound | A | Code review | REQ-101 req 1 |
 | C2 | No shared mutable state | A | Each thread creates own TaskResult | — |
-| C3 | Throttle between launches | T | `test_parallel.py::test_throttle` | REQ-002 req 3 |
-| C4 | Conflict detection | T | `test_parallel.py::test_conflict_detection` | REQ-002 req 5 |
-| C5 | Conflict is advisory | T | `test_parallel.py::test_conflict_in_summary` | REQ-002 req 6 |
-| C6 | Bounded workers (1-32) | T | `test_config.py::test_validation_errors` | STD-021 |
-| C7 | Task thread isolation | T | `test_parallel.py::test_task_isolation` | REQ-002 req 8 |
+| C3 | Throttle between launches | T | `test_parallel.py::test_throttle` | REQ-101 req 3 |
+| C4 | Conflict detection | T | `test_parallel.py::test_conflict_detection` | REQ-101 req 5 |
+| C5 | Conflict is advisory | T | `test_parallel.py::test_conflict_in_summary` | REQ-101 req 6 |
+| C6 | Bounded workers (1-32) | T | `test_config.py::test_validation_errors` | STD-109 |
+| C7 | Task thread isolation | T | `test_parallel.py::test_task_isolation` | REQ-101 req 8 |
 | S1 | List args, never shell=True | A | Code review: all subprocess calls use list | — |
-| S2 | Credential stripping | T | `test_dispatch.py::test_claudecode_stripped` + `test_auth_max_strips_key` | REQ-001 reqs 13, 17 |
-| S3 | No credentials in output | T | `test_dispatch.py::test_credential_sanitization` | STD-020 rule 8 |
+| S2 | Credential stripping | T | `test_dispatch.py::test_claudecode_stripped` + `test_auth_max_strips_key` | REQ-100 reqs 13, 17 |
+| S3 | No credentials in output | T | `test_dispatch.py::test_credential_sanitization` | STD-108 rule 8 |
 | S4 | Prompts don't contain secrets | I | Round definition review | — |
 | S5 | Restrictive file permissions (0o600) | T | `test_dispatch.py::test_result_file_permissions` | — |
-| R1 | Subprocess timeout with SIGTERM-first kill | T | `test_dispatch.py::test_kill_sequence` | STD-020 rule 5 |
+| R1 | Subprocess timeout with SIGTERM-first kill | T | `test_dispatch.py::test_kill_sequence` | STD-108 rule 5 |
 | R2 | Bounded result files (1MB) | T | `test_dispatch.py::test_output_truncation` | — |
-| R3 | Rolling event log (100 entries) | T | `test_overnight.py::test_rolling_log` | REQ-002 req 18 |
+| R3 | Rolling event log (100 entries) | T | `test_overnight.py::test_rolling_log` | REQ-101 req 18 |
 
 ---
 
-### STD-023: Code Quality Gates (18 rules)
+### STD-111: Code Quality Gates (18 rules)
 
 | Rule | Rule (short) | Method | Test/Evidence |
 |------|-------------|--------|--------------|
@@ -321,16 +321,16 @@ Each test file, what it contains, and which specs it proves.
 
 | Test File | Tests | Proves Specs | What It Covers |
 |-----------|-------|-------------|----------------|
-| `test_engine.py` | 71 | REQ-001 reqs 1-11, 23, 29-31, 34-35, 45-46 | Round/Task/Gate data model, state machine, serialization, resume, public API |
-| `test_dispatch.py` | 72 | REQ-001 reqs 12-18, 20-22, 24-28, 47; IFS-001 reqs 1-10; STD-020 rules 1-3, 5, 8; STD-022 S2-S3, S5, R1-R2 | Subprocess invocation, auth, model routing, result parsing, stream-json, credential safety, kill sequence |
-| `test_config.py` | 61 | REQ-001 reqs 48-49; STD-021 rules 1-8; STD-022 C6 | TOML loading, COALESCE resolution, CLI override, validation, zero-config, permission modes |
-| `test_cli.py` | 64 | REQ-001 reqs 19, 36-41 | CLI entry point, subcommands, flags, dynamic import, auto-runner selection |
-| `test_runner.py` | 28 | REQ-001 (runner orchestration) | Sequential runner, gate enforcement, task dispatch coordination |
-| `test_parallel.py` | 28 | REQ-002 reqs 1-9, 37-41; STD-022 C3-C5, C7 | ThreadPoolExecutor, throttle, conflict detection, worktree isolation, task isolation |
-| `test_overnight.py` | 31 | REQ-002 reqs 10-28; STD-020 rules 6-7; STD-022 R3 | Phase scheduling, watchdog, usage gating, event logging, rolling log |
-| `test_report.py` | 20 | REQ-002 reqs 29-36; STD-020 rule 10 | Aggregation, health indicators, action items, dated files, usage summary |
-| `test_examples.py` | 25 | REQ-001 reqs 42-44 | Living example rounds, build_round() contract, examples as test fixtures |
-| `test_conventions.py` | 18 | STD-023 rules 1-18 | Convention lock classes — SPDX, docstrings, complexity, signing, naming |
+| `test_engine.py` | 71 | REQ-100 reqs 1-11, 23, 29-31, 34-35, 45-46 | Round/Task/Gate data model, state machine, serialization, resume, public API |
+| `test_dispatch.py` | 72 | REQ-100 reqs 12-18, 20-22, 24-28, 47; IFS-100 reqs 1-10; STD-108 rules 1-3, 5, 8; STD-110 S2-S3, S5, R1-R2 | Subprocess invocation, auth, model routing, result parsing, stream-json, credential safety, kill sequence |
+| `test_config.py` | 61 | REQ-100 reqs 48-49; STD-109 rules 1-8; STD-110 C6 | TOML loading, COALESCE resolution, CLI override, validation, zero-config, permission modes |
+| `test_cli.py` | 64 | REQ-100 reqs 19, 36-41 | CLI entry point, subcommands, flags, dynamic import, auto-runner selection |
+| `test_runner.py` | 28 | REQ-100 (runner orchestration) | Sequential runner, gate enforcement, task dispatch coordination |
+| `test_parallel.py` | 28 | REQ-101 reqs 1-9, 37-41; STD-110 C3-C5, C7 | ThreadPoolExecutor, throttle, conflict detection, worktree isolation, task isolation |
+| `test_overnight.py` | 31 | REQ-101 reqs 10-28; STD-108 rules 6-7; STD-110 R3 | Phase scheduling, watchdog, usage gating, event logging, rolling log |
+| `test_report.py` | 20 | REQ-101 reqs 29-36; STD-108 rule 10 | Aggregation, health indicators, action items, dated files, usage summary |
+| `test_examples.py` | 25 | REQ-100 reqs 42-44 | Living example rounds, build_round() contract, examples as test fixtures |
+| `test_conventions.py` | 18 | STD-111 rules 1-18 | Convention lock classes — SPDX, docstrings, complexity, signing, naming |
 
 **Total: 418 test functions across 10 test files.**
 
@@ -342,9 +342,9 @@ Each test file, what it contains, and which specs it proves.
 
 | Spec | Total Reqs | Test (T) | Demo (D) | Analysis (A) | Inspection (I) |
 |------|-----------|----------|----------|--------------|----------------|
-| REQ-001 | 49 | 43 | 0 | 2 | 4 |
-| REQ-002 | 41 | 35 | 3 | 2 | 1 |
-| IFS-001 | 10 | 10 | 0 | 0 | 0 |
+| REQ-100 | 49 | 43 | 0 | 2 | 4 |
+| REQ-101 | 41 | 35 | 3 | 2 | 1 |
+| IFS-100 | 10 | 10 | 0 | 0 | 0 |
 | **Total** | **100** | **88** | **3** | **4** | **5** |
 
 **88% verified by automated test. 100% covered by at least one method.**
@@ -353,18 +353,18 @@ Each test file, what it contains, and which specs it proves.
 
 | Spec | Total Rules | Test (T) | Analysis (A) | Inspection (I) | Cross-ref to REQ |
 |------|------------|----------|--------------|----------------|-----------------|
-| STD-020 | 10 | 8 | 1 | 0 | 6 rules also tested via REQ |
-| STD-021 | 10 | 8 | 1 | 1 | 4 rules also tested via REQ |
-| STD-022 | 15 | 10 | 4 | 1 | 8 rules also tested via REQ |
-| STD-023 | 18 | 18 | 0 | 0 | All automated via convention tests |
+| STD-108 | 10 | 8 | 1 | 0 | 6 rules also tested via REQ |
+| STD-109 | 10 | 8 | 1 | 1 | 4 rules also tested via REQ |
+| STD-110 | 15 | 10 | 4 | 1 | 8 rules also tested via REQ |
+| STD-111 | 18 | 18 | 0 | 0 | All automated via convention tests |
 | **Total** | **53** | **44** | **6** | **2** | -- |
 
 ### Grand Total
 
 | Category | Items | Verified |
 |----------|-------|----------|
-| Requirements (REQ-001, REQ-002, IFS-001) | 100 | 100 (100%) |
-| Standards (STD-020 through STD-023) | 53 | 53 (100%) |
+| Requirements (REQ-100, REQ-101, IFS-100) | 100 | 100 (100%) |
+| Standards (STD-108 through STD-111) | 53 | 53 (100%) |
 | **All verified items** | **153** | **153 (100%)** |
 | Automated tests (T only) | -- | 132 of 153 (86%) |
 
@@ -376,19 +376,19 @@ Production code was built from specs, not spikes. Full gap analysis: `rondo/spik
 
 | Req Range | Spike File | What Was Proved | Divergence from Production |
 |-----------|-----------|----------------|---------------------------|
-| REQ-001 1-7 | `spikes/engine.py` | Round/Task/Gate model, pre/post gates, three-field contract | Status vocab (PASSED->done), DB coupling removed |
-| REQ-001 8-11 | `spikes/engine.py` | State transitions, serialization, resume | Status vocab changed to 5-value |
-| REQ-001 12-16 | `spikes/dispatch.py` | `claude -p` invocation, env stripping, result capture | Uses text mode, not stream-json |
-| REQ-001 17-19 | `spikes/dispatch.py` | Auth switching (max strips key, api keeps key) | Aligned with spec |
-| REQ-001 20-23 | `spikes/dispatch.py` | `--model` flag, COALESCE per-task hints | Aligned with spec |
-| REQ-001 25-28 | `spikes/dispatch.py` | JSON parsing, malformed fallback, error handling | Returns dict, not TaskResult dataclass |
-| REQ-002 1-9 | `spikes/parallel.py` | ThreadPoolExecutor, throttle, conflict detection, isolation | No files_modified field, no DispatchUsage |
-| REQ-002 10-18 | `spikes/overnight.py` | Phase execution, failure isolation, event log, no stdin | Hardcoded OB rounds (spec: configurable modes) |
-| REQ-002 19-23 | -- | **Not spiked** | Built from spec (watchdog) |
-| REQ-002 24-28 | -- | **Not spiked** | Built from spec (usage gating) |
-| REQ-002 29-36 | `spikes/report.py` | Result aggregation, grouping, dated file | Missing health indicators, usage summary |
-| REQ-002 37-41 | -- | **Not spiked** | Built from spec (worktree isolation) |
-| IFS-001 1-10 | -- | **Not spiked** (text mode only) | Session 76 spike proved stream-json works |
+| REQ-100 1-7 | `spikes/engine.py` | Round/Task/Gate model, pre/post gates, three-field contract | Status vocab (PASSED->done), DB coupling removed |
+| REQ-100 8-11 | `spikes/engine.py` | State transitions, serialization, resume | Status vocab changed to 5-value |
+| REQ-100 12-16 | `spikes/dispatch.py` | `claude -p` invocation, env stripping, result capture | Uses text mode, not stream-json |
+| REQ-100 17-19 | `spikes/dispatch.py` | Auth switching (max strips key, api keeps key) | Aligned with spec |
+| REQ-100 20-23 | `spikes/dispatch.py` | `--model` flag, COALESCE per-task hints | Aligned with spec |
+| REQ-100 25-28 | `spikes/dispatch.py` | JSON parsing, malformed fallback, error handling | Returns dict, not TaskResult dataclass |
+| REQ-101 1-9 | `spikes/parallel.py` | ThreadPoolExecutor, throttle, conflict detection, isolation | No files_modified field, no DispatchUsage |
+| REQ-101 10-18 | `spikes/overnight.py` | Phase execution, failure isolation, event log, no stdin | Hardcoded OB rounds (spec: configurable modes) |
+| REQ-101 19-23 | -- | **Not spiked** | Built from spec (watchdog) |
+| REQ-101 24-28 | -- | **Not spiked** | Built from spec (usage gating) |
+| REQ-101 29-36 | `spikes/report.py` | Result aggregation, grouping, dated file | Missing health indicators, usage summary |
+| REQ-101 37-41 | -- | **Not spiked** | Built from spec (worktree isolation) |
+| IFS-100 1-10 | -- | **Not spiked** (text mode only) | Session 76 spike proved stream-json works |
 
 ---
 
@@ -403,9 +403,9 @@ hard-won methodology lessons — not theoretical analysis.
 | 2 | **Spike code is NOT production code.** Spikes prove ideas. Production code is built from specs. Vocabulary, structure, and contracts diverge. | Day 3 vs Day 5 | Clean separation: `spikes/` vs `src/` |
 | 3 | **Inner orbits form everywhere.** The original model had one inner orbit (07-08-09). Reality shows orbits at every adjacent pair. | Day 4 (3 loops at ORB-03/04) | Dynamic inner orbits are a methodology feature |
 | 4 | **External AI review catches builder blind spots.** Google AI (Gemini) found the cross-field validation gap that Claude missed. | Day 5 evening | ORB-04 should include independent/external review |
-| 5 | **Convention locks are force multipliers.** 15 convention test classes enforce 18 rules automatically. No human discipline needed. | Day 5 hardening | STD-023 exists because of this discovery |
+| 5 | **Convention locks are force multipliers.** 15 convention test classes enforce 18 rules automatically. No human discipline needed. | Day 5 hardening | STD-111 exists because of this discovery |
 | 6 | **ORB compression works for small products.** With <15 source files, ORB-07/08/09 compress into ORB-05/06 without quality loss. | Full journey | Product size determines orbit count |
-| 7 | **REQ-001 went through 8 versions in 5 days.** Spec refinement is iterative and never "done" on first pass. | Day 1-5 | Budget time for spec iterations |
+| 7 | **REQ-100 went through 8 versions in 5 days.** Spec refinement is iterative and never "done" on first pass. | Day 1-5 | Budget time for spec iterations |
 | 8 | **Deep review v1 found 30 issues (5 build-blockers).** Self-review alone is insufficient. Must do cross-spec consistency checks. | Day 4 | Multi-pass review catches more |
 | 9 | **COALESCE is the core config idiom.** `COALESCE(CLI, config, default)` resolves every configuration decision uniformly. | Day 3 design | Applied to auth, model, timeout, workers, throttle |
 | 10 | **AI compliance with process rules decays under enthusiasm.** Both Claude and Gemini tried to jump ahead when excited about building. | Days 4-5 | Guardrails must be automated, not honor-system |
@@ -435,8 +435,8 @@ For Orbital, the "compiler" is the methodology and the "output" is the code.
 | Pylint score | 10.00/10 |
 | Convention lock classes | 15 |
 | Spec count | 8 |
-| REQ-001 requirements | 49 |
-| Verified items (VER-001) | 153 |
+| REQ-100 requirements | 49 |
+| Verified items (VER-100) | 153 |
 | Build gates passing | 6/6 |
 | orbit-sign verified | All files |
 | Cyclomatic complexity max | <= 15 |
@@ -500,7 +500,7 @@ Caliber (quality checker)
 ### Spike Evidence
 
 - **Spike S41** in `caliber/spikes/SPIKE-RESULTS.md`
-- Caliber VER-001 req range 24-28 (AI fix via Rondo) and 33-37 (smart build loop)
+- Caliber VER-100 req range 24-28 (AI fix via Rondo) and 33-37 (smart build loop)
 - /tmp paths cause timeout — Claude needs project-local paths with permissions
 
 ---

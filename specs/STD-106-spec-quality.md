@@ -1,4 +1,4 @@
-# STD-007: Spec Quality Checks
+# STD-106: Spec Quality Checks
 
 *The 28-point checklist that validates specs before any code gets built. Every check proven by catching real bugs.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-007, Caliber-STD-007, Rondo-STD-007
+**Matches:** CORE-STD-007, Caliber-STD-106, Rondo-STD-106
 
 ---
 
@@ -26,8 +26,8 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 
 **OUT of scope:**
 - How OB tracks findings from failed checks (OB-REQ-105 domain)
-- How Caliber automates these checks (Caliber-STD-007 domain)
-- OB or Caliber product-specific adaptations (CORE-STD-007, Caliber-STD-007)
+- How Caliber automates these checks (Caliber-STD-106 domain)
+- OB or Caliber product-specific adaptations (CORE-STD-007, Caliber-STD-106)
 
 ---
 
@@ -45,9 +45,9 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 
 ### Interface Checks (checks 8-10)
 
-8. **WIRING** — IFS contracts match on both sides of every product pair. Rondo-IFS-001 (Claude CLI) and Rondo-IFS-003 (OB) must agree with their counterparts.
+8. **WIRING** — IFS contracts match on both sides of every product pair. Rondo-IFS-100 (Claude CLI) and Rondo-IFS-102 (OB) must agree with their counterparts.
 9. **TRANSPORT MATCH** — both sides agree on transport method (pipe/file/HTTPS/queue). No spec says "file" when the other says "pipe."
-10. **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both Rondo-IFS-003 and OB-IFS-103 must exist.
+10. **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both Rondo-IFS-102 and OB-IFS-103 must exist.
 
 ### Data Consistency Checks (checks 11-17)
 
@@ -62,8 +62,8 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 ### Structural Checks (checks 18-23)
 
 18. **ONE PURPOSE** — spec can be described in one sentence without "and." If not, split it.
-19. **HEADING vs FILENAME** — spec title number matches filename number. `STD-007` in the heading matches `STD-007-spec-quality.md` in the filename.
-20. **UNIVERSAL NUMBER ALIGNMENT** — STD/SOP numbers mean the same topic in every product. STD-007 is spec quality checks in OB, Caliber, AND Rondo.
+19. **HEADING vs FILENAME** — spec title number matches filename number. `STD-106` in the heading matches `STD-106-spec-quality.md` in the filename.
+20. **UNIVERSAL NUMBER ALIGNMENT** — STD/SOP numbers mean the same topic in every product. STD-106 is spec quality checks in OB, Caliber, AND Rondo.
 21. **TABLE OWNERSHIP** — spec declares which DB tables it owns. For Rondo: this check confirms Rondo owns NO tables (stateless by design). Any spec claiming a DB table is a design violation.
 22. **REQUIRED SECTIONS** — all sections marked "REQUIRED" in the spec template are filled before build. No placeholder text, no "TBD" in required fields.
 23. **STALE REFERENCE** — no docs say "NOT YET" for things that ARE done. After completing work, update all references.

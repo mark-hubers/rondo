@@ -1,4 +1,4 @@
-# STD-023: Code Quality Gates
+# STD-111: Code Quality Gates
 
 *Automated enforcement of code quality — linting, complexity, coverage, conventions, signing.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** VER-001 (verification matrix) | **Blocks:** REQ-001 (build gate)
+**Depends on:** VER-100 (verification matrix) | **Blocks:** REQ-100 (build gate)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -32,9 +32,9 @@ No exceptions without spec-level justification.
 - Gate execution order and fail-fast behavior
 
 **OUT of scope:**
-- Test strategy and verification matrix (VER-001)
-- Error handling patterns (STD-020)
-- Configuration resolution (STD-021)
+- Test strategy and verification matrix (VER-100)
+- Error handling patterns (STD-108)
+- Configuration resolution (STD-109)
 
 ---
 

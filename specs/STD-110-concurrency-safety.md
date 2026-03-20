@@ -1,4 +1,4 @@
-# STD-022: Concurrency & Safety
+# STD-110: Concurrency & Safety
 
 *How Rondo runs tasks in parallel safely — no injection, no leaks, no corruption.*
 
@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** STD-020 (Error Handling), STD-021 (Configuration) | **Blocks:** REQ-002 (Parallel)
+**Depends on:** STD-108 (Error Handling), STD-109 (Configuration) | **Blocks:** REQ-101 (Parallel)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -29,9 +29,9 @@ These rules apply to every line of Rondo code — they are not optional.
 - Conflict detection pattern
 
 **OUT of scope:**
-- Parallel scheduling logic (REQ-002)
-- Error recovery (STD-020)
-- Config values for workers/throttle (STD-021 — this spec defines HOW, STD-021 defines WHAT values)
+- Parallel scheduling logic (REQ-101)
+- Error recovery (STD-108)
+- Config values for workers/throttle (STD-109 — this spec defines HOW, STD-109 defines WHAT values)
 
 ---
 
@@ -74,7 +74,7 @@ Each task gets its own result dict. No locks needed because nothing is shared.
 # -- CORRECT: each task returns its own result
 def dispatch_task(task: Task, config: RondoConfig) -> TaskResult:
     """Each thread gets its own task and config (frozen). Returns a new result."""
-    # -- config is frozen dataclass (STD-021) — safe to share
+    # -- config is frozen dataclass (STD-109) — safe to share
     # -- task is read-only during dispatch
     # -- result is created here, returned to caller
     return TaskResult(task_name=task.name, ...)
@@ -136,7 +136,7 @@ the round definition decides whether conflicts are a problem.
 ### C6: Bounded workers
 
 ```python
-# -- max_workers comes from config (validated 1-32 by STD-021)
+# -- max_workers comes from config (validated 1-32 by STD-109)
 # -- NEVER create unbounded threads
 with ThreadPoolExecutor(max_workers=config.workers) as pool:
     ...
@@ -150,7 +150,7 @@ for future in as_completed(futures):
     try:
         result = future.result()
     except Exception as exc:
-        # -- This should never happen if dispatch catches all (STD-020 rule 9)
+        # -- This should never happen if dispatch catches all (STD-108 rule 9)
         # -- But defense-in-depth: log and continue
         result = TaskResult(
             task_name=futures[future].name,
@@ -237,7 +237,7 @@ standard is documented:
 ```python
 # -- CORRECT: context files are code, specs, configs (no secrets)
 task = Task(
-    context_files=["src/engine.py", "specs/REQ-001.md"],
+    context_files=["src/engine.py", "specs/REQ-100.md"],
     ...
 )
 
@@ -268,7 +268,7 @@ def write_result_file(path: str, content: str) -> None:
 
 MUST use `subprocess.Popen()` with a manual timer thread. MUST NOT use
 `subprocess.run(timeout=)` which sends SIGKILL directly, skipping graceful shutdown.
-Matches STD-020 kill sequence: SIGTERM → 5s grace → SIGKILL.
+Matches STD-108 kill sequence: SIGTERM → 5s grace → SIGKILL.
 
 ```python
 import threading
@@ -284,7 +284,7 @@ proc = subprocess.Popen(
 timed_out = threading.Event()
 
 def kill_on_timeout():
-    """SIGTERM → 5s → SIGKILL. Matches STD-020 kill sequence."""
+    """SIGTERM → 5s → SIGKILL. Matches STD-108 kill sequence."""
     timed_out.set()
     proc.terminate()               # -- SIGTERM (graceful)
     try:

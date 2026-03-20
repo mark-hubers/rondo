@@ -360,7 +360,7 @@ OB (schedule builder)           Rondo (overnight executor)
 |--------|--------|-------------|
 | RoundResult (status, duration) | JSON in OAResult | round_states (OB-REQ-004) |
 | TaskResult[] (per-task status, output) | JSON array in OAResult.results | sprint_results (OB-REQ-004) |
-| DispatchUsage[] (tokens, cost, model) | JSON in OAResult.results[*].ai | sprint_intelligence (OB-SOP-006) |
+| DispatchUsage[] (tokens, cost, model) | JSON in OAResult.results[*].ai | sprint_intelligence (OB-SOP-020) |
 | GateResult[] (pre-gate, post-gate) | JSON in OAResult.gates | gate_checks (OB-REQ-004) |
 | Finding[] (issues found during execution) | JSON in OAResult.results[*].findings | findings (OB-REQ-006) |
 | Generated files (code, specs, tests) | JSON in OAResult.results[*].output | file system (via OB import) |
@@ -374,7 +374,7 @@ OB (schedule builder)           Rondo (overnight executor)
 |-------|--------|-------------|
 | OAPayload (full task definition) | JSON file or stdin | OB-REQ-029 (Dispatch) |
 | Spec digest (8 sections) | JSON in OAPayload.spec | OB-REQ-026 (Spec Management) |
-| AI memory (went_wrong, assumptions) | JSON in OAPayload.ai_memory | OB-SOP-006 (Build Integration) |
+| AI memory (went_wrong, assumptions) | JSON in OAPayload.ai_memory | OB-SOP-020 (Build Integration) |
 | Build history (previous runs) | JSON array in OAPayload.ai_memory | build_improvement_metrics |
 | Context (files, build order) | JSON in OAPayload.context | OB sprint planner |
 | Runtime config (model, timeout) | JSON in OAPayload.runtime | OB config system |
@@ -456,7 +456,7 @@ OB (schedule builder)           Rondo (overnight executor)
 
 | Used By | Why |
 |---------|-----|
-| OB-SOP-006 | Build Integration consumes Rondo's OAResult for sprint tracking |
+| OB-SOP-020 | Build Integration consumes Rondo's OAResult for sprint tracking |
 | OB-REQ-004 | Sprint Management uses Rondo results to decide state transitions |
 | OB-REQ-006 | Finding Management receives findings discovered during AI execution |
 | OB-REQ-008 | Quality tracking receives gate results and convergence metrics |

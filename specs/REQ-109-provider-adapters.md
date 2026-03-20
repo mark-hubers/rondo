@@ -39,7 +39,7 @@
 |---|------------|----------|-------------|
 | 6 | API keys stored in macOS Keychain (`security` command). Service name pattern: `ace2-<provider>` | MUST | Keychain test |
 | 7 | Keys retrieved at dispatch time via `ai-keys.py get <provider>` or direct Keychain query | MUST | Retrieval test |
-| 8 | Keys NEVER in config files, env files, or git. Keychain only. (CORE-STD-008, F23) | MUST | Security test |
+| 8 | Keys NEVER in config files, env files, or git. Keychain only. (CORE-STD-008) | MUST | Security test |
 | 9 | Multiple accounts for same provider supported (different Keychain entries): `ace2-claude-api` + `ace2-claude-batch` | MUST | Multi-account test |
 | 10 | `ai-keys.py status` shows all configured providers with masked keys | MUST | Status test |
 | 11 | `ai-keys.py test` calls each provider's health endpoint, shows models + latency | MUST | Health test |
@@ -117,6 +117,69 @@ OAPayload arrives at Rondo
 | cheap_batch | gemini | gemini-2.0-flash | Lowest cost for low-stakes |
 | spec_writing | claude-api | claude-opus-4-6 | Best reasoning for specs |
 | contradiction_check | gemini | gemini-2.5-pro | Rule analysis across large rulesets |
+
+---
+
+## 5. Data Model
+
+### DispatchResult (returned by every adapter)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | str | done/partial/error/timeout |
+| `output` | str | AI response text |
+| `parsed_result` | dict or None | Parsed JSON from response |
+| `model_used` | str | Actual model that ran (may differ from requested) |
+| `provider` | str | Which adapter dispatched (gemini/claude-api/openai/ollama) |
+| `input_tokens` | int | Tokens sent |
+| `output_tokens` | int | Tokens generated |
+| `cost_usd` | float | Cost of this dispatch |
+| `duration_ms` | int | Wall-clock time |
+| `error_code` | str or None | ERR_* code if failed |
+
+### Provider Config (TOML)
+
+```toml
+[providers.<name>]
+type = "rest" | "claude-cli"
+api_key_env = "KEYCHAIN_SERVICE_NAME"
+endpoint = "https://..."           # REST providers only
+default_model = "model-name"
+best_model = "model-name"
+cheap_model = "model-name"
+budget_monthly_usd = 100.00
+```
+
+### Routing Table (TOML)
+
+```toml
+[routing]
+build = "claude-api"
+review_forward = "gemini"
+overnight_build = "claude-batch"
+```
+
+---
+
+## 6. Data Boundary
+
+**What this produces:**
+
+| Output | Format | Consumer |
+|--------|--------|----------|
+| DispatchResult | Python dataclass / JSON | Rondo core, OAResult builder |
+| Provider health status | JSON | Preflight (REQ-103), `rondo providers` CLI |
+| Affinity data | DB rows (from dispatch audit trail) | Routing suggestions |
+| Cost per provider | Aggregated from DispatchResult | Notifications (REQ-105), morning report |
+
+**What this consumes:**
+
+| Input | Format | Producer |
+|-------|--------|----------|
+| API keys | macOS Keychain entries | `ai-keys.py set` |
+| Routing config | TOML | `.rondo/config.toml` |
+| OAPayload | JSON | OB or direct caller |
+| Provider API responses | JSON (provider-specific) | AI provider REST APIs |
 
 ---
 

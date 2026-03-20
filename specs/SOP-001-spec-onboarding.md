@@ -102,7 +102,7 @@ When referencing specs from other products:
 | Referencing | Format | Example |
 |-------------|--------|---------|
 | Rondo spec from Rondo | `SOP-001` or `REQ-001` | "See REQ-001 (Core)" |
-| OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-12 defines build integration" |
+| OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-SOP-006 defines build integration" |
 | Caliber spec from Rondo | `Caliber SOP-020` | "Caliber SOP-020 defines the build flow" |
 | Cross-product interface | `IFS-NNN` with product context | "IFS-003 defines OB integration" |
 
@@ -112,7 +112,7 @@ Use IFS specs to formally define integration points between products.
 
 ## 8. Review Process
 
-1. Spec must pass OB's 9-phase spec refinement process (OB-SOP-020, ORB-03)
+1. Spec must pass OB's 9-phase spec refinement process (CORE-SOP-020, ORB-03)
 2. At minimum, Phase 5 must pass: "Can I write a test from this spec?" = yes
 3. Cross-spec vocabulary check against existing Rondo specs
 4. Rondo-specific: verify task API contracts are complete (input schema, output schema, error types)

@@ -84,7 +84,7 @@ def build_knowledge_round() -> Round:
             name="Spec Gap Detection",
             description="Find work being done that has no spec",
             instruction="Read ace/ACE-JOURNAL.md (last 100 lines). "
-                        "Compare work described to known specs in ace/specs/ and ace/orbital/specs/. "
+                        "Compare work described to known specs in ace/specs/ and orbital/specs/. "
                         "Is any significant work happening that isn't covered by an existing spec? "
                         "Flag as potential new spec candidates.",
             context_files=["ace/ACE-JOURNAL.md"],

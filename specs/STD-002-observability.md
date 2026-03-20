@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-002, Caliber-STD-002
+**Matches:** CORE-STD-002, Caliber-STD-002
 
 ---
 
@@ -160,4 +160,4 @@ RoundResult      spool file
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.2 | 2026-03-19 | Added "Metrics: Store Everything, Prune Later" section (reqs 29-37). Spool-based metrics with consumer ingestion, per-dispatch/per-API/per-file/per-round storage, monthly prune with approval, cross-project ACE mining. Total: 37 requirements. |
-| 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-002 topics (logging, errors, performance) adapted for Rondo's dispatch context. 28 requirements. Stream-json capture, spool file naming, no-retry policy, rate limit detection. |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-002 topics (logging, errors, performance) adapted for Rondo's dispatch context. 28 requirements. Stream-json capture, spool file naming, no-retry policy, rate limit detection. |

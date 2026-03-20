@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-003, Caliber-STD-003
+**Matches:** CORE-STD-003, Caliber-STD-003
 
 ---
 
@@ -155,4 +155,4 @@ This uses: `auth=max`, `model=sonnet`, `workers=1`, `results_dir=reports/rondo-r
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-003 topics (config, paths, validation, env overrides) adapted for Rondo. 31 requirements. TOML for dispatch settings, Python for round definitions. COALESCE chain, zero-config operation, auth switching. No schema versioning section (Rondo has no DB). |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-003 topics (config, paths, validation, env overrides) adapted for Rondo. 31 requirements. TOML for dispatch settings, Python for round definitions. COALESCE chain, zero-config operation, auth switching. No schema versioning section (Rondo has no DB). |

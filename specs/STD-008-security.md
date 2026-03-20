@@ -11,7 +11,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-008, Caliber-STD-008, Rondo-STD-008
+**Matches:** CORE-STD-008, Caliber-STD-008, Rondo-STD-008
 
 ---
 
@@ -29,7 +29,7 @@ Defines security rules for the Rondo stateless dispatch system. Rondo's attack s
 **OUT of scope:**
 - Network security (firewalls, VPNs) — not applicable to local-first architecture
 - Database security — Rondo is stateless, owns no DB tables
-- OB-specific spec registry and OA registry threats (OB-STD-008)
+- OB-specific spec registry and OA registry threats (CORE-STD-008)
 - Caliber-specific scan integrity threats (Caliber-STD-008)
 - What Rondo dispatches (task definitions are OB's domain)
 

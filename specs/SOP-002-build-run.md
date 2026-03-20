@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-SOP-001, Caliber-SOP-001, Rondo-SOP-001
+**Matches:** CORE-SOP-001, Caliber-SOP-001, Rondo-SOP-001
 
 ---
 

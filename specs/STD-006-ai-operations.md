@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-006, Caliber-STD-006
+**Matches:** CORE-STD-006, Caliber-STD-006
 
 ---
 
@@ -27,10 +27,10 @@ Defines the rules for how Rondo works with AI systems. Unlike OB (which consumes
 - Stream-json extraction protocol
 
 **OUT of scope:**
-- Independent AI review protocol (OB-STD-006 domain — OB manages reviewer independence)
-- Attention budget tiers (OB-STD-006 domain — consumers decide context budgets)
-- Spec digest format (OB-STD-006 domain — Rondo dispatches prompts, not specs)
-- AI self-correction loops (OB-STD-004 domain)
+- Independent AI review protocol (CORE-STD-006 domain — OB manages reviewer independence)
+- Attention budget tiers (CORE-STD-006 domain — consumers decide context budgets)
+- Spec digest format (CORE-STD-006 domain — Rondo dispatches prompts, not specs)
+- AI self-correction loops (CORE-STD-004 domain)
 
 ---
 
@@ -154,4 +154,4 @@ Round authors pick the right model per task. Operators override with `--model` w
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-006 topics (AI management, cost tracking, multi-model) adapted for Rondo as the dispatch layer. 26 requirements. COALESCE model routing, DispatchUsage field contract, rate limit handling, multi-backend future architecture, tool mode per task. |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-006 topics (AI management, cost tracking, multi-model) adapted for Rondo as the dispatch layer. 26 requirements. COALESCE model routing, DispatchUsage field contract, rate limit handling, multi-backend future architecture, tool mode per task. |

@@ -26,14 +26,14 @@ def build_digest_round(spec_id: str, spec_path: str) -> Round:
    """Build a digest refresh round for any spec.
 
    Args:
-      spec_id: Spec identifier (e.g., "OB-01", "R027")
+      spec_id: Spec identifier (e.g., "OB-REQ-001", "R027")
       spec_path: Path to the spec markdown file
    """
    ## -- Guess digest path from spec
    from pathlib import Path
    spec_name = Path(spec_path).stem
    ## -- R27-tiered-ai-processing → R27-digest.md
-   ## -- OB-01-orbital-database → OB-01-digest.md
+   ## -- OB-REQ-001-orbital-database → OB-REQ-001-digest.md
    parts = spec_name.split("-")
    if parts[0].startswith("OB"):
       digest_name = f"{parts[0]}-{parts[1]}-digest.md"

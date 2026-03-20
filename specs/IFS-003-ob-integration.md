@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
 **Depends on:** REQ-001 (Core), REQ-002 (Automation)
-**Connects to:** OB-IFS-003 (External Integration), OB-33 (Dispatch), OB-05 (Sprint)
+**Connects to:** OB-IFS-003 (External Integration), OB-REQ-029 (Dispatch), OB-REQ-004 (Sprint)
 **References:** CONTRACTS.md (JSON format), NAMING-MAP.md (field mapping)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
 
@@ -33,8 +33,8 @@ Defines the exact contract between Rondo and OB. Rondo is a standalone AI dispat
 - Isolation boundaries (what Rondo never touches)
 
 **OUT of scope:**
-- OB's internal storage (OB-01 owns that)
-- OB's dispatch engine (OB-33 owns that)
+- OB's internal storage (OB-REQ-001 owns that)
+- OB's dispatch engine (OB-REQ-029 owns that)
 - How OB calls Rondo (OB-IFS-003 owns that)
 - Caliber integration (Caliber-IFS-003 or Rondo's internal Caliber calls)
 - Claude Code CLI details (IFS-001 owns that)
@@ -147,7 +147,7 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 
 38. Start with pipe and file (simplest). Add HTTPS when Rondo runs on a different machine. Queue when scaling to multiple Rondo workers processing different sprints.
 39. Transport is TRANSPARENT to the contract — OAPayload JSON is identical regardless of transport. Change the pipe, not the data.
-40. HTTPS transport requires mTLS (mutual TLS) — both OB and Rondo authenticate. Aligns with OB-STD-005 rule 16.
+40. HTTPS transport requires mTLS (mutual TLS) — both OB and Rondo authenticate. Aligns with CORE-STD-005 rule 16.
 41. Queue transport preserves ordering per-sprint — OAs for the same sprint must complete in order. Different sprints MAY be dispatched to different Rondo workers.
 
 ### Error Handling (when OB is unavailable)
@@ -358,11 +358,11 @@ OB (schedule builder)           Rondo (overnight executor)
 
 | Output | Format | OB Consumer |
 |--------|--------|-------------|
-| RoundResult (status, duration) | JSON in OAResult | round_states (OB-05) |
-| TaskResult[] (per-task status, output) | JSON array in OAResult.results | sprint_results (OB-05) |
-| DispatchUsage[] (tokens, cost, model) | JSON in OAResult.results[*].ai | sprint_intelligence (OB-12) |
-| GateResult[] (pre-gate, post-gate) | JSON in OAResult.gates | gate_checks (OB-05) |
-| Finding[] (issues found during execution) | JSON in OAResult.results[*].findings | findings (OB-07) |
+| RoundResult (status, duration) | JSON in OAResult | round_states (OB-REQ-004) |
+| TaskResult[] (per-task status, output) | JSON array in OAResult.results | sprint_results (OB-REQ-004) |
+| DispatchUsage[] (tokens, cost, model) | JSON in OAResult.results[*].ai | sprint_intelligence (OB-SOP-006) |
+| GateResult[] (pre-gate, post-gate) | JSON in OAResult.gates | gate_checks (OB-REQ-004) |
+| Finding[] (issues found during execution) | JSON in OAResult.results[*].findings | findings (OB-REQ-006) |
 | Generated files (code, specs, tests) | JSON in OAResult.results[*].output | file system (via OB import) |
 | Worktree merge status | JSON in OAResult.worktree | sprint_results (merge metadata) |
 | Learn data (mistakes, assumptions, cost) | JSON in OAResult.learn | spec_sections, build_improvement_metrics |
@@ -372,9 +372,9 @@ OB (schedule builder)           Rondo (overnight executor)
 
 | Input | Format | OB Producer |
 |-------|--------|-------------|
-| OAPayload (full task definition) | JSON file or stdin | OB-33 (Dispatch) |
-| Spec digest (8 sections) | JSON in OAPayload.spec | OB-30 (Spec Management) |
-| AI memory (went_wrong, assumptions) | JSON in OAPayload.ai_memory | OB-12 (Build Integration) |
+| OAPayload (full task definition) | JSON file or stdin | OB-REQ-029 (Dispatch) |
+| Spec digest (8 sections) | JSON in OAPayload.spec | OB-REQ-026 (Spec Management) |
+| AI memory (went_wrong, assumptions) | JSON in OAPayload.ai_memory | OB-SOP-006 (Build Integration) |
 | Build history (previous runs) | JSON array in OAPayload.ai_memory | build_improvement_metrics |
 | Context (files, build order) | JSON in OAPayload.context | OB sprint planner |
 | Runtime config (model, timeout) | JSON in OAPayload.runtime | OB config system |
@@ -447,20 +447,20 @@ OB (schedule builder)           Rondo (overnight executor)
 | IFS-001 | Claude CLI interface (how Rondo calls `claude -p`) |
 | STD-020 | Error resilience (task failure → continue, not crash) |
 | STD-021 | Configuration (COALESCE pattern, TOML loading) |
-| OB-33 | OAPayload/OAResult contract format definition |
+| OB-REQ-029 | OAPayload/OAResult contract format definition |
 | OB-IFS-003 | OB's side of the integration (how OB calls Rondo) |
-| OB-05 | Sprint lifecycle (Rondo reports to, but never modifies) |
+| OB-REQ-004 | Sprint lifecycle (Rondo reports to, but never modifies) |
 | NAMING-MAP.md | Field mapping authority |
 | CONTRACTS.md | JSON format examples |
 | DEC-017 | OB standalone standards — both products work independently |
 
 | Used By | Why |
 |---------|-----|
-| OB-12 | Build Integration consumes Rondo's OAResult for sprint tracking |
-| OB-05 | Sprint Management uses Rondo results to decide state transitions |
-| OB-07 | Finding Management receives findings discovered during AI execution |
-| OB-09 | Quality tracking receives gate results and convergence metrics |
-| OB-33 | Dispatch engine needs to know what format Rondo accepts |
+| OB-SOP-006 | Build Integration consumes Rondo's OAResult for sprint tracking |
+| OB-REQ-004 | Sprint Management uses Rondo results to decide state transitions |
+| OB-REQ-006 | Finding Management receives findings discovered during AI execution |
+| OB-REQ-008 | Quality tracking receives gate results and convergence metrics |
+| OB-REQ-029 | Dispatch engine needs to know what format Rondo accepts |
 
 ---
 

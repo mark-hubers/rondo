@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-007, Caliber-STD-007, Rondo-STD-007
+**Matches:** CORE-STD-007, Caliber-STD-007, Rondo-STD-007
 
 ---
 
@@ -25,9 +25,9 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 - Rondo-specific adaptations (stateless design, 446 tests, sec/ms duration split)
 
 **OUT of scope:**
-- How OB tracks findings from failed checks (OB-07 domain)
+- How OB tracks findings from failed checks (OB-REQ-006 domain)
 - How Caliber automates these checks (Caliber-STD-007 domain)
-- OB or Caliber product-specific adaptations (OB-STD-007, Caliber-STD-007)
+- OB or Caliber product-specific adaptations (CORE-STD-007, Caliber-STD-007)
 
 ---
 
@@ -96,7 +96,7 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 |---------|---------|---------------|
 | 13 | 79 | Severity mismatch: AI returns critical/warning/nit, OB stores block/warn/info. Would have been runtime error. |
 | 19 | 79 | 9 SOP files with heading numbers not matching filenames |
-| 18 | 79 | OB-05 had 3 purposes — split into OB-05 + OB-32 + OB-33 |
+| 18 | 79 | OB-REQ-004 had 3 purposes — split into OB-REQ-004 + OB-REQ-028 + OB-REQ-029 |
 | 23 | 79 | INTEGRATION-ARCHITECTURE.md said 3 specs "NOT YET" when they were done |
 | 7 | 79 | Zero broken cross-references across 73+ specs after massive renumbering |
 | 24 | 77 | Gemini found 5 vocabulary inconsistencies across OB specs |

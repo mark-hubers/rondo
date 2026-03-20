@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-005, Caliber-STD-005
+**Matches:** CORE-STD-005, Caliber-STD-005
 
 ---
 
@@ -26,8 +26,8 @@ Defines the infrastructure rules for Rondo: spool-based persistence (no database
 - Security (API keys, secrets, file permissions)
 
 **OUT of scope:**
-- Database abstraction (Rondo has no DB — OB-STD-005 domain)
-- Backup and migration (Rondo has no schema — OB-STD-005 domain)
+- Database abstraction (Rondo has no DB — CORE-STD-005 domain)
+- Backup and migration (Rondo has no schema — CORE-STD-005 domain)
 - Build gate configuration (STD-002: Observability)
 - Consumer-side storage (OB decides what to persist)
 
@@ -119,9 +119,9 @@ reports/rondo-results/                     # spool root
 8. If remove fails → WARNING, leave for manual cleanup
 ```
 
-### What Rondo Does NOT Have (vs OB-STD-005)
+### What Rondo Does NOT Have (vs CORE-STD-005)
 
-| OB-STD-005 Has | Rondo Equivalent | Why |
+| CORE-STD-005 Has | Rondo Equivalent | Why |
 |----------------|-----------------|-----|
 | Database abstraction (Postgres/SQLite) | None | Rondo is stateless — spool files only |
 | Schema migrations | None | No schema to migrate |
@@ -136,4 +136,4 @@ reports/rondo-results/                     # spool root
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-005 topics (persistence, concurrency, security) adapted for Rondo's stateless context. 26 requirements. Spool mailbox pattern, atomic writes, worktree isolation, subprocess environment control. No DB sections (Rondo has no database). |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-005 topics (persistence, concurrency, security) adapted for Rondo's stateless context. 26 requirements. Spool mailbox pattern, atomic writes, worktree isolation, subprocess environment control. No DB sections (Rondo has no database). |

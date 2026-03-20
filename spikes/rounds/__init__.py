@@ -9,7 +9,7 @@ Modules:
     digest_refresh     — Refresh stale spec digests
     build_check        — Full build pipeline (ruff, bandit, mypy, pytest)
     convention_check   — Codebase convention enforcement
-    cross_field_audit  — Cross-field relationship validation (OB-11 Req 24, OB-12 Req 27-32)
+    cross_field_audit  — Cross-field relationship validation (OB-STD-009 Req 24, OB-SOP-006 Req 27-32)
     sprint_close       — Sprint close readiness assessment
     knowledge_mine     — Extract decisions/patterns from journal
     pr_review          — AI code review from git diff

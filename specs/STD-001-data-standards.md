@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-001, Caliber-STD-001
+**Matches:** CORE-STD-001, Caliber-STD-001
 
 ---
 
@@ -119,4 +119,4 @@ These Rondo fields MUST match NAMING-MAP.md exactly for cross-product compatibil
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-001 topics (time, IDs, nulls, naming, status) adapted for Rondo's stateless context. 25 requirements. Duration split: sec for wall-clock, ms for stream-json. NAMING-MAP.md cross-reference table. |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-001 topics (time, IDs, nulls, naming, status) adapted for Rondo's stateless context. 25 requirements. Duration split: sec for wall-clock, ms for stream-json. NAMING-MAP.md cross-reference table. |

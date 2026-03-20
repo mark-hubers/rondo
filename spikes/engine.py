@@ -23,12 +23,12 @@ Usage:
       post_gates=[Gate("DB recorded", check_fn=...)],
    )
 
-   run_round(round_def, project="ACE", spec_id="OB-01")
+   run_round(round_def, project="ACE", spec_id="OB-REQ-001")
 
 Created: 2026-03-12 (Session 74)
 Moved to rondo/: 2026-03-13 (Session 75)
 Author: Mark Hubers — HubersTech
-Spec: OB-08 (Round Lifecycle)
+Spec: OB-REQ-007 (Round Lifecycle)
 """
 
 import json
@@ -241,7 +241,7 @@ def run_round(
       round_def: The round blueprint to execute.
       project: Project key.
       orbit: Orbit number.
-      spec_id: Optional spec scope (e.g., "OB-01").
+      spec_id: Optional spec scope (e.g., "OB-REQ-001").
       dry_run: If True, don't write to DB.
 
    Returns:

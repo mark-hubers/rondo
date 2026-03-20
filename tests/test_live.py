@@ -21,7 +21,7 @@ class TestPresentTask:
             name="check-specs",
             instruction="Run checks on all specs",
             done_when="All checks pass",
-            context_files=["specs/OB-01.md"],
+            context_files=["specs/OB-REQ-001.md"],
         )
         result = present_task(task, 0, 3)
         captured = capsys.readouterr()  # type: ignore[attr-defined]
@@ -29,7 +29,7 @@ class TestPresentTask:
         assert "TASK 1 of 3: check-specs" in captured.out
         assert "Run checks on all specs" in captured.out
         assert "All checks pass" in captured.out
-        assert "specs/OB-01.md" in captured.out
+        assert "specs/OB-REQ-001.md" in captured.out
         assert result["task_name"] == "check-specs"
         assert result["mode"] == "interactive"
 

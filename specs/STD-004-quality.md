@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-STD-004, Caliber-STD-004
+**Matches:** CORE-STD-004, Caliber-STD-004
 
 ---
 
@@ -26,7 +26,7 @@ Defines the quality standards for Rondo's own codebase: TDD discipline, conventi
 - Round definition testing patterns
 
 **OUT of scope:**
-- Self-correction (OB-STD-004 domain — Rondo is stateless, no iterative AI builds)
+- Self-correction (CORE-STD-004 domain — Rondo is stateless, no iterative AI builds)
 - Consumer test requirements (OB/ACE define their own)
 - Build gate tooling (STD-002: Observability handles prefixes)
 
@@ -121,7 +121,7 @@ Rondo does not have OB's `ai_went_wrong` / `ai_assumptions` spec sections becaus
 - Convention tests prevent structural drift
 - Coverage ratchet prevents blind spots from growing
 
-The compound effect (OB-STD-004 section 5) applies to Rondo through tests and conventions, not through AI self-correction loops.
+The compound effect (CORE-STD-004 section 5) applies to Rondo through tests and conventions, not through AI self-correction loops.
 
 ---
 
@@ -129,4 +129,4 @@ The compound effect (OB-STD-004 section 5) applies to Rondo through tests and co
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft. Matches OB-STD-004 topics (TDD, conventions, coverage) adapted for Rondo. 31 requirements. Self-correction N/A — Rondo tests itself, consumers do the learning. Convention categories for dispatch framework. Subprocess mocking and stream-json fixtures as testing patterns. |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-004 topics (TDD, conventions, coverage) adapted for Rondo. 31 requirements. Self-correction N/A — Rondo tests itself, consumers do the learning. Convention categories for dispatch framework. Subprocess mocking and stream-json fixtures as testing patterns. |

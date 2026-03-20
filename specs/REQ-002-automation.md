@@ -13,7 +13,7 @@
 
 ---
 
-## Item 1: Purpose & Scope
+## 1. Purpose & Scope
 
 **What this spec does (plain English):**
 Adds parallel execution, overnight batch scheduling, and morning reports on top of REQ-001's core. REQ-001 dispatches one task at a time. REQ-002 dispatches many tasks at once, chains rounds into overnight phases, and summarizes results for the morning.
@@ -36,7 +36,7 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 
 ---
 
-## The Problem
+## 2. The Problem
 
 REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 minutes each takes 24 minutes. Running 32 specs through that takes 12+ hours. That exceeds overnight capacity.
 
@@ -48,7 +48,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ---
 
-## Requirements
+## 3. Requirements
 
 ### Parallel Execution
 
@@ -125,7 +125,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ---
 
-## Assumptions
+## 16. Assumptions
 
 | # | Assumption | If Wrong |
 |---|-----------|----------|
@@ -137,7 +137,7 @@ REQ-001 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ---
 
-## Success Criteria
+## 17. Success Criteria
 
 | Scenario | Expected Result | Verification |
 |----------|----------------|--------------|
@@ -227,7 +227,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## Rules & Constraints
+## 10. Rules & Constraints
 
 | Rule | Rationale |
 |------|-----------|
@@ -239,7 +239,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## Quality Attributes
+## 11. Quality Attributes
 
 | Attribute | Target | How Measured |
 |-----------|--------|-------------|
@@ -250,7 +250,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## Foundations Applied
+## 14. Standards Applied
 
 | Standard | How Applied |
 |---------|-------------|
@@ -260,7 +260,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## Decisions
+## 22. Decisions
 
 | # | Decision | Date | Why |
 |---|----------|------|-----|
@@ -272,7 +272,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## Open Questions
+## 23. Open Questions
 
 | # | Question | Status |
 |---|----------|--------|
@@ -297,7 +297,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 7. MCP/API Interface
+## 7. MCP / API Interface
 
 — if applicable.
 
@@ -333,7 +333,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 18. Build Notes/Estimate
+## 18. Build Notes / Estimate
 
 — filled during build.
 
@@ -363,7 +363,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 25. Risk/Criticality
+## 25. Risk / Criticality
 
 — if applicable.
 
@@ -381,7 +381,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 28. Performance/Resource
+## 28. Performance / Resource
 
 — if applicable.
 

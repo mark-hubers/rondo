@@ -13,7 +13,7 @@
 
 ---
 
-## Item 1: Purpose & Scope
+## 1. Purpose & Scope
 
 **What this spec does (plain English):**
 Defines Rondo's core: the data model for describing AI work (Rounds, Tasks, Gates) and the dispatch layer that sends tasks to Claude Code via `claude -p`. This is the minimum viable Rondo — everything else builds on it.
@@ -38,7 +38,7 @@ Defines Rondo's core: the data model for describing AI work (Rounds, Tasks, Gate
 
 ---
 
-## The Problem
+## 2. The Problem
 
 AI work can be decomposed into tasks with clear inputs, instructions, and completion criteria. Today, that work is done manually — a human types prompts, reads output, decides what's next. This doesn't scale.
 
@@ -54,7 +54,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 
 ---
 
-## Requirements
+## 3. Requirements
 
 ### Engine — Data Model
 
@@ -362,7 +362,7 @@ def build_round(target_dir: str = "src/") -> Round:
 
 ---
 
-## Assumptions
+## 16. Assumptions
 
 | # | Assumption | If Wrong |
 |---|-----------|----------|
@@ -375,7 +375,7 @@ def build_round(target_dir: str = "src/") -> Round:
 
 ---
 
-## Success Criteria
+## 17. Success Criteria
 
 | Scenario | Expected Result | Verification |
 |----------|----------------|--------------|
@@ -507,7 +507,7 @@ def build_my_round(target_file: str) -> Round:
 
 ---
 
-## States & Modes
+## 8. States & Modes
 
 ### Core Dataclasses
 
@@ -621,7 +621,7 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 ---
 
-## Rules & Constraints
+## 10. Rules & Constraints
 
 | Rule | Rationale |
 |------|-----------|
@@ -635,7 +635,7 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 ---
 
-## Quality Attributes
+## 11. Quality Attributes
 
 | Attribute | Target | How Measured |
 |-----------|--------|-------------|
@@ -753,7 +753,7 @@ reports/rondo-results/
 
 ---
 
-## Foundations Applied
+## 14. Standards Applied
 
 | Standard | How Applied |
 |----------|-------------|
@@ -763,7 +763,7 @@ reports/rondo-results/
 
 ---
 
-## Dependencies
+## 21. Dependencies + Used By
 
 | Depends On | Why |
 |------------|-----|
@@ -773,7 +773,7 @@ reports/rondo-results/
 
 ---
 
-## Decisions
+## 22. Decisions
 
 | # | Decision | Date | Why |
 |---|----------|------|-----|
@@ -788,7 +788,7 @@ reports/rondo-results/
 
 ---
 
-## Open Questions
+## 23. Open Questions
 
 | # | Question | Status |
 |---|----------|--------|
@@ -800,7 +800,7 @@ reports/rondo-results/
 
 ---
 
-## Glossary
+## 24. Glossary
 
 | Term | Definition |
 |------|-----------|
@@ -820,7 +820,7 @@ reports/rondo-results/
 
 ---
 
-## Risk / Criticality
+## 25. Risk / Criticality
 
 | Req # | Criticality | Failure Consequence |
 |-------|-------------|-------------------|
@@ -838,7 +838,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 7. MCP/API Interface
+## 7. MCP / API Interface
 
 — if applicable.
 
@@ -868,7 +868,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 18. Build Notes/Estimate
+## 18. Build Notes / Estimate
 
 — filled during build.
 
@@ -898,7 +898,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 28. Performance/Resource
+## 28. Performance / Resource
 
 — if applicable.
 

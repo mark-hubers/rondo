@@ -13,7 +13,7 @@
 
 ---
 
-## Item 1: Purpose & Scope
+## 1. Purpose & Scope
 
 **What this spec does (plain English):**
 Defines how Rondo handles every type of failure that can occur during unattended AI
@@ -333,7 +333,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 4. Architecture/Design
+## 4. Architecture / Design
 
 REQUIRED — fill before build.
 
@@ -351,7 +351,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 7. MCP/API Interface
+## 7. MCP / API Interface
 
 — if applicable.
 
@@ -387,7 +387,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 14. Foundation References
+## 14. Standards Applied
 
 — if applicable.
 
@@ -411,7 +411,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 18. Build Notes/Estimate
+## 18. Build Notes / Estimate
 
 — filled during build.
 
@@ -453,7 +453,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 25. Risk/Criticality
+## 25. Risk / Criticality
 
 — if applicable.
 
@@ -465,7 +465,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 28. Performance/Resource
+## 28. Performance / Resource
 
 — if applicable.
 

@@ -14,7 +14,7 @@
 
 ---
 
-## 1. Purpose
+## 1. Purpose & Scope
 
 Rondo's side of the token signing interface. Rondo TRANSPORTS tokens to workers so they can sign code on behalf of the issuer. Rondo itself never signs — it's the courier.
 

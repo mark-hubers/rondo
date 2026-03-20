@@ -13,7 +13,7 @@
 
 ---
 
-## Item 1: Purpose & Scope
+## 1. Purpose & Scope
 
 **What this spec does (plain English):**
 Documents the interface between Rondo (the conductor) and Claude Code's `claude -p` (the orchestra). Defines exactly what Rondo sends, what it expects back, and what environment conditions must be met.
@@ -252,7 +252,7 @@ required tools/MCPs are available before trusting the result.
 
 ---
 
-## Requirements
+## 3. Requirements
 
 Numbered requirements for VER-001 traceability:
 
@@ -313,7 +313,7 @@ How each stream-json event maps to Rondo's dataclasses (REQ-001, STD-020):
 
 ---
 
-## Assumptions
+## 16. Assumptions
 
 | # | Assumption | If Wrong |
 |---|-----------|----------|
@@ -343,7 +343,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 4. Architecture/Design
+## 4. Architecture / Design
 
 REQUIRED — fill before build.
 
@@ -397,7 +397,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 14. Foundation References
+## 14. Standards Applied
 
 — if applicable.
 
@@ -415,7 +415,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 18. Build Notes/Estimate
+## 18. Build Notes / Estimate
 
 — filled during build.
 
@@ -457,7 +457,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 25. Risk/Criticality
+## 25. Risk / Criticality
 
 — if applicable.
 
@@ -475,7 +475,7 @@ REQUIRED — fill before build.
 
 ---
 
-## 28. Performance/Resource
+## 28. Performance / Resource
 
 — if applicable.
 

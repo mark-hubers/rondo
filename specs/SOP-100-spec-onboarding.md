@@ -58,7 +58,7 @@ Content is adapted for Rondo's context. The number and topic are the same across
 
 ## 4. Template
 
-Use the 35-section template defined in OB-00-spec-standard.md. All specs must include at minimum:
+Use the 35-section template defined in CORE-STD-000-spec-standard.md. All specs must include at minimum:
 
 **Required sections:** Purpose & Scope, The Problem, Requirements, Architecture/Design, Data Model, Data Boundary, Integration Points, Assumptions, Success Criteria, Dependencies + Used By, Decisions, Change History.
 

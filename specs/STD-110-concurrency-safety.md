@@ -564,4 +564,4 @@ REQUIRED — fill before build.
 | 0.1 | 2026-03-13 | Initial draft — 15 rules in 3 categories |
 | 0.2 | 2026-03-14 | Beefed up: code patterns for every rule, attack prevention table, thread safety matrix, conflict detection pattern |
 | 0.3 | 2026-03-14 | Deep review fix: sanitize_result() uses dc_replace() instead of setattr (frozen dataclass safe) |
-| 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches STD-020) |
+| 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches CORE-IFS-001 reqs 53-54 (status vocabulary)) |

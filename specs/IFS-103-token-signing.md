@@ -1,50 +1,16 @@
-# IFS-103: Token & Signing Interface
+# IFS-103: Token & Signing Interface — SUPERSEDED
 
-*How Rondo handles signing tokens — passes tokens to workers so they can sign on behalf of the issuer.*
+**THIS SPEC HAS BEEN ABSORBED INTO CORE-IFS-002 (Token & Signing Interface).**
 
-**Created:** 2026-03-18 | **Status:** DESIGNED
-**Classification:** classified
-**Clearance:** not-cleared
-**Version:** 0.1
-**Owner:** Mark G. Hubers
-**Reviewed:** not-yet
-**Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-107 (Security)
-**Connects to:** OB-IFS-103 (Token & Signing — master spec)
+Requirements from this spec are now in `core/specs/CORE-IFS-002-token-signing.md` — the single universal token/signing spec for all products.
+
+**Product role:** Rondo is the DELEGATOR — passes token in OAPayload.auth.token so workers can sign on behalf of the issuer.
+
+**What to read instead:** CORE-IFS-002 (48 reqs, full §4/§5/§6, cross-product roles defined)
 
 ---
-
-## 1. Purpose & Scope
-
-Rondo's side of the token signing interface. Rondo TRANSPORTS tokens to workers so they can sign code on behalf of the issuer. Rondo itself never signs — it's the courier.
-
----
-
-## 3. Requirements
-
-### Token Transport
-
-1. When OAPayload contains auth.token: pass it to worker subprocess
-2. Token passed via environment variable to worker (not CLI arg — args visible in process list)
-3. Worker receives token → can call `caliber-sign` using that token
-4. Token never logged — masked in all output as `***TOKEN***`
-
-### Worker Signing
-
-5. Workers in worktrees can sign files using the passed token
-6. Worker calls Rust binary for signing — never implements signing logic
-7. If no token passed: worker skips signing, reports unsigned
-
-### Spool Signing
-
-8. Rondo spool files (results waiting for pickup) signed with session token if available
-9. Signed spool files verifiable by OB on pickup — proves results are authentic
-10. Unsigned spool files accepted with WARNING — backwards compatible
-
----
-
-## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial spec. Token transport to workers, spool signing. 10 requirements. Session 79. |
+| 0.1 | 2026-03-18 | Initial draft. |
+| SUPERSEDED | 2026-03-20 | Absorbed into CORE-IFS-002. This file kept as redirect. |

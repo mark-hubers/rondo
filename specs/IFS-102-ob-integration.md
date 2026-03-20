@@ -9,9 +9,10 @@
 **Reviewed:** not-yet
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
-**Depends on:** REQ-100 (Core), REQ-101 (Automation)
+**Implements:** CORE-IFS-001 (Integration Contract Standard) — universal payload/transport/isolation patterns
+**Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract)
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
-**References:** CONTRACTS.md (JSON format), NAMING-MAP.md (field mapping)
+**References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
 
 ---

@@ -141,7 +141,7 @@ def run_full_round(
 
 def _find_ob_specs() -> list[tuple[str, str]]:
     """Find all OB spec files. Returns list of (spec_id, path) tuples."""
-    spec_dir = Path(_PROJECT_ROOT) / "ace" / "orbital" / "specs"
+    spec_dir = Path(_PROJECT_ROOT) / "orbital" / "specs"
     specs = []
     for f in sorted(spec_dir.glob("OB-*.md")):
         ## -- Extract spec ID from filename: OB-REQ-001-orbital-database.md → OB-REQ-001

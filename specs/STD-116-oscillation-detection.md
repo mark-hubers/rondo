@@ -100,6 +100,10 @@ No MCP interface for oscillation detection. Oscillation data is embedded in disp
 
 Each tracked finding has an oscillation state: `STABLE` (no oscillation detected), `WATCHING` (1-2 cycles, monitoring), `OSCILLATING` (3+ cycles, halted). The `OSCILLATING` state triggers a block finding that requires human review. No auto-resolution for oscillating findings.
 
+**State Machine Type:** FORWARD-ONLY
+**Rationale:** Oscillation detection progresses STABLE → WATCHING → OSCILLATING as cycles accumulate. OSCILLATING is terminal (requires human review). A finding does not return to STABLE automatically — human intervention creates a new tracking instance.
+**Rollback:** Human review resolves the OSCILLATING state. The finding restarts tracking from STABLE.
+
 ---
 
 ## 9. Configuration

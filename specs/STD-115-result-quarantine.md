@@ -151,6 +151,10 @@ No MCP interface for quarantine management. Quarantine state transitions happen 
     └───────────┘
 ```
 
+**State Machine Type:** FORWARD-ONLY
+**Rationale:** Results progress PENDING → VERIFIED → TRUSTED (or REJECTED at any verification/approval gate). No backward transitions — a rejected result stays rejected. A trusted result does not return to pending.
+**Rollback:** Not applicable — rejected results are kept as negative examples. New results start fresh at PENDING.
+
 ---
 
 ## 9. Configuration

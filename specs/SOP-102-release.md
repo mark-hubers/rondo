@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-SOP-003, Caliber-SOP-102, Rondo-SOP-102
+**Matches:** CORE-SOP-003, SOP-102 (Caliber), SOP-102 (Rondo)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
 ---
@@ -464,5 +464,5 @@ Not applicable — this is a release procedure SOP.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft — universal SOP-010 for Rondo. |
+| 0.1 | 2026-03-18 | Initial draft — universal CORE-SOP-003 for Rondo. |
 | 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |

@@ -37,7 +37,7 @@ Defines the exact contract between Rondo and OB. Rondo is a standalone AI dispat
 - OB's internal storage (OB-REQ-100 owns that)
 - OB's dispatch engine (OB-REQ-128 owns that)
 - How OB calls Rondo (OB-IFS-102 owns that)
-- Caliber integration (Caliber-IFS-102 or Rondo's internal Caliber calls)
+- Caliber integration (IFS-102 (Caliber) or Rondo's internal Caliber calls)
 - Claude Code CLI details (IFS-100 owns that)
 - Rondo's engine internals (REQ-100 owns that)
 
@@ -433,6 +433,10 @@ client without CLI subprocess overhead. Not in v1.0 scope — pipe and file tran
 Transitions: Standalone ↔ OB-Connected via config file presence. OB-Degraded is automatic
 when OB infrastructure is unavailable. Recovery is automatic when OB becomes available.
 
+**State Machine Type:** BIDIRECTIONAL
+**Rationale:** States transition freely based on config and infrastructure: Standalone ↔ OB-Connected (config change), OB-Connected ↔ OB-Degraded (infrastructure availability). Recovery is automatic.
+**Rollback:** Remove `.ob/config.toml` to return to Standalone. OB-Degraded auto-recovers when OB becomes available.
+
 ---
 
 ## 9. Configuration
@@ -629,7 +633,7 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 
 | # | Decision | Date | Why |
 |---|----------|------|-----|
-| D1 | JSON contracts, never direct DB access | 2026-03-18 | Isolation. Rondo and OB can be developed independently. Same principle as Caliber-IFS-102 D1. |
+| D1 | JSON contracts, never direct DB access | 2026-03-18 | Isolation. Rondo and OB can be developed independently. Same principle as IFS-102 (Caliber) D1. |
 | D2 | OB mode detection via .ob/config.toml | 2026-03-18 | Simple, no magic. File exists = OB is here. Same mechanism as Caliber. |
 | D3 | Rondo is the execution authority, OB is the methodology authority | 2026-03-18 | Clear ownership. Rondo knows HOW to dispatch. OB knows WHAT to dispatch and WHY. |
 | D4 | Rondo never advances sprint state | 2026-03-18 | Sprint lifecycle is OB's domain. Rondo reports; OB decides. Prevents split-brain state. |

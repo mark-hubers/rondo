@@ -163,6 +163,10 @@ Template lifecycle states:
 Promotion (CANDIDATE → TEMPLATE) is always manual. Archive suggestions are automatic
 but archiving requires manual confirmation.
 
+**State Machine Type:** CYCLIC
+**Rationale:** Templates cycle: ADHOC → CANDIDATE → TEMPLATE → ARCHIVED → TEMPLATE (if reused). The ARCHIVED → TEMPLATE transition makes this cyclic — a dormant template can be reactivated by usage.
+**Rollback:** Archived templates auto-reactivate on use. Manual demotion is not supported (delete and re-create instead).
+
 ---
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.

@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-003, Caliber-STD-102
+**Matches:** CORE-STD-003, STD-102 (Caliber)
 
 ---
 

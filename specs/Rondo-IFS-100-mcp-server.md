@@ -5,7 +5,7 @@
 **Created:** 2026-03-21 Session 84
 **Status:** STUB — to be expanded when Rondo is built
 **Revision:** rev-0003
-**Depends on:** CORE-IFS-005 (MCP Standard), Rondo-REQ-109 (Provider Adapters)
+**Depends on:** CORE-IFS-005 (MCP Standard), REQ-109 (Provider Adapters)
 **Implements:** CORE-IFS-005 MCP Standard for Rondo product
 **Port:** 8300
 

@@ -238,6 +238,10 @@ Per-provider states:
 
 State transitions happen on health check (every 5 minutes or on-demand).
 
+**State Machine Type:** BIDIRECTIONAL
+**Rationale:** Providers transition freely between healthy ↔ degraded ↔ down based on health check results. Recovery is automatic when health checks pass again. Unconfigured is a separate initial state.
+**Rollback:** Automatic — health check recovery restores previous operational state.
+
 ---
 
 ## 9. Configuration

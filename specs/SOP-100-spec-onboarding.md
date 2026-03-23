@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** OB-SOP-100, Caliber-SOP-100, Rondo-SOP-100
+**Matches:** OB-SOP-100, SOP-100 (Caliber), SOP-100 (Rondo)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
 ---
@@ -74,7 +74,7 @@ one procedure for all Rondo spec operations.
 |--------|----------|---------|---------|
 | REQ | Requirements | What Rondo must do | REQ-100 (Core), REQ-101 (Automation) |
 | STD | Standards | How code must be written | STD-108 (Error Resilience), STD-109 (Configuration) |
-| SOP | Procedures | How to do things (step-by-step) | SOP-100 (Build & Run), SOP-010 (Release) |
+| SOP | Procedures | How to do things (step-by-step) | SOP-101 (Build & Run), SOP-102 (Release) |
 | IFS | Interfaces | How Rondo connects to other products | IFS-100 (Claude CLI), IFS-102 (OB Integration) |
 | VER | Verification | How to prove specs are implemented | VER-100 (Verification Matrix) |
 | TST | Test Plans | Detailed test strategies | (not yet created) |
@@ -126,6 +126,10 @@ Spec lifecycle states:
 | **DESIGNED** | All required sections filled, ready for review | REVIEWED |
 | **REVIEWED** | Passed Phase 5 review | APPROVED |
 | **APPROVED** | Can be referenced by build sprints | — |
+
+**State Machine Type:** FORWARD-ONLY
+**Rationale:** Spec lifecycle is strictly forward: RESERVED → DRAFT → DESIGNED → REVIEWED → APPROVED. No backward transitions — a spec that fails review stays at DESIGNED until it passes.
+**Rollback:** Not applicable — specs move forward only. Defects create findings, not state reversals.
 
 ---
 
@@ -209,7 +213,7 @@ When referencing specs from other products:
 |-------------|--------|---------|
 | Rondo spec from Rondo | `SOP-100` or `REQ-100` | "See REQ-100 (Core)" |
 | OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-SOP-100 defines build integration" |
-| Caliber spec from Rondo | `Caliber SOP-020` | "Caliber SOP-020 defines the build flow" |
+| Caliber spec from Rondo | `Caliber SOP-101` | "Caliber SOP-101 defines the build flow" |
 | Cross-product interface | `IFS-NNN` with product context | "IFS-102 defines OB integration" |
 
 Use IFS specs to formally define integration points between products.
@@ -439,5 +443,5 @@ Not applicable — this is a process SOP, not an AI-built feature.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft — universal SOP-011 for Rondo. |
+| 0.1 | 2026-03-18 | Initial draft — universal CORE-SOP-001 for Rondo. |
 | 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |

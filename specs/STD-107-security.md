@@ -11,7 +11,7 @@
 **Supersedes:** none
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-STD-008, Caliber-STD-107, Rondo-STD-107
+**Matches:** CORE-STD-008, STD-107 (Caliber), STD-107 (Rondo)
 
 ---
 
@@ -30,7 +30,7 @@ Defines security rules for the Rondo stateless dispatch system. Rondo's attack s
 - Network security (firewalls, VPNs) — not applicable to local-first architecture
 - Database security — Rondo is stateless, owns no DB tables
 - OB-specific spec registry and OA registry threats (CORE-STD-008)
-- Caliber-specific scan integrity threats (Caliber-STD-107)
+- Caliber-specific scan integrity threats (STD-107 in Caliber)
 - What Rondo dispatches (task definitions are OB's domain)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.

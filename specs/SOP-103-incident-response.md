@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-SOP-004, Caliber-SOP-103, Rondo-SOP-103
+**Matches:** CORE-SOP-004, SOP-103 (Caliber), SOP-103 (Rondo)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
 ---
@@ -152,6 +152,10 @@ response actions (e.g., pause all dispatches, switch to fallback provider).
 | **ESCALATED** | Beyond automated fix, needs Mark | RESOLVED |
 | **RESOLVED** | Normal operation restored | REVIEWED |
 | **REVIEWED** | Post-incident review complete | CLOSED |
+
+**State Machine Type:** FORWARD-ONLY
+**Rationale:** Incidents progress DETECTED → TRIAGED → RESPONDING → RESOLVED → REVIEWED → CLOSED. ESCALATED is a forward branch from RESPONDING. No backward transitions — a resolved incident stays resolved.
+**Rollback:** Not applicable — new incidents create new lifecycle instances.
 
 ---
 

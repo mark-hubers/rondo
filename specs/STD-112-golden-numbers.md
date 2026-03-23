@@ -19,7 +19,7 @@
 Defines how Rondo tracks golden numbers — the counts that must stay consistent between code, config, and documentation. When docs say "3 models supported" but config allows 5, drift has occurred. This spec catches drift before it becomes a runtime surprise.
 
 **IN scope:** Golden number registry, appearance tracking, drift detection, CLI reporting.
-**OUT of scope:** OB golden numbers (OB-REQ-108), Caliber golden numbers (Caliber-STD-110).
+**OUT of scope:** OB golden numbers (OB-REQ-108), Caliber golden numbers (STD-110 (Caliber)).
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -97,7 +97,7 @@ Golden number registry location: `rondo/golden-numbers.toml` or inline in `confi
 
 ## 10. Rules & Constraints
 
-1. **Authority is singular.** Same as Caliber-STD-110 and OB-REQ-108. One source of truth per number. Violation ID: `STD112-SINGLE-AUTHORITY`
+1. **Authority is singular.** Same as STD-110 (Caliber) and OB-REQ-108. One source of truth per number. Violation ID: `STD112-SINGLE-AUTHORITY`
 2. **Code > Config > Docs.** Runtime behavior wins over documentation. Violation ID: `STD112-HIERARCHY`
 
 ---

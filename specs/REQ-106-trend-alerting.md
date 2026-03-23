@@ -31,7 +31,7 @@
 **OUT of scope:**
 - Audit record storage (STD-113)
 - Model routing decisions (REQ-100)
-- Caliber-side quality trends (Caliber-REQ-102)
+- Caliber-side quality trends (Caliber's trend-alerting spec)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -174,6 +174,10 @@ Per-model health states:
 
 State transitions happen on every trend calculation. No hysteresis (a single good
 window can move from critical back to healthy). Hysteresis may be added if noisy.
+
+**State Machine Type:** BIDIRECTIONAL
+**Rationale:** Health states transition freely: healthy ↔ degrading ↔ critical based on metric calculations. No hysteresis — a single good window can move from critical back to healthy. Insufficient_data is an initial state that transitions to any other on data accumulation.
+**Rollback:** Automatic — states are recalculated on every trend window. No manual intervention needed.
 
 ---
 

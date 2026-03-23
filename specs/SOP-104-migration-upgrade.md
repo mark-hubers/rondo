@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
-**Matches:** CORE-SOP-005, Caliber-SOP-104, Rondo-SOP-104
+**Matches:** CORE-SOP-005, SOP-104 (Caliber), SOP-104 (Rondo)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
 ---
@@ -155,6 +155,10 @@ migration steps, enabling AI-assisted upgrades.
 | **INSTALL** | pip install new version | VERIFY |
 | **VERIFY** | Run preflight + smoke test | DONE or ROLLBACK |
 | **ROLLBACK** | Restore from backup | PRE-CHECK (retry) |
+
+**State Machine Type:** FORWARD-ONLY (with rollback branch)
+**Rationale:** Upgrade progresses PRE-CHECK → BACKUP → MIGRATE → INSTALL → VERIFY → DONE. ROLLBACK is a forward branch from VERIFY (failure) that returns to PRE-CHECK for a retry cycle, but each cycle is a new forward pass.
+**Rollback:** ROLLBACK restores from backup and restarts the upgrade cycle from PRE-CHECK.
 
 ---
 

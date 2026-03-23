@@ -79,6 +79,10 @@ No MCP interface for template management. Templates are managed via `rondo freez
 
 Templates have two states: `ACTIVE` (normal, changes detected and classified) and `FROZEN` (locked, changes produce block findings). Frozen templates require `rondo unfreeze <template> --reason "..."` before modification. Freeze/unfreeze events are logged in the change log.
 
+**State Machine Type:** BIDIRECTIONAL
+**Rationale:** Templates transition ACTIVE ↔ FROZEN via freeze/unfreeze commands. Both directions are explicit human actions with logged reasons. The cycle can repeat indefinitely.
+**Rollback:** `rondo unfreeze <template> --reason "..."` returns a FROZEN template to ACTIVE.
+
 ---
 
 ## 9. Configuration

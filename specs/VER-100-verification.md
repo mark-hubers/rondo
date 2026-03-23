@@ -745,13 +745,13 @@ REQUIRED — fill before build.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-13 | Initial verification matrix for REQ-001 + REQ-002 |
-| 0.2 | 2026-03-14 | Added IFS-001 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
-| 0.3 | 2026-03-14 | Added REQ-002 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
+| 0.1 | 2026-03-13 | Initial verification matrix for REQ-100 + REQ-101 |
+| 0.2 | 2026-03-14 | Added IFS-100 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
+| 0.3 | 2026-03-14 | Added REQ-101 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
 | 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with CORE-IFS-001 reqs 53-54 |
 | 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |
-| 0.6 | 2026-03-14 | Added REQ-001 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |
-| 0.7 | 2026-03-14 | Deep review v2: added REQ-001 reqs 45-46 (run_round, RoundResult.status). Added CORE-IFS-001 reqs 53-54 / STD-108 / STD-111 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
-| 0.8 | 2026-03-14 | Added REQ-001 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
-| 0.9 | 2026-03-14 | Added STD-023 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
-| 1.0 | 2026-03-16 | Full rebuild to Caliber VER-001 standard. Added: 6 verification methods, test index (418 tests across 10 files), coverage summary with grand total, 10 key findings, convergence test baseline, Rondo+Caliber buggy.py integration evidence, production targets. All 153 items verified 100%. |
+| 0.6 | 2026-03-14 | Added REQ-100 reqs 34-44: CLI entry point (8 tests), living example rounds (3 tests). Total: 95 reqs, 84 automated tests |
+| 0.7 | 2026-03-14 | Deep review v2: added REQ-100 reqs 45-46 (run_round, RoundResult.status). Added CORE-IFS-001 reqs 53-54 / STD-108 / STD-111 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
+| 0.8 | 2026-03-14 | Added REQ-100 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
+| 0.9 | 2026-03-14 | Added STD-111 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
+| 1.0 | 2026-03-16 | Full rebuild to VER-100 standard. Added: 6 verification methods, test index (418 tests across 10 files), coverage summary with grand total, 10 key findings, convergence test baseline, Rondo+Caliber buggy.py integration evidence, production targets. All 153 items verified 100%. |

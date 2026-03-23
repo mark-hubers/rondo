@@ -151,6 +151,10 @@ Per-task-template flakiness states:
 | **broken** | 100% failure rate | Not flaky — just broken |
 | **insufficient_data** | <5 runs in window | Not enough data to score |
 
+**State Machine Type:** BIDIRECTIONAL
+**Rationale:** Flakiness states transition freely based on score recalculation: stable ↔ noisy ↔ flaky. Broken is a distinct state (100% failure, not flakiness). States are recomputed on every scoring window — any state can transition to any other.
+**Rollback:** Automatic — states are recalculated per scoring window. No manual intervention needed.
+
 ---
 
 ## 9. Configuration

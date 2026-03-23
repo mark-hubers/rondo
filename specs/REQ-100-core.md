@@ -586,6 +586,10 @@ task statuses across all of Rondo: `done`, `blocked`, `partial`, `error`, `skipp
 
 No backward transitions. No re-running. A failed task stays failed for this round.
 
+**State Machine Type:** FORWARD-ONLY
+**Rationale:** Tasks move pending → running → terminal state (done/blocked/partial/error/skipped). All terminal states are final within a round. No re-running, no backward transitions.
+**Rollback:** Not applicable — a new round creates new task instances. Failed tasks stay failed.
+
 ---
 
 ### Live Mode (Session 79-80 — NEW)
@@ -779,7 +783,7 @@ reports/rondo-results/
 | D5 | Results always to JSON files | 2026-03-13 | Files survive crashes, restarts, compaction. Terminal output doesn't |
 | D6 | Zero external dependencies | 2026-03-13 | stdlib only. Anyone with Python + Claude Code can use Rondo |
 | D7 | Rondo is its own product | 2026-03-13 | Not an OB feature. Not an ACE feature. A standalone framework |
-| D8 | Sequential default | 2026-03-13 | Parallel is REQ-002's concern. REQ-001 is simple and predictable |
+| D8 | Sequential default | 2026-03-13 | Parallel is REQ-101's concern. REQ-100 is simple and predictable |
 
 ---
 
@@ -952,7 +956,7 @@ REQUIRED — fill before build.
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial draft from spike learnings (Session 75) |
-| 0.2 | 2026-03-13 | Split from monolithic spec. REQ-001=core, REQ-002=automation. Removed OB/ACE references. Own foundations. |
+| 0.2 | 2026-03-13 | Split from monolithic spec. REQ-100=core, REQ-101=automation. Removed OB/ACE references. Own foundations. |
 | 0.3 | 2026-03-14 | Added Data Boundary section: RoundResult, DispatchUsage, result file structure. Answered Q1 (no DB), Q2 (rate_limit_event), Q3 (configurable binary). |
 | 0.4 | 2026-03-14 | Deep review fixes: formal Task/Gate/GateResult/Round dataclasses, aligned status vocabulary (done/blocked/partial/error/skipped) with CORE-IFS-001 reqs 53-54 (status vocabulary), added description field to Task, added model hint to Task, RoundResult.status uses same vocabulary, duration units clarified (ms from stream-json, sec for wall-clock) |
 | 0.5 | 2026-03-14 | Added reqs 34-44: package structure, CLI entry point (run/overnight/report/dry-run subcommands), dynamic round loading, auto sequential/parallel detection, living example rounds (3 examples as test fixtures), library usage pattern, call chain diagram |

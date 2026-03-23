@@ -164,6 +164,10 @@ dispatching expensive tasks.
 | **Budget exceeded** | Provider over monthly budget | Alert + pause dispatches to that provider |
 | **All providers down** | No cloud provider reachable | Switch to Ollama (local) if configured |
 
+**State Machine Type:** BIDIRECTIONAL
+**Rationale:** Provider states transition freely based on external conditions: healthy ↔ rate-limited ↔ down ↔ budget exceeded. Providers recover automatically when conditions improve (rate limit expires, health check passes, budget resets).
+**Rollback:** Automatic — provider recovery restores previous state. Budget reset is monthly.
+
 ---
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.

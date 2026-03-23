@@ -3,6 +3,20 @@
 ## Rondo Product Setup
 ## ═══════════════════════════════════════════════════════════════
 ##
+## MANIFEST — what this script manages
+## ═══════════════════════════════════════════════════════════════
+## Databases:    Postgres tables (PLANNED — rondo-schema.sql)
+## Services:     Rondo dispatch on port 8300 (PLANNED)
+## Hooks:        none
+## Symlinks:     none
+## Containers:   none (uses OB Postgres container)
+## Config files: rondo.toml (dispatch configuration)
+## CLI tools:    none (planned: rondo-dispatch)
+## Venv:         rondo/.venv (separate from shared venv)
+## ═══════════════════════════════════════════════════════════════
+##
+## DEPENDS ON: setup-shared.sh (certs, venv, Postgres check)
+##
 ## Sets up: Rondo venv, dependencies, dispatch config, API key check.
 ## Idempotent: safe to run 100 times.
 ##
@@ -13,6 +27,8 @@
 ##
 ## Per CORE-SOP-014 req 001, 026
 ## ═══════════════════════════════════════════════════════════════
+
+SETUP_VERSION="1.0"
 
 set -euo pipefail
 
@@ -124,6 +140,57 @@ if [[ -d "$RONDO_SRC" ]]; then
    pass_msg "Rondo source: $SRC_COUNT Python files"
 else
    warn_msg "Rondo source directory missing: src/rondo/"
+fi
+
+## ─────────────────────────────────────────────
+## 7. Rondo DB tables (Postgres) — PLANNED
+## ─────────────────────────────────────────────
+## Rondo will have its own tables in Postgres for dispatch tracking,
+## job history, provider config, etc. Schema file: db/rondo-schema.sql
+PG_CONTAINER="ob2-postgres-lab"
+RONDO_SCHEMA="$ACE2_ROOT/db/rondo-schema.sql"
+
+if [[ -f "$RONDO_SCHEMA" ]]; then
+   if command -v container &>/dev/null && container list 2>/dev/null | grep -q "$PG_CONTAINER"; then
+      PG_DB="ob2_lab"
+      PG_USER="postgres"
+      PG_PASS="${OB2_PG_PASS:-ob2lab}"
+      PG_PORT=5432
+      PG_ADDR=$(container list 2>/dev/null | grep "$PG_CONTAINER" | awk '{print $6}' | cut -d/ -f1)
+      if [[ "$MODE" == "--verify" ]]; then
+         pass_msg "Rondo schema file exists: db/rondo-schema.sql"
+      else
+         echo "  Applying Rondo schema to Postgres..."
+         if PGPASSWORD="$PG_PASS" psql -h "$PG_ADDR" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -f "$RONDO_SCHEMA" -q 2>/dev/null; then
+            pass_msg "Rondo schema applied"
+         else
+            warn_msg "Rondo schema apply had warnings (may already exist)"
+         fi
+      fi
+   else
+      warn_msg "Postgres not running -- cannot apply Rondo schema"
+   fi
+else
+   warn_msg "Rondo schema not yet created: db/rondo-schema.sql (PLANNED)"
+fi
+
+## ─────────────────────────────────────────────
+## 8. Rondo Service (port 8300) — PLANNED
+## ─────────────────────────────────────────────
+## Rondo dispatch service will run on port 8300 when built.
+RONDO_PORT=8300
+if lsof -i ":$RONDO_PORT" &>/dev/null 2>&1; then
+   PID=$(lsof -ti ":$RONDO_PORT" 2>/dev/null | head -1)
+   pass_msg "Rondo service port $RONDO_PORT in use (PID $PID)"
+else
+   warn_msg "Rondo service not running on port $RONDO_PORT (PLANNED -- not built yet)"
+fi
+
+## ─────────────────────────────────────────────
+## Version tracking
+## ─────────────────────────────────────────────
+if [[ "$MODE" != "--verify" ]]; then
+   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) setup-rondo v${SETUP_VERSION}" >> "$ACE_HOME/setup-history.log"
 fi
 
 ## ─────────────────────────────────────────────

@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.4
+**Version:** 0.5
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -133,6 +133,16 @@ REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 | 050 | System SHALL the spool is NOT a database — no queries, no indexes, no schema migrations. Just JSON files with timestamps in a directory. Rondo stays stateless; the spool is a buffer between stateless Rondo and stateful consumers | MUST |
 | 051 | Spool directory MUST be created automatically on first write if it does not exist. Permissions: user-only (0700) | MUST |
 | 052 | If spool write fails (disk full, permissions), Rondo MUST log a WARNING and continue — never fail a task because the spool is broken. The task result is still returned to stdout/caller | MUST |
+
+### Headless Dispatch
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 053 | Rondo dispatch SHALL use --bare flag for headless Claude Code execution | MUST |
+| 054 | --bare mode SHALL strip all hooks, LSP, and plugins from dispatched sessions | MUST |
+| 055 | Rondo SHALL inject ONLY task-specific context (no global hooks) into --bare sessions | MUST |
+| 056 | --bare sessions SHALL write JSONL transcript for collection (per CORE-IFS-006) | MUST |
+| 057 | Rondo SHALL support both --bare (headless) and normal (interactive) dispatch modes | SHOULD |
 
 ---
 ## 16. Assumptions
@@ -300,7 +310,14 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ## 4. Architecture / Design
 
-REQUIRED — fill before build.
+### Headless Dispatch (Claude Code --bare flag, v2.1.81+)
+
+The --bare flag strips hooks, LSP, and plugins for clean headless execution. Rondo uses this
+for all automated dispatch to prevent Caliber hooks, statusline, and other interactive-only
+features from interfering with batch tasks. Task-specific context is injected via --print-system-prompt
+or CLAUDE.md in the working directory.
+
+REQUIRED — fill remaining before build.
 
 ---
 
@@ -460,3 +477,4 @@ REQUIRED — fill before build.
 | 0.2 | 2026-03-14 | Added: self-healing watchdog (reqs 19-23), usage threshold gating (reqs 24-28), morning report usage summary (req 36), worktree isolation (reqs 37-41). 25→41 requirements. |
 | 0.3 | 2026-03-14 | Deep review fixes: clarified watchdog vs task timeout relationship (reqs 19-20), cross-referenced CORE-IFS-001 reqs 53-54 (status vocabulary) |
 | 0.4 | 2026-03-18 | Result Spool — stateless persistence (reqs 42-52). Mailbox-pattern spool directory for disconnected runs. TTL cleanup, CLI commands, export for manual import. 52 requirements total. |
+| 0.5 | 2026-03-23 | Added Headless Dispatch group (reqs 053-057). --bare flag for clean headless execution (Claude Code v2.1.81+). Architecture note for dispatch modes. 57 requirements total. |

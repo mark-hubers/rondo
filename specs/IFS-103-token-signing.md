@@ -1,3 +1,4 @@
+<!-- document-type: reference -->
 # IFS-103: Token & Signing Interface — SUPERSEDED
 
 **THIS SPEC HAS BEEN ABSORBED INTO CORE-IFS-002 (Token & Signing Interface).**

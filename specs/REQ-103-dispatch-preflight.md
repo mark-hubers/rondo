@@ -163,6 +163,8 @@ preflight status so AI agents can check environment health before requesting dis
 
 ## 8. States & Modes
 
+**Directionality:** Forward-only per evaluation — GREEN → YELLOW → RED. Each preflight starts fresh (no persistent state).
+
 | State | Meaning | Action |
 |-------|---------|--------|
 | **GREEN** | All checks pass | Dispatch proceeds |

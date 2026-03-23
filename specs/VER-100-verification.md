@@ -537,7 +537,13 @@ REQUIRED — fill before build.
 
 *All requirements in this spec are MUST priority unless marked SHOULD.*
 
-REQUIRED — fill before build.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Every product spec SHALL have at least one test that verifies its requirements | MUST |
+| 002 | Test-to-requirement mapping SHALL be maintained in the test index above | MUST |
+| 003 | Verification coverage SHALL be >= 60% of all numbered requirements | MUST |
+| 004 | Test results SHALL be classified as PASS, FAIL, or SKIP | MUST |
+| 005 | Failed tests SHOULD trigger investigation and spec/code revision | SHOULD |
 
 ---
 

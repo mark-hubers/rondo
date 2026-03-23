@@ -72,6 +72,20 @@ notices. Preflight catches these failures before the first dollar is spent.
 | 016 | Preflight result included in OAResult metadata when OB-connected | SHOULD | Integration test |
 
 
+### CLI Version Compatibility (F-28 — Architecture Audit Session 85)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 017 | Preflight MUST check that Claude Code CLI supports ALL flags used by Rondo dispatch: `--output-format stream-json`, `--model`, `--tools`, `--dangerously-skip-permissions`, `-p` | MUST | Flag test |
+| 018 | Preflight MUST run a lightweight smoke test dispatch (`claude -p "test" --output-format stream-json`) and verify the output format matches expected JSON structure | MUST | Smoke test |
+| 019 | Smoke test result (output format, flag support, response time) MUST be cached for batch duration — not re-run per task | SHOULD | Cache test |
+| 020 | When Claude Code version changes (detected via `claude --version`), cached preflight results MUST be invalidated and smoke test re-run | MUST | Version change test |
+| 021 | Preflight MUST maintain a version compatibility matrix: `{claude_version: {flags_tested: [...], last_tested: timestamp, result: pass/fail}}` | SHOULD | Matrix test |
+| 022 | If smoke test detects changed output format (e.g., stream-json schema changed), preflight MUST return RED with "CLI output format changed — Rondo adapter update required" | MUST | Format change test |
+| 023 | `CLAUDECODE` env var stripping (req 010) MUST be verified by smoke test — not just checked for presence but confirmed that the stripped subprocess does not trigger ERR_NESTED_SESSION | MUST | Nesting verify test |
+| 024 | Preflight MUST log the Claude Code version, tested flags, and smoke test result to enable debugging when overnight runs fail silently | MUST | Debug log test |
+
+
 ---
 
 ## 4. Architecture / Design

@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.8
+**Version:** 0.9
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -615,6 +615,15 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 | **Batch** | `rondo run round.py` | NO — overnight | Code building, test runs, check scans |
 | **Dry-run** | `rondo run --dry-run round.py` | Either | Preview what would run |
 
+### Task Safety (Gemini finding)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 057 | Every dispatched task SHALL have a `task_timeout_sec` with default 300 seconds | MUST |
+| 058 | Every batch round SHALL have a `round_timeout_sec` with default 3600 seconds | MUST |
+| 059 | `subprocess.Popen` SHALL be wrapped in strict timeout enforcement | MUST |
+| 060 | On timeout, task status SHALL become `error` with reason `timeout_exceeded` and round continues | MUST |
+
 ---
 
 ## 10. Rules & Constraints
@@ -975,3 +984,4 @@ REQUIRED — fill before build.
 | 0.6 | 2026-03-14 | Deep review v2 fixes: added reqs 45-46 (run_round contract, RoundResult.status calculation), gate calling convention documented, DispatchUsage defaults for rate limit fields, dry-run changed from subcommand to --dry-run flag on run, test_cli.py + test_examples.py added to package layout |
 | 0.7 | 2026-03-14 | Added reqs 47-49: `--permission-mode` dispatch flag — controls Claude Code tool access prompts in non-interactive subprocess dispatch |
 | 0.8 | 2026-03-14 | Defense in depth: validate_task() + validate_round() pre-flight in engine.py, VALID_MODELS fail-fast in dispatch, CLI exit code contract (0/1/2/130), validate_config() at CLI boundary, KeyboardInterrupt + catch-all exception handling. Cross-ref CORE-IFS-001 reqs 53-54 (status vocabulary). |
+| 0.9 | 2026-03-23 | Gemini R7 findings: +4 reqs (057-060) Task Safety — task_timeout_sec, round_timeout_sec, Popen timeout enforcement, timeout_exceeded error status. Total: 60 reqs. |

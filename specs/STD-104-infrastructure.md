@@ -43,49 +43,55 @@ Rondo orchestrates subprocesses that can modify files, consume API resources, an
 
 ## 3. Requirements
 
-### Spool Directory (Rondo's Persistence)
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Rondo writes results to a spool directory — this is its ONLY persistence mechanism. No database, no SQLite, no state file.
-2. Spool directory default: `reports/rondo-results/` relative to project root. Configurable via `paths.results_dir` in `rondo.toml`.
-3. Each round execution creates a timestamped subdirectory: `{round-name}_{ISO-timestamp}/`. This is the atomic unit of persistence.
-4. Within the execution directory, each task result is a separate JSON file: `task-{NN}-{task-name}.json`. Round summary is `round-summary.json`.
-5. Spool files follow the mailbox pattern: write once, read many, delete on TTL expiry. Rondo never modifies a written result file.
-6. Default TTL: 30 days. Cleanup is the consumer's responsibility — Rondo provides a `rondo cleanup --older-than 30d` command but does not auto-delete.
-7. Spool directory MUST survive Rondo crashes. A crash mid-round leaves completed task files intact — only the round summary will be missing.
+### Spool Directory (Rondo's Persistence)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL rondo writes results to a spool directory — this is its ONLY persistence mechanism. No database, no SQLite, no state file | MUST |
+| 002 | System SHALL spool directory default: `reports/rondo-results/` relative to project root. Configurable via `paths.results_dir` in `rondo.toml` | MUST |
+| 003 | System SHALL each round execution creates a timestamped subdirectory: `{round-name}_{ISO-timestamp}/`. This is the atomic unit of persistence | MUST |
+| 004 | System SHALL within the execution directory, each task result is a separate JSON file: `task-{NN}-{task-name}.json`. Round summary is `round-summary.json` | MUST |
+| 005 | System SHALL spool files follow the mailbox pattern: write once, read many, delete on TTL expiry. Rondo never modifies a written result file | MUST |
+| 006 | System SHALL default TTL: 30 days. Cleanup is the consumer's responsibility — Rondo provides a `rondo cleanup --older-than 30d` command but does not auto-delete | MUST |
+| 007 | Spool directory MUST survive Rondo crashes. A crash mid-round leaves completed task files intact — only the round summary will be missing | MUST |
 
 ### Atomic File Writes
-
-8. All file writes use the atomic pattern: write to a temp file in the same directory, then `os.rename()` to the final path. Never leave a partial file on disk.
-9. Temp files use the pattern `{final-name}.tmp.{pid}` to avoid collisions between parallel workers.
-10. If the rename fails (permissions, disk full), log at ERROR with the temp file path so data can be recovered manually.
-11. JSON files are written with `indent=2` for human readability. Compact JSON is not worth the debugging cost.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 008 | System SHALL all file writes use the atomic pattern: write to a temp file in the same directory, then `os.rename()` to the final path. Never leave a partial file on disk | MUST |
+| 009 | System SHALL temp files use the pattern `{final-name}.tmp.{pid}` to avoid collisions between parallel workers | MUST |
+| 010 | System SHALL if the rename fails (permissions, disk full), log at ERROR with the temp file path so data can be recovered manually | MUST |
+| 011 | System SHALL jSON files are written with `indent=2` for human readability. Compact JSON is not worth the debugging cost | MUST |
 
 ### Worktree Isolation (Parallel Execution)
-
-12. Parallel tasks that modify files MUST run in separate git worktrees. One worktree per concurrent task that needs file access.
-13. Worktree creation: `git worktree add {path} --detach`. Path is `{project-root}/.rondo-worktrees/task-{NN}-{name}`.
-14. Worktree cleanup: after the task completes (success or failure), remove the worktree with `git worktree remove {path}`. On failure, log at WARNING and leave the worktree for manual cleanup.
-15. Tasks that only read files (no `tool_mode: "sandbox"`) do NOT need worktrees — they share the main working directory.
-16. Worktree count MUST NOT exceed `config.parallel.workers`. The runner enforces this limit before creating new worktrees.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 012 | Parallel tasks that modify files MUST run in separate git worktrees. One worktree per concurrent task that needs file access | MUST |
+| 013 | System SHALL worktree creation: `git worktree add {path} --detach`. Path is `{project-root}/.rondo-worktrees/task-{NN}-{name}` | MUST |
+| 014 | System SHALL worktree cleanup: after the task completes (success or failure), remove the worktree with `git worktree remove {path}`. On failure, log at WARNING and leave the worktree for manual cleanup | MUST |
+| 015 | System SHALL tasks that only read files (no `tool_mode: "sandbox"`) do NOT need worktrees — they share the main working directory | MUST |
+| 016 | Worktree count MUST NOT exceed `config.parallel.workers`. The runner enforces this limit before creating new worktrees | MUST |
 
 ### Subprocess Isolation
-
-17. Every `claude -p` dispatch runs as a subprocess with a controlled environment. The runner constructs the environment explicitly — no inheriting the full parent environment blindly.
-18. `CLAUDECODE` MUST be stripped from the child environment. This prevents the nested-session guard from blocking dispatch. Non-negotiable.
-19. `ANTHROPIC_API_KEY` handling depends on auth mode: stripped for `max` (use subscription), preserved for `api` (pay-per-token). See STD-102 rules 22-23.
-20. Each subprocess gets its own working directory: the project root for sequential tasks, the worktree path for parallel tasks.
-21. Subprocess arguments MUST be constructed as a list, never a string. No `shell=True` anywhere in Rondo. This prevents shell injection and ensures consistent argument parsing.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 017 | System SHALL every `claude -p` dispatch runs as a subprocess with a controlled environment. The runner constructs the environment explicitly — no inheriting the full parent environment blindly | MUST |
+| 018 | `CLAUDECODE` MUST be stripped from the child environment. This prevents the nested-session guard from blocking dispatch. Non-negotiable | MUST |
+| 019 | System SHALL `ANTHROPIC_API_KEY` handling depends on auth mode: stripped for `max` (use subscription), preserved for `api` (pay-per-token). See STD-102 rules 22-23 | MUST |
+| 020 | System SHALL each subprocess gets its own working directory: the project root for sequential tasks, the worktree path for parallel tasks | MUST |
+| 021 | Subprocess arguments MUST be constructed as a list, never a string. No `shell=True` anywhere in Rondo. This prevents shell injection and ensures consistent argument parsing | MUST |
 
 ### Security
-
-22. No hardcoded secrets in source — API keys, tokens, and credentials via environment variables only. Enforced by convention test (STD-103 rule 20).
-23. Result files MUST NOT contain API keys. Before writing a TaskResult to spool, strip any environment variables from the `prompt_sent` field that might contain secrets.
-24. Spool directory permissions: owner-read-write only (mode 0700 on the directory, 0600 on files). Result files may contain proprietary prompts and AI output.
-25. Pre-commit hook: gitleaks MUST run to prevent secrets from being committed to git.
-26. No network calls from Rondo itself — all network access happens inside the `claude -p` subprocess. Rondo is a local orchestrator that delegates network to Claude.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 022 | System SHALL no hardcoded secrets in source — API keys, tokens, and credentials via environment variables only. Enforced by convention test (STD-103 rule 20) | MUST |
+| 023 | Result files MUST NOT contain API keys. Before writing a TaskResult to spool, strip any environment variables from the `prompt_sent` field that might contain secrets | MUST |
+| 024 | System SHALL spool directory permissions: owner-read-write only (mode 0700 on the directory, 0600 on files). Result files may contain proprietary prompts and AI output | SHOULD |
+| 025 | Pre-commit hook: gitleaks MUST run to prevent secrets from being committed to git | MUST |
+| 026 | System SHALL no network calls from Rondo itself — all network access happens inside the `claude -p` subprocess. Rondo is a local orchestrator that delegates network to Claude | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 Two infrastructure layers: (1) spool directory management (create, write atomically, enforce permissions, TTL cleanup), (2) worktree lifecycle (create per parallel task, set as subprocess cwd, cleanup on completion). Both layers are managed by the runner, not the dispatch module. Dispatch receives a working directory and writes to a spool path — it does not manage infrastructure directly.
@@ -366,6 +372,15 @@ Worktree creation: ~100ms (git worktree add). Atomic write: ~5ms (write + fsync 
 CORE-STD-012 (Requirement Readiness) treats infrastructure availability as a gating condition — dispatch cannot proceed if the spool directory is not writable. CORE-STD-013 (TrackerData) can track spool write events for operational monitoring. CORE-IFS-005 MCP tools read from consumer stores, not directly from Rondo spool.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Infrastructure standards | THEORY | Specced for deployment infrastructure | Phase 2 build |
+| Container standards | THEORY | Specced for container conventions | Phase 2 build |
+| Resource limits | THEORY | Specced for CPU/memory constraints | Phase 2 build |
+
 
 ## 35. Change History
 

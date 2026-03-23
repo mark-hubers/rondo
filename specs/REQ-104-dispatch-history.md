@@ -46,18 +46,22 @@ telemetry. This spec turns the audit trail into actionable intelligence.
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Per-round telemetry: round_name, total_duration_sec, task_count, passed, failed, partial, total_cost_usd | MUST | Record test |
-| 2 | Per-task telemetry: task_name, model, duration_sec, api_duration_ms, tokens_in, tokens_out, cost_usd, status, confidence | MUST | Task test |
-| 3 | Per-model aggregate: average cost, average duration, success rate, total dispatches — over rolling window | MUST | Model test |
-| 4 | History queryable: by date range, model, task_name, round_name, status | MUST | Query test |
-| 5 | `rondo history` CLI: show recent rounds with cost/duration summary | SHOULD | CLI test |
-| 6 | `rondo history --model opus` CLI: show Opus-specific performance over time | SHOULD | Filter test |
-| 7 | `rondo history --expensive` CLI: show most expensive rounds (cost optimization targets) | SHOULD | Cost test |
-| 8 | `rondo history --json` for machine-readable output | SHOULD | JSON test |
-| 9 | Calculated from STD-113 audit trail data — no separate storage needed | MUST | Source test |
-| 10 | When OB-connected: dispatch history summary included in OAResult for OB's build intelligence | SHOULD | Integration test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Per-round telemetry: round_name, total_duration_sec, task_count, passed, failed, partial, total_cost_usd | MUST | Record test |
+| 002 | Per-task telemetry: task_name, model, duration_sec, api_duration_ms, tokens_in, tokens_out, cost_usd, status, confidence | MUST | Task test |
+| 003 | Per-model aggregate: average cost, average duration, success rate, total dispatches — over rolling window | MUST | Model test |
+| 004 | History queryable: by date range, model, task_name, round_name, status | MUST | Query test |
+| 005 | `rondo history` CLI: show recent rounds with cost/duration summary | SHOULD | CLI test |
+| 006 | `rondo history --model opus` CLI: show Opus-specific performance over time | SHOULD | Filter test |
+| 007 | `rondo history --expensive` CLI: show most expensive rounds (cost optimization targets) | SHOULD | Cost test |
+| 008 | `rondo history --json` for machine-readable output | SHOULD | JSON test |
+| 009 | Calculated from STD-113 audit trail data — no separate storage needed | MUST | Source test |
+| 010 | When OB-connected: dispatch history summary included in OAResult for OB's build intelligence | SHOULD | Integration test |
+
 
 ---
 
@@ -400,6 +404,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   the most?" That's a cost optimization trigger.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Dispatch history storage | THEORY | Specced for recording every task dispatch | Phase 1 build |
+| Cost tracking per dispatch | THEORY | Specced for token/dollar cost recording | Phase 1 build |
+| Historical queries | THEORY | Specced for finding past dispatches | Phase 2 build |
+
 
 ## 35. Change History
 

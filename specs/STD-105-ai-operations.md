@@ -44,17 +44,21 @@ AI dispatch without cost tracking is a blank check. Without model routing, every
 
 ## 3. Requirements
 
-### Model Selection
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Model selection follows the COALESCE chain: CLI `--model` flag > `task.model` hint > `config.dispatch.default_model` > `"sonnet"` hardcoded fallback.
-2. Rondo passes `--model {model}` to the `claude -p` subprocess. Model names match Claude Code CLI values: `opus`, `sonnet`, `haiku`.
-3. Round definitions tag each task with a recommended model based on task complexity. Simple tasks (file counting, format checks) use `haiku`. Complex tasks (architecture review, code generation) use `opus`. Default is `sonnet`.
-4. Model validation at dispatch: if the resolved model is not in the known model list, fail with error_code `CONFIG_INVALID_MODEL` before spawning the subprocess.
-5. The known model list is maintained in `config.py`, not hardcoded per-file. When Claude releases new models, update one list.
+### Model Selection
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL model selection follows the COALESCE chain: CLI `--model` flag > `task.model` hint > `config.dispatch.default_model` > `"sonnet"` hardcoded fallback | MUST |
+| 002 | System SHALL rondo passes `--model {model}` to the `claude -p` subprocess. Model names match Claude Code CLI values: `opus`, `sonnet`, `haiku` | MUST |
+| 003 | System SHALL round definitions tag each task with a recommended model based on task complexity. Simple tasks (file counting, format checks) use `haiku`. Complex tasks (architecture review, code generation) use `opus`. Default is `sonnet` | MUST |
+| 004 | System SHALL model validation at dispatch: if the resolved model is not in the known model list, fail with error_code `CONFIG_INVALID_MODEL` before spawning the subprocess | MUST |
+| 005 | System SHALL the known model list is maintained in `config.py`, not hardcoded per-file. When Claude releases new models, update one list | MUST |
 
 ### Cost Tracking (DispatchUsage)
-
-6. Every AI dispatch MUST produce a `DispatchUsage` object with these fields (per NAMING-MAP.md):
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 006 | Every AI dispatch MUST produce a `DispatchUsage` object with these fields (per NAMING-MAP.md): | MUST |
 
 | Field | Type | Source |
 |-------|------|--------|
@@ -72,45 +76,52 @@ AI dispatch without cost tracking is a blank check. Without model routing, every
 | `rate_limit_status` | str | "allowed", "blocked", or "unknown" |
 | `is_using_overage` | bool | Past plan allocation? |
 | `rate_limit_resets_at` | int | Epoch timestamp (0 = not available) |
-
-7. DispatchUsage field names MUST match NAMING-MAP.md exactly. When OB stores Rondo results, it maps `DispatchUsage.cost_usd` to `sprint_intelligence.cost_usd` — same name, zero translation.
-8. If stream-json parsing fails (STD-101 rule 11), create a DispatchUsage with zeroed token fields and `cost_usd = 0.0`. Never skip the DispatchUsage object — consumers depend on it existing.
-9. Round-level cost summary: `sum(usage.cost_usd for usage in round_result.usage)` gives total round cost. This is computed by the consumer, not stored redundantly by Rondo.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 007 | DispatchUsage field names MUST match NAMING-MAP.md exactly. When OB stores Rondo results, it maps `DispatchUsage.cost_usd` to `sprint_intelligence.cost_usd` — same name, zero translation | MUST |
+| 008 | System SHALL if stream-json parsing fails (STD-101 rule 11), create a DispatchUsage with zeroed token fields and `cost_usd = 0.0`. Never skip the DispatchUsage object — consumers depend on it existing | MUST |
+| 009 | System SHALL round-level cost summary: `sum(usage.cost_usd for usage in round_result.usage)` gives total round cost. This is computed by the consumer, not stored redundantly by Rondo | MUST |
 
 ### Rate Limit Handling
-
-10. Stream-json emits `rate_limit_event` with current usage status. Rondo captures: `rate_limit_status` ("allowed" or "blocked"), `is_using_overage`, and `rate_limit_resets_at` (epoch timestamp).
-11. When rate limit status is "blocked": log at WARNING, record in DispatchUsage, and let the consumer decide whether to retry later. Rondo does NOT auto-retry on rate limits (STD-101 rule 17).
-12. Rate limit information is per-dispatch, not per-round. Different tasks may hit different rate limit states depending on timing.
-13. For overnight automation (REQ-101): the scheduler reads rate limit status from the previous dispatch and can pause between phases to wait for reset. This is scheduler logic, not dispatch logic.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 010 | System SHALL stream-json emits `rate_limit_event` with current usage status. Rondo captures: `rate_limit_status` ("allowed" or "blocked"), `is_using_overage`, and `rate_limit_resets_at` (epoch timestamp) | MUST |
+| 011 | System SHALL when rate limit status is "blocked": log at WARNING, record in DispatchUsage, and let the consumer decide whether to retry later. Rondo does NOT auto-retry on rate limits (STD-101 rule 17) | MUST |
+| 012 | System SHALL rate limit information is per-dispatch, not per-round. Different tasks may hit different rate limit states depending on timing | SHOULD |
+| 013 | System SHALL for overnight automation (REQ-101): the scheduler reads rate limit status from the previous dispatch and can pause between phases to wait for reset. This is scheduler logic, not dispatch logic | MUST |
 
 ### Context Window Awareness
-
-14. Rondo captures `context_window` from stream-json (200K standard or 1M extended). This is informational — Rondo does not manage context budgets (OB does that).
-15. If a task consistently hits context limits (output truncated, errors about context), log at WARNING with the task name and context window size. The consumer should reduce the prompt or use a larger context model.
-16. Rondo does NOT pre-calculate prompt token counts. Token counting is model-specific and changes with each API version. Let Claude handle it — Rondo captures the actuals from stream-json.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 014 | System SHALL rondo captures `context_window` from stream-json (200K standard or 1M extended). This is informational — Rondo does not manage context budgets (OB does that) | MUST |
+| 015 | System SHALL if a task consistently hits context limits (output truncated, errors about context), log at WARNING with the task name and context window size. The consumer should reduce the prompt or use a larger context model | SHOULD |
+| 016 | System SHALL rondo does NOT pre-calculate prompt token counts. Token counting is model-specific and changes with each API version. Let Claude handle it — Rondo captures the actuals from stream-json | MUST |
 
 ### Multi-Model Support
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 017 | System SHALL current support: Claude Code CLI (`claude -p`). This is the only backend for v1.0 | MUST |
+| 018 | System SHALL future backends (Gemini, Ollama) will be added as separate dispatch modules. The dispatch interface is: | MUST |
 
-17. Current support: Claude Code CLI (`claude -p`). This is the only backend for v1.0.
-18. Future backends (Gemini, Ollama) will be added as separate dispatch modules. The dispatch interface is:
     - Input: task prompt (str), model hint (str), config (RondoConfig)
     - Output: TaskResult + DispatchUsage
     - Each backend implements this interface
-19. Model-to-backend routing: the `model` field determines which backend dispatches the task. Claude models (opus, sonnet, haiku) use `claude -p`. Future: gemini models use the Gemini API, ollama models use the local Ollama API.
-20. Backend selection is transparent to round definitions. A round says `model="sonnet"` — it does not say "use Claude." The dispatch layer resolves model to backend.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 019 | System SHALL model-to-backend routing: the `model` field determines which backend dispatches the task. Claude models (opus, sonnet, haiku) use `claude -p`. Future: gemini models use the Gemini API, ollama models use the local Ollama API | MUST |
+| 020 | System SHALL backend selection is transparent to round definitions. A round says `model="sonnet"` — it does not say "use Claude." The dispatch layer resolves model to backend | MUST |
 
 ### Dispatch Protocol
-
-21. The prompt template wraps the task's three-field contract (Do/Read/Done) with output format instructions. The template is standardized — all tasks get the same framing.
-22. Dispatch MUST pass `--output-format stream-json` to capture real metrics. Text mode is never used (F20 lesson: estimated costs were inaccurate).
-23. Dispatch MUST pass `--permission-mode {mode}` from the config's `permission_mode` field. Default: `auto`.
-24. For code generation tasks (`tool_mode: "none"`): dispatch passes `--tools ""` to disable file tools.
-25. For code fixing tasks (`tool_mode: "sandbox"`): dispatch passes `--dangerously-skip-permissions` (containers only, no internet).
-26. Tool mode MUST be specified per task in the round definition. Default: `"default"` (Claude decides which tools to use).
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 021 | System SHALL the prompt template wraps the task's three-field contract (Do/Read/Done) with output format instructions. The template is standardized — all tasks get the same framing | MUST |
+| 022 | Dispatch MUST pass `--output-format stream-json` to capture real metrics. Text mode is never used (ACE-STD-020 lesson: estimated costs were inaccurate) | MUST |
+| 023 | Dispatch MUST pass `--permission-mode {mode}` from the config's `permission_mode` field. Default: `auto` | MUST |
+| 024 | System SHALL for code generation tasks (`tool_mode: "none"`): dispatch passes `--tools ""` to disable file tools | MUST |
+| 025 | System SHALL for code fixing tasks (`tool_mode: "sandbox"`): dispatch passes `--dangerously-skip-permissions` (containers only, no internet) | MUST |
+| 026 | Tool mode MUST be specified per task in the round definition. Default: `"default"` (Claude decides which tools to use) | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 Dispatch follows a pipeline: resolve model (COALESCE) → construct subprocess args → spawn `claude -p` → capture stream-json → parse into DispatchUsage → return TaskResult. The dispatch module handles subprocess mechanics. The runner handles task sequencing. Model-to-backend routing is resolved before subprocess construction.
@@ -303,7 +314,7 @@ Dispatch module: 6 hours (subprocess construction, stream-json parsing, Dispatch
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| D1: Stream-json mandatory | Text mode estimates costs — stream-json gives actuals (F20 lesson) | 2026-03-18 |
+| D1: Stream-json mandatory | Text mode estimates costs — stream-json gives actuals (ACE-STD-020 lesson) | 2026-03-18 |
 | D2: No auto-retry | Retry is consumer responsibility. Rondo reports, consumers decide. | 2026-03-18 |
 | D3: Multi-backend interface from day 1 | Even though v1.0 is Claude-only, the interface enables Gemini/Ollama later | 2026-03-18 |
 
@@ -388,6 +399,15 @@ Dispatch overhead: ~50ms (arg construction, env setup). Stream-json parsing: ~2m
 CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch prerequisite. CORE-STD-013 (TrackerData) records dispatch cost events for trend analysis. CORE-IFS-005 MCP tools will expose dispatch and cost queries when Rondo-IFS-100 is built.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| AI operation standards | THEORY | Specced for Rondo's own AI usage patterns | Phase 1 build |
+| Token budget management | THEORY | Specced for per-task token limits | Phase 1 build |
+| Model selection criteria | THEORY | Specced for choosing opus vs sonnet vs haiku | Phase 1 build |
+
 
 ## 35. Change History
 

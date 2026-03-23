@@ -58,87 +58,98 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 
 ## 3. Requirements
 
-### Engine — Data Model
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. A **Round** MUST contain: a name, zero or more pre-gates, one or more tasks, zero or more post-gates.
-2. A **Task** MUST have: a name, a mode (auto or interactive), a status, and an optional description and model hint.
-3. An **interactive task** MUST have three fields: instruction (Do), context_files (Read), done_when (Done). This is the **three-field contract**.
-4. An **auto task** MUST have: a Python callable that returns `(passed: bool, detail: str)`.
-5. A **Gate** MUST have: a name, a check function, and a blocking flag. Blocking gates halt the round on failure.
-6. Pre-gates MUST run before any task dispatch. If a blocking pre-gate fails, no tasks run.
-7. Post-gates MUST run only after all tasks complete.
+### Engine — Data Model
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | A **Round** MUST contain: a name, zero or more pre-gates, one or more tasks, zero or more post-gates | MUST |
+| 002 | A **Task** MUST have: a name, a mode (auto or interactive), a status, and an optional description and model hint | MUST |
+| 003 | An **interactive task** MUST have three fields: instruction (Do), context_files (Read), done_when (Done). This is the **three-field contract** | MUST |
+| 004 | An **auto task** MUST have: a Python callable that returns `(passed: bool, detail: str)` | MUST |
+| 005 | A **Gate** MUST have: a name, a check function, and a blocking flag. Blocking gates halt the round on failure | MUST |
+| 006 | Pre-gates MUST run before any task dispatch. If a blocking pre-gate fails, no tasks run | MUST |
+| 007 | Post-gates MUST run only after all tasks complete | MUST |
 
 ### Engine — State Machine
-
-8. Task status MUST follow this state machine: `pending → running → done | blocked | partial | error | skipped`. No other transitions. See "Task State Machine" below and STD-108 for definitions.
-9. A round is "complete" when all tasks are in a terminal state (done, blocked, partial, error, or skipped).
-10. Round state (task statuses, gate results) MUST be serializable to JSON for recovery after interruption.
-11. A round MUST be resumable from serialized state — load JSON, skip completed tasks, continue from next pending.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 008 | Task status MUST follow this state machine: `pending → running → done | blocked | partial | error | skipped`. No other transitions. See "Task State Machine" below and STD-108 for definitions | MUST |
+| 009 | System SHALL a round is "complete" when all tasks are in a terminal state (done, blocked, partial, error, or skipped) | MUST |
+| 010 | Round state (task statuses, gate results) MUST be serializable to JSON for recovery after interruption | MUST |
+| 011 | A round MUST be resumable from serialized state — load JSON, skip completed tasks, continue from next pending | MUST |
 
 ### Dispatch — Subprocess
-
-12. Dispatch MUST invoke `claude -p` as a subprocess with the task's three-field contract formatted as the prompt.
-13. Dispatch MUST strip the `CLAUDECODE` environment variable from child processes to prevent the nested-session guard.
-14. Dispatch MUST capture stdout, stderr, exit code, and wall-clock duration from each subprocess.
-14a. Dispatch MUST use `--output-format stream-json` to capture real token counts, cost, cache stats, and API timing per call. Text mode cannot capture these. (F20 — Session 78: estimated costs were inaccurate without stream-json.)
-14b. From stream-json, dispatch extracts: input_tokens, output_tokens, cache_read_tokens, cache_create_tokens, cost_usd, duration_ms (API), num_turns. These populate DispatchUsage.
-15. Dispatch MUST save each task result to a JSON file in a configurable results directory.
-16. Dispatch MUST support dry-run mode: show the prompt without invoking Claude.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 012 | Dispatch MUST invoke `claude -p` as a subprocess with the task's three-field contract formatted as the prompt | MUST |
+| 013 | Dispatch MUST strip the `CLAUDECODE` environment variable from child processes to prevent the nested-session guard | MUST |
+| 014 | Dispatch MUST capture stdout, stderr, exit code, and wall-clock duration from each subprocess | MUST |
+| 015 | Dispatch MUST use `--output-format stream-json` to capture real token counts, cost, cache stats, and API timing per call. Text mode cannot capture these. (ACE-STD-020 — Session 78: estimated costs were inaccurate without stream-json.) | MUST |
+| 016 | System SHALL from stream-json, dispatch extracts: input_tokens, output_tokens, cache_read_tokens, cache_create_tokens, cost_usd, duration_ms (API), num_turns. These populate DispatchUsage | MUST |
+| 017 | Dispatch MUST save each task result to a JSON file in a configurable results directory | MUST |
+| 018 | Dispatch MUST support dry-run mode: show the prompt without invoking Claude | MUST |
 
 ### Dispatch — Auth
-
-17. When auth is "max", dispatch MUST strip `ANTHROPIC_API_KEY` from the child environment so Claude uses the subscription plan.
-18. When auth is "api", dispatch MUST preserve `ANTHROPIC_API_KEY` in the child environment for pay-per-token billing.
-19. Auth mode MUST be selectable via CLI flag (`--auth max|api`). Default: max.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 019 | When auth is "max", dispatch MUST strip `ANTHROPIC_API_KEY` from the child environment so Claude uses the subscription plan | MUST |
+| 020 | When auth is "api", dispatch MUST preserve `ANTHROPIC_API_KEY` in the child environment for pay-per-token billing | MUST |
+| 021 | Auth mode MUST be selectable via CLI flag (`--auth max|api`). Default: max | MUST |
 
 ### Dispatch — Tool Control (Session 78 — NEW)
-
-20. For code generation tasks (output to stdout): dispatch MUST pass `--tools ""` to disable file tools. Without this, Claude tries to write files and hangs on permission prompts.
-21. For code fixing tasks (needs file access in sandbox): dispatch MUST pass `--dangerously-skip-permissions` (only in containers with no internet).
-22. Task definition MUST include `tool_mode: "none" | "sandbox" | "default"` to control which flag is used.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 022 | For code generation tasks (output to stdout): dispatch MUST pass `--tools ""` to disable file tools. Without this, Claude tries to write files and hangs on permission prompts | MUST |
+| 023 | For code fixing tasks (needs file access in sandbox): dispatch MUST pass `--dangerously-skip-permissions` (only in containers with no internet) | MUST |
+| 024 | Task definition MUST include `tool_mode: "none" | "sandbox" | "default"` to control which flag is used | MUST |
 
 ### Dispatch — Model Routing
-
-23. Dispatch MUST pass `--model` to the subprocess to select opus, sonnet, or haiku.
-21. Model selection MUST follow the COALESCE pattern: CLI override → task.model hint → default.
-22. Default model MUST be sonnet (best balance of cost and capability).
-23. Round definitions MUST be able to tag each task with a recommended model.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 025 | Dispatch MUST pass `--model` to the subprocess to select opus, sonnet, or haiku | MUST |
+| 026 | Model selection MUST follow the COALESCE pattern: CLI override → task.model hint → default | MUST |
+| 027 | Default model MUST be sonnet (best balance of cost and capability) | MUST |
+| 028 | Round definitions MUST be able to tag each task with a recommended model | MUST |
 
 ### Dispatch — Result Contract
-
-24. The prompt MUST instruct Claude to return structured JSON: `{status, confidence, result, question}`.
-25. If Claude returns valid JSON matching the contract, dispatch MUST parse and store it.
-26. If Claude returns malformed or missing JSON, dispatch MUST fall back to raw output with status "partial".
-27. If the subprocess returns exit code != 0 or empty stdout, dispatch MUST record status "error" with stderr content.
-28. Every result (success or failure) MUST include: task name, status, model used, auth mode, duration, timestamp.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 029 | The prompt MUST instruct Claude to return structured JSON: `{status, confidence, result, question}` | MUST |
+| 030 | If Claude returns valid JSON matching the contract, dispatch MUST parse and store it | MUST |
+| 031 | If Claude returns malformed or missing JSON, dispatch MUST fall back to raw output with status "partial" | MUST |
+| 032 | If the subprocess returns exit code != 0 or empty stdout, dispatch MUST record status "error" with stderr content | MUST |
+| 033 | Every result (success or failure) MUST include: task name, status, model used, auth mode, duration, timestamp | MUST |
 
 ### Round Definitions — The Pattern
-
-29. A round definition MUST be a Python function that returns a `Round` object.
-30. Round definitions MUST be self-contained: all tasks, gates, and metadata in one function call.
-31. Round definitions MAY accept parameters (e.g., a file path, a spec ID) to customize their tasks.
-32. Round definitions MUST NOT import Rondo internals beyond the engine module (Round, Task, Gate).
-33. A new round definition SHOULD be writable in under 50 lines of Python.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 034 | A round definition MUST be a Python function that returns a `Round` object | MUST |
+| 035 | Round definitions MUST be self-contained: all tasks, gates, and metadata in one function call | MUST |
+| 036 | System SHALL round definitions MAY accept parameters (e.g., a file path, a spec ID) to customize their tasks | SHOULD |
+| 037 | Round definitions MUST NOT import Rondo internals beyond the engine module (Round, Task, Gate) | MUST |
+| 038 | A new round definition SHOULD be writable in under 50 lines of Python | SHOULD |
 
 ### Package Structure & Public API
-
-34. Rondo MUST be an importable Python package: `from rondo import run_round, RoundResult`.
-35. The public API (`rondo/__init__.py`) MUST export: `Round`, `Task`, `Gate`, `GateResult`, `TaskResult`, `RoundResult`, `DispatchUsage`, `RondoConfig`, `run_round`.
-36. Rondo MUST provide a CLI entry point: `rondo <subcommand> [options]`.
-37. CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-109).
-38. The `run` subcommand MUST accept a path to a Python file containing a `build_round()` function that returns a `Round` object.
-39. Round definition files MUST be loadable by path — Rondo dynamically imports the file and calls `build_round()`.
-40. Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py`.
-41. All CLI flags from STD-109 (--workers, --model, --auth, etc.) MUST be available on the `run` subcommand.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 039 | Rondo MUST be an importable Python package: `from rondo import run_round, RoundResult` | MUST |
+| 040 | The public API (`rondo/__init__.py`) MUST export: `Round`, `Task`, `Gate`, `GateResult`, `TaskResult`, `RoundResult`, `DispatchUsage`, `RondoConfig`, `run_round` | MUST |
+| 041 | Rondo MUST provide a CLI entry point: `rondo <subcommand> [options]` | MUST |
+| 042 | CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-109) | MUST |
+| 043 | The `run` subcommand MUST accept a path to a Python file containing a `build_round()` function that returns a `Round` object | MUST |
+| 044 | Round definition files MUST be loadable by path — Rondo dynamically imports the file and calls `build_round()` | MUST |
+| 045 | Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py` | MUST |
+| 046 | All CLI flags from STD-109 (--workers, --model, --auth, etc.) MUST be available on the `run` subcommand | MUST |
 
 ### Dispatch — Permission Mode
-
-47. Dispatch MUST pass `--permission-mode` to the subprocess from the config's `permission_mode` field.
-48. Permission mode MUST follow the COALESCE pattern: CLI flag → config file → default `"auto"`.
-49. Valid permission modes MUST be: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` (matches Claude Code CLI).
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 047 | Dispatch MUST pass `--permission-mode` to the subprocess from the config's `permission_mode` field | MUST |
+| 048 | Permission mode MUST follow the COALESCE pattern: CLI flag → config file → default `"auto"` | MUST |
+| 049 | Valid permission modes MUST be: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` (matches Claude Code CLI) | MUST |
 
 ### Package Layout
-
 ```
 rondo/
 ├── src/
@@ -169,12 +180,9 @@ rondo/
 ├── spikes/                       # -- prototypes (reference only, not production)
 └── rondo.toml                    # -- example config file
 ```
-
 ### Call Chain
-
 ```
 CLI: rondo run rounds/my_round.py --workers 4 --auth max
-
 cli.py (entry point)
   │
   ├── config.py: load_config()
@@ -198,12 +206,9 @@ cli.py (entry point)
   │
   └── Output: print summary + save result files + return RoundResult
 ```
-
 ### Library Usage (for OB/ACE integration)
-
 ```python
 from rondo import run_round, Round, Task, Gate, RondoConfig, RoundResult
-
 # -- Consumer defines their round
 def build_health_check(spec_id: str) -> Round:
     return Round(
@@ -221,48 +226,42 @@ def build_health_check(spec_id: str) -> Round:
             ),
         ],
     )
-
 # -- Consumer runs it
 config = RondoConfig(auth="max", workers=1)
 result: RoundResult = run_round(build_health_check("R027"), config=config)
-
 # -- Consumer stores whatever they want
 print(f"Status: {result.status}")
 print(f"Cost: ${sum(u.cost_usd for u in result.usage):.4f}")
 for tr in result.task_results:
     print(f"  {tr.task_name}: {tr.status}")
 ```
-
 ### Living Example Rounds
-
 Example rounds in `examples/` serve dual purpose: documentation for users AND
 test fixtures for Rondo's own test suite. They MUST be real, runnable rounds.
-
 ### Public API Contract
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 050 | `run_round(round: Round, config: RondoConfig | None = None) -> RoundResult` MUST be the primary library entry point. It accepts a Round object and optional config (defaults to `RondoConfig()` zero-config), picks sequential or parallel runner based on `config.workers`, executes the round, and returns a RoundResult | MUST |
+| 051 | `RoundResult.status` MUST be calculated from task statuses using these rules: | MUST |
 
-45. `run_round(round: Round, config: RondoConfig | None = None) -> RoundResult` MUST be the primary library entry point. It accepts a Round object and optional config (defaults to `RondoConfig()` zero-config), picks sequential or parallel runner based on `config.workers`, executes the round, and returns a RoundResult.
-46. `RoundResult.status` MUST be calculated from task statuses using these rules:
     - `"done"` — all tasks have status `done`
     - `"partial"` — at least one task `done` and at least one `blocked`, `partial`, or `error`
     - `"error"` — all tasks are `error` or `blocked` (none succeeded)
     - `"skipped"` — a blocking pre-gate failed, no tasks were dispatched
     - Note: `"blocked"` is a task-level status only. At round level, blocked tasks contribute to `"partial"` or `"error"`.
-
 ### Living Example Rounds
-
 Example rounds in `examples/` serve dual purpose: documentation for users AND
 test fixtures for Rondo's own test suite. They MUST be real, runnable rounds.
-
-42. Example rounds MUST be valid Python files with a `build_round()` function.
-43. Example rounds MUST be used as test fixtures in the test suite (living tests, not dead docs).
-44. At minimum 3 examples MUST ship: minimal (1 task), gated (auto tasks + gates), multi-task (parallel-ready with model hints).
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 052 | Example rounds MUST be valid Python files with a `build_round()` function | MUST |
+| 053 | Example rounds MUST be used as test fixtures in the test suite (living tests, not dead docs) | MUST |
+| 054 | At minimum 3 examples MUST ship: minimal (1 task), gated (auto tasks + gates), multi-task (parallel-ready with model hints) | MUST |
 
 #### Example: `examples/round_hello.py` — Simplest Possible Round
-
 ```python
 """Rondo example: simplest possible round — one task, no gates."""
 from rondo.engine import Round, Task
-
 def build_round() -> Round:
     return Round(
         name="hello",
@@ -276,16 +275,12 @@ def build_round() -> Round:
         ],
     )
 ```
-
 #### Example: `examples/round_file_check.py` — Auto Tasks + Gates
-
 ```python
 """Rondo example: auto task gate + interactive task."""
 from pathlib import Path
 from rondo.engine import Round, Task, Gate
-
 TARGET = "README.md"
-
 def build_round() -> Round:
     return Round(
         name="file-check",
@@ -312,14 +307,11 @@ def build_round() -> Round:
         ],
     )
 ```
-
 #### Example: `examples/round_multi_task.py` — Parallel-Ready
-
 ```python
 """Rondo example: 3 tasks with model hints, pre/post gates. Parallel-safe."""
 from pathlib import Path
 from rondo.engine import Round, Task, Gate
-
 def build_round(target_dir: str = "src/") -> Round:
     return Round(
         name="code-survey",
@@ -361,9 +353,7 @@ def build_round(target_dir: str = "src/") -> Round:
         ],
     )
 ```
-
 ---
-
 ## 16. Assumptions
 
 | # | Assumption | If Wrong |
@@ -944,6 +934,18 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Round/Task/Gate data model | SPIKED | Spike prototyped engine with dataclasses | Phase 1 build |
+| Three-field contract (Do/Read/Done) | SPIKED | Spike validated claude -p with 3-field prompts | Phase 1 build |
+| Task state machine | THEORY | Specced: pending/running/done/blocked/partial/error/skipped | Phase 1 build |
+| Auth switching (Max plan vs API key) | WORKING | API key regenerated, Max plan active | After plan changes |
+| Model routing (opus/sonnet/haiku) | THEORY | Specced for per-task model selection | Phase 1 build |
+| Round state serialization | THEORY | Specced for JSON-based recovery | Phase 1 build |
+
 
 ## 35. Change History
 

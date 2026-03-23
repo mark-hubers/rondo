@@ -49,18 +49,22 @@ one procedure for all Rondo spec operations.
 
 ## 3. Requirements
 
-| # | Requirement | Priority |
-|---|------------|----------|
-| 1 | All Rondo specs use the 7-category system (REQ, STD, SOP, IFS, VER, TST, ADR) | MUST |
-| 2 | All specs use the 35-section template from CORE-STD-000 | MUST |
-| 3 | Universal standards (STD-100 to STD-105) match topic numbers across products | MUST |
-| 4 | Spec numbers 001-019 are reserved for universal topics | MUST |
-| 5 | Spec numbers 020+ are product-specific to Rondo | MUST |
-| 6 | All specs live in `rondo/specs/` | MUST |
-| 7 | No product prefix in filenames (bare category prefix) | MUST |
-| 8 | Required sections filled before spec is referenced by a build sprint | MUST |
-| 9 | Cross-references follow the format conventions in section 7 | SHOULD |
-| 10 | Every spec passes Phase 5 review ("Can I write a test from this?") | MUST |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | All Rondo specs use the 7-category system (REQ, STD, SOP, IFS, VER, TST, ADR) | MUST |
+| 002 | All specs use the 35-section template from CORE-STD-000 | MUST |
+| 003 | Universal standards (STD-100 to STD-105) match topic numbers across products | MUST |
+| 004 | Spec numbers 001-019 are reserved for universal topics | MUST |
+| 005 | Spec numbers 020+ are product-specific to Rondo | MUST |
+| 006 | All specs live in `rondo/specs/` | MUST |
+| 007 | No product prefix in filenames (bare category prefix) | MUST |
+| 008 | Required sections filled before spec is referenced by a build sprint | MUST |
+| 009 | Cross-references follow the format conventions in section 7 | SHOULD |
+| 010 | Every spec passes Phase 5 review ("Can I write a test from this?") | MUST |
+
 
 ## 4. Architecture / Design
 
@@ -421,6 +425,15 @@ Not applicable — this is a process SOP, not an AI-built feature.
   "STD-100" and Rondo references "STD-100", they're the same topic.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Spec onboarding checklist | WORKING | CORE-SOP-001 defines the onboarding flow | After checklist changes |
+| Spec template (35 sections) | WORKING | Template used for all Rondo specs | After template changes |
+| Section completeness check | THEORY | Specced for automated validation | Phase 2 build |
+
 
 ## 35. Change History
 

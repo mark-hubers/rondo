@@ -51,18 +51,22 @@ reusable, reducing prompt reinvention and improving consistency.
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Track every unique task definition by prompt_hash: first_used_at, last_used_at, usage_count | MUST | Tracking test |
-| 2 | Promotion threshold: usage_count >= 2 in different sessions = promotion candidate | MUST | Threshold test |
-| 3 | Promotion lifecycle: `ADHOC` (one-off) → `CANDIDATE` (used 2+) → `TEMPLATE` (promoted to built-in) → `ARCHIVED` (unused 90+ days) | MUST | Lifecycle test |
-| 4 | `rondo templates` CLI: show all templates with usage count and last_used_at | SHOULD | CLI test |
-| 5 | `rondo templates --candidates` CLI: show promotion candidates (used 2+ but not yet promoted) | SHOULD | Candidates test |
-| 6 | Promotion: copy task definition to `~/.rondo/templates/` with a name. Available in `rondo run --template <name>`. | SHOULD | Promote test |
-| 7 | Auto-surface candidates in morning report: "3 task definitions used 2+ times — consider promoting" | SHOULD | Report test |
-| 8 | Template usage feeds back: promoted templates tracked for continued usage. If unused 90+ days → suggest archiving. | SHOULD | Archive test |
-| 9 | When OB-connected: template promotion events included in OAResult metadata | SHOULD | Integration test |
-| 10 | Derived from STD-113 audit trail (prompt_hash grouping) — no separate tracking DB needed | MUST | Source test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Track every unique task definition by prompt_hash: first_used_at, last_used_at, usage_count | MUST | Tracking test |
+| 002 | Promotion threshold: usage_count >= 2 in different sessions = promotion candidate | MUST | Threshold test |
+| 003 | Promotion lifecycle: `ADHOC` (one-off) → `CANDIDATE` (used 2+) → `TEMPLATE` (promoted to built-in) → `ARCHIVED` (unused 90+ days) | MUST | Lifecycle test |
+| 004 | `rondo templates` CLI: show all templates with usage count and last_used_at | SHOULD | CLI test |
+| 005 | `rondo templates --candidates` CLI: show promotion candidates (used 2+ but not yet promoted) | SHOULD | Candidates test |
+| 006 | Promotion: copy task definition to `~/.rondo/templates/` with a name. Available in `rondo run --template <name>`. | SHOULD | Promote test |
+| 007 | Auto-surface candidates in morning report: "3 task definitions used 2+ times — consider promoting" | SHOULD | Report test |
+| 008 | Template usage feeds back: promoted templates tracked for continued usage. If unused 90+ days → suggest archiving. | SHOULD | Archive test |
+| 009 | When OB-connected: template promotion events included in OAResult metadata | SHOULD | Integration test |
+| 010 | Derived from STD-113 audit trail (prompt_hash grouping) — no separate tracking DB needed | MUST | Source test |
+
 
 ---
 
@@ -476,6 +480,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 ---
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Task template concept | THEORY | Specced for reusable task definitions | Phase 2 build |
+| Ad-hoc to template promotion | THEORY | Specced for promoting successful tasks | Phase 2 build |
+| Template versioning | THEORY | Specced for tracking template evolution | Phase 2 build |
+
 
 ## 35. Change History
 

@@ -64,44 +64,50 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 
 ## 3. Requirements
 
-### OB Mode Detection (when does integration activate?)
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Rondo detects OB by checking for `.ob/config.toml` in the project root.
-2. If `.ob/config.toml` exists AND `[rondo] enabled = true`: OB integration mode activates automatically.
-3. If `.ob/config.toml` exists but `[rondo] enabled = false`: standalone mode (OB present but Rondo integration off).
-4. If `.ob/config.toml` does not exist: standalone mode (no OB, Rondo works with raw task JSON).
-5. Manual override: `--ob-mode on|off` CLI flag forces integration mode regardless of config.
-6. `rondo run --ob-mode on` without `.ob/config.toml` present → ERROR: "OB config not found at .ob/config.toml"
+### OB Mode Detection (when does integration activate?)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL rondo detects OB by checking for `.ob/config.toml` in the project root | MUST |
+| 002 | System SHALL if `.ob/config.toml` exists AND `[rondo] enabled = true`: OB integration mode activates automatically | MUST |
+| 003 | System SHALL if `.ob/config.toml` exists but `[rondo] enabled = false`: standalone mode (OB present but Rondo integration off) | MUST |
+| 004 | System SHALL if `.ob/config.toml` does not exist: standalone mode (no OB, Rondo works with raw task JSON) | MUST |
+| 005 | System SHALL manual override: `--ob-mode on|off` CLI flag forces integration mode regardless of config | MUST |
+| 006 | System SHALL `rondo run --ob-mode on` without `.ob/config.toml` present → ERROR: "OB config not found at .ob/config.toml" | MUST |
 
 ### What Rondo Receives from OB (Input Contract)
-
-7. Rondo receives an `OAPayload` ($contract: "OAPayload", $version: "1.0") containing everything needed to execute one or more OAs.
-8. The payload `dispatch` section specifies: sprint_id, project, actions (OA IDs to run), triggered_by, dispatched_at.
-9. The payload `spec` section provides a spec digest: spec_id, digest_hash, purpose, requirements, data_model, rules, success_criteria — Rondo uses these as context for AI prompts.
-10. The payload `ai_memory` section provides learning from previous builds: ai_went_wrong (mistakes to avoid), ai_assumptions (design choices made), ai_review (independent reviewer findings), build_history (array of {build, errors, iterations, cost}).
-11. The payload `context` section provides: language, mode (single/batch), file_to_build (or files for batch), existing_files (SHA hashes), build_order, current_position.
-12. The payload `runtime` section provides: oa_runtime (container ID), container_image, model, tool_mode, timeout_sec, max_tokens.
-13. When `--ob-payload <file>` is provided, Rondo reads the full OAPayload from that file instead of building its own Round from a Python definition.
-14. When `--ob-payload -` is provided, Rondo reads the OAPayload from stdin (pipeline mode: `ob dispatch | rondo run --ob-payload -`).
-15. Rondo MUST accept round definitions from the payload — OB defines the round structure (tasks, gates, ordering), Rondo executes it. Rondo does not decide WHAT to do; OB decides that.
-16. Worktree isolation config: the payload MAY include a `worktree` section specifying `enabled: true`, `branch_prefix`, and `cleanup_policy`. Rondo creates worktrees per these settings.
-17. Overnight batch schedules: OB MAY send a `schedule` section with an ordered list of sprint_ids and their associated OAPayloads. Rondo's overnight scheduler processes them in order.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 007 | System SHALL rondo receives an `OAPayload` ($contract: "OAPayload", $version: "1.0") containing everything needed to execute one or more OAs | MUST |
+| 008 | System SHALL the payload `dispatch` section specifies: sprint_id, project, actions (OA IDs to run), triggered_by, dispatched_at | MUST |
+| 009 | System SHALL the payload `spec` section provides a spec digest: spec_id, digest_hash, purpose, requirements, data_model, rules, success_criteria — Rondo uses these as context for AI prompts | MUST |
+| 010 | System SHALL the payload `ai_memory` section provides learning from previous builds: ai_went_wrong (mistakes to avoid), ai_assumptions (design choices made), ai_review (independent reviewer findings), build_history (array of {build, errors, iterations, cost}) | MUST |
+| 011 | System SHALL the payload `context` section provides: language, mode (single/batch), file_to_build (or files for batch), existing_files (SHA hashes), build_order, current_position | MUST |
+| 012 | System SHALL the payload `runtime` section provides: oa_runtime (container ID), container_image, model, tool_mode, timeout_sec, max_tokens | MUST |
+| 013 | System SHALL when `--ob-payload <file>` is provided, Rondo reads the full OAPayload from that file instead of building its own Round from a Python definition | MUST |
+| 014 | System SHALL when `--ob-payload -` is provided, Rondo reads the OAPayload from stdin (pipeline mode: `ob dispatch | rondo run --ob-payload -`) | MUST |
+| 015 | Rondo MUST accept round definitions from the payload — OB defines the round structure (tasks, gates, ordering), Rondo executes it. Rondo does not decide WHAT to do; OB decides that | MUST |
+| 016 | System SHALL worktree isolation config: the payload MAY include a `worktree` section specifying `enabled: true`, `branch_prefix`, and `cleanup_policy`. Rondo creates worktrees per these settings | SHOULD |
+| 017 | System SHALL overnight batch schedules: OB MAY send a `schedule` section with an ordered list of sprint_ids and their associated OAPayloads. Rondo's overnight scheduler processes them in order | SHOULD |
 
 ### What Rondo Returns to OB (Output Contract)
-
-18. After execution, Rondo produces a JSON result matching the `OAResult` contract ($contract: "OAResult", $version: "1.0").
-19. The result `dispatch` section returns: sprint_id, actions_run, started_at, completed_at, duration_ms.
-20. Per-OA results as entries in the `results` array: oa_id, status (done/partial/error/skipped), exit_code, timing (queued_at, started_at, completed_at, duration_ms, queue_wait_ms, api_duration_ms), output (files_created, lines_generated, raw_stdout, raw_stderr, log_file), findings, ai metadata, metrics.
-21. AI cost data as `DispatchUsage` per task: model_used, input_tokens, output_tokens, cache_read_tokens, cache_create_tokens, cost_usd, duration_ms, num_turns. OB stores these in `sprint_intelligence`.
-22. Gate results: for each pre-gate and post-gate, Rondo returns `GateResult` with gate name, passed (bool), detail (string), duration_ms. OB stores in `gate_checks`.
-23. Generated content: when an OA produces code, specs, or tests, the full file content is included in `output.files_created` with paths relative to the project root and raw content or SHA reference.
-24. The `learn` section returns feedback for the compound loop: ai_went_wrong_update (new mistakes discovered), ai_assumptions_update (new design choices), ai_cost_update (tokens, cost_usd, iterations).
-25. Worktree merge status: when worktree isolation was used, the result includes a `worktree` section with merge_status (merged/conflict/pending), conflicted_files (if any), and worktree_path.
-26. Convergence data: when a task ran through fix-check iterations (via Caliber), the result includes iterations count, errors_before, errors_after, converged (bool).
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 018 | System SHALL after execution, Rondo produces a JSON result matching the `OAResult` contract ($contract: "OAResult", $version: "1.0") | MUST |
+| 019 | System SHALL the result `dispatch` section returns: sprint_id, actions_run, started_at, completed_at, duration_ms | MUST |
+| 020 | System SHALL per-OA results as entries in the `results` array: oa_id, status (done/partial/error/skipped), exit_code, timing (queued_at, started_at, completed_at, duration_ms, queue_wait_ms, api_duration_ms), output (files_created, lines_generated, raw_stdout, raw_stderr, log_file), findings, ai metadata, metrics | MUST |
+| 021 | System SHALL aI cost data as `DispatchUsage` per task: model_used, input_tokens, output_tokens, cache_read_tokens, cache_create_tokens, cost_usd, duration_ms, num_turns. OB stores these in `sprint_intelligence` | MUST |
+| 022 | System SHALL gate results: for each pre-gate and post-gate, Rondo returns `GateResult` with gate name, passed (bool), detail (string), duration_ms. OB stores in `gate_checks` | MUST |
+| 023 | System SHALL generated content: when an OA produces code, specs, or tests, the full file content is included in `output.files_created` with paths relative to the project root and raw content or SHA reference | MUST |
+| 024 | System SHALL the `learn` section returns feedback for the compound loop: ai_went_wrong_update (new mistakes discovered), ai_assumptions_update (new design choices), ai_cost_update (tokens, cost_usd, iterations) | MUST |
+| 025 | System SHALL worktree merge status: when worktree isolation was used, the result includes a `worktree` section with merge_status (merged/conflict/pending), conflicted_files (if any), and worktree_path | MUST |
+| 026 | System SHALL convergence data: when a task ran through fix-check iterations (via Caliber), the result includes iterations count, errors_before, errors_after, converged (bool) | MUST |
 
 ### Field-Level Mapping (Rondo → OB)
-
-27. Field mapping is the AUTHORITATIVE contract between the two products:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 027 | System SHALL field mapping is the AUTHORITATIVE contract between the two products: | MUST |
 
 | Rondo Dataclass.Field | OB Table.Column | Notes |
 |----------------------|----------------|-------|
@@ -122,23 +128,26 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 | `GateResult.name` | `gate_checks.gate_name` | Gate identifier |
 | `GateResult.passed` | `gate_checks.passed` | 0/1 integer in OB |
 | `GateResult.detail` | `gate_checks.detail` | Human-readable explanation |
-
-28. Field mapping changes require BOTH specs updated (this spec + NAMING-MAP.md) — never change one without the other.
-29. New fields: add to NAMING-MAP.md first, then update both specs. NAMING-MAP is the bridge.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 028 | System SHALL field mapping changes require BOTH specs updated (this spec + NAMING-MAP.md) — never change one without the other | MUST |
+| 029 | System SHALL new fields: add to NAMING-MAP.md first, then update both specs. NAMING-MAP is the bridge | MUST |
 
 ### Isolation Boundaries (what Rondo NEVER does)
-
-30. Rondo NEVER writes directly to OB's database — all data flows through JSON contracts (OAResult).
-31. Rondo NEVER reads OB's internal tables — spec digests, AI memory, and sprint context come via OAPayload, not DB queries.
-32. Rondo NEVER calls OB's internal Python modules — no `from ob_queries import` in Rondo code.
-33. Rondo NEVER modifies `.ob/config.toml` — it reads config, OB writes config.
-34. Rondo NEVER advances sprint state — OB decides when a sprint moves from BUILD to VERIFY to COMPLETE. Rondo reports results. OB decides next steps.
-35. Rondo NEVER bypasses OB's gates — if OB includes a gate in the payload, Rondo executes it and reports the result. Rondo does not skip gates or override gate failures.
-36. Rondo CAN run without OB present — standalone mode must always work, even if OB is uninstalled. Give Rondo a task, it dispatches, it returns a result. No OB needed.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 030 | System SHALL rondo NEVER writes directly to OB's database — all data flows through JSON contracts (OAResult) | MUST |
+| 031 | System SHALL rondo NEVER reads OB's internal tables — spec digests, AI memory, and sprint context come via OAPayload, not DB queries | MUST |
+| 032 | System SHALL rondo NEVER calls OB's internal Python modules — no `from ob_queries import` in Rondo code | MUST |
+| 033 | System SHALL rondo NEVER modifies `.ob/config.toml` — it reads config, OB writes config | MUST |
+| 034 | System SHALL rondo NEVER advances sprint state — OB decides when a sprint moves from BUILD to VERIFY to COMPLETE. Rondo reports results. OB decides next steps | MUST |
+| 035 | System SHALL rondo NEVER bypasses OB's gates — if OB includes a gate in the payload, Rondo executes it and reports the result. Rondo does not skip gates or override gate failures | MUST |
+| 036 | System SHALL rondo CAN run without OB present — standalone mode must always work, even if OB is uninstalled. Give Rondo a task, it dispatches, it returns a result. No OB needed | MUST |
 
 ### Transport (how OB and Rondo physically connect)
-
-37. Transport is progressive — same contract, different pipes:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 037 | System SHALL transport is progressive — same contract, different pipes: | MUST |
 
 | Transport | When | How | Latency |
 |-----------|------|-----|---------|
@@ -147,59 +156,66 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 | **Unix socket** | Local, service mode | Rondo listens on socket, OB connects | Milliseconds |
 | **HTTPS** | Remote, networked | OB POST to `https://rondo.internal/run`, mTLS required | Seconds |
 | **Queue** | Remote, async | OB publishes to queue, Rondo worker consumes | Seconds+ |
-
-38. Start with pipe and file (simplest). Add HTTPS when Rondo runs on a different machine. Queue when scaling to multiple Rondo workers processing different sprints.
-39. Transport is TRANSPARENT to the contract — OAPayload JSON is identical regardless of transport. Change the pipe, not the data.
-40. HTTPS transport requires mTLS (mutual TLS) — both OB and Rondo authenticate. Aligns with CORE-STD-005 rule 16.
-41. Queue transport preserves ordering per-sprint — OAs for the same sprint must complete in order. Different sprints MAY be dispatched to different Rondo workers.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 038 | System SHALL start with pipe and file (simplest). Add HTTPS when Rondo runs on a different machine. Queue when scaling to multiple Rondo workers processing different sprints | MUST |
+| 039 | System SHALL transport is TRANSPARENT to the contract — OAPayload JSON is identical regardless of transport. Change the pipe, not the data | MUST |
+| 040 | System SHALL hTTPS transport requires mTLS (mutual TLS) — both OB and Rondo authenticate. Aligns with CORE-STD-005 rule 16 | MUST |
+| 041 | System SHALL queue transport preserves ordering per-sprint — OAs for the same sprint must complete in order. Different sprints MAY be dispatched to different Rondo workers | MUST |
 
 ### Error Handling (when OB is unavailable)
-
-42. OB DB locked → Rondo completes its execution, writes OAResult to file, logs WARNING: "OB unavailable — results saved to {path}, import with `ob store-result {path}`"
-43. OB config missing required fields → Rondo falls back to standalone mode, logs WARNING: "OB config incomplete — running standalone"
-44. OAPayload malformed → Rondo rejects with exit code 2 and structured error: `{"error": "Invalid payload", "detail": "{specifics}", "contract": "OAPayload", "version": "1.0"}`
-45. OAPayload version mismatch (payload $version != supported) → Rondo rejects with clear error: "Unsupported OAPayload version: {v}. Supported: 1.0"
-46. Network timeout (HTTPS/queue transport) → Rondo completes locally, queues result for later delivery. Result file is the fallback — never lose work.
-47. Claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-108 error resilience), and includes the partial round result in the OAResult.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 042 | System SHALL oB DB locked → Rondo completes its execution, writes OAResult to file, logs WARNING: "OB unavailable — results saved to {path}, import with `ob store-result {path}`" | MUST |
+| 043 | System SHALL oB config missing required fields → Rondo falls back to standalone mode, logs WARNING: "OB config incomplete — running standalone" | MUST |
+| 044 | System SHALL oAPayload malformed → Rondo rejects with exit code 2 and structured error: `{"error": "Invalid payload", "detail": "{specifics}", "contract": "OAPayload", "version": "1.0"}` | MUST |
+| 045 | System SHALL oAPayload version mismatch (payload $version != supported) → Rondo rejects with clear error: "Unsupported OAPayload version: {v}. Supported: 1.0" | MUST |
+| 046 | System SHALL network timeout (HTTPS/queue transport) → Rondo completes locally, queues result for later delivery. Result file is the fallback — never lose work | MUST |
+| 047 | System SHALL claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-108 error resilience), and includes the partial round result in the OAResult | MUST |
 
 ### Standalone Behavior (Rondo without OB)
-
-48. Without OB, Rondo works with Python round definitions (REQ-100): a `build_round()` function returns a `Round` object, Rondo dispatches tasks and returns a `RoundResult`.
-49. Standalone results use the same JSON format as OB-connected results. The only difference: no `dispatch.sprint_id` (populated as null), no `spec` digest in the payload.
-50. Standalone Rondo can still accept `--ob-payload` with a hand-crafted JSON file — useful for testing the OB integration path without running OB.
-51. Transition from standalone to OB-connected requires ZERO code changes in Rondo — only adding `.ob/config.toml` with `[rondo] enabled = true`.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 048 | System SHALL without OB, Rondo works with Python round definitions (REQ-100): a `build_round()` function returns a `Round` object, Rondo dispatches tasks and returns a `RoundResult` | MUST |
+| 049 | System SHALL standalone results use the same JSON format as OB-connected results. The only difference: no `dispatch.sprint_id` (populated as null), no `spec` digest in the payload | MUST |
+| 050 | System SHALL standalone Rondo can still accept `--ob-payload` with a hand-crafted JSON file — useful for testing the OB integration path without running OB | MUST |
+| 051 | System SHALL transition from standalone to OB-connected requires ZERO code changes in Rondo — only adding `.ob/config.toml` with `[rondo] enabled = true` | MUST |
 
 ### Worktree Management (parallel build isolation)
-
-52. OB MAY include a `worktree` section in the OAPayload instructing Rondo to use git worktree isolation for a task or set of tasks.
-53. Rondo creates worktrees using `git worktree add` with a branch name derived from the sprint_id: `rondo/{sprint_id}/{task_index}`.
-54. Each task dispatched to a worktree runs in that worktree's directory — file paths in the prompt are relative to the worktree root.
-55. After all tasks in a worktree complete, Rondo attempts to merge the worktree branch back to the source branch.
-56. If merge conflicts occur, Rondo records the conflict in the OAResult `worktree` section with `merge_status: "conflict"` and `conflicted_files: [...]`. Rondo does NOT resolve conflicts — OB or the human decides.
-57. Worktree cleanup: after merge (or conflict recording), Rondo removes the worktree (`git worktree remove`) and deletes the temporary branch.
-58. Post-merge shakedown: after a successful worktree merge, Rondo runs the post-gates from the round definition (typically a Caliber check) against the merged code. If the shakedown fails, the merge is flagged in the result as `shakedown_failed: true`.
-59. Worktree cleanup on error: if a task fails catastrophically (OOM, disk full), Rondo still attempts worktree cleanup. If cleanup fails, it logs a WARNING and records `cleanup_failed: true` in the result.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 052 | System SHALL oB MAY include a `worktree` section in the OAPayload instructing Rondo to use git worktree isolation for a task or set of tasks | SHOULD |
+| 053 | System SHALL rondo creates worktrees using `git worktree add` with a branch name derived from the sprint_id: `rondo/{sprint_id}/{task_index}` | MUST |
+| 054 | System SHALL each task dispatched to a worktree runs in that worktree's directory — file paths in the prompt are relative to the worktree root | MUST |
+| 055 | System SHALL after all tasks in a worktree complete, Rondo attempts to merge the worktree branch back to the source branch | MUST |
+| 056 | System SHALL if merge conflicts occur, Rondo records the conflict in the OAResult `worktree` section with `merge_status: "conflict"` and `conflicted_files: [...]`. Rondo does NOT resolve conflicts — OB or the human decides | MUST |
+| 057 | System SHALL worktree cleanup: after merge (or conflict recording), Rondo removes the worktree (`git worktree remove`) and deletes the temporary branch | MUST |
+| 058 | System SHALL post-merge shakedown: after a successful worktree merge, Rondo runs the post-gates from the round definition (typically a Caliber check) against the merged code. If the shakedown fails, the merge is flagged in the result as `shakedown_failed: true` | MUST |
+| 059 | System SHALL worktree cleanup on error: if a task fails catastrophically (OOM, disk full), Rondo still attempts worktree cleanup. If cleanup fails, it logs a WARNING and records `cleanup_failed: true` in the result | MUST |
 
 ### Overnight Automation (OB-controlled scheduling)
-
-60. When OB provides a `schedule` section in the payload, Rondo's overnight scheduler processes sprints in order.
-61. For each sprint in the schedule, Rondo: loads the OAPayload, executes the round, captures the OAResult, and saves it to the configured results directory.
-62. Sprint advancement: Rondo DOES NOT advance sprint state. Rondo returns the result. OB reads the result and decides whether to advance (BUILD → VERIFY → COMPLETE). This is OB's decision, not Rondo's.
-63. All-gates-pass shortcut: when OB detects that all pre-gates, tasks, and post-gates passed for a sprint, OB MAY advance the sprint without human intervention. Rondo just reports — OB decides.
-64. Overnight failure: if a sprint's round fails, Rondo logs the failure, saves the partial OAResult, and moves to the next sprint in the schedule. Never halt the overnight pipeline for one sprint's failure.
-65. Morning report: Rondo generates its standard morning report (REQ-101 reqs 29-36) covering all sprints processed. OB MAY consume this report or generate its own from the individual OAResults.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 060 | System SHALL when OB provides a `schedule` section in the payload, Rondo's overnight scheduler processes sprints in order | MUST |
+| 061 | System SHALL for each sprint in the schedule, Rondo: loads the OAPayload, executes the round, captures the OAResult, and saves it to the configured results directory | MUST |
+| 062 | System SHALL sprint advancement: Rondo DOES NOT advance sprint state. Rondo returns the result. OB reads the result and decides whether to advance (BUILD → VERIFY → COMPLETE). This is OB's decision, not Rondo's | MUST |
+| 063 | System SHALL all-gates-pass shortcut: when OB detects that all pre-gates, tasks, and post-gates passed for a sprint, OB MAY advance the sprint without human intervention. Rondo just reports — OB decides | SHOULD |
+| 064 | System SHALL overnight failure: if a sprint's round fails, Rondo logs the failure, saves the partial OAResult, and moves to the next sprint in the schedule. Never halt the overnight pipeline for one sprint's failure | MUST |
+| 065 | System SHALL morning report: Rondo generates its standard morning report (REQ-101 reqs 29-36) covering all sprints processed. OB MAY consume this report or generate its own from the individual OAResults | SHOULD |
 
 ### Feedback Loop (the compound intelligence path)
-
-66. Rondo sends OAResult with a `learn` section containing: ai_went_wrong_update, ai_assumptions_update, ai_cost_update.
-67. OB writes the learn data to its spec_sections table and build_improvement_metrics.
-68. Next build: OB reads stored learning, injects it into the new OAPayload's ai_memory section.
-69. Rondo reads ai_memory from the payload, formats it into the Claude prompt: "Previous builds found: {went_wrong}. Assumptions made: {assumptions}. Avoid repeating: {specific mistakes}."
-70. Build N+1 is smarter than Build N. Rondo is the vehicle; OB is the memory. The compound effect comes from the loop, not from either product alone.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 066 | System SHALL rondo sends OAResult with a `learn` section containing: ai_went_wrong_update, ai_assumptions_update, ai_cost_update | MUST |
+| 067 | System SHALL oB writes the learn data to its spec_sections table and build_improvement_metrics | MUST |
+| 068 | System SHALL next build: OB reads stored learning, injects it into the new OAPayload's ai_memory section | MUST |
+| 069 | System SHALL rondo reads ai_memory from the payload, formats it into the Claude prompt: "Previous builds found: {went_wrong}. Assumptions made: {assumptions}. Avoid repeating: {specific mistakes}." | MUST |
+| 070 | System SHALL build N+1 is smarter than Build N. Rondo is the vehicle; OB is the memory. The compound effect comes from the loop, not from either product alone | MUST |
 
 ### Configuration in .ob/config.toml
-
-71. Rondo reads these sections from OB's config:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 071 | System SHALL rondo reads these sections from OB's config: | MUST |
 
 ```toml
 [rondo]
@@ -207,31 +223,27 @@ enabled = true                    # -- OB integration active
 result_path = "reports/rondo/"    # -- where to save OAResults
 workers = 4                       # -- parallel worker count
 throttle_sec = 2                  # -- delay between task launches
-
 [rondo.overnight]
 mode = "standard"                 # -- minimal | standard | full
 on_overage = "continue"           # -- continue | pause | stop
 watchdog_timeout_sec = 120        # -- kill silent tasks after N seconds
-
 [rondo.worktree]
 enabled = false                   # -- worktree isolation off by default
 cleanup_policy = "always"         # -- always | on_success | never
 branch_prefix = "rondo"           # -- branch naming prefix
-
 [models.build]
 active = "claude-sonnet-4-6"     # -- Rondo reads model config from OB
-
 [budget]
 monthly_usd = 200.00              # -- Rondo checks budget before AI calls
 ```
-
-72. Rondo ONLY reads these sections — it never writes to config.
-73. Missing sections → Rondo uses its own defaults from `rondo.toml` (standalone behavior).
-74. Invalid values → WARNING + use default, never crash.
-75. COALESCE pattern applies: CLI flag → OB config → rondo.toml → hardcoded default.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 072 | System SHALL rondo ONLY reads these sections — it never writes to config | MUST |
+| 073 | System SHALL missing sections → Rondo uses its own defaults from `rondo.toml` (standalone behavior) | MUST |
+| 074 | System SHALL invalid values → WARNING + use default, never crash | MUST |
+| 075 | System SHALL cOALESCE pattern applies: CLI flag → OB config → rondo.toml → hardcoded default | MUST |
 
 ---
-
 ## 4. Architecture / Data Flow
 
 ### Two Modes — Integration View
@@ -735,6 +747,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   two standalone products into a compound intelligence system.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| OB-to-Rondo dispatch contract | THEORY | Specced for OB triggering Rondo tasks | Phase 2 build |
+| Task result reporting to OB | THEORY | Specced for structured results back to OB DB | Phase 2 build |
+| Learning feedback loop | THEORY | Specced for OB learning from Rondo outcomes | Phase 3 build |
+
 
 ## 35. Change History
 

@@ -11,7 +11,7 @@
 **Reviewed:** not-yet
 **Supersedes:** none
 **Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011 (Self-Correction) | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
-**Cross-pollinated from:** ACE F17 (Data Lifecycle — quarantine pattern) — adapted from knowledge quarantine to dispatch result quarantine
+**Cross-pollinated from:** ACE-STD-017 (Data Lifecycle — quarantine pattern) — adapted from knowledge quarantine to dispatch result quarantine
 
 ---
 
@@ -45,49 +45,57 @@ AI output looks correct but might not be. A code fix passes syntax checks but in
 
 ### 3-State Lifecycle
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | All AI-generated results start in `PENDING` state (quarantine) | MUST | Lifecycle test |
-| 2 | Results that pass verification criteria move to `VERIFIED` | MUST | Verification test |
-| 3 | `VERIFIED` results that get human approval (or auto-approval) move to `TRUSTED` | MUST | Approval test |
-| 4 | Results that fail verification OR are rejected by human move to `REJECTED` | MUST | Rejection test |
-| 5 | `REJECTED` results are KEPT (not deleted) — they are negative examples for CORE-STD-011 self-correction | MUST | Retention test |
-| 6 | State transitions: PENDING→VERIFIED, PENDING→REJECTED, VERIFIED→TRUSTED, VERIFIED→REJECTED. No backward transitions. | MUST | Transition test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | All AI-generated results start in `PENDING` state (quarantine) | MUST | Lifecycle test |
+| 002 | Results that pass verification criteria move to `VERIFIED` | MUST | Verification test |
+| 003 | `VERIFIED` results that get human approval (or auto-approval) move to `TRUSTED` | MUST | Approval test |
+| 004 | Results that fail verification OR are rejected by human move to `REJECTED` | MUST | Rejection test |
+| 005 | `REJECTED` results are KEPT (not deleted) — they are negative examples for CORE-STD-011 self-correction | MUST | Retention test |
+| 006 | State transitions: PENDING→VERIFIED, PENDING→REJECTED, VERIFIED→TRUSTED, VERIFIED→REJECTED. No backward transitions. | MUST | Transition test |
+
 
 ### Verification Criteria
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 7 | Code results: must pass Caliber checks (Tier 1 minimum). Zero BLOCK findings = VERIFIED. | MUST | Code test |
-| 8 | Spec/doc results: must have valid structure (per CORE-STD-000). Required sections present = VERIFIED. | SHOULD | Spec test |
-| 9 | Review results: must have valid finding format (file, severity, message). Parseable = VERIFIED. | SHOULD | Review test |
-| 10 | Fix results: original file + fix produces fewer findings than original alone. Improvement = VERIFIED. | SHOULD | Fix test |
-| 11 | Any result with `status: error` stays PENDING (never auto-verifies) | MUST | Error test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 007 | Code results: must pass Caliber checks (Tier 1 minimum). Zero BLOCK findings = VERIFIED. | MUST | Code test |
+| 008 | Spec/doc results: must have valid structure (per CORE-STD-000). Required sections present = VERIFIED. | SHOULD | Spec test |
+| 009 | Review results: must have valid finding format (file, severity, message). Parseable = VERIFIED. | SHOULD | Review test |
+| 010 | Fix results: original file + fix produces fewer findings than original alone. Improvement = VERIFIED. | SHOULD | Fix test |
+| 011 | Any result with `status: error` stays PENDING (never auto-verifies) | MUST | Error test |
+
 
 ### Auto-Approval
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 12 | Start conservative: 0 auto-approvals until Mark has manually reviewed 100+ results | MUST | Bootstrap test |
-| 13 | After 100+ manual reviews: high-confidence results (confidence >0.9) matching patterns Mark approved before can auto-promote to TRUSTED | SHOULD | Auto test |
-| 14 | Auto-approval threshold configurable: `[quarantine] auto_approve_min_reviews = 100` | SHOULD | Config test |
-| 15 | Auto-approved results still logged: "AUTO-APPROVED: matched pattern from review #{review_id}" | MUST | Audit test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 012 | Start conservative: 0 auto-approvals until Mark has manually reviewed 100+ results | MUST | Bootstrap test |
+| 013 | After 100+ manual reviews: high-confidence results (confidence >0.9) matching patterns Mark approved before can auto-promote to TRUSTED | SHOULD | Auto test |
+| 014 | Auto-approval threshold configurable: `[quarantine] auto_approve_min_reviews = 100` | SHOULD | Config test |
+| 015 | Auto-approved results still logged: "AUTO-APPROVED: matched pattern from review #{review_id}" | MUST | Audit test |
+
 
 ### Overnight Staging
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 16 | Overnight results: all stay in PENDING until morning. Human reviews in morning report. | MUST | Overnight test |
-| 17 | Morning report sections: "N results PENDING review" with task names, confidence scores, and quick-approve links | SHOULD | Report test |
-| 18 | Stale quarantine: results PENDING >7 days without review → alert "Results aging in quarantine" | SHOULD | Stale test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 016 | Overnight results: all stay in PENDING until morning. Human reviews in morning report. | MUST | Overnight test |
+| 017 | Morning report sections: "N results PENDING review" with task names, confidence scores, and quick-approve links | SHOULD | Report test |
+| 018 | Stale quarantine: results PENDING >7 days without review → alert "Results aging in quarantine" | SHOULD | Stale test |
+
 
 ### Learning from Rejection
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 19 | Rejected results feed CORE-STD-011: record_outcome(was_corrected=True, correction_source='review_rejected') | MUST | Learning test |
-| 20 | Edited results (user modifies before approving) are MOST valuable — show what was close but wrong | MUST | Edit test |
-| 21 | Track rejection reasons: `wrong_approach`, `incomplete`, `hallucinated`, `style_mismatch`, `other` | SHOULD | Reason test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 019 | Rejected results feed CORE-STD-011: record_outcome(was_corrected=True, correction_source='review_rejected') | MUST | Learning test |
+| 020 | Edited results (user modifies before approving) are MOST valuable — show what was close but wrong | MUST | Edit test |
+| 021 | Track rejection reasons: `wrong_approach`, `incomplete`, `hallucinated`, `style_mismatch`, `other` | SHOULD | Reason test |
+
 
 ---
 
@@ -178,7 +186,7 @@ overnight_mode = "stage_all"         # stage_all | auto_verify | auto_approve
 
 ## 12. Shared Patterns
 
-- **3-state lifecycle:** PENDING → VERIFIED → TRUSTED. Same pattern as ACE F17 data lifecycle quarantine.
+- **3-state lifecycle:** PENDING → VERIFIED → TRUSTED. Same pattern as ACE-STD-017 data lifecycle quarantine.
 - **Confidence-based auto-approval:** Same pattern as STD-114 confidence scoring.
 - **Negative examples preserved:** Rejected results kept — same philosophy as CORE-STD-011 self-correction.
 
@@ -281,7 +289,7 @@ State machine: 2 hours (transitions, validation, no-backward rule). Verification
 |----------|-----------|------|
 | D1: 3-state, not 2-state | VERIFIED ≠ TRUSTED. Verified means "structurally correct." Trusted means "Mark would ship this." Two different bars. | 2026-03-20 |
 | D2: 100 reviews before auto-approve | Auto-approve needs calibration data. 100 gives enough patterns to match against. | 2026-03-20 |
-| D3: Keep rejected results | They're the most valuable learning data. "What the AI gets wrong" teaches more than "what it gets right." From ACE F17. | 2026-03-20 |
+| D3: Keep rejected results | They're the most valuable learning data. "What the AI gets wrong" teaches more than "what it gets right." From ACE-STD-017. | 2026-03-20 |
 | D4: Edit preservation | User edits show the gap between "what AI produced" and "what was wanted." Fine-grained feedback. | 2026-03-20 |
 
 ---
@@ -367,9 +375,18 @@ CORE-STD-012 (Requirement Readiness) uses quarantine health (PENDING count, stal
 
 ---
 
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Result quarantine concept | THEORY | Specced for isolating suspect AI results | Phase 1 build |
+| Quarantine triggers | THEORY | Specced for conditions that trigger quarantine | Phase 1 build |
+| Quarantine review process | THEORY | Specced for human review of quarantined results | Phase 1 build |
+
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 1.0 | 2026-03-20 | Initial. Cross-pollinated from ACE F17 quarantine pattern. 21 requirements. 3-state lifecycle with auto-approval. |
+| 1.0 | 2026-03-20 | Initial. Cross-pollinated from ACE-STD-017 quarantine pattern. 21 requirements. 3-state lifecycle with auto-approval. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

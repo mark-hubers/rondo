@@ -311,9 +311,21 @@ REQUIRED — fill before build.
 
 ## 3. Requirements
 
-REQUIRED — fill before build.
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
----
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL enforce linting rules via ruff with project-specific configuration | MUST |
+| 002 | System SHALL enforce security scanning via bandit on every build | MUST |
+| 003 | System SHALL enforce cyclomatic complexity cap (configurable, default 10) | MUST |
+| 004 | System SHALL enforce test coverage floor (configurable, default 90%) | MUST |
+| 005 | System SHALL enforce convention lock tests using AST-based structural inspection | MUST |
+| 006 | System SHALL enforce code signing via orbit-sign after verification pass | MUST |
+| 007 | System SHALL enforce code hygiene policies: no TODO markers, no wildcard imports, no mutable defaults | MUST |
+| 008 | System SHALL require docstrings on all public modules, classes, and functions | MUST |
+| 009 | System SHALL require type annotations on all public function parameters and return values | MUST |
+| 010 | Gates SHALL execute in deterministic order with fail-fast behavior (first failure stops build) | MUST |
+| 011 | Every quality rule that can be checked by a machine SHALL be checked by a machine — no reliance on human discipline | MUST |
 
 ## 4. Architecture / Design
 
@@ -504,6 +516,15 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Code quality gates | WORKING | ruff, mypy, pytest gates active | After tool changes |
+| Quality score tracking | WORKING | pylint score tracked | Every build |
+| Quality evolution rules | THEORY | Specced for quality-only-improves enforcement | Phase 1 build |
+
 
 ## 35. Change History
 

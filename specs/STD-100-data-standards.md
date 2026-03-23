@@ -32,48 +32,54 @@ Without consistent data conventions, every integration boundary becomes a transl
 
 ## 3. Requirements
 
-### Time
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. All timestamps MUST be ISO 8601 UTC with timezone: `2026-03-18T12:00:00+00:00`. No bare datetimes without timezone.
-2. Timestamps in dataclasses use `str` type (ISO 8601). Timestamps in JSON result files use the same format.
-3. Every result object MUST include `started_at` and `completed_at` fields. RoundResult, TaskResult, and spool files all carry both.
-4. Round-level duration uses `duration_sec: float` (seconds with decimal precision). Task-level duration uses `duration_sec: float` for wall-clock. DispatchUsage uses `duration_ms: int` and `duration_api_ms: int` for stream-json precision.
-5. Never store or display local time in result objects. All times are UTC. Convert to local time only at display in consumer code.
+### Time
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | All timestamps MUST be ISO 8601 UTC with timezone: `2026-03-18T12:00:00+00:00`. No bare datetimes without timezone | MUST |
+| 002 | System SHALL timestamps in dataclasses use `str` type (ISO 8601). Timestamps in JSON result files use the same format | MUST |
+| 003 | Every result object MUST include `started_at` and `completed_at` fields. RoundResult, TaskResult, and spool files all carry both | MUST |
+| 004 | System SHALL round-level duration uses `duration_sec: float` (seconds with decimal precision). Task-level duration uses `duration_sec: float` for wall-clock. DispatchUsage uses `duration_ms: int` and `duration_api_ms: int` for stream-json precision | MUST |
+| 005 | System SHALL never store or display local time in result objects. All times are UTC. Convert to local time only at display in consumer code | MUST |
 
 ### Identifiers
-
-6. Round names are kebab-case strings: `health-check`, `spec-review`, `overnight-batch`. No spaces, no underscores, no camelCase.
-7. Task names are human-readable strings, unique within their round. Used as the primary identifier in result files and logs.
-8. Result file naming uses the round timestamp as the directory and task sequence as the prefix: `2026-03-14T03-00-00Z/task-01-spec-health.json`.
-9. Spool file naming follows the pattern: `{round_name}_{ISO-timestamp}_{task-seq}.json`. Timestamps in filenames use hyphens instead of colons for filesystem safety.
-10. Identifiers are never reused. Each round execution gets a unique timestamp directory. Each task result file is distinct.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 006 | System SHALL round names are kebab-case strings: `health-check`, `spec-review`, `overnight-batch`. No spaces, no underscores, no camelCase | MUST |
+| 007 | System SHALL task names are human-readable strings, unique within their round. Used as the primary identifier in result files and logs | MUST |
+| 008 | System SHALL result file naming uses the round timestamp as the directory and task sequence as the prefix: `2026-03-14T03-00-00Z/task-01-spec-health.json` | MUST |
+| 009 | System SHALL spool file naming follows the pattern: `{round_name}_{ISO-timestamp}_{task-seq}.json`. Timestamps in filenames use hyphens instead of colons for filesystem safety | MUST |
+| 010 | System SHALL identifiers are never reused. Each round execution gets a unique timestamp directory. Each task result file is distinct | MUST |
 
 ### Null Handling
-
-11. NULL (Python `None`) means "not yet known." Empty string (`""`) means "explicitly empty." These are different and must not be confused.
-12. Boolean fields use Python `bool` (`True`/`False`), never `None`. Default to `False`. No three-valued logic.
-13. Optional fields default to `""` (empty string) for text, `0` for integers, `0.0` for floats, `[]` for lists — unless "not yet known" is genuinely different from "empty."
-14. `parsed_result` in TaskResult: `None` means "Claude returned non-JSON output" (valid state, not an error). This is one of the few valid uses of None.
-15. JSON output files use `null` for Python `None`. Consumers can distinguish "not parsed" from "empty result."
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 011 | System SHALL nULL (Python `None`) means "not yet known." Empty string (`""`) means "explicitly empty." These are different and must not be confused | MUST |
+| 012 | System SHALL boolean fields use Python `bool` (`True`/`False`), never `None`. Default to `False`. No three-valued logic | MUST |
+| 013 | System SHALL optional fields default to `""` (empty string) for text, `0` for integers, `0.0` for floats, `[]` for lists — unless "not yet known" is genuinely different from "empty." | MUST |
+| 014 | System SHALL `parsed_result` in TaskResult: `None` means "Claude returned non-JSON output" (valid state, not an error). This is one of the few valid uses of None | MUST |
+| 015 | System SHALL jSON output files use `null` for Python `None`. Consumers can distinguish "not parsed" from "empty result." | MUST |
 
 ### Naming
-
-16. Python dataclass names: `PascalCase`. Examples: `RoundResult`, `TaskResult`, `DispatchUsage`, `GateResult`.
-17. Python field names: `snake_case`. Examples: `started_at`, `task_name`, `cost_usd`, `duration_ms`. Match NAMING-MAP.md field conventions exactly.
-18. Python functions: `snake_case`. Examples: `run_round`, `dispatch_task`, `load_config`.
-19. CLI commands: `kebab-case`. Examples: `rondo run`, `rondo overnight`, `rondo report`.
-20. JSON keys: `snake_case`, matching the Python field names exactly. No camelCase, no abbreviations. `TaskResult.duration_sec` serializes to `"duration_sec"`.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 016 | System SHALL python dataclass names: `PascalCase`. Examples: `RoundResult`, `TaskResult`, `DispatchUsage`, `GateResult` | MUST |
+| 017 | System SHALL python field names: `snake_case`. Examples: `started_at`, `task_name`, `cost_usd`, `duration_ms`. Match NAMING-MAP.md field conventions exactly | MUST |
+| 018 | System SHALL python functions: `snake_case`. Examples: `run_round`, `dispatch_task`, `load_config` | MUST |
+| 019 | System SHALL cLI commands: `kebab-case`. Examples: `rondo run`, `rondo overnight`, `rondo report` | MUST |
+| 020 | System SHALL jSON keys: `snake_case`, matching the Python field names exactly. No camelCase, no abbreviations. `TaskResult.duration_sec` serializes to `"duration_sec"` | MUST |
 
 ### Status Values
-
-21. RoundResult.status uses exactly 4 values: `done`, `partial`, `error`, `skipped`. No `blocked` at round level (blocked tasks contribute to `partial` or `error`). No `pending` or `in_progress` in results — those are transient engine states.
-22. TaskResult.status uses exactly 5 values: `done`, `blocked`, `partial`, `error`, `skipped`. These match the task state machine terminal states.
-23. Status values are always lowercase strings. Never `DONE`, `Done`, or `IN_PROGRESS`.
-24. The shared status vocabulary (per NAMING-MAP.md) is: `done`, `partial`, `error`, `skipped`, `blocked`. Rondo uses a subset — it does not use `pending`, `in_progress`, or `blocked` in output (those are internal engine states only).
-25. Every status in a result object MUST have a corresponding `detail` or `summary` field explaining why that status was assigned.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 021 | System SHALL roundResult.status uses exactly 4 values: `done`, `partial`, `error`, `skipped`. No `blocked` at round level (blocked tasks contribute to `partial` or `error`). No `pending` or `in_progress` in results — those are transient engine states | MUST |
+| 022 | System SHALL taskResult.status uses exactly 5 values: `done`, `blocked`, `partial`, `error`, `skipped`. These match the task state machine terminal states | MUST |
+| 023 | System SHALL status values are always lowercase strings. Never `DONE`, `Done`, or `IN_PROGRESS` | MUST |
+| 024 | System SHALL the shared status vocabulary (per NAMING-MAP.md) is: `done`, `partial`, `error`, `skipped`, `blocked`. Rondo uses a subset — it does not use `pending`, `in_progress`, or `blocked` in output (those are internal engine states only) | MUST |
+| 025 | Every status in a result object MUST have a corresponding `detail` or `summary` field explaining why that status was assigned | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 Rondo data standards are enforced at two layers: Python dataclass definitions (compile-time shape) and JSON serialization (runtime output). Dataclasses define field names, types, and defaults. The `to_json()` method on each dataclass enforces naming and null conventions at the serialization boundary.
@@ -347,6 +353,15 @@ No performance impact. Data conventions are enforced at definition time (datacla
 CORE-STD-012 (Requirement Readiness) and CORE-STD-013 (TrackerData) both consume Rondo's data conventions for cross-product compatibility. CORE-IFS-005 MCP tools that return Rondo data must follow these same conventions.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Timestamp standards (ISO 8601) | WORKING | Enforced via CORE-STD-001 | After schema changes |
+| Naming conventions (snake_case) | WORKING | Convention tests enforce naming | Every build |
+| Status vocabularies | WORKING | Defined and CHECK-constrained | After status additions |
+
 
 ## 35. Change History
 

@@ -47,13 +47,17 @@ skip, and what "passing" looks like. This SOP eliminates guesswork.
 
 ## 3. Requirements
 
-| # | Requirement | Priority |
-|---|------------|----------|
-| 1 | Build procedure reproducible from clean checkout in <10 minutes | MUST |
-| 2 | All 6 build gates must pass before code is considered buildable | MUST |
-| 3 | Coverage floor enforced at 90% | MUST |
-| 4 | Tests mock Claude CLI — no real API calls during build | MUST |
-| 5 | Troubleshooting section covers common failures | SHOULD |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Build procedure reproducible from clean checkout in <10 minutes | MUST |
+| 002 | All 6 build gates must pass before code is considered buildable | MUST |
+| 003 | Coverage floor enforced at 90% | MUST |
+| 004 | Tests mock Claude CLI — no real API calls during build | MUST |
+| 005 | Troubleshooting section covers common failures | SHOULD |
+
 
 ## Prerequisites
 
@@ -477,6 +481,15 @@ Not applicable — this is a build procedure SOP.
   (AI costs money). Under-tested dispatch code could silently overspend.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Build execution procedure | WORKING | ace-build full documented and operational | After build changes |
+| Gate failure handling | WORKING | Fix-recheck loop documented | Every sprint |
+| Build environment setup | WORKING | Shared venv documented | After env changes |
+
 
 ## 35. Change History
 

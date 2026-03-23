@@ -11,7 +11,7 @@
 **Reviewed:** not-yet
 **Supersedes:** none
 **Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-008 (Security), CORE-STD-010 (Error Resilience — credential scrubbing) | **Used by:** STD-113 (Audit Trail), IFS-102 (OB Integration), REQ-101 (Automation)
-**Cross-pollinated from:** ACE R17 (Privacy & Redaction) — adapted from knowledge-base redaction to dispatch-output sanitization
+**Cross-pollinated from:** ACE-REQ-017 (Privacy & Redaction) — adapted from knowledge-base redaction to dispatch-output sanitization
 
 ---
 
@@ -30,7 +30,7 @@
 - Preventing secrets from entering prompts (that's the caller's job — Caliber, OB)
 - Secret management (CORE-STD-008)
 - General error resilience (CORE-STD-010)
-- ACE-level knowledge redaction (ACE R17 — broader scope)
+- ACE-level knowledge redaction (ACE-REQ-017 — broader scope)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -46,38 +46,45 @@ AI reads source code that contains secrets: API keys in config files, passwords 
 
 ### Detection
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Scan all AI output (stdout, parsed_result, files_created content) for secret patterns before storing | MUST | Scan test |
-| 2 | Default patterns: `api_key`, `password`, `secret`, `bearer`, `token`, AWS access keys (`AKIA...`), base64 strings >40 chars, private key markers (`-----BEGIN`) | MUST | Pattern test |
-| 3 | Confidence scoring: exact pattern match = 0.9+, heuristic match (entropy-based) = 0.5-0.8 | SHOULD | Confidence test |
-| 4 | Custom patterns configurable in `.rondo/config.toml [sanitization.patterns]` | SHOULD | Config test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Scan all AI output (stdout, parsed_result, files_created content) for secret patterns before storing | MUST | Scan test |
+| 002 | Default patterns: `api_key`, `password`, `secret`, `bearer`, `token`, AWS access keys (`AKIA...`), base64 strings >40 chars, private key markers (`-----BEGIN`) | MUST | Pattern test |
+| 003 | Confidence scoring: exact pattern match = 0.9+, heuristic match (entropy-based) = 0.5-0.8 | SHOULD | Confidence test |
+| 004 | Custom patterns configurable in `.rondo/config.toml [sanitization.patterns]` | SHOULD | Config test |
+
 
 ### Scrubbing
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 5 | Replace detected secrets with `[REDACTED:{pattern_name}]` placeholder | MUST | Scrub test |
-| 6 | Scrub BEFORE writing to: audit files (STD-113), result files, OAResult JSON, morning reports | MUST | Order test |
-| 7 | Raw unscrubbed output preserved in memory for current dispatch processing — scrubbed only at storage boundary | MUST | Boundary test |
-| 8 | Environment variable patterns (`${VAR}`, `$HOME`, `~/.env`) stripped from all stored output | MUST | Env test |
-| 9 | File paths in reports: truncate to basename, hide home directory | SHOULD | Path test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 005 | Replace detected secrets with `[REDACTED:{pattern_name}]` placeholder | MUST | Scrub test |
+| 006 | Scrub BEFORE writing to: audit files (STD-113), result files, OAResult JSON, morning reports | MUST | Order test |
+| 007 | Raw unscrubbed output preserved in memory for current dispatch processing — scrubbed only at storage boundary | MUST | Boundary test |
+| 008 | Environment variable patterns (`${VAR}`, `$HOME`, `~/.env`) stripped from all stored output | MUST | Env test |
+| 009 | File paths in reports: truncate to basename, hide home directory | SHOULD | Path test |
+
 
 ### Audit
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 10 | Log scrubbing events: timestamp, dispatch_id, pattern_matched, confidence, line_number. NEVER log the actual secret. | MUST | Audit test |
-| 11 | Scrubbing count included in dispatch result metadata: `secrets_scrubbed: 3` | MUST | Count test |
-| 12 | If 0 secrets scrubbed: don't log (no noise for clean output) | SHOULD | Quiet test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 010 | Log scrubbing events: timestamp, dispatch_id, pattern_matched, confidence, line_number. NEVER log the actual secret. | MUST | Audit test |
+| 011 | Scrubbing count included in dispatch result metadata: `secrets_scrubbed: 3` | MUST | Count test |
+| 012 | If 0 secrets scrubbed: don't log (no noise for clean output) | SHOULD | Quiet test |
+
 
 ### False Positive Management
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 13 | `rondo sanitize allow <pattern> <value_hash>` — mark a specific match as non-secret (e.g., "base64_encoded" that's actually just a test fixture) | SHOULD | Allow test |
-| 14 | Allowed patterns tracked in config, not in code. Feeds back to reduce false positives over time. | SHOULD | Feedback test |
-| 15 | CORE-STD-011 (Self-Correction) applied: track scrubbing accuracy (was it really a secret?) to improve patterns | SHOULD | Correction test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 013 | `rondo sanitize allow <pattern> <value_hash>` — mark a specific match as non-secret (e.g., "base64_encoded" that's actually just a test fixture) | SHOULD | Allow test |
+| 014 | Allowed patterns tracked in config, not in code. Feeds back to reduce false positives over time. | SHOULD | Feedback test |
+| 015 | CORE-STD-011 (Self-Correction) applied: track scrubbing accuracy (was it really a secret?) to improve patterns | SHOULD | Correction test |
+
 
 ---
 
@@ -332,9 +339,18 @@ CORE-STD-012 (Requirement Readiness) requires the sanitization pipeline to be ac
 
 ---
 
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Output sanitization rules | THEORY | Specced for cleaning AI-generated output | Phase 1 build |
+| PII detection | THEORY | Specced for removing personal data from outputs | Phase 1 build |
+| Format normalization | THEORY | Specced for consistent output formatting | Phase 1 build |
+
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 1.0 | 2026-03-20 | Initial. Cross-pollinated from ACE R17. 15 requirements. Adapted from knowledge-base redaction to dispatch output. |
+| 1.0 | 2026-03-20 | Initial. Cross-pollinated from ACE-REQ-017. 15 requirements. Adapted from knowledge-base redaction to dispatch output. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

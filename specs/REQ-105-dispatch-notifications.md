@@ -46,18 +46,22 @@ between Rondo's execution and Mark's awareness.
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Notify on round completion: round_name, status (done/partial/error), duration, cost, finding count | MUST | Notify test |
-| 2 | Notify on dispatch failure: task_name, error_code, error_message | MUST | Failure test |
-| 3 | Notify on budget threshold: "Spent $X of $Y monthly budget (Z%)" when crossing 50%, 75%, 90% | MUST | Budget test |
-| 4 | Notify on rate limit: "Rate limited. Resets at: {time}. Pausing dispatches." | SHOULD | Rate test |
-| 5 | Notification channels: terminal (stdout), file (notification log), macOS notification center (osascript) | MUST | Channel test |
-| 6 | Channel selection configurable: `[notifications] channels = ["terminal", "macos"]` | SHOULD | Config test |
-| 7 | Quiet mode: `--quiet` suppresses terminal notifications. File + macOS still fire. | SHOULD | Quiet test |
-| 8 | Morning report = the primary notification for overnight runs. Always generated (CORE-STD-010). | MUST | Report test |
-| 9 | Notification deduplication: don't send "rate limited" 50 times in a row. Once per state change. | SHOULD | Dedup test |
-| 10 | When OB-connected: OB may subscribe to notifications via OAResult event metadata | SHOULD | Integration test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Notify on round completion: round_name, status (done/partial/error), duration, cost, finding count | MUST | Notify test |
+| 002 | Notify on dispatch failure: task_name, error_code, error_message | MUST | Failure test |
+| 003 | Notify on budget threshold: "Spent $X of $Y monthly budget (Z%)" when crossing 50%, 75%, 90% | MUST | Budget test |
+| 004 | Notify on rate limit: "Rate limited. Resets at: {time}. Pausing dispatches." | SHOULD | Rate test |
+| 005 | Notification channels: terminal (stdout), file (notification log), macOS notification center (osascript) | MUST | Channel test |
+| 006 | Channel selection configurable: `[notifications] channels = ["terminal", "macos"]` | SHOULD | Config test |
+| 007 | Quiet mode: `--quiet` suppresses terminal notifications. File + macOS still fire. | SHOULD | Quiet test |
+| 008 | Morning report = the primary notification for overnight runs. Always generated (CORE-STD-010). | MUST | Report test |
+| 009 | Notification deduplication: don't send "rate limited" 50 times in a row. Once per state change. | SHOULD | Dedup test |
+| 010 | When OB-connected: OB may subscribe to notifications via OAResult event metadata | SHOULD | Integration test |
+
 
 ---
 
@@ -408,6 +412,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   everything that happened overnight, even if individual notifications were deduped.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Dispatch notifications | THEORY | Specced for alerting on task completion | Phase 2 build |
+| Failure alerting | THEORY | Specced for immediate alert on task failure | Phase 2 build |
+| Summary reports | THEORY | Specced for batch completion summaries | Phase 2 build |
+
 
 ## 35. Change History
 

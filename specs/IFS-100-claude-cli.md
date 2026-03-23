@@ -254,35 +254,32 @@ required tools/MCPs are available before trusting the result.
 
 ## 3. Requirements
 
-Numbered requirements for VER-100 traceability:
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Rondo MUST read stream-json output line by line, parsing each as a JSON object.
-2. Rondo MUST extract `rate_limit_event` and populate `DispatchUsage` rate limit fields.
-3. Rondo MUST extract `result` event and populate `DispatchUsage` cost/token/duration fields.
-4. Rondo MUST extract `system:init` event and verify the model matches the requested model.
-5. Rondo MUST verify that `system:init.model` matches the `--model` flag sent. Log warning on mismatch.
-6. Rondo MUST capture `isUsingOverage` from `rate_limit_event` into `DispatchUsage.is_using_overage`.
-7. Rondo MUST capture `total_cost_usd` from `result` event into `DispatchUsage.cost_usd`.
-8. Rondo MUST capture `duration_ms` from `result` event into `DispatchUsage.duration_ms`.
-9. Rondo MUST handle missing `rate_limit_event` gracefully — set rate limit fields to defaults (`status="unknown"`, `is_using_overage=False`).
-10. Rondo MUST accept `[1m]` model suffix variants (e.g., `opus[1m]`, `sonnet[1m]`) as valid model names.
+Numbered requirements for VER-100 traceability:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Rondo MUST read stream-json output line by line, parsing each as a JSON object | MUST |
+| 002 | Rondo MUST extract `rate_limit_event` and populate `DispatchUsage` rate limit fields | MUST |
+| 003 | Rondo MUST extract `result` event and populate `DispatchUsage` cost/token/duration fields | MUST |
+| 004 | Rondo MUST extract `system:init` event and verify the model matches the requested model | MUST |
+| 005 | Rondo MUST verify that `system:init.model` matches the `--model` flag sent. Log warning on mismatch | MUST |
+| 006 | Rondo MUST capture `isUsingOverage` from `rate_limit_event` into `DispatchUsage.is_using_overage` | MUST |
+| 007 | Rondo MUST capture `total_cost_usd` from `result` event into `DispatchUsage.cost_usd` | MUST |
+| 008 | Rondo MUST capture `duration_ms` from `result` event into `DispatchUsage.duration_ms` | MUST |
+| 009 | Rondo MUST handle missing `rate_limit_event` gracefully — set rate limit fields to defaults (`status="unknown"`, `is_using_overage=False`) | MUST |
+| 010 | Rondo MUST accept `[1m]` model suffix variants (e.g., `opus[1m]`, `sonnet[1m]`) as valid model names | MUST |
 
 ---
-
 ## Stream-JSON to Dataclass Mapping
-
 How each stream-json event maps to Rondo's dataclasses (REQ-100, STD-108):
-
 ### `rate_limit_event` → `DispatchUsage` fields
-
 | Stream-JSON Path | Dataclass Field | Transform |
 |-----------------|-----------------|-----------|
 | `rate_limit_info.status` | `DispatchUsage.rate_limit_status` | Direct string copy |
 | `rate_limit_info.isUsingOverage` | `DispatchUsage.is_using_overage` | Direct bool copy |
 | `rate_limit_info.resetsAt` | `DispatchUsage.rate_limit_resets_at` | Direct int copy |
-
 ### `result` → `DispatchUsage` fields
-
 | Stream-JSON Path | Dataclass Field | Transform |
 |-----------------|-----------------|-----------|
 | `total_cost_usd` | `DispatchUsage.cost_usd` | Direct float copy |
@@ -294,25 +291,19 @@ How each stream-json event maps to Rondo's dataclasses (REQ-100, STD-108):
 | `usage.cache_read_input_tokens` | `DispatchUsage.cache_read_tokens` | Direct int copy |
 | `usage.cache_creation_input_tokens` | `DispatchUsage.cache_create_tokens` | Direct int copy |
 | `modelUsage.{model}.contextWindow` | `DispatchUsage.context_window` | First model's value |
-
 ### `system:init` → verification only (not stored)
-
 | Stream-JSON Path | Action |
 |-----------------|--------|
 | `model` | Verify matches `--model` flag. Log warning on mismatch. |
 | `claude_code_version` | Store in result metadata for debugging. |
-
 ### `assistant` messages → `TaskResult` fields
-
 | Stream-JSON Path | Dataclass Field | Transform |
 |-----------------|-----------------|-----------|
 | `message.content` (concatenated) | `TaskResult.raw_output` | Join all assistant text blocks |
 | JSON block in text | `TaskResult.parsed_result` | Parse last JSON block matching schema |
 | parsed `status` | `TaskResult.status` | Map "done"→"done", "blocked"→"blocked" |
 | parsed `confidence` | `TaskResult.parsed_result.confidence` | Stored inside parsed dict |
-
 ---
-
 ## 16. Assumptions
 
 | # | Assumption | If Wrong |
@@ -522,6 +513,16 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| claude -p subprocess dispatch | SPIKED | Spike proved claude -p works for task dispatch | After Claude CLI changes |
+| Prompt formatting | THEORY | Three-field contract (Do/Read/Done) specced | Phase 1 build |
+| Result parsing | THEORY | Specced for structured JSON extraction | Phase 1 build |
+| Error recovery | THEORY | Specced for timeout/crash handling | Phase 1 build |
+
 
 ## 35. Change History
 

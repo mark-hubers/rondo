@@ -331,9 +331,20 @@ REQUIRED — fill before build.
 
 ## 3. Requirements
 
-REQUIRED — fill before build.
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
----
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Every task result (success or failure) SHALL include: task name, status, error message (if any), wall-clock duration, and the prompt that was sent | MUST |
+| 002 | Subprocess errors (exit code != 0) SHALL be distinguishable from task-logic errors (Claude returned "blocked") in the result JSON | MUST |
+| 003 | If Claude returns malformed JSON, dispatch SHALL fall back to raw output with status "partial" — never discard good work because parsing failed | MUST |
+| 004 | Subprocess timeouts SHALL be configurable (default: 5 minutes per task) | MUST |
+| 005 | A timed-out subprocess SHALL be killed (SIGTERM, then SIGKILL after 5s) and recorded as status "error" with reason "timeout" | MUST |
+| 006 | A single task failure SHALL NOT crash the framework or affect other tasks | MUST |
+| 007 | In overnight mode, a failed phase SHALL NOT block subsequent phases | MUST |
+| 008 | API keys, tokens, and credentials SHALL NEVER appear in result files or error logs | MUST |
+| 009 | All exceptions in dispatch SHALL be caught, logged with context, and converted to error results — no unhandled exceptions escape the dispatch layer | MUST |
+| 010 | The morning report SHALL always be generated — even if all phases fail | MUST |
 
 ## 4. Architecture / Design
 
@@ -512,6 +523,16 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Dual-path-with-alerting | WORKING | Pattern enforced via CORE-STD-010 | After pattern changes |
+| Graceful degradation | THEORY | Specced for Rondo-specific failure modes | Phase 1 build |
+| Timeout handling | THEORY | Specced for claude -p subprocess timeouts | Phase 1 build |
+| Partial result recovery | THEORY | Specced for salvaging work from failed tasks | Phase 1 build |
+
 
 ## 35. Change History
 

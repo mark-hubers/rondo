@@ -49,15 +49,19 @@ build time. This SOP defines the response playbook.
 
 ## 3. Requirements
 
-| # | Requirement | Priority |
-|---|------------|----------|
-| 1 | Severity classification (SEV-1 to SEV-3) for all incident types | MUST |
-| 2 | Detection within 5 minutes for SEV-1 (cost overrun, total failure) | MUST |
-| 3 | Automated alerting via REQ-105 notification channels | MUST |
-| 4 | Documented response steps per incident type | MUST |
-| 5 | Post-incident review (PIR) within 24 hours of resolution | SHOULD |
-| 6 | Incident log in morning report | MUST |
-| 7 | Recovery time target: <15 min for SEV-1, <1 hour for SEV-2 | SHOULD |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Severity classification (SEV-1 to SEV-3) for all incident types | MUST |
+| 002 | Detection within 5 minutes for SEV-1 (cost overrun, total failure) | MUST |
+| 003 | Automated alerting via REQ-105 notification channels | MUST |
+| 004 | Documented response steps per incident type | MUST |
+| 005 | Post-incident review (PIR) within 24 hours of resolution | SHOULD |
+| 006 | Incident log in morning report | MUST |
+| 007 | Recovery time target: <15 min for SEV-1, <1 hour for SEV-2 | SHOULD |
+
 
 ---
 
@@ -444,6 +448,15 @@ Not yet populated. Will track cost impact of incidents.
 - PIR is "blameless" — focus on systemic improvements, not who caused the incident.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Incident classification | THEORY | Specced for severity-based triage | Phase 2 build |
+| Response procedure | THEORY | Specced for step-by-step incident handling | Phase 2 build |
+| Post-incident review | THEORY | Specced for root cause analysis | Phase 2 build |
+
 
 ## 35. Change History
 

@@ -60,18 +60,22 @@ Rondo's Account ($20-$100/month Max)
 
 ## 3. Requirements
 
-| # | Requirement | Priority |
-|---|------------|----------|
-| 1 | Support multiple Claude Code accounts via separate API keys in config | MUST |
-| 2 | Per-provider routing: `interactive` tasks → Mark's account, `overnight`/`container` tasks → Rondo's account | MUST |
-| 3 | Each account has independent rate limit tracking (`is_using_overage` tracked per account) | MUST |
-| 4 | Account selection in config, not code: `[providers.claude-batch] api_key_env = "RONDO_API_KEY"` | MUST |
-| 5 | Fallback: if Rondo's account is rate-limited, DO NOT fall back to Mark's account (protect interactive capacity) | MUST |
-| 6 | Cost tracking per account: morning report shows "Mark's account: $X, Rondo's account: $Y" | MUST |
-| 7 | Budget alerts per account: "Rondo's account at 80% of monthly budget" independent of Mark's | MUST |
-| 8 | Account health in preflight: `rondo preflight` shows rate limit status for ALL configured accounts | SHOULD |
-| 9 | Same OAPayload/OAResult regardless of which account dispatched — model-agnostic AND account-agnostic | MUST |
-| 10 | Support mixed providers: Rondo's account for Claude batch, Google API key for Gemini review, Ollama for cheap tasks | SHOULD |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Support multiple Claude Code accounts via separate API keys in config | MUST |
+| 002 | Per-provider routing: `interactive` tasks → Mark's account, `overnight`/`container` tasks → Rondo's account | MUST |
+| 003 | Each account has independent rate limit tracking (`is_using_overage` tracked per account) | MUST |
+| 004 | Account selection in config, not code: `[providers.claude-batch] api_key_env = "RONDO_API_KEY"` | MUST |
+| 005 | Fallback: if Rondo's account is rate-limited, DO NOT fall back to Mark's account (protect interactive capacity) | MUST |
+| 006 | Cost tracking per account: morning report shows "Mark's account: $X, Rondo's account: $Y" | MUST |
+| 007 | Budget alerts per account: "Rondo's account at 80% of monthly budget" independent of Mark's | MUST |
+| 008 | Account health in preflight: `rondo preflight` shows rate limit status for ALL configured accounts | SHOULD |
+| 009 | Same OAPayload/OAResult regardless of which account dispatched — model-agnostic AND account-agnostic | MUST |
+| 010 | Support mixed providers: Rondo's account for Claude batch, Google API key for Gemini review, Ollama for cheap tasks | SHOULD |
+
 
 ---
 
@@ -559,6 +563,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 ---
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Multi-account capacity management | THEORY | Specced for using multiple API accounts | Phase 2 build |
+| Account rotation | THEORY | Specced for spreading load across accounts | Phase 2 build |
+| Capacity mining strategy | WORKING | Strategy documented: mine unused capacity overnight | After plan changes |
+
 
 ## 35. Change History
 

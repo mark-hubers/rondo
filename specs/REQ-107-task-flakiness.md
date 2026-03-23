@@ -48,20 +48,24 @@ Flaky tasks waste money (repeated retries), time (inconsistent results), and tru
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Track per-task-template results: task_name, prompt_hash, model, status (done/partial/error), confidence, run_at | MUST | Tracking test |
-| 2 | Group by (task_name + prompt_hash): same prompt = comparable results. Different prompts aren't comparable. | MUST | Grouping test |
-| 3 | Flakiness score = status flips / total runs within group, over rolling 14-day window | MUST | Score test |
-| 4 | Flip = status change between consecutive runs of same prompt_hash (done→error, error→done, done→partial) | MUST | Flip test |
-| 5 | Threshold: flakiness score >20% = flagged flaky (higher than Caliber's 10% because AI is inherently more variable) | MUST | Threshold test |
-| 6 | Root cause categories: `PROMPT` (ambiguous instruction), `MODEL` (model inconsistency), `CONTEXT` (missing/changing context files), `TEMPERATURE` (non-deterministic sampling), `UNKNOWN` | SHOULD | Category test |
-| 7 | `rondo flaky` CLI: show flaky task templates with scores, model, root cause | SHOULD | CLI test |
-| 8 | `rondo flaky --json` for machine-readable output | SHOULD | JSON test |
-| 9 | Flaky task alert in morning report: "3 task templates have >20% flip rate — consider prompt refinement" | SHOULD | Report test |
-| 10 | Per-model flakiness: track which models are more flaky for which task types. Feed into model routing. | SHOULD | Model test |
-| 11 | Confidence variance: if same prompt produces confidence scores ranging 0.3-0.9, the task definition is unstable | SHOULD | Variance test |
-| 12 | When OB-connected: flakiness data included in OAResult metadata | SHOULD | Integration test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Track per-task-template results: task_name, prompt_hash, model, status (done/partial/error), confidence, run_at | MUST | Tracking test |
+| 002 | Group by (task_name + prompt_hash): same prompt = comparable results. Different prompts aren't comparable. | MUST | Grouping test |
+| 003 | Flakiness score = status flips / total runs within group, over rolling 14-day window | MUST | Score test |
+| 004 | Flip = status change between consecutive runs of same prompt_hash (done→error, error→done, done→partial) | MUST | Flip test |
+| 005 | Threshold: flakiness score >20% = flagged flaky (higher than Caliber's 10% because AI is inherently more variable) | MUST | Threshold test |
+| 006 | Root cause categories: `PROMPT` (ambiguous instruction), `MODEL` (model inconsistency), `CONTEXT` (missing/changing context files), `TEMPERATURE` (non-deterministic sampling), `UNKNOWN` | SHOULD | Category test |
+| 007 | `rondo flaky` CLI: show flaky task templates with scores, model, root cause | SHOULD | CLI test |
+| 008 | `rondo flaky --json` for machine-readable output | SHOULD | JSON test |
+| 009 | Flaky task alert in morning report: "3 task templates have >20% flip rate — consider prompt refinement" | SHOULD | Report test |
+| 010 | Per-model flakiness: track which models are more flaky for which task types. Feed into model routing. | SHOULD | Model test |
+| 011 | Confidence variance: if same prompt produces confidence scores ranging 0.3-0.9, the task definition is unstable | SHOULD | Variance test |
+| 012 | When OB-connected: flakiness data included in OAResult metadata | SHOULD | Integration test |
+
 
 ---
 
@@ -415,6 +419,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   Testing flakiness thresholds (10%) would flag nearly every AI dispatch as flaky.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Task flakiness detection | THEORY | Specced for identifying non-deterministic tasks | Phase 2 build |
+| Retry logic | THEORY | Specced for automatic retry on flaky failure | Phase 2 build |
+| Flakiness scoring | THEORY | Specced for per-task reliability metrics | Phase 2 build |
+
 
 ## 35. Change History
 

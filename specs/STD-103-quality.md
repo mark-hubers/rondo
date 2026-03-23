@@ -42,35 +42,39 @@ AI dispatch frameworks are deceptively simple to build and deceptively hard to t
 
 ## 3. Requirements
 
-### Test-Driven Development
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Tests written BEFORE or WITH code — never after. No "I'll add tests later."
-2. Every public function in `rondo/` has at least one test. No exceptions for "simple" functions.
-3. Test names describe the scenario, not the implementation: `test_blocking_gate_halts_round`, not `test_gate_method_2`.
-4. Tests are deterministic — same input, same result, every time. No network-dependent or time-dependent tests. All dispatch tests use mocked subprocesses.
-5. No test depends on another test's state. Each test sets up its own fixtures, runs, and tears down. Fully isolated.
-6. Test failures produce actionable messages: what was expected, what was received, and enough context to fix without reading the test source.
-7. New features require a failing test FIRST — the test defines the contract, the code fulfills it.
+### Test-Driven Development
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL tests written BEFORE or WITH code — never after. No "I'll add tests later." | MUST |
+| 002 | System SHALL every public function in `rondo/` has at least one test. No exceptions for "simple" functions | MUST |
+| 003 | System SHALL test names describe the scenario, not the implementation: `test_blocking_gate_halts_round`, not `test_gate_method_2` | MUST |
+| 004 | System SHALL tests are deterministic — same input, same result, every time. No network-dependent or time-dependent tests. All dispatch tests use mocked subprocesses | MUST |
+| 005 | System SHALL no test depends on another test's state. Each test sets up its own fixtures, runs, and tears down. Fully isolated | MUST |
+| 006 | System SHALL test failures produce actionable messages: what was expected, what was received, and enough context to fix without reading the test source | MUST |
+| 007 | System SHALL new features require a failing test FIRST — the test defines the contract, the code fulfills it | MUST |
 
 ### What Rondo Tests
-
-8. Engine logic: Round/Task/Gate dataclass construction, validation (`validate_task()`, `validate_round()`), state machine transitions (pending > running > terminal states).
-9. Dispatch logic: subprocess argument construction, environment variable stripping (CLAUDECODE, ANTHROPIC_API_KEY), stream-json parsing, result contract parsing, malformed output handling.
-10. Runner logic: pre-gate evaluation, task sequencing, post-gate evaluation, RoundResult assembly, status calculation (req 46 from REQ-100).
-11. Config logic: TOML loading, COALESCE resolution, validation (type checks, range checks), zero-config defaults, env var overrides.
-12. Gate pre/post conditions: blocking gates halt the round, non-blocking gates log warnings, gate results appear in RoundResult.
-13. Round definitions: example rounds in `examples/` are used as test fixtures — they MUST be valid, loadable, and produce correct Round objects.
-14. Error paths: subprocess timeout, non-zero exit code, empty stdout, malformed JSON, missing config file, invalid model name. Every error path has a test.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 008 | System SHALL engine logic: Round/Task/Gate dataclass construction, validation (`validate_task()`, `validate_round()`), state machine transitions (pending > running > terminal states) | MUST |
+| 009 | System SHALL dispatch logic: subprocess argument construction, environment variable stripping (CLAUDECODE, ANTHROPIC_API_KEY), stream-json parsing, result contract parsing, malformed output handling | MUST |
+| 010 | System SHALL runner logic: pre-gate evaluation, task sequencing, post-gate evaluation, RoundResult assembly, status calculation (req 46 from REQ-100) | MUST |
+| 011 | System SHALL config logic: TOML loading, COALESCE resolution, validation (type checks, range checks), zero-config defaults, env var overrides | MUST |
+| 012 | System SHALL gate pre/post conditions: blocking gates halt the round, non-blocking gates log warnings, gate results appear in RoundResult | MUST |
+| 013 | Round definitions: example rounds in `examples/` are used as test fixtures — they MUST be valid, loadable, and produce correct Round objects | MUST |
+| 014 | System SHALL error paths: subprocess timeout, non-zero exit code, empty stdout, malformed JSON, missing config file, invalid model name. Every error path has a test | MUST |
 
 ### Convention Enforcement
-
-15. Conventions are enforced by AST-based tests, not comments or code review.
-16. Convention tests use `ast.walk` to inspect code structure — never regex for code patterns.
-17. Every convention has a test that fails if the pattern is violated. The test IS the enforcement.
-18. New conventions: write the test FIRST, then update code to pass.
-19. Convention tests run on every build — part of the mandatory gate.
-
-20. Rondo convention categories:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 015 | System SHALL conventions are enforced by AST-based tests, not comments or code review | MUST |
+| 016 | System SHALL convention tests use `ast.walk` to inspect code structure — never regex for code patterns | MUST |
+| 017 | System SHALL every convention has a test that fails if the pattern is violated. The test IS the enforcement | MUST |
+| 018 | System SHALL new conventions: write the test FIRST, then update code to pass | MUST |
+| 019 | System SHALL convention tests run on every build — part of the mandatory gate | MUST |
+| 020 | System SHALL rondo convention categories: | MUST |
 
 | Category | What It Enforces | Example |
 |----------|-----------------|---------|
@@ -80,27 +84,29 @@ AI dispatch frameworks are deceptively simple to build and deceptively hard to t
 | **Security** | No `shell=True` in subprocess calls | `test_no_shell_true_in_subprocess` |
 | **Secrets** | No hardcoded API keys or tokens | `test_no_hardcoded_secrets` |
 | **Isolation** | Round definitions import only engine | `test_example_rounds_import_only_engine` |
-
-21. Convention count is tracked and only goes up. Removing a convention requires documented rationale.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 021 | System SHALL convention count is tracked and only goes up. Removing a convention requires documented rationale | MUST |
 
 ### Coverage
-
-22. Coverage threshold: 80% minimum line coverage. Enforced by the build gate.
-23. Coverage ratchet: the threshold only goes UP, never down. Once Rondo hits 85%, it cannot drop to 80%.
-24. New code must be covered — uncovered new lines are flagged as warnings on first sprint, escalating to blockers after baseline.
-25. Branch coverage preferred over line coverage for decision paths — a function can have 100% line coverage and miss an entire `else` branch.
-26. Test-only files, config files, and example round definitions are excluded from coverage measurement — only `src/rondo/` production code counts.
-27. 100% coverage is not the goal — meaningful coverage is. A test that asserts `True` covers a line but proves nothing.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 022 | System SHALL coverage threshold: 80% minimum line coverage. Enforced by the build gate | MUST |
+| 023 | System SHALL coverage ratchet: the threshold only goes UP, never down. Once Rondo hits 85%, it cannot drop to 80% | MUST |
+| 024 | System SHALL new code must be covered — uncovered new lines are flagged as warnings on first sprint, escalating to blockers after baseline | MUST |
+| 025 | System SHALL branch coverage preferred over line coverage for decision paths — a function can have 100% line coverage and miss an entire `else` branch | MUST |
+| 026 | System SHALL test-only files, config files, and example round definitions are excluded from coverage measurement — only `src/rondo/` production code counts | MUST |
+| 027 | System SHALL 100% coverage is not the goal — meaningful coverage is. A test that asserts `True` covers a line but proves nothing | MUST |
 
 ### Testing Patterns Specific to Rondo
-
-28. Subprocess mocking: all dispatch tests mock `subprocess.Popen` (or `subprocess.run`). Never call `claude -p` in unit tests.
-29. Stream-json fixtures: maintain JSON fixture files with real stream-json output for parsing tests. These fixtures are snapshots of actual Claude responses.
-30. Round definition tests: dynamically import example rounds, call `build_round()`, validate the returned Round object has correct structure.
-31. Integration tests (optional, marked `@pytest.mark.integration`): actually dispatch to Claude. Skipped in CI, run manually.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 028 | System SHALL subprocess mocking: all dispatch tests mock `subprocess.Popen` (or `subprocess.run`). Never call `claude -p` in unit tests | MUST |
+| 029 | System SHALL stream-json fixtures: maintain JSON fixture files with real stream-json output for parsing tests. These fixtures are snapshots of actual Claude responses | MUST |
+| 030 | System SHALL round definition tests: dynamically import example rounds, call `build_round()`, validate the returned Round object has correct structure | MUST |
+| 031 | System SHALL integration tests (optional, marked `@pytest.mark.integration`): actually dispatch to Claude. Skipped in CI, run manually | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 Quality is enforced at three gates: (1) pre-commit hooks (ruff, bandit, mypy), (2) `ace-build full` (lint + security + types + tests + coverage), (3) convention lock tests (AST-based structural enforcement). All three gates must pass before code merges. No gate can be bypassed without removing the hook config (which is tracked in git).
@@ -359,6 +365,15 @@ Full test suite runs in <10 seconds (mocked subprocesses, no I/O). Convention te
 CORE-STD-012 (Requirement Readiness) requires all tests passing before a requirement reaches READY state. CORE-STD-013 (TrackerData) can ingest test result trends for quality dashboards. CORE-IFS-005 MCP tools could expose quality metrics in future versions.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Quality gate definitions | WORKING | 6 gates from ace-build applied to Rondo | After gate changes |
+| Quality thresholds | WORKING | Pass/fail thresholds defined | After threshold changes |
+| Quality trending | THEORY | Specced for multi-build quality tracking | Phase 2 build |
+
 
 ## 35. Change History
 

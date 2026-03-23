@@ -50,18 +50,22 @@ This SOP ensures every upgrade is safe, tested, and reversible.
 
 ## 3. Requirements
 
-| # | Requirement | Priority |
-|---|------------|----------|
-| 1 | PATCH upgrades require no manual intervention | MUST |
-| 2 | MINOR upgrades may add new config keys with defaults (no breakage) | MUST |
-| 3 | MAJOR upgrades provide migration script for breaking changes | MUST |
-| 4 | Audit trail backward compatible — new versions can read old audit data | MUST |
-| 5 | OAPayload/OAResult version negotiation between Rondo and OB | MUST |
-| 6 | Template files compatible across MINOR versions | SHOULD |
-| 7 | Pre-upgrade check validates current version and identifies migration steps | SHOULD |
-| 8 | Rollback to previous version without data loss | MUST |
-| 9 | Cross-product compatibility matrix maintained | SHOULD |
-| 10 | Upgrade procedure completes in <15 minutes | SHOULD |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | PATCH upgrades require no manual intervention | MUST |
+| 002 | MINOR upgrades may add new config keys with defaults (no breakage) | MUST |
+| 003 | MAJOR upgrades provide migration script for breaking changes | MUST |
+| 004 | Audit trail backward compatible — new versions can read old audit data | MUST |
+| 005 | OAPayload/OAResult version negotiation between Rondo and OB | MUST |
+| 006 | Template files compatible across MINOR versions | SHOULD |
+| 007 | Pre-upgrade check validates current version and identifies migration steps | SHOULD |
+| 008 | Rollback to previous version without data loss | MUST |
+| 009 | Cross-product compatibility matrix maintained | SHOULD |
+| 010 | Upgrade procedure completes in <15 minutes | SHOULD |
+
 
 ---
 
@@ -445,6 +449,15 @@ Not yet populated. Will track cost of upgrade-related build sprints.
   versions add fields with defaults, old entries remain readable.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Migration procedure | THEORY | Specced for version-to-version upgrades | Phase 2 build |
+| Schema migration steps | THEORY | Specced for DB schema evolution | Phase 2 build |
+| Rollback procedure | THEORY | Specced for failed migration recovery | Phase 2 build |
+
 
 ## 35. Change History
 

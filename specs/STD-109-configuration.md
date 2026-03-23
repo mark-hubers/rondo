@@ -331,6 +331,25 @@ REQUIRED — fill before build.
 
 ---
 
+## 3. Requirements
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Rondo SHALL work out of the box with no config file — all settings have defaults | MUST |
+| 002 | Project-level config SHALL be TOML format (`rondo.toml` in project root or `--config` path) | MUST |
+| 003 | CLI flags SHALL override config file values | MUST |
+| 004 | Config file values SHALL override defaults | MUST |
+| 005 | Resolution order SHALL be: CLI flag, config file, hardcoded default (COALESCE — first non-null wins) | MUST |
+| 006 | Unknown config keys SHALL be ignored with a warning (forward compatibility) | MUST |
+| 007 | Invalid config values SHALL raise a clear error at startup, not at dispatch time | MUST |
+| 008 | Config SHALL be loaded once at startup and be immutable for the session | MUST |
+| 009 | Config SHALL be representable as a single Python dataclass for type safety | MUST |
+| 010 | Config validation SHALL check cross-field relationships, not just per-field ranges | MUST |
+
+---
+
 ## 4. Architecture / Design
 
 REQUIRED — fill before build.
@@ -496,6 +515,15 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Configuration schema | THEORY | Specced for Rondo config validation | Phase 1 build |
+| Environment detection | THEORY | Specced for dev/prod config switching | Phase 1 build |
+| Config file format | THEORY | Specced for TOML-based configuration | Phase 1 build |
+
 
 ## 35. Change History
 

@@ -51,53 +51,61 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 
 ### Provider Adapter Interface
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | `ProviderAdapter` abstract base class with: `dispatch(prompt, model, config) → DispatchResult`, `health() → bool`, `models() → list[str]` | MUST | Interface test |
-| 2 | One adapter class per provider: `ClaudeCLIAdapter`, `ClaudeAPIAdapter`, `GeminiAdapter`, `OpenAIAdapter`, `OllamaAdapter`, `ContainerAdapter` | MUST | Adapter test |
-| 3 | Adding a new provider = implement one adapter class. NO changes to OB, Caliber, ACE, or any other code. | MUST | Isolation test |
-| 4 | All adapters return the same `DispatchResult` format regardless of provider (model-agnostic output) | MUST | Format test |
-| 5 | Adapter config via TOML: `[providers.<name>] type, api_key_env, endpoint, default_model` | MUST | Config test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | `ProviderAdapter` abstract base class with: `dispatch(prompt, model, config) → DispatchResult`, `health() → bool`, `models() → list[str]` | MUST | Interface test |
+| 002 | One adapter class per provider: `ClaudeCLIAdapter`, `ClaudeAPIAdapter`, `GeminiAdapter`, `OpenAIAdapter`, `OllamaAdapter`, `ContainerAdapter` | MUST | Adapter test |
+| 003 | Adding a new provider = implement one adapter class. NO changes to OB, Caliber, ACE, or any other code. | MUST | Isolation test |
+| 004 | All adapters return the same `DispatchResult` format regardless of provider (model-agnostic output) | MUST | Format test |
+| 005 | Adapter config via TOML: `[providers.<name>] type, api_key_env, endpoint, default_model` | MUST | Config test |
+
 
 ### Credential Management
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 6 | API keys stored in macOS Keychain (`security` command). Service name pattern: `ace2-<provider>` | MUST | Keychain test |
-| 7 | Keys retrieved at dispatch time via `ai-keys.py get <provider>` or direct Keychain query | MUST | Retrieval test |
-| 8 | Keys NEVER in config files, env files, or git. Keychain only. (CORE-STD-008) | MUST | Security test |
-| 9 | Multiple accounts for same provider supported (different Keychain entries): `ace2-claude-api` + `ace2-claude-batch` | MUST | Multi-account test |
-| 10 | `ai-keys.py status` shows all configured providers with masked keys | MUST | Status test |
-| 11 | `ai-keys.py test` calls each provider's health endpoint, shows models + latency | MUST | Health test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 006 | API keys stored in macOS Keychain (`security` command). Service name pattern: `ace2-<provider>` | MUST | Keychain test |
+| 007 | Keys retrieved at dispatch time via `ai-keys.py get <provider>` or direct Keychain query | MUST | Retrieval test |
+| 008 | Keys NEVER in config files, env files, or git. Keychain only. (CORE-STD-008) | MUST | Security test |
+| 009 | Multiple accounts for same provider supported (different Keychain entries): `ace2-claude-api` + `ace2-claude-batch` | MUST | Multi-account test |
+| 010 | `ai-keys.py status` shows all configured providers with masked keys | MUST | Status test |
+| 011 | `ai-keys.py test` calls each provider's health endpoint, shows models + latency | MUST | Health test |
+
 
 ### Model Routing
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 12 | Routing table maps task type → provider + model: `build → claude-api/sonnet`, `review_forward → gemini/flash` | MUST | Routing test |
-| 13 | Default routing defined in config. Override per-dispatch via OAPayload `runtime.model` field. | MUST | Override test |
-| 14 | Each provider has 3 model tiers: `default_model` (balanced), `best_model` (quality), `cheap_model` (cost) | SHOULD | Tier test |
-| 15 | Routing fallback: if preferred provider is down, use fallback provider (configurable) | MUST | Fallback test |
-| 16 | NEVER fall back to Mark's interactive account for batch work (REQ-101 addendum rule) | MUST | Protect test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 012 | Routing table maps task type → provider + model: `build → claude-api/sonnet`, `review_forward → gemini/flash` | MUST | Routing test |
+| 013 | Default routing defined in config. Override per-dispatch via OAPayload `runtime.model` field. | MUST | Override test |
+| 014 | Each provider has 3 model tiers: `default_model` (balanced), `best_model` (quality), `cheap_model` (cost) | SHOULD | Tier test |
+| 015 | Routing fallback: if preferred provider is down, use fallback provider (configurable) | MUST | Fallback test |
+| 016 | NEVER fall back to Mark's interactive account for batch work (REQ-101 addendum rule) | MUST | Protect test |
+
 
 ### Provider Health
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 17 | Preflight (REQ-103) checks ALL configured providers: key present + API reachable | MUST | Preflight test |
-| 18 | Provider health cached for 5 minutes (don't re-check on every dispatch) | SHOULD | Cache test |
-| 19 | Provider down → log WARNING, use fallback. Provider stays "down" until next health check. | MUST | Down test |
-| 20 | `rondo providers` CLI: show all providers with health status, model count, latency | SHOULD | CLI test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 017 | Preflight (REQ-103) checks ALL configured providers: key present + API reachable | MUST | Preflight test |
+| 018 | Provider health cached for 5 minutes (don't re-check on every dispatch) | SHOULD | Cache test |
+| 019 | Provider down → log WARNING, use fallback. Provider stays "down" until next health check. | MUST | Down test |
+| 020 | `rondo providers` CLI: show all providers with health status, model count, latency | SHOULD | CLI test |
+
 
 ### Affinity Tracking (learn which model is best)
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 21 | Track per-model, per-task-type success rate: "Claude Opus succeeds 95% on reverse review, Gemini Flash succeeds 88%" | SHOULD | Tracking test |
-| 22 | Track per-model cost efficiency: cost per successful task (not just cost per dispatch) | SHOULD | Cost test |
-| 23 | Affinity suggestions: after 50+ dispatches per model-task pair, suggest optimal routing | SHOULD | Suggestion test |
-| 24 | Manual override always wins: Mark sets routing, affinity is advisory only | MUST | Override test |
-| 25 | CORE-STD-011 integration: routing decisions are guesses → track accuracy over time | SHOULD | Correction test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 021 | Track per-model, per-task-type success rate: "Claude Opus succeeds 95% on reverse review, Gemini Flash succeeds 88%" | SHOULD | Tracking test |
+| 022 | Track per-model cost efficiency: cost per successful task (not just cost per dispatch) | SHOULD | Cost test |
+| 023 | Affinity suggestions: after 50+ dispatches per model-task pair, suggest optimal routing | SHOULD | Suggestion test |
+| 024 | Manual override always wins: Mark sets routing, affinity is advisory only | MUST | Override test |
+| 025 | CORE-STD-011 integration: routing decisions are guesses → track accuracy over time | SHOULD | Correction test |
+
 
 ---
 
@@ -518,6 +526,16 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   and maximum isolation.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Provider adapter interface | SPIKED | Spike prototyped Claude adapter via claude -p | Phase 1 build |
+| Claude Code adapter | SPIKED | Spike proved subprocess dispatch works | After Claude CLI changes |
+| Multi-model routing | THEORY | Specced for opus/sonnet/haiku per task | Phase 1 build |
+| Alternative provider support | THEORY | Specced for future non-Claude providers | Phase 3 build |
+
 
 ## 35. Change History
 

@@ -52,81 +52,89 @@ REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 
 ## 3. Requirements
 
-### Parallel Execution
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Parallel dispatch MUST use `concurrent.futures.ThreadPoolExecutor` with configurable worker count.
-2. Worker count MUST be configurable via CLI (`--workers N`) and config file. Default: 4.
-3. Parallel dispatch MUST support a configurable throttle delay between task launches. Default: 2 seconds.
-4. Results MUST be collected as futures complete (not in submission order).
-5. Parallel dispatch MUST detect potential file conflicts: files mentioned in output by 2+ concurrent tasks.
-6. Detected conflicts MUST be listed in the round summary (not silently ignored).
-7. Parallel dispatch MUST report: done count, error count, wall time, sum of task times, speedup ratio.
-8. If a single task fails or raises an exception, other tasks MUST NOT be affected.
-9. Parallel results MUST be saved to the same JSON format as sequential results (REQ-100 compatibility).
+### Parallel Execution
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Parallel dispatch MUST use `concurrent.futures.ThreadPoolExecutor` with configurable worker count | MUST |
+| 002 | Worker count MUST be configurable via CLI (`--workers N`) and config file. Default: 4 | MUST |
+| 003 | Parallel dispatch MUST support a configurable throttle delay between task launches. Default: 2 seconds | MUST |
+| 004 | Results MUST be collected as futures complete (not in submission order) | MUST |
+| 005 | Parallel dispatch MUST detect potential file conflicts: files mentioned in output by 2+ concurrent tasks | MUST |
+| 006 | Detected conflicts MUST be listed in the round summary (not silently ignored) | MUST |
+| 007 | Parallel dispatch MUST report: done count, error count, wall time, sum of task times, speedup ratio | MUST |
+| 008 | If a single task fails or raises an exception, other tasks MUST NOT be affected | MUST |
+| 009 | Parallel results MUST be saved to the same JSON format as sequential results (REQ-100 compatibility) | MUST |
 
 ### Overnight Scheduler
-
-10. The overnight scheduler MUST accept a list of round definitions to execute in order (phases).
-11. Phases MUST execute sequentially (one completes before next starts). Tasks within a phase MAY be parallel.
-12. Phase failures MUST NOT block subsequent phases. Log the error, continue to next phase.
-13. The scheduler MUST support configurable modes that select which phases run.
-14. At minimum, 3 modes MUST be supported: minimal (1-2 phases), standard (3-4 phases), full (all phases).
-15. Mode names and phase assignments MUST be configurable (not hardcoded to OB/ACE rounds).
-16. The scheduler MUST be invocable from command line with no interactive input required.
-17. The scheduler MUST log start and end events with timestamps and mode.
-18. The event log MUST be a rolling JSON file that keeps the last 100 entries.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 010 | The overnight scheduler MUST accept a list of round definitions to execute in order (phases) | MUST |
+| 011 | Phases MUST execute sequentially (one completes before next starts). Tasks within a phase MAY be parallel | MUST |
+| 012 | Phase failures MUST NOT block subsequent phases. Log the error, continue to next phase | MUST |
+| 013 | The scheduler MUST support configurable modes that select which phases run | MUST |
+| 014 | At minimum, 3 modes MUST be supported: minimal (1-2 phases), standard (3-4 phases), full (all phases) | MUST |
+| 015 | Mode names and phase assignments MUST be configurable (not hardcoded to OB/ACE rounds) | MUST |
+| 016 | The scheduler MUST be invocable from command line with no interactive input required | MUST |
+| 017 | The scheduler MUST log start and end events with timestamps and mode | MUST |
+| 018 | The event log MUST be a rolling JSON file that keeps the last 100 entries | MUST |
 
 ### Self-Healing Watchdog
-
-19. The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-108). The task timeout is a hard wall-clock limit. The watchdog detects output silence.
-20. If a dispatch subprocess does not produce new stdout for a configurable duration (`watchdog_timeout_sec`, default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT". A task producing output can run longer than `watchdog_timeout_sec` — the watchdog only fires on silence.
-21. After a watchdog kill, the scheduler MUST continue to the next task — never halt the pipeline.
-22. If a dispatch fails with a rate limit error (ERR_RATE_LIMIT), the watchdog MUST pause for a configurable backoff duration (default: 60 seconds) before the next dispatch.
-23. The watchdog MUST log every intervention (kill, pause, skip) to the event log with timestamp and reason.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 019 | The overnight scheduler MUST monitor each dispatch for stuck/hung conditions using a separate watchdog timer independent of the task timeout (STD-108). The task timeout is a hard wall-clock limit. The watchdog detects output silence | MUST |
+| 020 | If a dispatch subprocess does not produce new stdout for a configurable duration (`watchdog_timeout_sec`, default: 60 seconds), the watchdog MUST kill it and record status "error" with error_code "ERR_WATCHDOG_TIMEOUT". A task producing output can run longer than `watchdog_timeout_sec` — the watchdog only fires on silence | MUST |
+| 021 | After a watchdog kill, the scheduler MUST continue to the next task — never halt the pipeline | MUST |
+| 022 | If a dispatch fails with a rate limit error (ERR_RATE_LIMIT), the watchdog MUST pause for a configurable backoff duration (default: 60 seconds) before the next dispatch | MUST |
+| 023 | The watchdog MUST log every intervention (kill, pause, skip) to the event log with timestamp and reason | MUST |
 
 ### Usage Threshold Gating
-
-24. Before each phase, the scheduler MUST check the most recent `rate_limit_event` from the previous dispatch.
-25. If `isUsingOverage` is `true`, the scheduler MUST take a configurable action: `continue` (default), `pause` (wait for reset), or `stop` (end overnight run early).
-26. If `rate_limit_status` is `"blocked"`, the scheduler MUST pause until `resetsAt` epoch and then retry the phase.
-27. The overage action MUST be configurable via CLI (`--on-overage`) and config file (`on_overage`). Default: `continue`.
-28. Usage threshold decisions MUST be logged to the event log with the rate_limit_event data that triggered them.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 024 | Before each phase, the scheduler MUST check the most recent `rate_limit_event` from the previous dispatch | MUST |
+| 025 | If `isUsingOverage` is `true`, the scheduler MUST take a configurable action: `continue` (default), `pause` (wait for reset), or `stop` (end overnight run early) | MUST |
+| 026 | If `rate_limit_status` is `"blocked"`, the scheduler MUST pause until `resetsAt` epoch and then retry the phase | MUST |
+| 027 | The overage action MUST be configurable via CLI (`--on-overage`) and config file (`on_overage`). Default: `continue` | MUST |
+| 028 | Usage threshold decisions MUST be logged to the event log with the rate_limit_event data that triggered them | MUST |
 
 ### Morning Report
-
-29. The morning report MUST aggregate results from all phases in one document.
-30. Results MUST be grouped by round type (one section per round).
-31. Each round section MUST show: tasks done, tasks failed, total duration.
-32. The report MUST use health indicators: pass (all tasks succeeded), partial (some failed), fail (majority failed).
-33. The report MUST list action items: tasks that failed or returned "blocked" status.
-34. The report MUST save to a dated file: `rondo-morning-YYYYMMDD.md` (or configurable pattern).
-35. The report MUST include: total duration, total tasks run, total errors, timestamp.
-36. The report MUST include a usage summary: total cost, total tokens, overage status, watchdog interventions.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 029 | The morning report MUST aggregate results from all phases in one document | MUST |
+| 030 | Results MUST be grouped by round type (one section per round) | MUST |
+| 031 | Each round section MUST show: tasks done, tasks failed, total duration | MUST |
+| 032 | The report MUST use health indicators: pass (all tasks succeeded), partial (some failed), fail (majority failed) | MUST |
+| 033 | The report MUST list action items: tasks that failed or returned "blocked" status | MUST |
+| 034 | The report MUST save to a dated file: `rondo-morning-YYYYMMDD.md` (or configurable pattern) | MUST |
+| 035 | The report MUST include: total duration, total tasks run, total errors, timestamp | MUST |
+| 036 | The report MUST include a usage summary: total cost, total tokens, overage status, watchdog interventions | MUST |
 
 ### Worktree Isolation (Parallel Safety)
-
-37. Parallel dispatch SHOULD support optional git worktree isolation: each worker gets its own worktree copy of the repo.
-38. When worktree isolation is enabled, each task runs in its own worktree. After all tasks complete, results are merged back to the main worktree.
-39. Worktree isolation MUST be opt-in via config (`worktree_isolation = true`) or CLI (`--worktree`). Default: off.
-40. When worktree isolation is off, conflict detection (reqs 5-6) remains the safety mechanism.
-41. Worktrees MUST be cleaned up after the round completes (success or failure).
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 037 | Parallel dispatch SHOULD support optional git worktree isolation: each worker gets its own worktree copy of the repo | SHOULD |
+| 038 | System SHALL when worktree isolation is enabled, each task runs in its own worktree. After all tasks complete, results are merged back to the main worktree | MUST |
+| 039 | Worktree isolation MUST be opt-in via config (`worktree_isolation = true`) or CLI (`--worktree`). Default: off | MUST |
+| 040 | System SHALL when worktree isolation is off, conflict detection (reqs 5-6) remains the safety mechanism | MUST |
+| 041 | Worktrees MUST be cleaned up after the round completes (success or failure) | MUST |
 
 ### Result Spool (stateless persistence)
-
-42. Rondo MUST maintain a spool directory (`~/.rondo/spool/`) for result files waiting for consumer pickup. Location configurable via `[spool] path` in config.
-43. After each task or round completes, Rondo MUST write a result JSON file to the spool directory with filename format `{ISO-timestamp}-{task_name}.json` (e.g., `2026-03-18T042315-forward-review.json`).
-44. Consumers (OB, ACE, scripts) read and delete spool files — mailbox pattern. Once a consumer picks up a file, it is gone from the spool.
-45. If a consumer is connected at run time (e.g., OB calling Rondo via API), the result MUST go directly to the consumer — no spool file written. Spool is only for unattended/disconnected runs.
-46. Spool files have a configurable TTL: files older than N days are auto-cleaned on next Rondo invocation. Default: 7 days. Configurable via `[spool] ttl_days`.
-47. `rondo spool list` MUST show all pending result files: filename, age, size, task name. Sorted newest first.
-48. `rondo spool clean` MUST delete all expired files (older than TTL). With `--all` flag: delete everything regardless of age.
-49. `rondo spool export --since YYYY-MM-DD` MUST dump all spool files since the given date to a single JSON array on stdout — for manual import into OB or other tools.
-50. The spool is NOT a database — no queries, no indexes, no schema migrations. Just JSON files with timestamps in a directory. Rondo stays stateless; the spool is a buffer between stateless Rondo and stateful consumers.
-51. Spool directory MUST be created automatically on first write if it does not exist. Permissions: user-only (0700).
-52. If spool write fails (disk full, permissions), Rondo MUST log a WARNING and continue — never fail a task because the spool is broken. The task result is still returned to stdout/caller.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 042 | Rondo MUST maintain a spool directory (`~/.rondo/spool/`) for result files waiting for consumer pickup. Location configurable via `[spool] path` in config | MUST |
+| 043 | After each task or round completes, Rondo MUST write a result JSON file to the spool directory with filename format `{ISO-timestamp}-{task_name}.json` (e.g., `2026-03-18T042315-forward-review.json`) | MUST |
+| 044 | System SHALL consumers (OB, ACE, scripts) read and delete spool files — mailbox pattern. Once a consumer picks up a file, it is gone from the spool | MUST |
+| 045 | If a consumer is connected at run time (e.g., OB calling Rondo via API), the result MUST go directly to the consumer — no spool file written. Spool is only for unattended/disconnected runs | MUST |
+| 046 | System SHALL spool files have a configurable TTL: files older than N days are auto-cleaned on next Rondo invocation. Default: 7 days. Configurable via `[spool] ttl_days` | MUST |
+| 047 | `rondo spool list` MUST show all pending result files: filename, age, size, task name. Sorted newest first | MUST |
+| 048 | `rondo spool clean` MUST delete all expired files (older than TTL). With `--all` flag: delete everything regardless of age | MUST |
+| 049 | `rondo spool export --since YYYY-MM-DD` MUST dump all spool files since the given date to a single JSON array on stdout — for manual import into OB or other tools | MUST |
+| 050 | System SHALL the spool is NOT a database — no queries, no indexes, no schema migrations. Just JSON files with timestamps in a directory. Rondo stays stateless; the spool is a buffer between stateless Rondo and stateful consumers | MUST |
+| 051 | Spool directory MUST be created automatically on first write if it does not exist. Permissions: user-only (0700) | MUST |
+| 052 | If spool write fails (disk full, permissions), Rondo MUST log a WARNING and continue — never fail a task because the spool is broken. The task result is still returned to stdout/caller | MUST |
 
 ---
-
 ## 16. Assumptions
 
 | # | Assumption | If Wrong |
@@ -427,6 +435,16 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Parallel task execution | THEORY | Specced for concurrent task dispatch | Phase 2 build |
+| Overnight scheduling | THEORY | Specced for unattended batch processing | Phase 2 build |
+| Morning reports | THEORY | Specced for overnight result summaries | Phase 2 build |
+| Task queue management | THEORY | Specced for priority-based execution | Phase 2 build |
+
 
 ## 35. Change History
 

@@ -41,53 +41,58 @@ Specs are the source of truth for code. A bug in a spec becomes a bug in every i
 
 ## 3. Requirements
 
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
 *All requirements in this spec are MUST priority unless marked SHOULD.*
-
 ### Directional Reviews (checks 1-7)
-
-1. **FORWARD** — read spec top-down, verify logical flow. Each section builds on the previous. No forward references to undefined concepts.
-2. **REVERSE** — read bottom-up, verify each section stands alone. No section depends on context from a section the reader might not have read.
-3. **SIDEWAYS** — cross-layer check. Do products agree on data formats, field names, and protocols at every integration boundary?
-4. **CC/V** — cross-cutting concerns + completeness verification. All concerns (security, observability, error handling, accessibility) addressed. No implicit "we'll handle that later."
-5. **SPEC-to-CODE** — forward traceability. Every numbered requirement has corresponding Rondo dispatch code that implements it. Applies to Rondo's existing codebase (446 tests).
-6. **CODE-to-SPEC** — reverse traceability. Every behavior in Rondo dispatch code is covered by a spec requirement. No undocumented dispatch modes or hidden config options.
-7. **CROSS-SPEC** — inter-spec references all point to real specs that reference back. No dangling references. No one-way dependencies.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL **FORWARD** — read spec top-down, verify logical flow. Each section builds on the previous. No forward references to undefined concepts | MUST |
+| 002 | System SHALL **REVERSE** — read bottom-up, verify each section stands alone. No section depends on context from a section the reader might not have read | MUST |
+| 003 | System SHALL **SIDEWAYS** — cross-layer check. Do products agree on data formats, field names, and protocols at every integration boundary? | MUST |
+| 004 | System SHALL **CC/V** — cross-cutting concerns + completeness verification. All concerns (security, observability, error handling, accessibility) addressed. No implicit "we'll handle that later." | MUST |
+| 005 | System SHALL **SPEC-to-CODE** — forward traceability. Every numbered requirement has corresponding Rondo dispatch code that implements it. Applies to Rondo's existing codebase (446 tests) | MUST |
+| 006 | System SHALL **CODE-to-SPEC** — reverse traceability. Every behavior in Rondo dispatch code is covered by a spec requirement. No undocumented dispatch modes or hidden config options | MUST |
+| 007 | System SHALL **CROSS-SPEC** — inter-spec references all point to real specs that reference back. No dangling references. No one-way dependencies | MUST |
 
 ### Interface Checks (checks 8-10)
-
-8. **WIRING** — IFS contracts match on both sides of every product pair. Rondo-IFS-100 (Claude CLI) and Rondo-IFS-102 (OB) must agree with their counterparts.
-9. **TRANSPORT MATCH** — both sides agree on transport method (pipe/file/HTTPS/queue). No spec says "file" when the other says "pipe."
-10. **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both Rondo-IFS-102 and OB-IFS-103 must exist.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 008 | System SHALL **WIRING** — IFS contracts match on both sides of every product pair. Rondo-IFS-100 (Claude CLI) and Rondo-IFS-102 (OB) must agree with their counterparts | MUST |
+| 009 | System SHALL **TRANSPORT MATCH** — both sides agree on transport method (pipe/file/HTTPS/queue). No spec says "file" when the other says "pipe." | MUST |
+| 010 | System SHALL **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both Rondo-IFS-102 and OB-IFS-103 must exist | MUST |
 
 ### Data Consistency Checks (checks 11-17)
-
-11. **FIELD CONSISTENCY** — same field names across products, verified against NAMING-MAP.md. `cost_usd` is `cost_usd` everywhere. DispatchUsage field names match NAMING-MAP.md exactly.
-12. **STATUS VOCABULARY** — all products use the same status values: `done`, `partial`, `error`, `skipped`, `blocked`, `pending`, `in_progress`. No synonyms.
-13. **SEVERITY VOCABULARY** — all products use the same severity values: `block`, `warn`, `info`. Where AI returns different terms (critical/warning/nit), the mapping is documented and enforced in code before results leave Rondo.
-14. **TIMESTAMP FORMAT** — ISO 8601 UTC everywhere. No local time. No epoch-only fields without documented conversion.
-15. **DURATION UNITS** — documented per level. Rondo uses the sec/ms split: `duration_ms` for individual dispatch calls (millisecond precision), `duration_sec` for round-level summaries (second precision). This split is intentional and must be consistent across all Rondo specs.
-16. **COST FIELDS** — `cost_usd`, `input_tokens`, `output_tokens` consistent everywhere. Same types, same precision, same null handling. DispatchUsage fields are the canonical source.
-17. **CONFIG PATTERN** — COALESCE order (CLI > env > file > default) consistent everywhere. Rondo model selection follows this chain: `--model` flag > `task.model` hint > `config.default_model` > `"sonnet"`.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 011 | System SHALL **FIELD CONSISTENCY** — same field names across products, verified against NAMING-MAP.md. `cost_usd` is `cost_usd` everywhere. DispatchUsage field names match NAMING-MAP.md exactly | MUST |
+| 012 | System SHALL **STATUS VOCABULARY** — all products use the same status values: `done`, `partial`, `error`, `skipped`, `blocked`, `pending`, `in_progress`. No synonyms | MUST |
+| 013 | System SHALL **SEVERITY VOCABULARY** — all products use the same severity values: `block`, `warn`, `info`. Where AI returns different terms (critical/warning/nit), the mapping is documented and enforced in code before results leave Rondo | MUST |
+| 014 | System SHALL **TIMESTAMP FORMAT** — ISO 8601 UTC everywhere. No local time. No epoch-only fields without documented conversion | MUST |
+| 015 | System SHALL **DURATION UNITS** — documented per level. Rondo uses the sec/ms split: `duration_ms` for individual dispatch calls (millisecond precision), `duration_sec` for round-level summaries (second precision). This split is intentional and must be consistent across all Rondo specs | MUST |
+| 016 | System SHALL **COST FIELDS** — `cost_usd`, `input_tokens`, `output_tokens` consistent everywhere. Same types, same precision, same null handling. DispatchUsage fields are the canonical source | MUST |
+| 017 | System SHALL **CONFIG PATTERN** — COALESCE order (CLI > env > file > default) consistent everywhere. Rondo model selection follows this chain: `--model` flag > `task.model` hint > `config.default_model` > `"sonnet"` | MUST |
 
 ### Structural Checks (checks 18-23)
-
-18. **ONE PURPOSE** — spec can be described in one sentence without "and." If not, split it.
-19. **HEADING vs FILENAME** — spec title number matches filename number. `STD-106` in the heading matches `STD-106-spec-quality.md` in the filename.
-20. **UNIVERSAL NUMBER ALIGNMENT** — STD/SOP numbers mean the same topic in every product. STD-106 is spec quality checks in OB, Caliber, AND Rondo.
-21. **TABLE OWNERSHIP** — spec declares which DB tables it owns. For Rondo: this check confirms Rondo owns NO tables (stateless by design). Any spec claiming a DB table is a design violation.
-22. **REQUIRED SECTIONS** — all sections marked "REQUIRED" in the spec template are filled before build. No placeholder text, no "TBD" in required fields.
-23. **STALE REFERENCE** — no docs say "NOT YET" for things that ARE done. After completing work, update all references.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 018 | System SHALL **ONE PURPOSE** — spec can be described in one sentence without "and." If not, split it | MUST |
+| 019 | System SHALL **HEADING vs FILENAME** — spec title number matches filename number. `STD-106` in the heading matches `STD-106-spec-quality.md` in the filename | MUST |
+| 020 | System SHALL **UNIVERSAL NUMBER ALIGNMENT** — STD/SOP numbers mean the same topic in every product. STD-106 is spec quality checks in OB, Caliber, AND Rondo | MUST |
+| 021 | System SHALL **TABLE OWNERSHIP** — spec declares which DB tables it owns. For Rondo: this check confirms Rondo owns NO tables (stateless by design). Any spec claiming a DB table is a design violation | MUST |
+| 022 | System SHALL **REQUIRED SECTIONS** — all sections marked "REQUIRED" in the spec template are filled before build. No placeholder text, no "TBD" in required fields | MUST |
+| 023 | System SHALL **STALE REFERENCE** — no docs say "NOT YET" for things that ARE done. After completing work, update all references | MUST |
 
 ### Deep Review Checks (checks 24-28)
-
-24. **DEEP REVIEW v1** — cross-spec vocabulary audit. Two specs never use different words for the same concept. Consistent terminology across all Rondo specs.
-25. **DEEP REVIEW v2** — "can I write a test from this requirement?" must be YES for every numbered requirement. Vague requirements fail this check.
-26. **CROSS-FIELD** — related numeric fields have logical ordering. `min < max`, `timeout > retry_delay`, `warn_threshold < error_threshold`. No contradictory ranges. The watchdog_timeout >= task_timeout gap (Session 75) was caught by this check.
-27. **DEPENDENCY GRAPH** — "Depends on" references don't create circular dependencies. If A depends on B and B depends on A, one dependency is wrong.
-28. **ORPHAN CHECK** — no spec that nobody references (orphan spec), no requirement that nothing implements (orphan req). Every spec and every requirement must be connected to the graph.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 024 | System SHALL **DEEP REVIEW v1** — cross-spec vocabulary audit. Two specs never use different words for the same concept. Consistent terminology across all Rondo specs | MUST |
+| 025 | System SHALL **DEEP REVIEW v2** — "can I write a test from this requirement?" must be YES for every numbered requirement. Vague requirements fail this check | MUST |
+| 026 | System SHALL **CROSS-FIELD** — related numeric fields have logical ordering. `min < max`, `timeout > retry_delay`, `warn_threshold < error_threshold`. No contradictory ranges. The watchdog_timeout >= task_timeout gap (Session 75) was caught by this check | MUST |
+| 027 | System SHALL **DEPENDENCY GRAPH** — "Depends on" references don't create circular dependencies. If A depends on B and B depends on A, one dependency is wrong | MUST |
+| 028 | System SHALL **ORPHAN CHECK** — no spec that nobody references (orphan spec), no requirement that nothing implements (orphan req). Every spec and every requirement must be connected to the graph | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 The 28 checks are organized into 5 categories executed in order: directional reviews (1-7), interface checks (8-10), data consistency (11-17), structural checks (18-23), deep review (24-28). Each category targets a different failure mode. The checks can be run manually or automated via Caliber dispatches through Rondo.
@@ -348,6 +353,15 @@ Manual review: ~2 hours per spec (all 28 checks). Automated structural/data chec
 CORE-STD-012 (Requirement Readiness) requires spec quality checks to pass before any requirement reaches READY state. CORE-STD-013 (TrackerData) records check results for trend analysis (are specs getting better over time?). CORE-IFS-005 MCP tools could expose spec quality dashboards in future versions.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Spec quality checks | WORKING | 35-section template enforced | After template changes |
+| Section completeness | WORKING | Manual review catches missing sections | Every spec review |
+| Cross-spec consistency | THEORY | Specced for automated cross-spec checks | Phase 2 build |
+
 
 ## 35. Change History
 

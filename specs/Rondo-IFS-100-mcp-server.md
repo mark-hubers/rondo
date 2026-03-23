@@ -30,16 +30,20 @@ Without an MCP server, Rondo can only be invoked via CLI or Python import. AI se
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Implement CORE-IFS-005 MCP Standard for Rondo product | MUST | Compliance test |
-| 2 | Listen on port 8300 (Rondo's assigned port) | MUST | Port test |
-| 3 | Expose query tools: providers, routing, batch_status, cost | MUST | Tool test |
-| 4 | Expose action tools: dispatch, batch_submit, batch_cancel | MUST | Tool test |
-| 5 | Expose status tools: provider health, capacity | MUST | Tool test |
-| 6 | All tools follow CORE-IFS-005 naming convention: `rondo_{category}_{action}` | MUST | Naming test |
-| 7 | Authentication via MCP token (CORE-IFS-005 standard) | MUST | Auth test |
-| 8 | Rate limiting per MCP client session | SHOULD | Rate test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Implement CORE-IFS-005 MCP Standard for Rondo product | MUST | Compliance test |
+| 002 | Listen on port 8300 (Rondo's assigned port) | MUST | Port test |
+| 003 | Expose query tools: providers, routing, batch_status, cost | MUST | Tool test |
+| 004 | Expose action tools: dispatch, batch_submit, batch_cancel | MUST | Tool test |
+| 005 | Expose status tools: provider health, capacity | MUST | Tool test |
+| 006 | All tools follow CORE-IFS-005 naming convention: `rondo_{category}_{action}` | MUST | Naming test |
+| 007 | Authentication via MCP token (CORE-IFS-005 standard) | MUST | Auth test |
+| 008 | Rate limiting per MCP client session | SHOULD | Rate test |
+
 
 ---
 
@@ -327,6 +331,15 @@ MCP server overhead: ~10MB memory, <1ms per tool call routing. Dispatch latency 
 - CORE-IFS-005 is the parent standard — this spec is the Rondo implementation
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Rondo MCP protocol | THEORY | Specced for multi-model dispatch via MCP | Phase 3 build |
+| MCP tool registration | THEORY | Task dispatch, status query tools specced | Phase 3 build |
+| Remote dispatch interface | THEORY | Specced for network-based task submission | Phase 3 build |
+
 
 ## 35. Change History
 

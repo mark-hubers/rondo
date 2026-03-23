@@ -33,24 +33,29 @@ Numbers that appear in multiple places drift silently. A new exit code gets adde
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Define golden numbers: id, name, authority_source, current_value, description | MUST | Registry test |
-| 2 | Track appearances: every file that mentions a golden number | MUST | Appearance test |
-| 3 | Consistency check: authority vs appearances. Report MATCH/DRIFT/MISSING. | MUST | Check test |
-| 4 | Drift detection in preflight (REQ-103): YELLOW if drift found | MUST | Preflight test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Define golden numbers: id, name, authority_source, current_value, description | MUST | Registry test |
+| 002 | Track appearances: every file that mentions a golden number | MUST | Appearance test |
+| 003 | Consistency check: authority vs appearances. Report MATCH/DRIFT/MISSING. | MUST | Check test |
+| 004 | Drift detection in preflight (REQ-103): YELLOW if drift found | MUST | Preflight test |
+
 
 ### Rondo's Golden Numbers
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 5 | `supported_model_count`: number of models Rondo can dispatch to | MUST | Count test |
-| 6 | `max_workers`: maximum parallel dispatch workers | MUST | Count test |
-| 7 | `task_type_count`: number of task types (review/fix/generate/contradiction/etc.) | MUST | Count test |
-| 8 | `exit_code_count`: number of defined exit codes (0/1/2/130) | MUST | Count test |
-| 9 | `error_code_count`: number of ERR_* codes in STD-108 | MUST | Count test |
-| 10 | `rondo golden` CLI: show all golden numbers with drift status | SHOULD | CLI test |
-| 11 | `rondo golden --check` CLI: exit 1 if drift found | SHOULD | Check test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 005 | `supported_model_count`: number of models Rondo can dispatch to | MUST | Count test |
+| 006 | `max_workers`: maximum parallel dispatch workers | MUST | Count test |
+| 007 | `task_type_count`: number of task types (review/fix/generate/contradiction/etc.) | MUST | Count test |
+| 008 | `exit_code_count`: number of defined exit codes (0/1/2/130) | MUST | Count test |
+| 009 | `error_code_count`: number of ERR_* codes in STD-108 | MUST | Count test |
+| 010 | `rondo golden` CLI: show all golden numbers with drift status | SHOULD | CLI test |
+| 011 | `rondo golden --check` CLI: exit 1 if drift found | SHOULD | Check test |
+
 
 ---
 
@@ -286,6 +291,15 @@ Scanner runs once at preflight (~100ms for a small codebase). No runtime overhea
 CORE-STD-012 (Requirement Readiness) uses golden number health as a readiness signal — if counts are drifting, the system is not in a consistent state. CORE-STD-013 (TrackerData) could ingest drift events for cross-session trend analysis. CORE-IFS-005 is not applicable — golden numbers are development-time only.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Golden number definitions | THEORY | Specced for Rondo-specific quality thresholds | Phase 1 build |
+| Drift detection | THEORY | Specced for automated drift alerting | Phase 2 build |
+| Threshold auto-adjustment | THEORY | Specced for data-driven tuning | Phase 3 build |
+
 
 ## 35. Change History
 

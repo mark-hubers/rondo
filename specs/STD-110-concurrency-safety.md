@@ -385,6 +385,42 @@ REQUIRED — fill before build.
 
 ---
 
+## 3. Requirements
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+### Concurrency
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Parallel dispatch SHALL use `concurrent.futures.ThreadPoolExecutor` (I/O-bound, not CPU-bound) | MUST |
+| 002 | No shared mutable state between task threads — each task gets its own result dict | MUST |
+| 003 | System SHALL throttle between subprocess launches (configurable delay, default 0.5s) | MUST |
+| 004 | Conflict detection SHALL identify tasks that touch the same files and warn before dispatch | MUST |
+| 005 | Conflict detection SHALL be advisory, not blocking — warn and proceed unless `--strict` | MUST |
+| 006 | Worker count SHALL be bounded and configurable (`config.workers`, default 4) | MUST |
+| 007 | Each task thread SHALL have its own working directory via git worktree for file isolation | MUST |
+
+### Security
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 008 | Subprocess invocation SHALL use list arguments, never `shell=True` | MUST |
+| 009 | System SHALL strip credentials (`ANTHROPIC_API_KEY`, `CLAUDECODE`) from child process env unless explicitly needed | MUST |
+| 010 | Credentials SHALL never appear in task output, logs, or result files | MUST |
+| 011 | Prompts sent to AI SHALL NOT contain secrets — validate before dispatch | MUST |
+| 012 | Result files and spool directories SHALL use restrictive file permissions (0o600 files, 0o700 dirs) | MUST |
+
+### Resources
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 013 | Subprocess SHALL have a configurable timeout with SIGTERM-first, SIGKILL-after kill sequence | MUST |
+| 014 | Result files SHALL be bounded — truncate output exceeding configurable max size | MUST |
+| 015 | Event log SHALL be rolling — oldest entries removed when log exceeds configurable max entries | MUST |
+
+---
+
 ## 4. Architecture / Design
 
 REQUIRED — fill before build.
@@ -562,6 +598,15 @@ REQUIRED — fill before build.
 — filled after build.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Concurrency patterns | THEORY | Specced for parallel task safety | Phase 2 build |
+| Lock management | THEORY | Specced for resource locking during dispatch | Phase 2 build |
+| Race condition prevention | THEORY | Specced for safe concurrent task execution | Phase 2 build |
+
 
 ## 35. Change History
 

@@ -30,20 +30,24 @@ Task templates define what AI is asked to do. A weakened template (rules removed
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Every task template has a version hash (SHA-256 of content) | MUST | Hash test |
-| 2 | Template changes detected by hash comparison against last-known version | MUST | Change test |
-| 3 | Weakening detection: if a template change REMOVES rules, LOWERS severity thresholds, or SKIPS checks, flag as "WEAKENED" (severity: warn) | MUST | Weaken test |
-| 4 | Strengthening detection: if a template change ADDS rules or RAISES bars, flag as "STRENGTHENED" (severity: info — positive change) | SHOULD | Strengthen test |
-| 5 | Template change log: old_hash, new_hash, change_type (weakened/strengthened/modified), changed_at, changed_by | MUST | Log test |
-| 6 | Alert on weakening: "Template 'review_forward' was weakened: 3 rules removed" shown in preflight | MUST | Alert test |
-| 7 | Template freeze: `rondo freeze <template>` — changes require explicit `rondo unfreeze` with reason | SHOULD | Freeze test |
-| 8 | Frozen template modified → finding (severity: block). Someone changed a frozen template without unfreezing. | MUST | Frozen test |
-| 9 | `rondo templates --changes` CLI: show template change history | SHOULD | History test |
-| 10 | Rule counting: parse template for rule-like patterns (numbered items, "MUST", "NEVER", constraint keywords). Compare counts across versions. | SHOULD | Count test |
-| 11 | When OB-connected: template versions and change events included in OAResult | SHOULD | Integration test |
-| 12 | CORE-STD-011 integration: track whether template changes improved or degraded dispatch quality (guess: "this change will improve results" → measure: did results actually improve?) | SHOULD | Correction test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Every task template has a version hash (SHA-256 of content) | MUST | Hash test |
+| 002 | Template changes detected by hash comparison against last-known version | MUST | Change test |
+| 003 | Weakening detection: if a template change REMOVES rules, LOWERS severity thresholds, or SKIPS checks, flag as "WEAKENED" (severity: warn) | MUST | Weaken test |
+| 004 | Strengthening detection: if a template change ADDS rules or RAISES bars, flag as "STRENGTHENED" (severity: info — positive change) | SHOULD | Strengthen test |
+| 005 | Template change log: old_hash, new_hash, change_type (weakened/strengthened/modified), changed_at, changed_by | MUST | Log test |
+| 006 | Alert on weakening: "Template 'review_forward' was weakened: 3 rules removed" shown in preflight | MUST | Alert test |
+| 007 | Template freeze: `rondo freeze <template>` — changes require explicit `rondo unfreeze` with reason | SHOULD | Freeze test |
+| 008 | Frozen template modified → finding (severity: block). Someone changed a frozen template without unfreezing. | MUST | Frozen test |
+| 009 | `rondo templates --changes` CLI: show template change history | SHOULD | History test |
+| 010 | Rule counting: parse template for rule-like patterns (numbered items, "MUST", "NEVER", constraint keywords). Compare counts across versions. | SHOULD | Count test |
+| 011 | When OB-connected: template versions and change events included in OAResult | SHOULD | Integration test |
+| 012 | CORE-STD-011 integration: track whether template changes improved or degraded dispatch quality (guess: "this change will improve results" → measure: did results actually improve?) | SHOULD | Correction test |
+
 
 ---
 
@@ -292,6 +296,15 @@ Hash computation: <1ms per template. Rule counting: ~5ms per template (regex sca
 CORE-STD-012 (Requirement Readiness) treats frozen template violations as blockers. CORE-STD-013 (TrackerData) records template change events for trend analysis (are templates getting stronger or weaker over time?). CORE-IFS-005 MCP tools do not expose template management — it is local to Rondo's development workflow.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Prompt protection rules | THEORY | Specced for preventing prompt injection in tasks | Phase 1 build |
+| Input validation | THEORY | Specced for sanitizing task inputs | Phase 1 build |
+| Prompt template locking | THEORY | Specced for immutable prompt sections | Phase 1 build |
+
 
 ## 35. Change History
 

@@ -49,71 +49,87 @@ This spec formalizes the handshake so both products can evolve independently.
 
 ## 3. Requirements
 
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
 *All requirements in this spec are MUST priority unless marked SHOULD.*
-
 ### Task Types Accepted from Caliber
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL **Review tasks** — Caliber sends code + rules, Rondo dispatches to AI reviewer | MUST |
 
-1. **Review tasks** — Caliber sends code + rules, Rondo dispatches to AI reviewer
    - Forward review: "Does this code work? Read top-down."
    - Reverse review: "Walk bottom-up. Are assumptions guarded?"
    - Sideways review: "Compare against conventions and other files."
-2. **Fix tasks** — Caliber sends finding + code, Rondo dispatches to AI fixer
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 002 | System SHALL **Fix tasks** — Caliber sends finding + code, Rondo dispatches to AI fixer | MUST |
+
    - Instruction: "Fix this specific issue: {finding.message}"
    - Context: file content + rules that were violated
    - done_when: "Fixed code passes the check that found the issue"
-3. **Contradiction check tasks** — Caliber sends full ruleset, Rondo dispatches to AI analyzer
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 003 | System SHALL **Contradiction check tasks** — Caliber sends full ruleset, Rondo dispatches to AI analyzer | MUST |
+
    - Instruction: "Find logical contradictions between these rules"
    - done_when: "Zero contradictions found OR conflicts documented"
-
 ### Task Input Format
-
-4. Rondo accepts Caliber tasks as standard Rondo Task objects — no special format
-5. Task.instruction contains Caliber's prompt (review question, fix instruction, or contradiction query)
-6. Task.context_files contains the code and rules to review/fix
-7. Task.done_when contains Caliber's success criteria
-8. Task.model hints which AI to use (Caliber decides based on task type)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 004 | System SHALL rondo accepts Caliber tasks as standard Rondo Task objects — no special format | MUST |
+| 005 | System SHALL task.instruction contains Caliber's prompt (review question, fix instruction, or contradiction query) | MUST |
+| 006 | System SHALL task.context_files contains the code and rules to review/fix | MUST |
+| 007 | System SHALL task.done_when contains Caliber's success criteria | MUST |
+| 008 | System SHALL task.model hints which AI to use (Caliber decides based on task type) | MUST |
 
 ### Result Format Returned
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 009 | System SHALL rondo returns standard TaskResult to Caliber: | MUST |
 
-9. Rondo returns standard TaskResult to Caliber:
    - `status`: done/partial/error
    - `parsed_result`: JSON with findings array (file, line, severity, message, reviewer)
    - `raw_output`: full AI response
    - `duration_sec`: wall clock
-10. For review tasks: `parsed_result.findings[]` matches Caliber's Finding format
-11. For fix tasks: `parsed_result.fixed_code` contains the corrected code
-12. For contradiction tasks: `parsed_result.contradictions[]` lists conflicting rule pairs
-13. DispatchUsage attached: model, tokens_in, tokens_out, cost_usd, duration_ms
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 010 | System SHALL for review tasks: `parsed_result.findings[]` matches Caliber's Finding format | MUST |
+| 011 | System SHALL for fix tasks: `parsed_result.fixed_code` contains the corrected code | MUST |
+| 012 | System SHALL for contradiction tasks: `parsed_result.contradictions[]` lists conflicting rule pairs | MUST |
+| 013 | System SHALL dispatchUsage attached: model, tokens_in, tokens_out, cost_usd, duration_ms | MUST |
 
 ### Multi-AI Dispatch
-
-14. Caliber requests specific models per task type via Task.model field
-15. Rondo dispatches to whatever model Caliber requests — no overriding
-16. Parallel dispatch: if Caliber sends 2 review tasks (Claude reverse + Gemini forward), Rondo can run both in parallel when workers > 1
-17. Rondo returns separate TaskResult per AI — Caliber handles merging
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 014 | System SHALL caliber requests specific models per task type via Task.model field | MUST |
+| 015 | System SHALL rondo dispatches to whatever model Caliber requests — no overriding | MUST |
+| 016 | System SHALL parallel dispatch: if Caliber sends 2 review tasks (Claude reverse + Gemini forward), Rondo can run both in parallel when workers > 1 | MUST |
+| 017 | System SHALL rondo returns separate TaskResult per AI — Caliber handles merging | MUST |
 
 ### Transport
-
-18. **Python API (primary):** Caliber imports Rondo client — `from rondo import run_round`
-19. **CLI fallback:** `rondo run task.json` for when Caliber can't import directly
-20. Same transport as any other Rondo consumer — no Caliber-specific protocol
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 018 | System SHALL **Python API (primary):** Caliber imports Rondo client — `from rondo import run_round` | MUST |
+| 019 | System SHALL **CLI fallback:** `rondo run task.json` for when Caliber can't import directly | MUST |
+| 020 | System SHALL same transport as any other Rondo consumer — no Caliber-specific protocol | MUST |
 
 ### Standalone Behavior
-
-21. Rondo works without Caliber — it's a general dispatch framework
-22. Nothing in Rondo's code references Caliber specifically
-23. Caliber is just another consumer that sends Task objects and reads TaskResults
-24. If Caliber is not installed, Rondo doesn't know or care
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 021 | System SHALL rondo works without Caliber — it's a general dispatch framework | MUST |
+| 022 | System SHALL nothing in Rondo's code references Caliber specifically | MUST |
+| 023 | System SHALL caliber is just another consumer that sends Task objects and reads TaskResults | MUST |
+| 024 | System SHALL if Caliber is not installed, Rondo doesn't know or care | MUST |
 
 ### Error Handling
-
-25. Caliber sends malformed task → Rondo returns TaskResult with status="error", error_message explains what's wrong
-26. AI model unavailable → Rondo returns status="error" with model name and reason
-27. AI timeout → Rondo respects task timeout, returns partial results if available
-28. Cost budget exceeded → Rondo checks budget before dispatch, returns status="skipped" if over budget
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 025 | System SHALL caliber sends malformed task → Rondo returns TaskResult with status="error", error_message explains what's wrong | MUST |
+| 026 | System SHALL aI model unavailable → Rondo returns status="error" with model name and reason | MUST |
+| 027 | System SHALL aI timeout → Rondo respects task timeout, returns partial results if available | MUST |
+| 028 | System SHALL cost budget exceeded → Rondo checks budget before dispatch, returns status="skipped" if over budget | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 Caliber sits above Rondo in the stack. Caliber owns quality decisions (what to review, how to
@@ -342,7 +358,7 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 | # | Decision | Date | Why |
 |---|----------|------|-----|
 | D1 | No Caliber-specific code in Rondo | 2026-03-19 | Rondo is generic. Caliber is just a consumer. |
-| D2 | Python API primary, CLI fallback | 2026-03-19 | Matches Caliber-IFS-004 transport choice |
+| D2 | Python API primary, CLI fallback | 2026-03-19 | Matches Caliber-IFS-004 transport choice | <!-- REF: Caliber-IFS-004 not found — planned spec, not yet created -->
 | D3 | Rondo doesn't merge multi-AI | 2026-03-19 | Merging is a quality decision, not a dispatch decision. Caliber owns quality. |
 
 ---
@@ -449,6 +465,16 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   sections 2, 4-9, 11-16, 18-34 to reach 35-section compliance.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Caliber-to-Rondo contract | THEORY | Specced for AI review task submission | Phase 2 build |
+| Review result format | THEORY | Specced for structured review output | Phase 2 build |
+| Fix suggestion format | THEORY | Specced for actionable code fixes | Phase 2 build |
+| Multi-directional review protocol | THEORY | Forward/reverse/sideways review specced | Phase 2 build |
+
 
 ## 35. Change History
 

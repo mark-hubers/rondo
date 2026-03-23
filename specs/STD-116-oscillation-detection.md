@@ -32,18 +32,22 @@ AI fix loops can oscillate: fix A breaks B, fix B breaks A, fix A breaks B again
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Track finding fingerprints across fix iterations: which findings appear, disappear, and reappear | MUST | Track test |
-| 2 | Oscillation = finding A appears, disappears after fix, reappears after another fix. A→gone→A = 1 cycle. | MUST | Detect test |
-| 3 | Threshold: 3 oscillation cycles for the same finding = HALT the fix loop | MUST | Halt test |
-| 4 | On halt: mark finding as `OSCILLATING` (severity: block), include oscillation history in result | MUST | Mark test |
-| 5 | Log oscillation chain: iteration 1 (A found) → iteration 2 (A fixed, B found) → iteration 3 (B fixed, A found again) | MUST | Chain test |
-| 6 | Multi-model oscillation: if Claude's fix breaks what Gemini verified, detect across model boundaries | SHOULD | Cross-model test |
-| 7 | Pessimistic consensus: if ANY model's review finds a BLOCK issue with a fix, the fix is rejected. From Caliber STD-105. | MUST | Consensus test |
-| 8 | `rondo oscillations` CLI: show detected oscillation patterns | SHOULD | CLI test |
-| 9 | Oscillation data feeds CORE-STD-011 self-correction: record_guess("fix_resolves_finding") + record_outcome(was_corrected=True if oscillating) | SHOULD | Learning test |
-| 10 | When OB-connected: oscillation events included in OAResult for OB's convergence tracking | SHOULD | Integration test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Track finding fingerprints across fix iterations: which findings appear, disappear, and reappear | MUST | Track test |
+| 002 | Oscillation = finding A appears, disappears after fix, reappears after another fix. A→gone→A = 1 cycle. | MUST | Detect test |
+| 003 | Threshold: 3 oscillation cycles for the same finding = HALT the fix loop | MUST | Halt test |
+| 004 | On halt: mark finding as `OSCILLATING` (severity: block), include oscillation history in result | MUST | Mark test |
+| 005 | Log oscillation chain: iteration 1 (A found) → iteration 2 (A fixed, B found) → iteration 3 (B fixed, A found again) | MUST | Chain test |
+| 006 | Multi-model oscillation: if Claude's fix breaks what Gemini verified, detect across model boundaries | SHOULD | Cross-model test |
+| 007 | Pessimistic consensus: if ANY model's review finds a BLOCK issue with a fix, the fix is rejected. From Caliber STD-105. | MUST | Consensus test |
+| 008 | `rondo oscillations` CLI: show detected oscillation patterns | SHOULD | CLI test |
+| 009 | Oscillation data feeds CORE-STD-011 self-correction: record_guess("fix_resolves_finding") + record_outcome(was_corrected=True if oscillating) | SHOULD | Learning test |
+| 010 | When OB-connected: oscillation events included in OAResult for OB's convergence tracking | SHOULD | Integration test |
+
 
 ---
 
@@ -314,6 +318,15 @@ Fingerprint computation: ~1ms per finding. Oscillation check: ~1ms per iteration
 CORE-STD-012 (Requirement Readiness) treats oscillating findings as blockers — a requirement with oscillating findings cannot reach READY. CORE-STD-013 (TrackerData) records oscillation events for cross-session analysis (which findings oscillate most?). CORE-IFS-005 MCP tools in OB may display oscillation history in quality dashboards.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Oscillation detection | THEORY | Specced for detecting fix-break-fix loops | Phase 2 build |
+| Loop breaking strategy | THEORY | Specced for automatic escalation on oscillation | Phase 2 build |
+| Oscillation metrics | THEORY | Specced for tracking oscillation frequency | Phase 2 build |
+
 
 ## 35. Change History
 

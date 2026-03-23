@@ -50,39 +50,46 @@ notice until an overnight batch fails badly. Trend alerting catches the drift ea
 
 ### Success Rate Trends
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Track per-model success rate: (done tasks / total tasks) over rolling 7-day window | MUST | Rate test |
-| 2 | Alert if any model's success rate drops >10% from 7-day baseline | MUST | Alert test |
-| 3 | Track per-task-type success rate: review tasks vs fix tasks vs generation tasks | SHOULD | Type test |
-| 4 | Flakiness detection: if same task definition succeeds >60% and fails >20% of the time, flag as flaky | SHOULD | Flaky test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Track per-model success rate: (done tasks / total tasks) over rolling 7-day window | MUST | Rate test |
+| 002 | Alert if any model's success rate drops >10% from 7-day baseline | MUST | Alert test |
+| 003 | Track per-task-type success rate: review tasks vs fix tasks vs generation tasks | SHOULD | Type test |
+| 004 | Flakiness detection: if same task definition succeeds >60% and fails >20% of the time, flag as flaky | SHOULD | Flaky test |
+
 
 ### Cost Trends
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 5 | Track per-model cost: average cost_usd per task over rolling 7-day window | MUST | Cost test |
-| 6 | Alert if per-model cost increases >25% from 7-day baseline | MUST | Cost alert test |
-| 7 | Overnight budget projection: "At current rate, tonight's batch will cost ~$X" shown before overnight starts | SHOULD | Projection test |
-| 8 | Track cost efficiency: cost per output token (are we paying more for less?) | SHOULD | Efficiency test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 005 | Track per-model cost: average cost_usd per task over rolling 7-day window | MUST | Cost test |
+| 006 | Alert if per-model cost increases >25% from 7-day baseline | MUST | Cost alert test |
+| 007 | Overnight budget projection: "At current rate, tonight's batch will cost ~$X" shown before overnight starts | SHOULD | Projection test |
+| 008 | Track cost efficiency: cost per output token (are we paying more for less?) | SHOULD | Efficiency test |
+
 
 ### Latency Trends
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 9 | Track per-model latency: average duration_sec per task over rolling 7-day window | MUST | Latency test |
-| 10 | Alert if per-model latency increases >50% from baseline (API degradation signal) | MUST | Latency alert test |
-| 11 | Track queue wait time separately from API time (infrastructure vs model) | SHOULD | Breakdown test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 009 | Track per-model latency: average duration_sec per task over rolling 7-day window | MUST | Latency test |
+| 010 | Alert if per-model latency increases >50% from baseline (API degradation signal) | MUST | Latency alert test |
+| 011 | Track queue wait time separately from API time (infrastructure vs model) | SHOULD | Breakdown test |
+
 
 ### Alerting
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 12 | Trends calculated from dispatch audit trail (STD-113 data) | MUST | Source test |
-| 13 | `rondo trends` CLI: show per-model trends for success rate, cost, latency | SHOULD | CLI test |
-| 14 | `rondo trends --json` for machine-readable output | SHOULD | JSON test |
-| 15 | Alert thresholds configurable in `.rondo/config.toml [trends]` section | SHOULD | Config test |
-| 16 | Trend status per model: `healthy` (within baseline), `degrading` (metric worsening), `critical` (>2x threshold breach) | MUST | Status test |
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 012 | Trends calculated from dispatch audit trail (STD-113 data) | MUST | Source test |
+| 013 | `rondo trends` CLI: show per-model trends for success rate, cost, latency | SHOULD | CLI test |
+| 014 | `rondo trends --json` for machine-readable output | SHOULD | JSON test |
+| 015 | Alert thresholds configurable in `.rondo/config.toml [trends]` section | SHOULD | Config test |
+| 016 | Trend status per model: `healthy` (within baseline), `degrading` (metric worsening), `critical` (>2x threshold breach) | MUST | Status test |
+
 
 ---
 
@@ -439,6 +446,15 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   REQ-107 analyzes root causes and tracks it long-term. The threshold is shared (20%).
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Dispatch trend detection | THEORY | Specced for multi-dispatch trend analysis | Phase 2 build |
+| Cost trend alerting | THEORY | Specced for budget overrun warnings | Phase 2 build |
+| Success rate tracking | THEORY | Specced for per-model success rates | Phase 2 build |
+
 
 ## 35. Change History
 

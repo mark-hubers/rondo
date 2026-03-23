@@ -49,14 +49,18 @@ reproducible, documented, and reversible.
 
 ## 3. Requirements
 
-| # | Requirement | Priority |
-|---|------------|----------|
-| 1 | All 6 build gates pass before release | MUST |
-| 2 | Semantic versioning (MAJOR.MINOR.PATCH) enforced | MUST |
-| 3 | Changelog updated with every release | MUST |
-| 4 | Git tag with product prefix (rondo-vX.Y.Z) | MUST |
-| 5 | Post-release smoke test passes | MUST |
-| 6 | Rollback procedure documented and tested | SHOULD |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | All 6 build gates pass before release | MUST |
+| 002 | Semantic versioning (MAJOR.MINOR.PATCH) enforced | MUST |
+| 003 | Changelog updated with every release | MUST |
+| 004 | Git tag with product prefix (rondo-vX.Y.Z) | MUST |
+| 005 | Post-release smoke test passes | MUST |
+| 006 | Rollback procedure documented and tested | SHOULD |
+
 
 ---
 
@@ -446,6 +450,15 @@ Not applicable — this is a release procedure SOP.
   separate CI/CD, release branches. This SOP will be updated when that happens.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Release procedure | THEORY | Specced but Rondo not yet released | Phase 2 build |
+| Version bump protocol | THEORY | Specced for semantic versioning | Phase 2 build |
+| Release checklist | THEORY | Specced for pre-release verification | Phase 2 build |
+
 
 ## 35. Change History
 

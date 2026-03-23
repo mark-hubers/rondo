@@ -49,24 +49,28 @@ notices. Preflight catches these failures before the first dollar is spent.
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Preflight runs automatically before every `rondo run` command | MUST | Auto test |
-| 2 | Preflight completes in <3 seconds | MUST | Performance test |
-| 3 | Check: `claude` binary on PATH and executable | MUST | Binary test |
-| 4 | Check: Claude Code version matches known-compatible versions (IFS-100 assumption A1) | SHOULD | Version test |
-| 5 | Check: API key or Max plan auth available (per auth mode in config) | MUST | Auth test |
-| 6 | Check: rate limit status — if `blocked`, abort with "Rate limited. Resets at: {time}" | MUST | Rate test |
-| 7 | Check: if `isUsingOverage`, warn "Using overage capacity — costs may be higher" | SHOULD | Overage test |
-| 8 | Check: disk space > 500MB free (worktrees need space) | SHOULD | Disk test |
-| 9 | Check: git available (worktree operations need it) | SHOULD | Git test |
-| 10 | Check: CLAUDECODE env var not set (prevents nested session error — ERR_NESTED_SESSION) | MUST | Env test |
-| 11 | Check: config file exists and parses | MUST | Config test |
-| 12 | Report health as GREEN (go), YELLOW (proceed with warnings), RED (abort) | MUST | Status test |
-| 13 | RED status: abort with clear message and recovery steps | MUST | Abort test |
-| 14 | For overnight batch: run preflight ONCE at start, not per-task. Cache result for batch duration. | SHOULD | Batch test |
-| 15 | `rondo preflight` standalone command: check without dispatching | SHOULD | Standalone test |
-| 16 | Preflight result included in OAResult metadata when OB-connected | SHOULD | Integration test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Preflight runs automatically before every `rondo run` command | MUST | Auto test |
+| 002 | Preflight completes in <3 seconds | MUST | Performance test |
+| 003 | Check: `claude` binary on PATH and executable | MUST | Binary test |
+| 004 | Check: Claude Code version matches known-compatible versions (IFS-100 assumption A1) | SHOULD | Version test |
+| 005 | Check: API key or Max plan auth available (per auth mode in config) | MUST | Auth test |
+| 006 | Check: rate limit status — if `blocked`, abort with "Rate limited. Resets at: {time}" | MUST | Rate test |
+| 007 | Check: if `isUsingOverage`, warn "Using overage capacity — costs may be higher" | SHOULD | Overage test |
+| 008 | Check: disk space > 500MB free (worktrees need space) | SHOULD | Disk test |
+| 009 | Check: git available (worktree operations need it) | SHOULD | Git test |
+| 010 | Check: CLAUDECODE env var not set (prevents nested session error — ERR_NESTED_SESSION) | MUST | Env test |
+| 011 | Check: config file exists and parses | MUST | Config test |
+| 012 | Report health as GREEN (go), YELLOW (proceed with warnings), RED (abort) | MUST | Status test |
+| 013 | RED status: abort with clear message and recovery steps | MUST | Abort test |
+| 014 | For overnight batch: run preflight ONCE at start, not per-task. Cache result for batch duration. | SHOULD | Batch test |
+| 015 | `rondo preflight` standalone command: check without dispatching | SHOULD | Standalone test |
+| 016 | Preflight result included in OAResult metadata when OB-connected | SHOULD | Integration test |
+
 
 ---
 
@@ -434,6 +438,16 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
   dispatch-level preflight — same pattern, different scope.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Dispatch preflight checks | THEORY | Specced for pre-dispatch validation | Phase 1 build |
+| Model availability check | THEORY | Specced for verifying model access | Phase 1 build |
+| Budget validation | THEORY | Specced for token budget pre-check | Phase 1 build |
+| Context size validation | THEORY | Specced for ensuring prompt fits model window | Phase 1 build |
+
 
 ## 35. Change History
 

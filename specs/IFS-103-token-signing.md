@@ -247,6 +247,13 @@ Not applicable — spec is superseded.
 
 ---
 
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Token signing for Rondo | THEORY | Superseded — consolidated to CORE-IFS-002 | After CORE-IFS-002 build |
+
+
 ## 35. Change History
 
 | Version | Date | What Changed |

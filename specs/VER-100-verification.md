@@ -731,6 +731,16 @@ REQUIRED — fill before build.
 
 ---
 
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Verification plan structure | WORKING | Per-spec verification requirements defined | After spec additions |
+| Test-to-requirement mapping | WORKING | Tests reference verified requirements | Every sprint |
+| Verification matrix | THEORY | Specced for cross-spec verification tracking | Phase 2 build |
+| Automated verification runner | THEORY | Specced for end-to-end verification execution | Phase 3 build |
+
+
 ## 35. Change History
 
 | Version | Date | What Changed |

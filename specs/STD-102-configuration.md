@@ -43,23 +43,26 @@ Configuration scattered across hardcoded values, environment variables, and ad-h
 
 ## 3. Requirements
 
-### Configuration File
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Operational config lives in `rondo.toml` at the project root — never hardcoded in source.
-2. Config hierarchy follows COALESCE (first non-null wins): CLI flags > environment vars > `rondo.toml` > built-in defaults.
-3. Config file is human-editable TOML, well-commented. No binary formats, no YAML, no JSON.
-4. Config validation runs at startup — fail fast with a clear error message listing all invalid keys, not one at a time.
-5. Invalid config = hard stop. Rondo refuses to run rather than guess what you meant.
-6. Every config key has a documented default. `rondo config show` (or `--show-config` flag) prints the full resolved config with the source of each value (cli/env/file/default).
-7. Boolean config uses explicit `true`/`false` — no implicit truthy/falsy.
+### Configuration File
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | System SHALL operational config lives in `rondo.toml` at the project root — never hardcoded in source | MUST |
+| 002 | System SHALL config hierarchy follows COALESCE (first non-null wins): CLI flags > environment vars > `rondo.toml` > built-in defaults | MUST |
+| 003 | System SHALL config file is human-editable TOML, well-commented. No binary formats, no YAML, no JSON | MUST |
+| 004 | System SHALL config validation runs at startup — fail fast with a clear error message listing all invalid keys, not one at a time | MUST |
+| 005 | System SHALL invalid config = hard stop. Rondo refuses to run rather than guess what you meant | MUST |
+| 006 | System SHALL every config key has a documented default. `rondo config show` (or `--show-config` flag) prints the full resolved config with the source of each value (cli/env/file/default) | MUST |
+| 007 | System SHALL boolean config uses explicit `true`/`false` — no implicit truthy/falsy | MUST |
 
 ### Config Keys
-
-8. Config file structure:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 008 | System SHALL config file structure: | MUST |
 
 ```toml
 # rondo.toml — Rondo project configuration
-
 [dispatch]
 claude_binary = "claude"           # path to claude CLI
 default_model = "sonnet"           # fallback model (COALESCE chain)
@@ -67,63 +70,64 @@ auth = "max"                       # "max" (subscription) or "api" (pay-per-toke
 permission_mode = "auto"           # Claude Code permission mode
 task_timeout_sec = 300             # per-task subprocess timeout
 output_format = "stream-json"     # always stream-json (do not change)
-
 [paths]
 results_dir = "reports/rondo-results"   # spool directory for result files
 rounds_dir = "rounds/"                  # default location for round definition files
-
 [parallel]
 workers = 1                        # 1 = sequential, >1 = parallel (REQ-101)
 throttle_sec = 2.0                 # delay between dispatches (rate limit protection)
-
 [overnight]
 enabled = false                    # overnight scheduler (REQ-101)
 phases_dir = "rounds/overnight/"   # phase definition files
 ```
-
 ### Sensitive Values
-
-9. API keys and credentials MUST come from environment variables only — never in `rondo.toml`, never in version control.
-10. `ANTHROPIC_API_KEY` is the standard env var for API-mode auth. When `auth = "max"`, Rondo strips this from the child process environment.
-11. No config value is logged if it could be a secret. Config show/dump masks env-sourced values: `ANTHROPIC_API_KEY = ****`.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 009 | API keys and credentials MUST come from environment variables only — never in `rondo.toml`, never in version control | MUST |
+| 010 | System SHALL `ANTHROPIC_API_KEY` is the standard env var for API-mode auth. When `auth = "max"`, Rondo strips this from the child process environment | MUST |
+| 011 | System SHALL no config value is logged if it could be a secret. Config show/dump masks env-sourced values: `ANTHROPIC_API_KEY = ****` | MUST |
 
 ### Path Resolution
-
-12. All paths in config are relative to the project root (where `rondo.toml` lives). Never absolute paths in config files.
-13. Canonical path resolution via `config.py` — all path construction goes through `RondoConfig`. No `os.path.join` scattered in source.
-14. Missing directories are created on first use — Rondo never fails because a results directory does not exist yet.
-15. Path resolution is deterministic: same root + same config = same paths on any machine.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 012 | System SHALL all paths in config are relative to the project root (where `rondo.toml` lives). Never absolute paths in config files | MUST |
+| 013 | System SHALL canonical path resolution via `config.py` — all path construction goes through `RondoConfig`. No `os.path.join` scattered in source | MUST |
+| 014 | System SHALL missing directories are created on first use — Rondo never fails because a results directory does not exist yet | MUST |
+| 015 | System SHALL path resolution is deterministic: same root + same config = same paths on any machine | MUST |
 
 ### Round Definitions (Code, Not Config)
-
-16. Round definitions are Python code, not TOML. They need logic (gates, closures, conditionals) that config formats cannot express.
-17. A round definition file MUST contain a `build_round()` function that returns a `Round` object.
-18. Round definitions MUST import only from `rondo.engine` (Round, Task, Gate). They MUST NOT import Rondo internals (dispatch, runner, config).
-19. Round definitions MAY accept parameters to customize their tasks. The CLI passes parameters via `--param key=value`.
-20. Model selection per task follows COALESCE: CLI `--model` flag > `task.model` hint > `config.default_model` > `"sonnet"` hardcoded fallback.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 016 | System SHALL round definitions are Python code, not TOML. They need logic (gates, closures, conditionals) that config formats cannot express | MUST |
+| 017 | A round definition file MUST contain a `build_round()` function that returns a `Round` object | MUST |
+| 018 | Round definitions MUST import only from `rondo.engine` (Round, Task, Gate). They MUST NOT import Rondo internals (dispatch, runner, config) | MUST |
+| 019 | System SHALL round definitions MAY accept parameters to customize their tasks. The CLI passes parameters via `--param key=value` | SHOULD |
+| 020 | System SHALL model selection per task follows COALESCE: CLI `--model` flag > `task.model` hint > `config.default_model` > `"sonnet"` hardcoded fallback | MUST |
 
 ### Auth Mode
-
-21. Auth mode MUST be selectable via CLI flag (`--auth max|api`). Default: `max`.
-22. When `auth = "max"`: strip `ANTHROPIC_API_KEY` from child environment. Claude uses the subscription plan ($0 marginal cost).
-23. When `auth = "api"`: preserve `ANTHROPIC_API_KEY` in child environment. Claude uses pay-per-token billing.
-24. Auth mode is logged on every dispatch at INFO level: `"Dispatching task 'X' (model=sonnet, auth=max)"`.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 021 | Auth mode MUST be selectable via CLI flag (`--auth max|api`). Default: `max` | MUST |
+| 022 | System SHALL when `auth = "max"`: strip `ANTHROPIC_API_KEY` from child environment. Claude uses the subscription plan ($0 marginal cost) | MUST |
+| 023 | System SHALL when `auth = "api"`: preserve `ANTHROPIC_API_KEY` in child environment. Claude uses pay-per-token billing | MUST |
+| 024 | System SHALL auth mode is logged on every dispatch at INFO level: `"Dispatching task 'X' (model=sonnet, auth=max)"` | MUST |
 
 ### Config Validation
-
-25. Unknown keys in `rondo.toml` are warnings, not errors — forward-compatible with newer Rondo versions.
-26. Type mismatches are hard errors: string where integer expected = fail.
-27. Range validation: `task_timeout_sec` must be > 0, `workers` must be >= 1, `throttle_sec` must be >= 0.
-28. `rondo config validate` checks the config file without running anything — exit 0 = valid, exit 1 = errors printed to stderr.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 025 | System SHALL unknown keys in `rondo.toml` are warnings, not errors — forward-compatible with newer Rondo versions | MUST |
+| 026 | System SHALL type mismatches are hard errors: string where integer expected = fail | MUST |
+| 027 | System SHALL range validation: `task_timeout_sec` must be > 0, `workers` must be >= 1, `throttle_sec` must be >= 0 | MUST |
+| 028 | System SHALL `rondo config validate` checks the config file without running anything — exit 0 = valid, exit 1 = errors printed to stderr | MUST |
 
 ### Environment Variable Overrides
-
-29. Every config key has a corresponding env var: `RONDO_DISPATCH_MODEL`, `RONDO_PATHS_RESULTS_DIR`, `RONDO_PARALLEL_WORKERS`.
-30. Naming convention: `RONDO_` prefix + section + key, all uppercase, dots become underscores.
-31. Env vars override config file values — useful for CI/CD or overnight automation where config files may differ.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 029 | System SHALL every config key has a corresponding env var: `RONDO_DISPATCH_MODEL`, `RONDO_PATHS_RESULTS_DIR`, `RONDO_PARALLEL_WORKERS` | MUST |
+| 030 | System SHALL naming convention: `RONDO_` prefix + section + key, all uppercase, dots become underscores | MUST |
+| 031 | System SHALL env vars override config file values — useful for CI/CD or overnight automation where config files may differ | SHOULD |
 
 ---
-
 ## 4. Architecture / Design
 
 Configuration resolves through a 4-layer COALESCE chain: CLI flags (highest priority) > environment variables > `rondo.toml` file > built-in defaults (lowest). `RondoConfig` is the single Python object that holds the resolved configuration. All code reads from `RondoConfig`, never directly from env vars or TOML.
@@ -385,6 +389,15 @@ Config resolution happens once at startup (~1ms for TOML parse + COALESCE). No r
 CORE-STD-012 (Requirement Readiness) uses config validity as a prerequisite — a requirement cannot be READY if its config dependencies are invalid. CORE-STD-013 (TrackerData) records config change events for audit. CORE-IFS-005 MCP tools may expose read-only config queries in future versions.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Configuration standards | THEORY | Specced for Rondo config format | Phase 1 build |
+| Configuration hierarchy | THEORY | Specced for defaults < project < user | Phase 1 build |
+| Runtime configuration | WORKING | Environment variables used currently | After config changes |
+
 
 ## 35. Change History
 

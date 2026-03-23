@@ -42,68 +42,75 @@ Without structured observability, overnight failures are black boxes. A task fai
 
 ## 3. Requirements
 
-### Logging
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-1. Every log entry MUST include four fields: `timestamp` (ISO 8601 UTC per STD-100 rule 1), `level`, `source` (module name: `dispatch`, `runner`, `config`, etc.), and `message`.
-2. Log levels use standard Python logging: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. No custom levels.
-3. CLI output uses status prefixes for machine-parseable results: `-PASS-`, `-FAIL-`, `-ERROR-`, `-WARNING-`. These prefixes appear at the start of the line.
-4. Log to stderr, not stdout. Stdout is reserved for structured output (JSON result objects, round summaries). This separation allows piping Rondo output.
-5. Every dispatch MUST be logged with: task name, model, auth mode, and duration. On completion, add status and token counts.
-6. Dry-run mode MUST log the prompt that would be sent without invoking Claude, prefixed with `-DRYRUN-`.
+### Logging
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 001 | Every log entry MUST include four fields: `timestamp` (ISO 8601 UTC per STD-100 rule 1), `level`, `source` (module name: `dispatch`, `runner`, `config`, etc.), and `message` | MUST |
+| 002 | System SHALL log levels use standard Python logging: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. No custom levels | MUST |
+| 003 | System SHALL cLI output uses status prefixes for machine-parseable results: `-PASS-`, `-FAIL-`, `-ERROR-`, `-WARNING-`. These prefixes appear at the start of the line | MUST |
+| 004 | System SHALL log to stderr, not stdout. Stdout is reserved for structured output (JSON result objects, round summaries). This separation allows piping Rondo output | MUST |
+| 005 | Every dispatch MUST be logged with: task name, model, auth mode, and duration. On completion, add status and token counts | MUST |
+| 006 | Dry-run mode MUST log the prompt that would be sent without invoking Claude, prefixed with `-DRYRUN-` | MUST |
 
 ### Subprocess Capture
-
-7. Dispatch MUST capture stdout and stderr from each `claude -p` subprocess as separate streams. Both are preserved in the TaskResult.
-8. Dispatch MUST use `--output-format stream-json` to capture real token counts, cost, cache stats, and API timing. Text mode does not provide these (F20 lesson).
-9. From stream-json events, dispatch extracts: `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_create_tokens`, `cost_usd`, `duration_ms`, `duration_api_ms`, `num_turns`, `context_window`. These populate DispatchUsage.
-10. Raw stdout (full stream-json output) MUST be preserved in the TaskResult for debugging. The parsed fields are convenience — the raw data is the source of truth.
-11. If stream-json parsing fails, fall back to raw text capture. Log at WARNING. Set status to `partial`. Never discard output because parsing failed.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 007 | Dispatch MUST capture stdout and stderr from each `claude -p` subprocess as separate streams. Both are preserved in the TaskResult | MUST |
+| 008 | Dispatch MUST use `--output-format stream-json` to capture real token counts, cost, cache stats, and API timing. Text mode does not provide these (ACE-STD-020 lesson) | MUST |
+| 009 | System SHALL from stream-json events, dispatch extracts: `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_create_tokens`, `cost_usd`, `duration_ms`, `duration_api_ms`, `num_turns`, `context_window`. These populate DispatchUsage | MUST |
+| 010 | Raw stdout (full stream-json output) MUST be preserved in the TaskResult for debugging. The parsed fields are convenience — the raw data is the source of truth | MUST |
+| 011 | System SHALL if stream-json parsing fails, fall back to raw text capture. Log at WARNING. Set status to `partial`. Never discard output because parsing failed | MUST |
 
 ### Error Handling
-
-12. No bare `except` clauses. Catch specific exceptions. `except Exception` only at system boundaries (CLI entry point, runner top-level).
-13. Every error MUST carry: an `error_code` (uppercase with prefix, e.g., `DISPATCH_TIMEOUT`, `PARSE_MALFORMED`), a human-readable `message`, and `context` describing what task was being dispatched.
-14. Subprocess failures (non-zero exit code) MUST record: exit code, stderr content, task name, model, duration. Status becomes `error`.
-15. Malformed JSON from Claude (stdout is not valid JSON matching the result contract) MUST record: raw output preserved, status becomes `partial`, log at WARNING.
-16. Empty stdout from subprocess MUST be treated as `error`, not silently ignored. Log at ERROR with stderr content.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 012 | System SHALL no bare `except` clauses. Catch specific exceptions. `except Exception` only at system boundaries (CLI entry point, runner top-level) | MUST |
+| 013 | Every error MUST carry: an `error_code` (uppercase with prefix, e.g., `DISPATCH_TIMEOUT`, `PARSE_MALFORMED`), a human-readable `message`, and `context` describing what task was being dispatched | MUST |
+| 014 | Subprocess failures (non-zero exit code) MUST record: exit code, stderr content, task name, model, duration. Status becomes `error` | MUST |
+| 015 | Malformed JSON from Claude (stdout is not valid JSON matching the result contract) MUST record: raw output preserved, status becomes `partial`, log at WARNING | MUST |
+| 016 | Empty stdout from subprocess MUST be treated as `error`, not silently ignored. Log at ERROR with stderr content | MUST |
 
 ### Retry Policy
-
-17. Rondo does NOT retry dispatches by default. A failed task stays failed for this round. Retries are the consumer's responsibility (run the round again).
-18. Rate limit detection: if stream-json includes a `rate_limit_event` indicating blocked status, log at WARNING with `rate_limit_resets_at`. Do not retry — record the rate limit in DispatchUsage and let the consumer decide.
-19. Subprocess timeout: configurable via `task_timeout_sec` in config. Default: 300 seconds. On timeout, kill the process, record status `error` with error_code `DISPATCH_TIMEOUT`.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 017 | System SHALL rondo does NOT retry dispatches by default. A failed task stays failed for this round. Retries are the consumer's responsibility (run the round again) | MUST |
+| 018 | System SHALL rate limit detection: if stream-json includes a `rate_limit_event` indicating blocked status, log at WARNING with `rate_limit_resets_at`. Do not retry — record the rate limit in DispatchUsage and let the consumer decide | MUST |
+| 019 | System SHALL subprocess timeout: configurable via `task_timeout_sec` in config. Default: 300 seconds. On timeout, kill the process, record status `error` with error_code `DISPATCH_TIMEOUT` | MUST |
 
 ### Performance
-
-20. Every task dispatch MUST track wall-clock `duration_sec` using `time.perf_counter()` (start to finish including subprocess overhead).
-21. Stream-json provides `duration_ms` (API wall-clock) and per-turn timing. These go into DispatchUsage, separate from the Python-measured wall-clock.
-22. Per-dispatch cost tracking MUST capture: `input_tokens`, `output_tokens`, `cost_usd`, `cache_read_tokens`, `cache_create_tokens`. Source: stream-json `result` event.
-23. Round-level summary MUST aggregate: total `duration_sec`, total `cost_usd`, total tasks, pass/fail counts. This is the `RoundResult.summary` field.
-24. All performance data MUST be available in the returned RoundResult object AND in spool files. Consumers should not need to parse logs for metrics.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 020 | Every task dispatch MUST track wall-clock `duration_sec` using `time.perf_counter()` (start to finish including subprocess overhead) | MUST |
+| 021 | System SHALL stream-json provides `duration_ms` (API wall-clock) and per-turn timing. These go into DispatchUsage, separate from the Python-measured wall-clock | MUST |
+| 022 | Per-dispatch cost tracking MUST capture: `input_tokens`, `output_tokens`, `cost_usd`, `cache_read_tokens`, `cache_create_tokens`. Source: stream-json `result` event | MUST |
+| 023 | Round-level summary MUST aggregate: total `duration_sec`, total `cost_usd`, total tasks, pass/fail counts. This is the `RoundResult.summary` field | MUST |
+| 024 | All performance data MUST be available in the returned RoundResult object AND in spool files. Consumers should not need to parse logs for metrics | MUST |
 
 ### Spool Files
-
-25. Every task result MUST be written to a JSON file in the results directory immediately after dispatch completes. Files persist across crashes.
-26. Spool directory structure: `{results_dir}/{round-name}_{ISO-timestamp}/task-{NN}-{task-name}.json`. One directory per round execution.
-27. Round summary MUST be written as `round-summary.json` in the same directory after all tasks complete.
-28. Spool files have a configurable TTL (default: 30 days). Cleanup is the consumer's responsibility — Rondo writes, consumers prune.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 025 | Every task result MUST be written to a JSON file in the results directory immediately after dispatch completes. Files persist across crashes | MUST |
+| 026 | System SHALL spool directory structure: `{results_dir}/{round-name}_{ISO-timestamp}/task-{NN}-{task-name}.json`. One directory per round execution | MUST |
+| 027 | Round summary MUST be written as `round-summary.json` in the same directory after all tasks complete | MUST |
+| 028 | System SHALL spool files have a configurable TTL (default: 30 days). Cleanup is the consumer's responsibility — Rondo writes, consumers prune | MUST |
 
 ### Metrics: Store Everything, Prune Later
-
 **GOLDEN RULE: Don't decide what's noise at capture time. Decide at query time.**
-
-29. Default is KEEP ALL. Every measurement stored in spool files. What looks like noise today is the pattern ACE discovers tomorrow.
-30. Spool-based metrics: each TaskResult includes a `metrics` dict with `metric_name`, `metric_value`, `metric_unit`, `context`, `captured_at`. Consumers (OB, ACE) ingest into their DBs.
-31. Store per-dispatch: task name, model, auth_mode, pass/fail, duration_ms, output_length, prompt_length.
-32. Store per-API-call (from stream-json): endpoint, tokens_in, tokens_out, cost_usd, response_time_ms, model, cache_read_tokens, cache_create_tokens.
-33. Store per-file (when dispatching file-scoped tasks): line_count, function_count, complexity score, findings count.
-34. Store per-round (via DispatchUsage fields): duration, working_time, findings, files_changed, total_cost_usd, total_tokens.
-35. Cost: ~200 bytes per metric entry in spool JSON. Store everything for years.
-36. Monthly prune job: flag metrics with zero variance or zero queries. Mark approves deletion. NEVER auto-delete. Rondo spool TTL (28 days default) is separate — metrics survive in consumer DBs.
-37. Cross-project mining via ACE: noise in one project = pattern across five.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 029 | System SHALL default is KEEP ALL. Every measurement stored in spool files. What looks like noise today is the pattern ACE discovers tomorrow | MUST |
+| 030 | System SHALL spool-based metrics: each TaskResult includes a `metrics` dict with `metric_name`, `metric_value`, `metric_unit`, `context`, `captured_at`. Consumers (OB, ACE) ingest into their DBs | MUST |
+| 031 | System SHALL store per-dispatch: task name, model, auth_mode, pass/fail, duration_ms, output_length, prompt_length | MUST |
+| 032 | System SHALL store per-API-call (from stream-json): endpoint, tokens_in, tokens_out, cost_usd, response_time_ms, model, cache_read_tokens, cache_create_tokens | MUST |
+| 033 | System SHALL store per-file (when dispatching file-scoped tasks): line_count, function_count, complexity score, findings count | MUST |
+| 034 | System SHALL store per-round (via DispatchUsage fields): duration, working_time, findings, files_changed, total_cost_usd, total_tokens | MUST |
+| 035 | System SHALL cost: ~200 bytes per metric entry in spool JSON. Store everything for years | MUST |
+| 036 | System SHALL monthly prune job: flag metrics with zero variance or zero queries. Mark approves deletion. NEVER auto-delete. Rondo spool TTL (28 days default) is separate — metrics survive in consumer DBs | MUST |
+| 037 | System SHALL cross-project mining via ACE: noise in one project = pattern across five | MUST |
 
 ---
-
 ## 4. Architecture / Design
 
 Three observability layers: (1) Python `logging` for Rondo's own operations (config loading, runner decisions), (2) subprocess stdout/stderr capture for each `claude -p` dispatch, (3) stream-json parsing for structured metrics (tokens, cost, timing). All three converge into the TaskResult and spool file for each dispatch.
@@ -307,7 +314,7 @@ Stream-json parser: 4 hours (event parsing, field extraction, fallback). Logging
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| D1: Stream-json over text mode | Text mode estimates costs — stream-json gives actuals (F20 lesson) | 2026-03-18 |
+| D1: Stream-json over text mode | Text mode estimates costs — stream-json gives actuals (ACE-STD-020 lesson) | 2026-03-18 |
 | D2: No retry in Rondo | Retry is consumer responsibility — Rondo captures, consumers decide | 2026-03-18 |
 | D3: Stderr for logs, stdout for data | Clean separation enables piping Rondo output to consumers | 2026-03-18 |
 
@@ -390,6 +397,15 @@ Spool writes add ~5ms per dispatch (atomic write + fsync). Stream-json parsing a
 CORE-STD-012 readiness tracking depends on accurate dispatch metrics to assess whether requirements are testable. CORE-STD-013 TrackerData format aligns with the append-only spool pattern. CORE-IFS-005 MCP tools may expose observability queries in future versions.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Structured logging | WORKING | Python logging configured | After logging changes |
+| Log level standards | WORKING | DEBUG/INFO/WARNING/ERROR used consistently | After level changes |
+| Metric emission | THEORY | Specced for structured metric output | Phase 2 build |
+
 
 ## 35. Change History
 

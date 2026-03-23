@@ -45,24 +45,28 @@ Overnight runs produce results but no explanation. A task failed — was the pro
 
 ## 3. Requirements
 
-| # | Requirement | Priority | Verified By |
-|---|------------|----------|-------------|
-| 1 | Every dispatch produces an audit record BEFORE the subprocess launches (intent recorded) | MUST | Timing test |
-| 2 | Audit record updated AFTER dispatch completes (outcome recorded) | MUST | Completion test |
-| 3 | Audit record contains: dispatch_id (ULID), task_name, model, prompt_hash (SHA-256 of prompt), timestamp, duration_sec, cost_usd, status, exit_code | MUST | Schema test |
-| 4 | Full prompt text stored in separate file: `audit/{dispatch_id}.prompt.txt` | MUST | Prompt test |
-| 5 | Full result stored in separate file: `audit/{dispatch_id}.result.json` | MUST | Result test |
-| 6 | Files modified (heuristic extraction from output) stored in audit record | SHOULD | Files test |
-| 7 | Audit records stored in `rondo_audit.jsonl` (append-only, one JSON object per line) | MUST | Storage test |
-| 8 | Audit files stored in `~/.rondo/audit/` or configured path | MUST | Path test |
-| 9 | Credential scrubbing applied per CORE-STD-010 reqs 19-22 before writing audit files | MUST | Scrub test |
-| 10 | Audit records are append-only. Never modify or delete existing records. | MUST | Immutability test |
-| 11 | `rondo audit` CLI: query audit log by date range, task name, model, status | SHOULD | Query test |
-| 12 | `rondo audit {dispatch_id}` CLI: show full audit record including prompt and result | SHOULD | Detail test |
-| 13 | `rondo audit --cost` CLI: show total cost for date range | SHOULD | Cost test |
-| 14 | Overnight runs: morning report references dispatch_ids for failed tasks so Mark can audit | MUST | Report test |
-| 15 | Audit retention: keep forever by default. `audit_retention_days` config to auto-archive old files. | SHOULD | Retention test |
-| 16 | When OB-connected: dispatch_ids included in OAResult for cross-product traceability | SHOULD | Integration test |
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 001 | Every dispatch produces an audit record BEFORE the subprocess launches (intent recorded) | MUST | Timing test |
+| 002 | Audit record updated AFTER dispatch completes (outcome recorded) | MUST | Completion test |
+| 003 | Audit record contains: dispatch_id (ULID), task_name, model, prompt_hash (SHA-256 of prompt), timestamp, duration_sec, cost_usd, status, exit_code | MUST | Schema test |
+| 004 | Full prompt text stored in separate file: `audit/{dispatch_id}.prompt.txt` | MUST | Prompt test |
+| 005 | Full result stored in separate file: `audit/{dispatch_id}.result.json` | MUST | Result test |
+| 006 | Files modified (heuristic extraction from output) stored in audit record | SHOULD | Files test |
+| 007 | Audit records stored in `rondo_audit.jsonl` (append-only, one JSON object per line) | MUST | Storage test |
+| 008 | Audit files stored in `~/.rondo/audit/` or configured path | MUST | Path test |
+| 009 | Credential scrubbing applied per CORE-STD-010 reqs 19-22 before writing audit files | MUST | Scrub test |
+| 010 | Audit records are append-only. Never modify or delete existing records. | MUST | Immutability test |
+| 011 | `rondo audit` CLI: query audit log by date range, task name, model, status | SHOULD | Query test |
+| 012 | `rondo audit {dispatch_id}` CLI: show full audit record including prompt and result | SHOULD | Detail test |
+| 013 | `rondo audit --cost` CLI: show total cost for date range | SHOULD | Cost test |
+| 014 | Overnight runs: morning report references dispatch_ids for failed tasks so Mark can audit | MUST | Report test |
+| 015 | Audit retention: keep forever by default. `audit_retention_days` config to auto-archive old files. | SHOULD | Retention test |
+| 016 | When OB-connected: dispatch_ids included in OAResult for cross-product traceability | SHOULD | Integration test |
+
 
 ---
 
@@ -336,6 +340,15 @@ JSONL append: ~1ms per record. Prompt file write: ~5ms (includes fsync). Disk us
 CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal — if dispatches are missing audit records, something is wrong. CORE-STD-013 (TrackerData) aligns with the append-only JSONL pattern. CORE-IFS-005 MCP tools may reference dispatch_ids from OB's side but do not query Rondo's audit files directly.
 
 ---
+
+### Feature Maturity
+
+| Feature | Maturity | Evidence | Retest |
+|---------|----------|----------|--------|
+| Dispatch audit logging | THEORY | Specced for recording every dispatch with metadata | Phase 1 build |
+| Audit trail integrity | THEORY | Specced for tamper-evident logging | Phase 2 build |
+| Audit queries | THEORY | Specced for searching dispatch history | Phase 1 build |
+
 
 ## 35. Change History
 

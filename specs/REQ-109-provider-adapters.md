@@ -387,6 +387,8 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | All providers down | No dispatch possible | Ollama (local) as last resort |
 | Routing table misconfigured | Wrong provider for task type | Config validation at startup |
 | Affinity data misleading | Bad routing suggestion | Manual override always wins |
+| Claude Code CLI flags change | `--output-format stream-json` or other flags removed/renamed | REQ-103 smoke test catches before dispatch. Version compatibility matrix tracks known-good flag sets. |
+| Claude Code CLI update breaks overnight | Silent failures in batch runs | REQ-103 preflight re-validates on version change (req 020). Detailed debug logging (req 024). |
 
 ---
 

@@ -457,6 +457,12 @@ REQUIRED — fill before build.
 
 ---
 
+## 10. Rules & Constraints
+
+— if applicable.
+
+---
+
 ## 11. Quality Attributes
 
 — if applicable.
@@ -552,6 +558,12 @@ REQUIRED — fill before build.
 ---
 
 ## 26. External Scan
+
+— if applicable.
+
+---
+
+## 27. Security Considerations
 
 — if applicable.
 

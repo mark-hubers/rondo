@@ -354,6 +354,12 @@ REQUIRED — fill before build.
 
 ---
 
+## 7. MCP / API Interface
+
+— if applicable.
+
+---
+
 ## 8. States & Modes
 
 — if applicable.

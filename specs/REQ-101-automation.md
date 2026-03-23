@@ -298,6 +298,12 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
+## 4. Architecture / Design
+
+REQUIRED — fill before build.
+
+---
+
 ## 5. Data Model
 
 REQUIRED — fill before build.

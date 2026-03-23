@@ -356,6 +356,12 @@ REQUIRED — fill before build.
 
 ---
 
+## 5. Data Model
+
+REQUIRED — fill before build.
+
+---
+
 ## 6. Data Boundary
 
 REQUIRED — fill before build.
@@ -374,7 +380,25 @@ REQUIRED — fill before build.
 
 ---
 
+## 9. Configuration
+
+— if applicable.
+
+---
+
+## 10. Rules & Constraints
+
+— if applicable.
+
+---
+
 ## 11. Quality Attributes
+
+— if applicable.
+
+---
+
+## 12. Shared Patterns
 
 — if applicable.
 

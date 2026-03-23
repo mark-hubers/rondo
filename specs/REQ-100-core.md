@@ -831,7 +831,19 @@ reports/rondo-results/
 
 ---
 
+## 4. Architecture / Design
+
+REQUIRED — fill before build.
+
+---
+
 ## 5. Data Model
+
+REQUIRED — fill before build.
+
+---
+
+## 6. Data Boundary
 
 REQUIRED — fill before build.
 

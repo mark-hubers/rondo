@@ -30,6 +30,14 @@ Defines how every Rondo component logs its activity, handles errors, and tracks 
 - Configuration loading (STD-102: Configuration)
 - Consumer-side storage of results (OB's concern, not Rondo's)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+Without structured observability, overnight failures are black boxes. A task fails at 3 AM — what was the prompt? What did Claude return? How long did it take? Without per-dispatch capture, debugging requires re-running the task and hoping the failure reproduces. Rondo's subprocess model means standard application logging misses the critical data: it lives inside the child process.
+
 ---
 
 ## 3. Requirements
@@ -96,6 +104,42 @@ Defines how every Rondo component logs its activity, handles errors, and tracks 
 
 ---
 
+## 4. Architecture / Design
+
+Three observability layers: (1) Python `logging` for Rondo's own operations (config loading, runner decisions), (2) subprocess stdout/stderr capture for each `claude -p` dispatch, (3) stream-json parsing for structured metrics (tokens, cost, timing). All three converge into the TaskResult and spool file for each dispatch.
+
+---
+
+## 5. Data Model
+
+Observability data lives in two places: the `TaskResult` dataclass (per-dispatch metrics, stdout, stderr, parsed result) and the `RoundResult` (aggregated summary). No separate observability schema — metrics are fields on the result objects, not a parallel data store.
+
+---
+
+## 6. Data Boundary
+
+Rondo captures and stores observability data in spool files. Consumers (OB, ACE) ingest from spool. The boundary is the spool directory. Rondo never pushes metrics — consumers pull from the filesystem. This keeps Rondo stateless and decoupled.
+
+---
+
+## 7. MCP / API Interface
+
+Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-IFS-005 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (Rondo-IFS-100) provides dispatch status over MCP.
+
+---
+
+## 8. States & Modes
+
+Logging verbosity is mode-dependent: `--verbose` enables DEBUG-level logging to stderr. Default is INFO. Dry-run mode (`--dry-run`) logs prompts with `-DRYRUN-` prefix without dispatching. These modes affect log volume, not log structure.
+
+---
+
+## 9. Configuration
+
+Logging configuration follows COALESCE: `RONDO_LOG_LEVEL` env var > `rondo.toml [logging] level` > default `INFO`. Spool directory is configured via STD-102 `paths.results_dir`. Log format is not configurable — structured format is mandatory for machine parsing.
+
+---
+
 ## 10. Rules & Constraints
 
 ### CLI Status Prefix Reference
@@ -155,9 +199,202 @@ RoundResult      spool file
 
 ---
 
+## 11. Quality Attributes
+
+- **Completeness:** Every dispatch produces a full metrics record, even on failure.
+- **Traceability:** Any result can be traced to its raw stdout via the spool file.
+- **Non-intrusiveness:** Observability never alters dispatch behavior — it captures, never modifies.
+
+---
+
+## 12. Shared Patterns
+
+- **Stream-json extraction:** Same parsing logic for all dispatch backends (Claude today, Gemini/Ollama future).
+- **Status prefix convention:** `-PASS-`, `-FAIL-`, `-ERROR-` shared with ACE build gates and Caliber output.
+- **Spool mailbox pattern:** Write-once, read-many — shared with STD-104 persistence model.
+
+---
+
+## 13. Integration Points
+
+| Integration | What Crosses | Standard Enforced |
+|-------------|-------------|-------------------|
+| Rondo → OB | DispatchUsage metrics | STD-100 field names |
+| Rondo → Caliber | Task pass/fail status | Status prefix convention |
+| Rondo → ACE | Cost and timing aggregates | NAMING-MAP.md alignment |
+| Rondo → CORE-STD-013 | Dispatch events as TrackerData entries | Append-only event format |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How It Applies |
+|----------|---------------|
+| CORE-STD-002 | Parent observability standard — Rondo adapts logging, errors, performance for dispatch context |
+| CORE-STD-012 | Requirement readiness — dispatch metrics feed readiness assessments |
+| CORE-STD-013 | TrackerData — dispatch events are trackable data points |
+| CORE-IFS-005 | MCP standard — future observability queries via MCP tools |
+
+---
+
+## 15. Self-Correction
+
+Observability enables self-correction in consumers, not in Rondo itself. Rondo captures the data; OB's CORE-STD-011 loop uses it to detect patterns (e.g., "sonnet fails this task 80% of the time — switch to opus"). Rondo's role is to capture faithfully, not to act on the patterns.
+
+---
+
+## 16. Assumptions
+
+1. Claude CLI `--output-format stream-json` remains stable across versions.
+2. Stream-json `result` event always contains token counts and cost fields.
+3. Filesystem writes to spool directory complete atomically (same-filesystem rename).
+4. Consumers poll spool directories — Rondo does not notify on write.
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | Every dispatch produces a spool file with complete DispatchUsage | Spool test |
+| 2 | Failed dispatches have stderr content preserved in TaskResult | Error test |
+| 3 | Stream-json parse failure falls back gracefully with zeroed metrics | Fallback test |
+| 4 | Morning report shows cost, duration, pass/fail for overnight run | Report test |
+
+---
+
+## 18. Build Notes / Estimate
+
+Stream-json parser: 4 hours (event parsing, field extraction, fallback). Logging setup: 2 hours (structured format, stderr routing). Spool writer: covered by STD-104. Total observability-specific: ~6 hours.
+
+---
+
+## 19. Test Categories
+
+| Category | What It Tests |
+|----------|--------------|
+| Stream-json parsing | Real fixture files → correct DispatchUsage extraction |
+| Error capture | Subprocess failures → stderr preserved, status correct |
+| Log format | Structured log entries have all required fields |
+| Spool completeness | Every dispatch → spool file exists with metrics |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Stream-json format change | Zeroed metrics (graceful fallback) | Version-pinned fixtures, fallback path |
+| Spool write failure | Metrics lost for that dispatch | Atomic write + temp file recovery (STD-104) |
+| Stderr truncation | Incomplete error context | Capture limit configurable, default 10KB |
+
+---
+
+## 21. Dependencies + Used By
+
+| Direction | Spec | Relationship |
+|-----------|------|-------------|
+| Depends on | CORE-STD-002 | Parent observability standard |
+| Depends on | STD-100 | Field naming conventions |
+| Depends on | CORE-STD-013 | TrackerData event format |
+| Used by | STD-105 | AI operations cost tracking uses these metrics |
+| Used by | STD-113 | Audit trail stores observability data |
+| Used by | IFS-102 | OB ingests metrics from spool |
+
+---
+
+## 22. Decisions
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| D1: Stream-json over text mode | Text mode estimates costs — stream-json gives actuals (F20 lesson) | 2026-03-18 |
+| D2: No retry in Rondo | Retry is consumer responsibility — Rondo captures, consumers decide | 2026-03-18 |
+| D3: Stderr for logs, stdout for data | Clean separation enables piping Rondo output to consumers | 2026-03-18 |
+
+---
+
+## 23. Open Questions
+
+None currently. Metric storage depth (how many fields per dispatch) settled in v0.2 with "Store Everything, Prune Later."
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Stream-json** | Claude CLI output format providing structured event stream with metrics |
+| **Spool file** | JSON result file written per dispatch to the results directory |
+| **DispatchUsage** | Dataclass capturing per-dispatch metrics (tokens, cost, timing) |
+
+---
+
+## 25. Risk / Criticality
+
+**HIGH.** Observability is the only way to debug overnight failures. If spool files are incomplete or metrics are zeroed, post-mortem analysis is impossible. Stream-json parsing is the critical path — any Claude CLI format change breaks metric capture.
+
+---
+
+## 26. External Scan
+
+Python `logging` module is the standard. No external observability frameworks (Prometheus, OpenTelemetry) needed — Rondo is local-first. If remote observability is needed later, consumers export from spool files.
+
+---
+
+## 27. Security Considerations
+
+Log entries must not contain API keys or prompt content. Stderr capture may include sensitive error messages — scrub per STD-114 before writing to spool. Spool file permissions: 0600 (owner-read-write only, per STD-104).
+
+---
+
+## 28. Performance / Resource
+
+Spool writes add ~5ms per dispatch (atomic write + fsync). Stream-json parsing adds ~2ms per dispatch. Negligible compared to the 10-300 second dispatch duration. Log volume: ~1KB per dispatch at INFO level, ~10KB at DEBUG.
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Role | Date | Verdict |
+|----------|------|------|---------|
+| Mark Hubers | Owner | 2026-03-22 | Approved (Session 84) |
+
+---
+
+## 30. AI Review
+
+— filled after build.
+
+---
+
+## 31. AI Went Wrong
+
+— filled during build.
+
+---
+
+## 32. AI Assumptions
+
+— filled during build.
+
+---
+
+## 33. AI Cost
+
+— filled during build.
+
+---
+
+## 34. Notes
+
+CORE-STD-012 readiness tracking depends on accurate dispatch metrics to assess whether requirements are testable. CORE-STD-013 TrackerData format aligns with the append-only spool pattern. CORE-IFS-005 MCP tools may expose observability queries in future versions.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.2 | 2026-03-19 | Added "Metrics: Store Everything, Prune Later" section (reqs 29-37). Spool-based metrics with consumer ingestion, per-dispatch/per-API/per-file/per-round storage, monthly prune with approval, cross-project ACE mining. Total: 37 requirements. |
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-002 topics (logging, errors, performance) adapted for Rondo's dispatch context. 28 requirements. Stream-json capture, spool file naming, no-retry policy, rate limit detection. |
+| 0.3 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

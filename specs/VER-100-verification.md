@@ -523,6 +523,8 @@ Caliber (quality checker)
 
 REQUIRED — fill before build.
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem
@@ -532,6 +534,8 @@ REQUIRED — fill before build.
 ---
 
 ## 3. Requirements
+
+*All requirements in this spec are MUST priority unless marked SHOULD.*
 
 REQUIRED — fill before build.
 
@@ -599,7 +603,11 @@ REQUIRED — fill before build.
 
 ## 14. Standards Applied
 
-— if applicable.
+| Standard | How Applied |
+|----------|-------------|
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
 
 ---
 

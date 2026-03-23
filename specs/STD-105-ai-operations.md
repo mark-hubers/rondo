@@ -32,6 +32,14 @@ Defines the rules for how Rondo works with AI systems. Unlike OB (which consumes
 - Spec digest format (CORE-STD-006 domain — Rondo dispatches prompts, not specs)
 - AI self-correction loops (CORE-STD-004 domain)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+AI dispatch without cost tracking is a blank check. Without model routing, every task uses the same model regardless of complexity. Without rate limit awareness, overnight runs fail silently when the API throttles them. Rondo must be the intelligent dispatch layer — routing tasks to the right model, tracking every dollar spent, and handling API constraints gracefully.
+
 ---
 
 ## 3. Requirements
@@ -103,6 +111,42 @@ Defines the rules for how Rondo works with AI systems. Unlike OB (which consumes
 
 ---
 
+## 4. Architecture / Design
+
+Dispatch follows a pipeline: resolve model (COALESCE) → construct subprocess args → spawn `claude -p` → capture stream-json → parse into DispatchUsage → return TaskResult. The dispatch module handles subprocess mechanics. The runner handles task sequencing. Model-to-backend routing is resolved before subprocess construction.
+
+---
+
+## 5. Data Model
+
+`DispatchUsage` is the core data model — a Python dataclass with 13 fields capturing everything about a single AI dispatch. Fields match NAMING-MAP.md exactly. DispatchUsage is attached to each TaskResult and serialized to spool files. No separate cost database — consumers aggregate from DispatchUsage.
+
+---
+
+## 6. Data Boundary
+
+Rondo produces DispatchUsage per dispatch. OB ingests it into `sprint_intelligence`. Caliber reads cost from scan results. The boundary is the DispatchUsage object (in-memory) and the spool file (on-disk). Field names are the contract — same names on both sides per NAMING-MAP.md.
+
+---
+
+## 7. MCP / API Interface
+
+Future MCP tools (Rondo-IFS-100, CORE-IFS-005): `rondo_query_cost` (cost estimate), `rondo_query_providers` (available models), `rondo_action_dispatch` (send prompt). Current v1.0: no MCP interface. Dispatch is via CLI (`rondo run`) or Python import.
+
+---
+
+## 8. States & Modes
+
+Two auth modes affect AI operations: `max` (subscription, $0 marginal cost, rate-limited by plan) and `api` (pay-per-token, cost-tracked, higher limits). Tool mode per task: `default` (Claude chooses tools), `none` (no file tools), `sandbox` (skip permissions). Model selection per task via COALESCE.
+
+---
+
+## 9. Configuration
+
+AI operations config in `rondo.toml [dispatch]`: `default_model`, `auth`, `task_timeout_sec`, `output_format`, `permission_mode`. Per-task model hints in round definitions. Model allowlist in `config.py`. See STD-102 for full config resolution.
+
+---
+
 ## 10. Rules & Constraints
 
 ### Model Selection COALESCE
@@ -150,8 +194,204 @@ Round authors pick the right model per task. Operators override with `--model` w
 
 ---
 
+## 11. Quality Attributes
+
+- **Cost transparency:** Every dispatch has a dollar amount. No hidden costs.
+- **Model flexibility:** Task complexity matches model capability via COALESCE hints.
+- **Graceful degradation:** Rate limits and parse failures produce partial results, not crashes.
+
+---
+
+## 12. Shared Patterns
+
+- **COALESCE model selection:** CLI > task hint > config > default. Same idiom as config resolution (STD-102).
+- **DispatchUsage as transfer object:** Same fields consumed by OB, Caliber, and ACE — zero translation.
+- **Stream-json extraction:** Shared parsing logic across all Claude-based dispatches.
+
+---
+
+## 13. Integration Points
+
+| Integration | What Crosses | Standard Enforced |
+|-------------|-------------|-------------------|
+| Rondo → Claude CLI | `claude -p` subprocess with model/auth args | Dispatch protocol (section 3) |
+| Rondo → OB | DispatchUsage fields | NAMING-MAP.md |
+| Rondo → Caliber | Cost per scan dispatch | DispatchUsage.cost_usd |
+| Rondo → CORE-STD-013 | Dispatch cost events | TrackerData format |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How It Applies |
+|----------|---------------|
+| CORE-STD-006 | Parent AI operations standard — Rondo adapts for dispatch context |
+| CORE-STD-012 | Requirement readiness — model availability is a dispatch prerequisite |
+| CORE-STD-013 | TrackerData — dispatch events (cost, model, duration) are trackable |
+| CORE-IFS-005 | MCP standard — future dispatch and cost query tools |
+
+---
+
+## 15. Self-Correction
+
+Rondo captures data that enables consumer self-correction: cost trends, model performance, rate limit patterns. OB's CORE-STD-011 loop uses DispatchUsage history to learn optimal model routing. Rondo itself does not self-correct — it dispatches what it is told, faithfully.
+
+---
+
+## 16. Assumptions
+
+1. Claude CLI supports `--output-format stream-json` with stable event format.
+2. Claude CLI supports `--model` flag for model selection.
+3. Rate limit information is available in stream-json events (not guaranteed for all plans).
+4. Cost per token is calculated by the API, not by Rondo.
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | Every dispatch produces a complete DispatchUsage with real token counts | Dispatch test |
+| 2 | Model COALESCE resolves correctly at each priority level | COALESCE test |
+| 3 | Rate limit detected → logged at WARNING, not crash | Rate limit test |
+| 4 | Invalid model name → rejected before subprocess spawn | Validation test |
+
+---
+
+## 18. Build Notes / Estimate
+
+Dispatch module: 6 hours (subprocess construction, stream-json parsing, DispatchUsage assembly). Model routing: 2 hours (COALESCE resolver, model allowlist). Rate limit handling: 2 hours. Multi-backend interface: 2 hours (abstract interface, Claude backend). Total: ~12 hours.
+
+---
+
+## 19. Test Categories
+
+| Category | What It Tests |
+|----------|--------------|
+| Dispatch tests | Subprocess args, env stripping, stream-json parsing |
+| Model routing tests | COALESCE resolution at each priority level |
+| Rate limit tests | Detection, logging, DispatchUsage population |
+| Cost tracking tests | DispatchUsage field accuracy from fixture data |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Stream-json parse failure | Zeroed DispatchUsage (graceful) | Fallback path with WARNING log |
+| Rate limit blocked | Dispatch fails, cost_usd=0 | Logged, consumer decides retry |
+| Invalid model | Dispatch rejected | Validation before subprocess spawn |
+| API key missing (api mode) | Subprocess fails immediately | Config validation at startup |
+
+---
+
+## 21. Dependencies + Used By
+
+| Direction | Spec | Relationship |
+|-----------|------|-------------|
+| Depends on | CORE-STD-006 | Parent AI operations standard |
+| Depends on | STD-102 | Config provides model, auth, timeout |
+| Depends on | CORE-STD-012 | Model availability prerequisites |
+| Used by | STD-101 | Observability captures DispatchUsage metrics |
+| Used by | STD-113 | Audit trail records dispatch details |
+| Used by | IFS-102 | OB ingests DispatchUsage |
+
+---
+
+## 22. Decisions
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| D1: Stream-json mandatory | Text mode estimates costs — stream-json gives actuals (F20 lesson) | 2026-03-18 |
+| D2: No auto-retry | Retry is consumer responsibility. Rondo reports, consumers decide. | 2026-03-18 |
+| D3: Multi-backend interface from day 1 | Even though v1.0 is Claude-only, the interface enables Gemini/Ollama later | 2026-03-18 |
+
+---
+
+## 23. Open Questions
+
+1. Will Claude CLI stream-json format remain stable across major versions?
+2. When Gemini/Ollama backends are added, will DispatchUsage fields cover their metric formats?
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **DispatchUsage** | Dataclass capturing per-dispatch metrics (tokens, cost, timing, rate limit) |
+| **COALESCE** | First non-null value in a precedence chain wins — used for model selection |
+| **Stream-json** | Claude CLI output format providing structured event stream |
+| **Auth mode** | `max` (subscription) or `api` (pay-per-token) |
+
+---
+
+## 25. Risk / Criticality
+
+**HIGH.** AI operations is Rondo's core value. Cost tracking errors affect budget decisions. Model routing errors affect result quality. Rate limit mishandling causes silent overnight failures. DispatchUsage accuracy is critical for OB's intelligence tracking.
+
+---
+
+## 26. External Scan
+
+Anthropic Claude CLI is the primary backend. No industry-standard AI dispatch framework exists — Rondo is purpose-built. Multi-model routing draws from ML model serving patterns (TFServing, Seldon) adapted for local CLI dispatch.
+
+---
+
+## 27. Security Considerations
+
+API key isolation: env var stripping based on auth mode (STD-107 rules 16-19). Model allowlist prevents unauthorized model use. Cost caps prevent runaway API spend. See STD-107 for full security requirements around AI dispatch.
+
+---
+
+## 28. Performance / Resource
+
+Dispatch overhead: ~50ms (arg construction, env setup). Stream-json parsing: ~2ms. Total overhead per dispatch: <100ms — negligible compared to 10-300 second AI response time. Memory: DispatchUsage is <1KB per dispatch.
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Role | Date | Verdict |
+|----------|------|------|---------|
+| Mark Hubers | Owner | 2026-03-22 | Approved (Session 84) |
+
+---
+
+## 30. AI Review
+
+— filled after build.
+
+---
+
+## 31. AI Went Wrong
+
+— filled during build.
+
+---
+
+## 32. AI Assumptions
+
+— filled during build.
+
+---
+
+## 33. AI Cost
+
+— filled during build.
+
+---
+
+## 34. Notes
+
+CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch prerequisite. CORE-STD-013 (TrackerData) records dispatch cost events for trend analysis. CORE-IFS-005 MCP tools will expose dispatch and cost queries when Rondo-IFS-100 is built.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-006 topics (AI management, cost tracking, multi-model) adapted for Rondo as the dispatch layer. 26 requirements. COALESCE model routing, DispatchUsage field contract, rate limit handling, multi-backend future architecture, tool mode per task. |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

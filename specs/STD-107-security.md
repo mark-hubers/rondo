@@ -33,6 +33,8 @@ Defines security rules for the Rondo stateless dispatch system. Rondo's attack s
 - Caliber-specific scan integrity threats (Caliber-STD-107)
 - What Rondo dispatches (task definitions are OB's domain)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem — Why AI Systems Have Unique Threats
@@ -56,6 +58,8 @@ Rondo is the last gate before content leaves the local machine. Every rule here 
 ---
 
 ## 3. Requirements
+
+*All requirements in this spec are MUST priority unless marked SHOULD.*
 
 ### Standard Security Baseline (rules 1-7)
 
@@ -98,6 +102,42 @@ Rondo is the last gate before content leaves the local machine. Every rule here 
 25. **Prompt content protection** — task prompts sent to external AIs do not include classified spec content. If a spec has `Classification: redacted`, only requirement numbers and structural information are included, never the full text.
 26. **Response validation** — API responses are validated against expected schema before processing. Malformed responses (truncated JSON, unexpected fields, injection attempts in response text) are rejected and logged.
 27. **No persistent state** — Rondo does not cache API responses, task definitions, or intermediate results beyond the current dispatch cycle. When a dispatch completes, all local copies of prompts and responses are cleaned up. Persistent storage is OB's responsibility.
+
+---
+
+## 4. Architecture / Design
+
+Security is enforced at four layers: (1) pre-commit (gitleaks prevents secrets in git), (2) config validation (API keys from env only, file permissions checked at startup), (3) dispatch boundary (subprocess environment constructed explicitly, spool file signing, output sanitization), (4) runtime monitoring (anomaly detection, cost caps, rate limiting). Each layer catches threats the previous layer might miss.
+
+---
+
+## 5. Data Model
+
+Security events are logged as structured entries: `timestamp`, `event_type` (HMAC_REJECT, AUTH_FAIL, RATE_LIMIT, ANOMALY), `dispatch_id`, `detail`. No dedicated security database — events go to the dispatch log (STD-101) and spool files. HMAC signatures are stored alongside spool files.
+
+---
+
+## 6. Data Boundary
+
+Security enforcement happens at every data boundary: spool file read (HMAC validation), subprocess spawn (env construction), subprocess output (sanitization before storage), and API calls (HTTPS only). The boundaries are: filesystem → Rondo → subprocess → API → subprocess → Rondo → filesystem.
+
+---
+
+## 7. MCP / API Interface
+
+No MCP interface for security controls. Security is enforced internally. CORE-IFS-005 MCP tools do not expose security configuration or override security controls. Security events are queryable only via audit logs (STD-113), not via MCP.
+
+---
+
+## 8. States & Modes
+
+Security has no modes — all rules are always active. There is no "relaxed security" mode. The only conditional behavior is auth mode (`max` vs `api`) which affects API key handling. Rate limiting thresholds are configurable but the rate limiter itself cannot be disabled.
+
+---
+
+## 9. Configuration
+
+Security config in `rondo.toml` is limited to thresholds: `max_dispatches_per_hour`, `hourly_cost_budget_usd`, `key_max_age_days`. Security fundamentals (HMAC signing, HTTPS enforcement, subprocess isolation) are not configurable — they are always on. `RONDO_SIGNING_KEY` is env-var only.
 
 ---
 
@@ -153,8 +193,204 @@ Rondo is the last gate before content leaves the local machine. Every rule here 
 
 ---
 
+## 11. Quality Attributes
+
+- **Defense in depth:** Four layers of enforcement — no single failure exposes the system.
+- **Auditability:** Every security event is logged with enough detail for post-mortem.
+- **Non-bypassable:** Security controls cannot be disabled via config. Gitleaks hook requires removing tracked config.
+
+---
+
+## 12. Shared Patterns
+
+- **HMAC signing:** Same pattern as OB's OAPayload signing for tamper detection.
+- **Env-var-only secrets:** Shared with ACE2, OB, Caliber — no secrets in files.
+- **Subprocess environment construction:** Explicit allowlist, not blind inheritance. Shared with STD-104.
+
+---
+
+## 13. Integration Points
+
+| Integration | What Crosses | Standard Enforced |
+|-------------|-------------|-------------------|
+| Rondo → pre-commit | Gitleaks hook | No secrets in git |
+| Rondo → subprocess | Constructed environment | Env var isolation (rules 17-19) |
+| Rondo → spool | HMAC-signed files | Tamper detection (rule 8) |
+| Rondo → CORE-STD-013 | Security events as TrackerData | Append-only audit |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How It Applies |
+|----------|---------------|
+| CORE-STD-008 | Parent security standard — Rondo adapts for dispatch pipeline threats |
+| CORE-STD-012 | Requirement readiness — security prerequisites must be met before dispatch |
+| CORE-STD-013 | TrackerData — security events are trackable for trend analysis |
+| CORE-IFS-005 | MCP standard — security controls are NOT exposed via MCP (by design) |
+
+---
+
+## 15. Self-Correction
+
+Security does not self-correct — it enforces fixed rules. Anomaly detection (rule 21) is the closest to adaptive behavior: it learns the failure rate baseline and alerts on deviation. CORE-STD-011 patterns do not apply to security rules — they are operator-defined policies, not AI-learned behaviors.
+
+---
+
+## 16. Assumptions
+
+1. Operators set `RONDO_SIGNING_KEY` before first use — no default signing key.
+2. Filesystem permissions are enforced by the OS (macOS/Linux POSIX).
+3. Gitleaks patterns cover common secret formats (API keys, tokens, passwords).
+4. HTTPS is available for all external API endpoints (no HTTP fallback needed).
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | Tampered spool file → HMAC rejection → dispatch blocked | Tamper test |
+| 2 | Cost flooding attempt → rate limiter pauses dispatch | Rate limit test |
+| 3 | No secrets in git history after 100+ commits | Gitleaks full-repo scan |
+| 4 | Classified spec → external dispatch blocked by data sovereignty check | Sovereignty test |
+
+---
+
+## 18. Build Notes / Estimate
+
+HMAC signing: 3 hours (sign on write, verify on read, key management). Rate limiter: 3 hours (rolling window, cost tracking, pause logic). Anomaly detection: 2 hours (failure rate tracking, alerting). Data sovereignty: 2 hours (classification check, dispatch gate). Total: ~10 hours.
+
+---
+
+## 19. Test Categories
+
+| Category | What It Tests |
+|----------|--------------|
+| HMAC tests | Sign, verify, tamper detection, key rotation |
+| Rate limit tests | Dispatch cap, cost cap, backoff behavior |
+| Env isolation tests | API key stripping, CLAUDECODE removal |
+| Convention tests | No shell=True, no hardcoded secrets, no sqlite3 |
+| Sovereignty tests | Classification check before external dispatch |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Signing key not set | All spool files unsigned → HMAC validation fails | Startup check for RONDO_SIGNING_KEY |
+| Rate limiter bypass | Unbounded API cost | Rate limiter is non-configurable-off |
+| Gitleaks hook removed | Secrets could enter git | Hook config tracked in git — removal is visible in diff |
+
+---
+
+## 21. Dependencies + Used By
+
+| Direction | Spec | Relationship |
+|-----------|------|-------------|
+| Depends on | CORE-STD-008 | Parent security standard |
+| Depends on | STD-102 | Config provides thresholds and key references |
+| Depends on | CORE-STD-012 | Security prerequisites for dispatch readiness |
+| Used by | STD-104 | Infrastructure enforces file permissions |
+| Used by | STD-114 | Output sanitization extends security to AI output |
+| Used by | STD-113 | Audit trail records security events |
+
+---
+
+## 22. Decisions
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| D1: HMAC on spool files | Prevents tampered task injection — critical for overnight unattended runs | 2026-03-18 |
+| D2: No "relaxed security" mode | Security is always on. No dev-mode shortcuts that leak to production. | 2026-03-18 |
+| D3: Cost caps over retry limits | Cost is the real risk — rate limiting by cost, not just by count | 2026-03-18 |
+
+---
+
+## 23. Open Questions
+
+1. Should HMAC signing extend to audit files (STD-113) for full tamper evidence chain?
+2. Should anomaly detection baseline be per-round or global across all rounds?
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **HMAC-SHA256** | Hash-based message authentication code for spool file integrity |
+| **Data sovereignty** | Preventing classified content from leaving the local machine |
+| **Cost flooding** | Attack vector where many dispatches generate unbounded API cost |
+| **Spool poisoning** | Injecting crafted spool files to execute arbitrary tasks |
+
+---
+
+## 25. Risk / Criticality
+
+**CRITICAL.** Security failures are irreversible: leaked secrets, exfiltrated code, unbounded cost. Rondo is the last gate before content reaches external AI APIs. Every security rule here protects that boundary. P0 threats (classified content leak, cost flooding) have immediate financial and IP impact.
+
+---
+
+## 26. External Scan
+
+OWASP covers web security — not applicable to local dispatch. Rondo's threat model is specific to AI dispatch pipelines: spool poisoning, worktree escape, cost flooding, prompt injection via output. No existing framework covers these — this spec defines the threat model from first principles.
+
+---
+
+## 27. Security Considerations
+
+This IS the security spec. All 27 rules in section 3 are security considerations. The threat priority table (section 10) ranks all known attack vectors. Cross-references: STD-104 (file permissions), STD-114 (output sanitization), STD-113 (audit trail).
+
+---
+
+## 28. Performance / Resource
+
+HMAC signing: ~1ms per spool file. Rate limit check: ~0.1ms per dispatch (in-memory counter). Anomaly detection: ~1ms per dispatch (rolling window calculation). Total security overhead per dispatch: <5ms — negligible compared to dispatch duration.
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Role | Date | Verdict |
+|----------|------|------|---------|
+| Mark Hubers | Owner | 2026-03-22 | Approved (Session 84) |
+
+---
+
+## 30. AI Review
+
+— filled after build.
+
+---
+
+## 31. AI Went Wrong
+
+— filled during build.
+
+---
+
+## 32. AI Assumptions
+
+— filled during build.
+
+---
+
+## 33. AI Cost
+
+— filled during build.
+
+---
+
+## 34. Notes
+
+CORE-STD-012 (Requirement Readiness) treats security prerequisites as gating conditions — dispatch cannot proceed if signing key is missing or permissions are wrong. CORE-STD-013 (TrackerData) records security events for trend analysis (are attack attempts increasing?). CORE-IFS-005 MCP tools intentionally do NOT expose security controls — security is enforced internally, not queryable externally.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. 27 rules across 5 categories: standard baseline (7), spool/pipeline threats (8), API key/cost control (4), audit/detection (4), data protection (4). Rondo attack surface table covering spool files, subprocess isolation, API keys, cost attacks, dispatch output, prompt protection, response validation, and replay prevention. |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

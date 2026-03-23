@@ -2,19 +2,60 @@
 
 *How to build, test, and run Rondo from scratch.*
 
-**Created:** 2026-03-18 | **Status:** DESIGNED
+**Created:** 2026-03-18 | **Updated:** 2026-03-22 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 0.1
+**Version:** 0.2
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-SOP-001, Caliber-SOP-100, Rondo-SOP-100
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
 ---
 
-## 1. Prerequisites
+## 1. Purpose & Scope
+
+**What this SOP does:** Step-by-step procedure for setting up, building, testing, and
+running Rondo from a clean checkout. Covers prerequisites, environment setup, build gates,
+test execution, and runtime verification.
+
+**IN scope:**
+- Prerequisites and system requirements
+- Python venv setup and package installation
+- Build gates (format, lint, security, types, tests)
+- Running Rondo (single task, overnight, parallel)
+- Verification and troubleshooting
+
+**OUT scope:**
+- Spec creation (SOP-100 owns that)
+- Release process (SOP-102 owns that)
+- Incident response (SOP-103 owns that)
+
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+Without a documented build procedure, new contributors (or Mark after a long break) waste
+time figuring out the right Python version, the correct venv setup, which bandit rules to
+skip, and what "passing" looks like. This SOP eliminates guesswork.
+
+---
+
+## 3. Requirements
+
+| # | Requirement | Priority |
+|---|------------|----------|
+| 1 | Build procedure reproducible from clean checkout in <10 minutes | MUST |
+| 2 | All 6 build gates must pass before code is considered buildable | MUST |
+| 3 | Coverage floor enforced at 90% | MUST |
+| 4 | Tests mock Claude CLI — no real API calls during build | MUST |
+| 5 | Troubleshooting section covers common failures | SHOULD |
+
+## Prerequisites
 
 | Requirement | Minimum Version | Check Command |
 |-------------|----------------|---------------|
@@ -32,7 +73,32 @@
 
 ---
 
-## 2. Setup
+## 4. Architecture / Design
+
+### Build Gate Pipeline
+
+```
+1. ruff format --check    → Code formatting
+2. ruff check             → Linting
+3. bandit -r src/rondo/   → Security scan
+4. mypy src/rondo/        → Type checking
+5. pytest tests/          → Test suite
+6. Coverage check         → >= 90%
+```
+
+All 6 gates must pass. Failure in any gate blocks the build.
+
+---
+
+## 5. Data Model
+
+Not applicable — this is a build procedure. No runtime data model.
+
+---
+
+## 6. Data Boundary
+
+### Setup
 
 1. Clone the repository (Rondo lives inside the ace2 monorepo):
    ```bash
@@ -63,7 +129,16 @@
 
 ---
 
-## 3. Build
+## 7. MCP / API Interface
+
+Not applicable for this SOP. Future: CORE-IFS-005 MCP tools could trigger build gates
+remotely, enabling CI/CD integration without SSH access.
+
+---
+
+## 8. States & Modes
+
+### Build
 
 Rondo is a Python package. No compile step.
 
@@ -91,7 +166,9 @@ Rondo is a Python package. No compile step.
 
 ---
 
-## 4. Test
+## 9. Configuration
+
+### Test
 
 1. Run the full test suite:
    ```bash
@@ -111,7 +188,14 @@ Rondo is a Python package. No compile step.
 
 ---
 
-## 5. Run
+## 10. Rules & Constraints
+
+1. **All 6 gates must pass.** No exceptions. Format, lint, security, types, tests, coverage. Violation ID: `SOP101-ALL-GATES`
+2. **B404/B603 are expected.** Bandit subprocess warnings are legitimate for Rondo. Skip them. Violation ID: `SOP101-BANDIT-SKIP`
+3. **No real API calls in tests.** All provider interactions are mocked. Violation ID: `SOP101-MOCK-ONLY`
+4. **90% coverage floor.** Non-negotiable. Violation ID: `SOP101-COVERAGE-FLOOR`
+
+### Run
 
 Rondo runs via the `rondo` CLI:
 
@@ -144,7 +228,20 @@ Rondo runs via the `rondo` CLI:
 
 ---
 
-## 6. Verify
+## 11. Quality Attributes
+
+| Attribute | Target | Rationale |
+|-----------|--------|-----------|
+| Reproducibility | Same result on clean checkout | Build must be deterministic |
+| Speed | Full build + test in <5 minutes | Fast feedback loop |
+| Coverage | >= 90% | Sufficient for critical dispatch code |
+| Security | Zero bandit findings (excluding B404/B603) | No security regressions |
+
+---
+
+## 12. Shared Patterns
+
+### Verify
 
 After setup, confirm Rondo is working:
 
@@ -161,7 +258,37 @@ If all checks pass, Rondo is ready for development.
 
 ---
 
-## 7. Troubleshooting
+## 13. Integration Points
+
+| Integration | What | Notes |
+|-------------|------|-------|
+| ace-build | Monorepo build tool | `ace-build full` runs all gates |
+| pre-commit hooks | Automated gate enforcement | Runs on every commit |
+| CI/CD (future) | Automated build pipeline | Same 6 gates |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How Applied |
+|----------|-------------|
+| CORE-STD-003 (Quality) | 90% coverage floor, 6 build gates |
+| CORE-STD-012 (Requirement Readiness) | Build gates validate spec readiness |
+| CORE-STD-013 (TrackerData) | Build results logged as trackerdata |
+| CORE-IFS-005 (MCP Standard) | Future MCP tool for remote build triggering |
+| STD-111 (Code Quality) | ruff lint rules |
+
+---
+
+## 15. Self-Correction
+
+- If a build gate fails, the error output includes the exact command to re-run and the
+  exact file/line that failed. No "build failed" without context.
+- If coverage drops below 90% after a code change, pytest reports exactly which lines
+  are uncovered, guiding the developer to write targeted tests.
+- If a new bandit rule fires (not B404/B603), it must be investigated, not skipped.
+
+### Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
@@ -173,8 +300,187 @@ If all checks pass, Rondo is ready for development.
 
 ---
 
-## 8. Change History
+## 16. Assumptions
+
+| # | Assumption | If Wrong |
+|---|-----------|----------|
+| A1 | Python 3.12+ is available on the build machine | May need pyenv or container |
+| A2 | pip install -e . works for monorepo structure | May need explicit path configuration |
+| A3 | Claude CLI is installed and on PATH | Preflight (REQ-103) catches this |
+| A4 | macOS or Linux build environment | Windows not supported |
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | Clean checkout → build in <10 minutes | Time the procedure |
+| 2 | All 6 gates pass | Run each gate command |
+| 3 | Coverage >= 90% | pytest --cov output |
+| 4 | rondo --help works | CLI test |
+| 5 | Troubleshooting covers top 5 issues | Manual review |
+
+---
+
+## 18. Build Notes / Estimate
+
+Not applicable — this IS the build procedure.
+
+---
+
+## 19. Test Categories
+
+| Category | What | Count (est.) |
+|----------|------|-------------|
+| Gate | Each build gate runs independently | 6 |
+| Smoke | rondo --help, rondo run with mock | 2 |
+| Coverage | Coverage report matches floor | 1 |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Python version too old | Build fails at syntax level | Prerequisites table + check command |
+| Missing dependency | Import error at test time | pip install -e . covers all deps |
+| Bandit false positive | Build blocked by legitimate code | --skip known false positives |
+| Coverage drop after refactor | Gate fails | Write tests before refactoring |
+
+---
+
+## 21. Dependencies + Used By
+
+| Depends On | Why |
+|------------|-----|
+| CORE-SOP-001 | Universal build procedure template |
+| STD-111 | Code quality rules (ruff config) |
+| DEC-017 | Universal SOP numbering |
+
+| Used By | Why |
+|---------|-----|
+| SOP-102 | Release procedure pre-checks use this build process |
+| All developers | Entry point for development |
+
+---
+
+## 22. Decisions
+
+| # | Decision | Date | Why |
+|---|----------|------|-----|
+| D1 | 6 build gates (not 3, not 10) | 2026-03-18 | Covers format, lint, security, types, tests, coverage |
+| D2 | B404/B603 skip is permanent | 2026-03-18 | Subprocess is Rondo's core pattern, not a vulnerability |
+| D3 | 90% coverage floor | 2026-03-18 | High enough for dispatch-critical code, not 100% which penalizes exploration |
+| D4 | Mock all AI providers in tests | 2026-03-18 | Tests must be fast, free, and deterministic |
+
+---
+
+## 23. Open Questions
+
+| # | Question | Impact | Status |
+|---|----------|--------|--------|
+| Q1 | Should there be a `rondo build` CLI command that runs all 6 gates? | Developer convenience | OPEN |
+| Q2 | Should build results be persisted for trend analysis? | Build performance tracking | OPEN |
+| Q3 | Should there be a Docker-based build for reproducibility? | CI/CD portability | OPEN — future |
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Build gate** | One of 6 quality checks that must pass before code is considered buildable |
+| **Coverage floor** | Minimum test coverage percentage (90%) enforced by build |
+| **Editable install** | `pip install -e .` — package installed as symlink for development |
+| **B404/B603** | Bandit rules for subprocess — false positives for Rondo |
+
+---
+
+## 25. Risk / Criticality
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Build tool version drift | Medium | Gates behave differently | Pin tool versions in requirements-dev.txt |
+| Coverage drops unnoticed | Low | Quality regression | 90% floor enforced in CI |
+| New developer can't build | Medium | Lost productivity | This SOP + troubleshooting section |
+
+---
+
+## 26. External Scan
+
+Build gate pattern is standard in Python projects. Tools used (ruff, bandit, mypy, pytest)
+are industry-standard. The 6-gate pattern matches ACE's ace-build tool. Similar to
+GitHub Actions CI workflows with multiple quality checks.
+
+---
+
+## 27. Security Considerations
+
+- Bandit security scan runs on every build. B404/B603 are the only allowed skips.
+- Dependencies should be audited regularly (`pip audit` or equivalent).
+- No real API keys used during testing — all providers mocked.
+
+---
+
+## 28. Performance / Resource
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Full build (all 6 gates) | <5 minutes | Most time in pytest |
+| Format check | <5 seconds | ruff format is fast |
+| Lint | <10 seconds | ruff check is fast |
+| Security scan | <15 seconds | bandit scans src/ only |
+| Type check | <30 seconds | mypy on src/ only |
+| Test suite | <3 minutes | All tests mocked |
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Date | Verdict | Notes |
+|----------|------|---------|-------|
+| Mark Hubers | 2026-03-22 | APPROVED | Session 84 — fill to 35 sections |
+
+---
+
+## 30. AI Review
+
+Not applicable — this is a build procedure SOP.
+
+---
+
+## 31. AI Went Wrong
+
+Not applicable — this is a build procedure SOP.
+
+---
+
+## 32. AI Assumptions
+
+Not applicable — this is a build procedure SOP.
+
+---
+
+## 33. AI Cost
+
+Not applicable — this is a build procedure SOP.
+
+---
+
+## 34. Notes
+
+- The B404/B603 bandit skip is a deliberate decision, not a workaround. Rondo's core
+  purpose is invoking Claude via subprocess. Bandit flagging subprocess as a vulnerability
+  would make every file in the project fail the security scan.
+- The 90% coverage floor was chosen because Rondo has critical financial implications
+  (AI costs money). Under-tested dispatch code could silently overspend.
+
+---
+
+## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft — universal SOP-001 for Rondo. |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |

@@ -29,9 +29,19 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 - How Caliber automates these checks (Caliber-STD-106 domain)
 - OB or Caliber product-specific adaptations (CORE-STD-007, Caliber-STD-106)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+Specs are the source of truth for code. A bug in a spec becomes a bug in every implementation. Sessions 75-79 proved this: severity mismatches, heading/filename drift, dangling cross-references, and multi-purpose specs all produced real code defects. The 28-point checklist catches these before code is built, not after.
+
 ---
 
 ## 3. Requirements
+
+*All requirements in this spec are MUST priority unless marked SHOULD.*
 
 ### Directional Reviews (checks 1-7)
 
@@ -78,6 +88,42 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 
 ---
 
+## 4. Architecture / Design
+
+The 28 checks are organized into 5 categories executed in order: directional reviews (1-7), interface checks (8-10), data consistency (11-17), structural checks (18-23), deep review (24-28). Each category targets a different failure mode. The checks can be run manually or automated via Caliber dispatches through Rondo.
+
+---
+
+## 5. Data Model
+
+Check results are captured as findings: check number, pass/fail, spec name, description of violation, evidence (line number or cross-reference). Findings feed into OB's audit trail (OB-REQ-105) or Rondo's spool files when checks are automated.
+
+---
+
+## 6. Data Boundary
+
+Spec quality checks read specs (input) and produce findings (output). The boundary is spec files on one side and finding records on the other. Rondo's own specs are validated by these checks. When automated via Caliber, findings go to spool files per STD-101.
+
+---
+
+## 7. MCP / API Interface
+
+No direct MCP interface. Spec quality checks are run as Rondo tasks (dispatched to Claude for deep review) or as local scripts (structural checks). CORE-IFS-005 MCP tools could expose check results in future via consumer stores.
+
+---
+
+## 8. States & Modes
+
+Checks run in two modes: manual (human-driven review using the checklist) and automated (Caliber dispatches checks through Rondo). Both modes use the same 28 checks. Automated mode produces machine-parseable findings; manual mode produces review notes.
+
+---
+
+## 9. Configuration
+
+No configuration — the 28 checks are fixed. Check thresholds (e.g., what constitutes a "structural" vs "deep" check) are defined in this spec, not in config files. The check list is versioned with the spec, not with config.
+
+---
+
 ## 10. Rules & Constraints
 
 ### When to Run
@@ -112,8 +158,200 @@ Defines the 28 checks that every spec must pass before code gets built. These ch
 
 ---
 
+## 11. Quality Attributes
+
+- **Completeness:** 28 checks cover directional, interface, data, structural, and deep review dimensions.
+- **Evidence-backed:** Every check earned its place by catching a real bug (evidence table in section 10).
+- **Testable:** Each check has clear pass/fail criteria — no subjective judgment calls.
+
+---
+
+## 12. Shared Patterns
+
+- **Multi-directional review:** FORWARD + REVERSE + SIDEWAYS + CC/V. Same pattern used in ACE Orbit methodology at every major step.
+- **Cross-spec vocabulary audit:** Check 24. Same pattern used across OB, Caliber, and Rondo specs.
+- **Traceability matrix:** Checks 5-6. Spec→Code and Code→Spec tracing shared with VER-100.
+
+---
+
+## 13. Integration Points
+
+| Integration | What Crosses | Standard Enforced |
+|-------------|-------------|-------------------|
+| STD-106 → Caliber | Automated checks dispatched via Rondo | STD-101 finding format |
+| STD-106 → OB | Findings stored in OB audit trail | OB-REQ-105 finding schema |
+| STD-106 → NAMING-MAP.md | Check 11 verifies field consistency | STD-100 conventions |
+| STD-106 → CORE-STD-012 | Spec quality gates requirement readiness | Readiness prerequisites |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How It Applies |
+|----------|---------------|
+| CORE-STD-007 | Parent spec quality standard — 28 checks adapted per product |
+| CORE-STD-012 | Requirement readiness — spec quality checks must pass before READY |
+| CORE-STD-013 | TrackerData — check results are trackable events |
+| CORE-IFS-005 | MCP standard — check results queryable via consumer MCP tools |
+
+---
+
+## 15. Self-Correction
+
+Spec quality checks are a self-correction mechanism for the specification layer. Each check that fails produces a finding that must be resolved before build. The evidence table (section 10) shows which checks caught real bugs — this history refines the checklist over time (CORE-STD-011 pattern applied to specs, not code).
+
+---
+
+## 16. Assumptions
+
+1. All specs follow the 35-section template (CORE-STD-000).
+2. NAMING-MAP.md is current and reflects actual cross-product field names.
+3. Cross-references between specs use stable identifiers (spec numbers, not filenames).
+4. Automated checks via Caliber produce the same results as manual checks.
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | All 28 checks pass on every Rondo spec before build | Gate check |
+| 2 | Zero dangling cross-references across Rondo spec set | Check 7 |
+| 3 | NAMING-MAP.md alignment: zero DRIFT entries for Rondo fields | Check 11 |
+| 4 | Every numbered requirement is testable (can write a test from it) | Check 25 |
+
+---
+
+## 18. Build Notes / Estimate
+
+Automated structural checks (18-23): 3 hours (script to validate headings, filenames, sections). Automated data checks (11-17): 4 hours (NAMING-MAP.md parser, status vocabulary validator). Directional and deep checks: manual, ~2 hours per spec. Total automation: ~7 hours.
+
+---
+
+## 19. Test Categories
+
+| Category | What It Tests |
+|----------|--------------|
+| Structural check tests | Heading/filename match, required sections present |
+| Data consistency tests | NAMING-MAP.md alignment, status vocabulary |
+| Cross-reference tests | All refs point to existing specs, bidirectional |
+| Evidence regression tests | Bugs from evidence table stay caught |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| New spec skips checks | Bugs enter code from unvalidated spec | Gate enforcement at ORB-03/ORB-04 |
+| Check produces false positive | Valid spec blocked unnecessarily | Review check definition, update criteria |
+| NAMING-MAP.md stale | Check 11 passes but names are actually wrong | Monthly NAMING-MAP.md refresh |
+
+---
+
+## 21. Dependencies + Used By
+
+| Direction | Spec | Relationship |
+|-----------|------|-------------|
+| Depends on | CORE-STD-007 | Parent spec quality standard |
+| Depends on | CORE-STD-000 | Spec template defines required sections |
+| Depends on | CORE-STD-012 | Readiness tracking for spec quality gates |
+| Used by | All Rondo specs | Every spec must pass these 28 checks |
+| Used by | VER-100 | Verification spec references traceability checks |
+
+---
+
+## 22. Decisions
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| D1: 28 checks, not fewer | Each earned its place by catching a real bug. No theoretical checks. | 2026-03-18 |
+| D2: Evidence table mandatory | Every check must cite the session/bug it caught. No unjustified checks. | 2026-03-18 |
+| D3: Rondo-specific adaptations | Stateless design, sec/ms split, no-DB ownership need product-specific checks | 2026-03-18 |
+
+---
+
+## 23. Open Questions
+
+None currently. The 28-check set is stable after Session 79 cross-spec review.
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Directional review** | Reading a spec in a specific direction (forward, reverse, sideways) to catch different bug types |
+| **Cross-spec review** | Comparing multiple specs for vocabulary consistency and reference integrity |
+| **Convention check** | Verifying that a spec follows naming, numbering, and structural conventions |
+
+---
+
+## 25. Risk / Criticality
+
+**HIGH.** Spec quality is the foundation of code quality. A bad spec produces bad code, bad tests, and bad reviews. The 28-check gate is the primary defense against spec-level defects propagating to the codebase.
+
+---
+
+## 26. External Scan
+
+DoD/NASA verification practices inspired the multi-directional review approach. Google's AI reviewer (Gemini) was used for independent cross-spec review (Session 77). No commercial spec quality tool covers AI-specific checks like the sec/ms split or stateless ownership verification.
+
+---
+
+## 27. Security Considerations
+
+Check 21 (table ownership) prevents Rondo from accidentally claiming database tables — a design violation that could create security surface. Checks 5-6 (traceability) ensure no undocumented dispatch behavior exists that could be exploited. No direct security impact from the checks themselves.
+
+---
+
+## 28. Performance / Resource
+
+Manual review: ~2 hours per spec (all 28 checks). Automated structural/data checks: ~30 seconds per spec. Full Rondo spec set (15 specs): ~30 hours manual or ~8 minutes automated for automatable checks. Human review for directional/deep checks cannot be automated.
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Role | Date | Verdict |
+|----------|------|------|---------|
+| Mark Hubers | Owner | 2026-03-22 | Approved (Session 84) |
+
+---
+
+## 30. AI Review
+
+— filled after build.
+
+---
+
+## 31. AI Went Wrong
+
+— filled during build.
+
+---
+
+## 32. AI Assumptions
+
+— filled during build.
+
+---
+
+## 33. AI Cost
+
+— filled during build.
+
+---
+
+## 34. Notes
+
+CORE-STD-012 (Requirement Readiness) requires spec quality checks to pass before any requirement reaches READY state. CORE-STD-013 (TrackerData) records check results for trend analysis (are specs getting better over time?). CORE-IFS-005 MCP tools could expose spec quality dashboards in future versions.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. 28 checks across 5 categories: directional (7), interface (3), data consistency (7), structural (6), deep review (5). Gate mapping, evidence table from Sessions 75-79. Rondo adaptations for stateless design, sec/ms duration split, and 446-test traceability. |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

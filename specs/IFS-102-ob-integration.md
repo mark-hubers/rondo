@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.0
+**Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -12,7 +12,7 @@
 **Implements:** CORE-IFS-001 (Integration Contract Standard) — universal payload/transport/isolation patterns
 **Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract)
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
-**References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab)
+**References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab), CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
 
 ---
@@ -40,6 +40,8 @@ Defines the exact contract between Rondo and OB. Rondo is a standalone AI dispat
 - Caliber integration (Caliber-IFS-102 or Rondo's internal Caliber calls)
 - Claude Code CLI details (IFS-100 owns that)
 - Rondo's engine internals (REQ-100 owns that)
+
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
 
@@ -353,6 +355,19 @@ OB (schedule builder)           Rondo (overnight executor)
 
 ---
 
+## 5. Data Model
+
+Rondo's OB integration uses the same core dataclasses from REQ-100 (Round, Task, Gate,
+RoundResult, TaskResult, GateResult, DispatchUsage). No OB-specific dataclasses exist.
+
+The OAPayload and OAResult are JSON schemas, not Python dataclasses — they are the
+serialization format for cross-product communication. Rondo parses OAPayload into its
+internal dataclasses, executes, and serializes results back to OAResult JSON.
+
+Key schema files: `rondo/schemas/oa-payload-v1.json`, `rondo/schemas/oa-result-v1.json`.
+
+---
+
 ## 6. Data Boundary
 
 **What Rondo produces (for OB):**
@@ -386,6 +401,35 @@ OB (schedule builder)           Rondo (overnight executor)
 
 ---
 
+## 7. MCP / API Interface
+
+Future: OB MAY invoke Rondo via MCP tool per CORE-IFS-005. The MCP tool would accept
+OAPayload JSON and return OAResult JSON. This enables on-demand dispatch from any MCP
+client without CLI subprocess overhead. Not in v1.0 scope — pipe and file transports first.
+
+---
+
+## 8. States & Modes
+
+| State | Trigger | Behavior |
+|-------|---------|----------|
+| **Standalone** | No `.ob/config.toml` or `--ob-mode off` | Raw task JSON in, RoundResult out |
+| **OB-Connected** | `.ob/config.toml` + `[rondo] enabled = true` | OAPayload in, OAResult out, field mapping active |
+| **OB-Forced** | `--ob-mode on` CLI flag | OB-Connected regardless of config (requires config file) |
+| **OB-Degraded** | OB config present but DB locked or incomplete | Execute normally, save result to file, warn |
+
+Transitions: Standalone ↔ OB-Connected via config file presence. OB-Degraded is automatic
+when OB infrastructure is unavailable. Recovery is automatic when OB becomes available.
+
+---
+
+## 9. Configuration
+
+See section 3, "Configuration in .ob/config.toml" (reqs 71-75) for the full TOML schema.
+COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → hardcoded default.
+
+---
+
 ## 10. Rules & Constraints
 
 1. **Contract versioning:** Every OAPayload and OAResult has `$contract` + `$version`. Rondo MUST reject unknown versions.
@@ -398,6 +442,68 @@ OB (schedule builder)           Rondo (overnight executor)
 8. **Schedule ordering is OB's responsibility.** OB sends sprints in the right order. Rondo processes them in the order received. If OB sends them wrong, Rondo doesn't reorder.
 9. **Results are immutable.** Once Rondo writes an OAResult, it never modifies it. If a re-run is needed, a new OAResult is produced with a new timestamp.
 10. **Every dispatch costs money.** Rondo MUST track and return accurate cost data. OB's budget enforcement depends on these numbers.
+
+---
+
+## 11. Quality Attributes
+
+| Attribute | Target | Rationale |
+|-----------|--------|-----------|
+| Reliability | Zero data loss — results always saved to file | OB depends on complete OAResults for learning |
+| Latency | <1s overhead beyond AI response time | OAPayload parsing + OAResult serialization must be fast |
+| Isolation | Zero direct DB access across product boundary | Independent development, independent deployment |
+| Testability | OAPayload/OAResult are plain JSON — fully testable without OB running | Contract tests don't need infrastructure |
+| Backward compat | New optional fields, never break existing consumers | OB and Rondo may be at different versions |
+
+---
+
+## 12. Shared Patterns
+
+- **COALESCE:** CLI flag → OB config → rondo.toml → default. Used for all config resolution.
+- **Dual-Path-With-Alerting:** OB-connected is the primary path. Standalone is the fallback.
+  When fallback activates (OB unavailable), Rondo ALERTs via warning log.
+- **Contract envelope:** Every JSON payload has `$contract` + `$version` at the root.
+  Enables forward-compatible parsing and version negotiation.
+- **Immutable results:** OAResult written once, never modified. Re-runs produce new files.
+
+---
+
+## 13. Integration Points
+
+| Integration | Spec | Direction | Contract |
+|-------------|------|-----------|----------|
+| OB → Rondo | OB-IFS-102 | Inbound | OAPayload JSON |
+| Rondo → OB | This spec | Outbound | OAResult JSON |
+| Rondo → Claude | IFS-100 | Outbound | CLI subprocess |
+| Rondo → Providers | REQ-109 | Outbound | Provider adapter interface |
+| Rondo → File system | Internal | Outbound | OAResult file, morning report |
+| Rondo ← Config | STD-109 | Internal | TOML / COALESCE |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How Applied |
+|----------|-------------|
+| CORE-IFS-001 | Universal payload/transport/isolation patterns — this spec implements them |
+| CORE-STD-005 | mTLS for HTTPS transport |
+| CORE-STD-010 (Error Resilience) | Task failure → continue round, never crash pipeline |
+| CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
+| CORE-STD-013 (TrackerData) | Dispatch events, gate results logged as trackerdata entries |
+| CORE-IFS-005 (MCP Standard) | Future MCP tool interface for on-demand OB→Rondo dispatch |
+| STD-108 | Error handling patterns for task/gate failures |
+| STD-109 | COALESCE config resolution |
+
+---
+
+## 15. Self-Correction
+
+- OAPayload version mismatch → Rondo rejects with supported version list, enabling OB
+  to downgrade or upgrade its payload format.
+- Field mapping drift → NAMING-MAP.md is the single source of truth. Automated contract
+  tests compare Rondo dataclass fields against NAMING-MAP entries.
+- OB DB locked → Rondo saves result to file and logs recovery command
+  (`ob store-result {path}`), enabling manual import after DB recovers.
 
 ---
 
@@ -436,6 +542,48 @@ OB (schedule builder)           Rondo (overnight executor)
 | Pipe transport | `ob dispatch \| rondo run --ob-payload -` works end-to-end | Integration test |
 | File transport | `--ob-payload file.json --ob-result result.json` works | Test |
 | Cost tracking accuracy | DispatchUsage.cost_usd matches Claude stream-json cost data | Test |
+
+---
+
+## 18. Build Notes / Estimate
+
+| Item | Estimate |
+|------|----------|
+| OAPayload parser | 2-3 days — JSON schema validation + dataclass mapping |
+| OAResult serializer | 1-2 days — reverse mapping from dataclasses to JSON |
+| OB mode detection | 0.5 day — config file check + CLI flag |
+| Worktree manager | 2-3 days — git worktree lifecycle + merge + cleanup |
+| Overnight scheduler | 1-2 days — sequential sprint processing + morning report |
+| Contract tests | 2 days — field mapping validation against NAMING-MAP |
+| Integration tests | 2-3 days — end-to-end with mock OB payloads |
+| Total | ~12-16 days |
+
+---
+
+## 19. Test Categories
+
+| Category | What | Count (est.) |
+|----------|------|-------------|
+| Unit | OAPayload parsing, OAResult serialization, field mapping | 20 |
+| Integration | Full round with mock OB payload → OAResult | 10 |
+| Contract | Field mapping matches NAMING-MAP.md exactly | 17 (one per mapped field) |
+| Error | Malformed payload, version mismatch, DB locked, network timeout | 8 |
+| Worktree | Create, merge, conflict, cleanup, shakedown | 8 |
+| Overnight | Multi-sprint schedule, failure handling, morning report | 6 |
+| Mode | Standalone, OB-connected, OB-forced, OB-degraded | 4 |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| OAPayload too large for stdin | Dispatch fails | Fall back to file transport |
+| OB DB locked mid-overnight | Results not stored | Save to file, log recovery command |
+| Worktree merge conflict | Code not integrated | Report conflict, OB/human resolves |
+| Claude CLI crashes mid-task | Partial results | Record error status, continue to next task |
+| NAMING-MAP drift | Field mapping broken | Automated contract tests catch on every build |
+| OAPayload version unsupported | Dispatch rejected | Clear error message with supported versions |
 
 ---
 
@@ -480,8 +628,117 @@ OB (schedule builder)           Rondo (overnight executor)
 
 ---
 
+## 23. Open Questions
+
+| # | Question | Impact | Status |
+|---|----------|--------|--------|
+| Q1 | Should OAPayload support streaming (chunked) delivery for very large payloads? | Affects transport design for batch mode with many files | OPEN |
+| Q2 | Should Rondo cache OAPayload spec digests across runs for the same spec? | Could reduce payload size for repeated builds of same spec | OPEN |
+| Q3 | Should worktree branch names include a timestamp for uniqueness? | Prevents collision if same sprint is re-run before cleanup | OPEN |
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **OAPayload** | JSON contract sent from OB to Rondo containing everything needed to execute OAs |
+| **OAResult** | JSON contract sent from Rondo to OB containing execution results |
+| **OA** | Orbital Action — a unit of AI work within a sprint |
+| **Worktree** | Git worktree providing filesystem isolation for parallel builds |
+| **Spec digest** | Compressed spec content (purpose, reqs, rules, criteria) sent in OAPayload |
+| **Compound learning** | Build N+1 is smarter than Build N via the ai_memory feedback loop |
+
+---
+
+## 25. Risk / Criticality
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| NAMING-MAP drift breaks field mapping | Medium | OB stores wrong data | Contract tests on every build |
+| OAPayload schema evolves faster than Rondo | Low | Version mismatch rejects | Strict versioning, clear error messages |
+| Worktree conflicts block overnight pipeline | Medium | Sprint incomplete | Continue to next sprint, report conflict |
+| Large OAPayloads cause memory pressure | Low | OOM on small machines | File-based transport as fallback |
+
+---
+
+## 26. External Scan
+
+No external products were found with a comparable AI-dispatch-to-methodology-engine contract.
+Closest analogy: CI/CD runner protocols (GitLab Runner ↔ GitLab, GitHub Actions runner ↔ GitHub).
+The OAPayload/OAResult pattern is similar to job definitions/results in those systems but
+adds AI-specific fields (tokens, cost, ai_memory) and methodology-specific fields (spec digest).
+
+---
+
+## 27. Security Considerations
+
+- OAPayload may contain source code, spec content, and AI prompts. Transport must protect
+  confidentiality: pipe/file (local, no network), Unix socket (local), HTTPS (mTLS required).
+- API keys are never in OAPayload — Rondo retrieves them from Keychain per REQ-109.
+- OAResult may contain generated code. Stored as files on disk with project-appropriate permissions.
+- Queue transport (future) must use encrypted channels and authenticated producers/consumers.
+
+---
+
+## 28. Performance / Resource
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| OAPayload parse time | <100ms for typical payload | JSON parse + schema validation |
+| OAResult serialize time | <50ms | Dataclass → JSON conversion |
+| Worktree create/cleanup | <5s each | Git operations, disk I/O |
+| Overnight throughput | Process 10+ sprints per night | Sequential, ~30min per sprint average |
+| Memory per worker | <200MB | Payload in memory + AI response buffering |
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Date | Verdict | Notes |
+|----------|------|---------|-------|
+| Mark Hubers | 2026-03-22 | APPROVED | Session 84 — fill to 35 sections |
+
+---
+
+## 30. AI Review
+
+Not yet performed. Scheduled for cross-spec review after all Rondo specs reach 35 sections.
+
+---
+
+## 31. AI Went Wrong
+
+Not yet populated. Will be filled during first build sprint implementing OB integration.
+
+---
+
+## 32. AI Assumptions
+
+Not yet populated. Will capture model assumptions made during build.
+
+---
+
+## 33. AI Cost
+
+Not yet populated. Will track token/cost data from build sprints referencing this spec.
+
+---
+
+## 34. Notes
+
+- This is the largest Rondo spec (75 requirements) because OB integration touches every
+  subsystem: dispatch, gates, worktrees, overnight, config, error handling.
+- Session 79 created v1.0 with all 75 requirements. Session 84 added sections 7-8, 11-15,
+  18-20, 23-34 to reach 35-section compliance.
+- The feedback loop (reqs 66-70) is the most architecturally significant part — it turns
+  two standalone products into a compound intelligence system.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 1.0 | 2026-03-18 | Initial spec. 75 requirements across 12 sections. OB mode detection, input contract (OAPayload with spec digest, AI memory, worktree config, overnight schedule), output contract (OAResult with RoundResult, TaskResult, DispatchUsage, GateResult, worktree merge status, learn section), field mapping (17 fields to 7 OB tables), 5-level transport progression (pipe → file → socket → HTTPS → queue), isolation boundaries (6 rules), standalone behavior (4 reqs), worktree management (8 reqs), overnight automation (6 reqs), feedback loop (5 reqs), OB config (5 reqs), 8 assumptions, 16 success criteria, 8 decisions. Session 79. |
+| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |

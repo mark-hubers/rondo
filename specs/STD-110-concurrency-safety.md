@@ -375,6 +375,8 @@ def append_event_log(log_path: str, entry: dict) -> None:
 | `file writes` | ✓ | Each task writes to its own result file |
 | `event log` | ✗ | Written after all tasks complete (sequential) |
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem
@@ -439,7 +441,11 @@ REQUIRED — fill before build.
 
 ## 14. Standards Applied
 
-— if applicable.
+| Standard | How Applied |
+|----------|-------------|
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
 
 ---
 

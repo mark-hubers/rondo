@@ -335,6 +335,8 @@ This interface was tested against Claude Code as of 2026-03-13. Anthropic may ch
 2. Test interface assumptions on every upgrade
 3. Log Claude Code version in overnight results for debugging
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem
@@ -399,7 +401,11 @@ REQUIRED — fill before build.
 
 ## 14. Standards Applied
 
-— if applicable.
+| Standard | How Applied |
+|----------|-------------|
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
 
 ---
 

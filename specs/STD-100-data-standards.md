@@ -20,6 +20,14 @@ Defines the data conventions that every Rondo dataclass, JSON result file, CLI o
 
 Rondo is stateless (no database). These rules apply to Python dataclasses, JSON spool files, and the RoundResult/TaskResult/DispatchUsage objects returned to consumers.
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+Without consistent data conventions, every integration boundary becomes a translation layer. Field names drift (`cost` vs `cost_usd`), timestamp formats diverge (epoch vs ISO), and null semantics become ambiguous. Rondo's stateless design means every consumer (OB, Caliber, ACE) parses Rondo output independently — inconsistency here multiplies across the ecosystem.
+
 ---
 
 ## 3. Requirements
@@ -63,6 +71,42 @@ Rondo is stateless (no database). These rules apply to Python dataclasses, JSON 
 23. Status values are always lowercase strings. Never `DONE`, `Done`, or `IN_PROGRESS`.
 24. The shared status vocabulary (per NAMING-MAP.md) is: `done`, `partial`, `error`, `skipped`, `blocked`. Rondo uses a subset — it does not use `pending`, `in_progress`, or `blocked` in output (those are internal engine states only).
 25. Every status in a result object MUST have a corresponding `detail` or `summary` field explaining why that status was assigned.
+
+---
+
+## 4. Architecture / Design
+
+Rondo data standards are enforced at two layers: Python dataclass definitions (compile-time shape) and JSON serialization (runtime output). Dataclasses define field names, types, and defaults. The `to_json()` method on each dataclass enforces naming and null conventions at the serialization boundary.
+
+---
+
+## 5. Data Model
+
+Rondo has no database. The data model is defined by Python dataclasses: `RoundResult`, `TaskResult`, `DispatchUsage`, `GateResult`. These are the canonical shapes. JSON spool files are serialized copies of these dataclasses, not a separate schema.
+
+---
+
+## 6. Data Boundary
+
+Rondo produces data (spool files, RoundResult objects). Consumers (OB, Caliber, ACE) ingest it. The boundary is the spool directory and the returned Python objects. Field names in NAMING-MAP.md define the contract — Rondo owns the producer side, consumers own the ingestion side.
+
+---
+
+## 7. MCP / API Interface
+
+Rondo does not expose data standards via MCP. Data conventions are enforced in code (dataclass definitions) and verified by convention tests. MCP tools (CORE-IFS-005) that query Rondo results rely on these conventions being stable.
+
+---
+
+## 8. States & Modes
+
+Not applicable. Data standards are static conventions, not stateful. Status values (`done`, `partial`, `error`, `skipped`, `blocked`) are defined in section 3 and do not change based on mode or configuration.
+
+---
+
+## 9. Configuration
+
+Data standards are not configurable. Timestamp format, naming conventions, status vocabularies, and null semantics are fixed. This is intentional — configurability in data formats creates integration fragility. The only configurable aspect is `results_dir` path (STD-102).
 
 ---
 
@@ -115,8 +159,198 @@ These Rondo fields MUST match NAMING-MAP.md exactly for cross-product compatibil
 
 ---
 
+## 11. Quality Attributes
+
+- **Consistency:** Same field name means the same thing in every Rondo output and every consumer.
+- **Predictability:** Consumers can parse Rondo output without checking which version produced it.
+- **Debuggability:** JSON files use `indent=2` and human-readable timestamps for manual inspection.
+
+---
+
+## 12. Shared Patterns
+
+- **COALESCE null handling:** `COALESCE(override, learned, default)` — same idiom used in STD-102 config resolution.
+- **Snake_case everywhere:** Python fields, JSON keys, CLI output. One convention, zero translation.
+- **Duration split:** `duration_sec` for wall-clock summaries, `duration_ms` for API-level precision. Shared with STD-101, STD-105.
+
+---
+
+## 13. Integration Points
+
+| Integration | What Crosses | Standard Enforced |
+|-------------|-------------|-------------------|
+| Rondo → OB | DispatchUsage fields | NAMING-MAP.md field names |
+| Rondo → Caliber | TaskResult status values | Status vocabulary (section 3) |
+| Rondo → Spool | JSON serialization | Timestamp, naming, null rules |
+| Rondo → CORE-STD-012 | Requirement readiness states | Status vocabulary alignment |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How It Applies |
+|----------|---------------|
+| CORE-STD-001 | Parent standard — Rondo adapts time, IDs, nulls, naming, status for stateless context |
+| CORE-STD-012 | Requirement readiness tracking — status values align with Rondo's vocabulary |
+| CORE-STD-013 | TrackerData — field naming conventions shared for cross-product data exchange |
+| CORE-IFS-005 | MCP standard — query results from MCP tools follow these data conventions |
+
+---
+
+## 15. Self-Correction
+
+Not directly applicable. Data standards are fixed conventions, not learned behaviors. However, NAMING-MAP.md drift detection (STD-106 check 11) catches cases where Rondo output drifts from the agreed field names. Convention lock tests prevent regression.
+
+---
+
+## 16. Assumptions
+
+1. NAMING-MAP.md is the single source of truth for cross-product field names.
+2. All consumers parse JSON with a schema-aware parser, not ad-hoc string matching.
+3. Stream-json output format from Claude CLI remains stable across Claude Code versions.
+4. UTC is sufficient — no consumer needs Rondo to produce local time.
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | Every Rondo JSON output parses without field-name translation in OB | Integration test |
+| 2 | Convention tests catch any new field that violates snake_case | AST test |
+| 3 | NAMING-MAP.md cross-reference table has zero DRIFT entries | Golden number check |
+
+---
+
+## 18. Build Notes / Estimate
+
+Data standards are enforced via dataclass definitions and convention tests. No separate "build" — the conventions are embedded in the codebase from day one. Estimated effort: convention tests (2 hours), NAMING-MAP.md cross-reference validation (1 hour).
+
+---
+
+## 19. Test Categories
+
+| Category | What It Tests |
+|----------|--------------|
+| Convention tests | snake_case fields, PascalCase classes, no camelCase in JSON |
+| Serialization tests | `to_json()` output matches expected field names and types |
+| Cross-reference tests | NAMING-MAP.md fields match actual dataclass field names |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Field name drift | OB ingestion breaks silently | Convention lock tests + NAMING-MAP.md check |
+| Timestamp without timezone | Ambiguous times across machines | Dataclass default includes `+00:00` |
+| Status value typo | Consumer switch/case misses a branch | Enum-like constants, not raw strings |
+
+---
+
+## 21. Dependencies + Used By
+
+| Direction | Spec | Relationship |
+|-----------|------|-------------|
+| Depends on | CORE-STD-001 | Parent data standard |
+| Depends on | CORE-STD-012 | Status vocabulary alignment |
+| Used by | STD-101 | Logging field names follow these conventions |
+| Used by | STD-105 | DispatchUsage fields defined here |
+| Used by | IFS-102 | OB integration uses these field names |
+
+---
+
+## 22. Decisions
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| D1: sec/ms duration split | Wall-clock (sec) vs API precision (ms) — different consumers need different granularity | 2026-03-18 |
+| D2: snake_case for JSON keys | Matches Python field names — zero translation at serialization boundary | 2026-03-18 |
+| D3: No None for booleans | Three-valued logic causes downstream bugs. Default False, never None. | 2026-03-18 |
+
+---
+
+## 23. Open Questions
+
+None currently. Data conventions are stable after cross-spec review (Session 75).
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **NAMING-MAP.md** | Cross-product field name registry — single source of truth |
+| **COALESCE** | First non-null value wins — ACE2 core idiom for defaults |
+| **Spool file** | JSON result file written to disk by Rondo after each dispatch |
+
+---
+
+## 25. Risk / Criticality
+
+**HIGH.** Data standards are the foundation. A naming inconsistency here propagates to every consumer. Convention lock tests are the primary mitigation — they make drift impossible without a deliberate code change.
+
+---
+
+## 26. External Scan
+
+No external standards referenced beyond ISO 8601 for timestamps. JSON naming follows Python community convention (snake_case). No industry-specific data format requirements apply.
+
+---
+
+## 27. Security Considerations
+
+Data standards do not directly handle secrets. However, the `prompt_sent` field in TaskResult must be scrubbed before spool writes (STD-114). Field naming conventions ensure no field is ambiguously named in a way that hides sensitive content.
+
+---
+
+## 28. Performance / Resource
+
+No performance impact. Data conventions are enforced at definition time (dataclass fields) and verified at test time (convention tests). Runtime serialization adds negligible overhead — `json.dumps()` with `indent=2`.
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Role | Date | Verdict |
+|----------|------|------|---------|
+| Mark Hubers | Owner | 2026-03-22 | Approved (Session 84) |
+
+---
+
+## 30. AI Review
+
+— filled after build.
+
+---
+
+## 31. AI Went Wrong
+
+— filled during build.
+
+---
+
+## 32. AI Assumptions
+
+— filled during build.
+
+---
+
+## 33. AI Cost
+
+— filled during build.
+
+---
+
+## 34. Notes
+
+CORE-STD-012 (Requirement Readiness) and CORE-STD-013 (TrackerData) both consume Rondo's data conventions for cross-product compatibility. CORE-IFS-005 MCP tools that return Rondo data must follow these same conventions.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-001 topics (time, IDs, nulls, naming, status) adapted for Rondo's stateless context. 25 requirements. Duration split: sec for wall-clock, ms for stream-json. NAMING-MAP.md cross-reference table. |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

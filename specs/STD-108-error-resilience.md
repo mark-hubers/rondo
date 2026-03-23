@@ -319,6 +319,8 @@ Rondo MUST NOT use `subprocess.run(timeout=)` for the kill sequence. Instead, us
 `subprocess.Popen()` with a manual timer thread that sends SIGTERM first, then SIGKILL
 after 5 seconds if the process hasn't exited.
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem
@@ -389,7 +391,11 @@ REQUIRED — fill before build.
 
 ## 14. Standards Applied
 
-— if applicable.
+| Standard | How Applied |
+|----------|-------------|
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
 
 ---
 

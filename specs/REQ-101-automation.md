@@ -34,6 +34,8 @@ Adds parallel execution, overnight batch scheduling, and morning reports on top 
 - System-level scheduling (cron/LaunchAgent config — platform-specific)
 - Real-time monitoring / dashboards (future work)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem
@@ -257,6 +259,9 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | STD-108 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
 | STD-109 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
 | STD-110 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
 
 ---
 

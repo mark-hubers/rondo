@@ -4,20 +4,46 @@
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-03-20 | **Updated:** 2026-03-20 | **Status:** DESIGNED
+**Created:** 2026-03-20 | **Updated:** 2026-03-22 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.0
+**Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** REQ-100 (Core), REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract)
 **Used by:** REQ-101 (Automation — multi-account), IFS-101 (Caliber Integration), IFS-102 (OB Integration)
 **Evidence:** Session 83 — 3 providers tested live (Gemini 45 models/133ms, OpenAI 129 models/524ms, Claude 9 models/238ms)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
 ---
 
 ## 1. Purpose & Scope
 
 **What this spec does:** Defines how Rondo dispatches to multiple AI providers through a common adapter interface. Rondo is the ONLY component that knows about specific AI providers (CORE-ADR-001). This spec defines the adapter pattern, model routing table, credential management, provider health monitoring, and affinity tracking (which models are best at which tasks).
+
+**IN scope:**
+- ProviderAdapter abstract interface
+- Concrete adapter implementations (Claude CLI, Claude API, Gemini, OpenAI, Ollama, Container)
+- Credential management (macOS Keychain)
+- Model routing table (task type → provider + model)
+- Provider health monitoring
+- Affinity tracking (learned model-task performance)
+
+**OUT of scope:**
+- AI model internals (prompt engineering, response parsing)
+- Multi-account capacity management (REQ-101 addendum owns that)
+- OB or Caliber integration details (IFS-101, IFS-102 own those)
+
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+Rondo dispatches to multiple AI providers (Claude, Gemini, OpenAI, Ollama). Each provider
+has a different API, authentication method, model naming convention, and response format.
+Without an adapter layer, provider-specific code would leak into the dispatch engine, OB,
+Caliber, and every consumer. Adding a new provider would require changes everywhere.
+The adapter pattern isolates provider specifics: one class per provider, one interface for all.
 
 ---
 
@@ -183,6 +209,36 @@ overnight_build = "claude-batch"
 
 ---
 
+## 7. MCP / API Interface
+
+Future: an MCP tool per CORE-IFS-005 could expose provider health and routing table,
+enabling AI agents to query available models and their status before requesting dispatch.
+Example: "Which providers are healthy?" → returns provider list with health + model count.
+
+---
+
+## 8. States & Modes
+
+Per-provider states:
+
+| State | Condition | Behavior |
+|-------|-----------|----------|
+| **healthy** | Health check passed, API key present | Normal dispatch |
+| **degraded** | Slow responses or partial failures | Dispatch with warning |
+| **down** | Health check failed or key missing | Use fallback provider |
+| **unconfigured** | Not in config file | Not available for dispatch |
+
+State transitions happen on health check (every 5 minutes or on-demand).
+
+---
+
+## 9. Configuration
+
+See section 5 (Provider Config TOML and Routing Table TOML) for the full schema.
+COALESCE resolution: OAPayload.runtime.model → routing table → provider.default_model.
+
+---
+
 ## 10. Rules & Constraints
 
 1. **One adapter per provider.** Adding Mistral = one new class. Nothing else changes. Violation ID: `REQ109-ONE-ADAPTER`
@@ -190,6 +246,79 @@ overnight_build = "claude-batch"
 3. **Never fall back to interactive.** Batch rate-limited → use fallback provider or wait. Never touch Mark's account. Violation ID: `REQ109-PROTECT-INTERACTIVE`
 4. **Affinity is advisory.** Manual routing config wins over learned affinity. Always. Violation ID: `REQ109-MANUAL-WINS`
 5. **Same DispatchResult from every adapter.** OB/Caliber never know which provider ran. Model-agnostic output. Violation ID: `REQ109-AGNOSTIC-OUTPUT`
+
+---
+
+## 11. Quality Attributes
+
+| Attribute | Target | Rationale |
+|-----------|--------|-----------|
+| Extensibility | New provider in <1 day of coding | Adapter pattern enables rapid expansion |
+| Isolation | Zero OB/Caliber changes when adding provider | CORE-ADR-001 boundary |
+| Reliability | Fallback provider within 1 dispatch attempt | Provider down → transparent failover |
+| Security | Zero plaintext keys anywhere | Keychain-only credential management |
+
+---
+
+## 12. Shared Patterns
+
+- **Adapter pattern:** Classic GoF pattern — common interface, per-implementation class.
+  Used throughout industry for payment gateways, notification channels, storage backends.
+- **COALESCE for routing:** OAPayload.runtime.model → config routing table → provider default.
+  Same COALESCE pattern as config resolution (STD-109).
+- **Health check with cache:** Check once, cache for TTL, re-check on failure. Same pattern
+  as REQ-103 (preflight) rate limit caching.
+
+---
+
+## 13. Integration Points
+
+| Integration | Spec | Direction | Contract |
+|-------------|------|-----------|----------|
+| Dispatch engine | REQ-100 | Internal | Router selects adapter, adapter returns DispatchResult |
+| Preflight | REQ-103 | Internal | Per-provider health checks |
+| Multi-account | REQ-101 addendum | Internal | Multiple adapter instances per provider |
+| Caliber | IFS-101 | Indirect | Caliber requests model via Task.model, Rondo routes |
+| OB | IFS-102 | Indirect | OB requests model via OAPayload.runtime.model |
+| Audit trail | STD-113 | Outbound | Provider + model in every audit entry |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How Applied |
+|----------|-------------|
+| CORE-ADR-001 (Service Architecture) | Rondo is sole AI-aware component, adapters isolate providers |
+| CORE-IFS-001 (Integration Contract) | DispatchResult is the universal contract across adapters |
+| CORE-STD-008 (Secrets) | API keys in Keychain only |
+| CORE-STD-011 (Self-Correction) | Affinity tracking is self-correction — learn optimal routing |
+| CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
+| CORE-STD-013 (TrackerData) | Provider events logged as trackerdata entries |
+| CORE-IFS-005 (MCP Standard) | Future MCP tool for provider health queries |
+
+---
+
+## 15. Self-Correction
+
+- After 50+ dispatches per model-task pair, affinity suggestions compare observed performance
+  against the routing table. If a different model consistently outperforms the configured
+  one, the morning report suggests a routing change.
+- If a provider's health check fails 3 times consecutively, it's marked "down" and excluded
+  from the routing table until manual re-enablement or successful health check.
+- Cost tracking per provider feeds back into REQ-106 (trend alerting) — if a provider's
+  cost per token increases, the trend alert fires and suggests switching to a cheaper model.
+
+---
+
+## 16. Assumptions
+
+| # | Assumption | If Wrong |
+|---|-----------|----------|
+| A1 | macOS Keychain is available on all target platforms | Need platform-specific credential store |
+| A2 | Provider REST APIs are stable across versions | Need version pinning in adapter implementations |
+| A3 | DispatchResult can capture all provider response formats | May need provider-specific extension fields |
+| A4 | 50 dispatches is enough for meaningful affinity tracking | Low-volume task types may need longer |
+| A5 | Provider latency is stable enough for health caching (5 min TTL) | Rapid degradation may be missed between checks |
 
 ---
 
@@ -205,8 +334,194 @@ overnight_build = "claude-batch"
 
 ---
 
+## 18. Build Notes / Estimate
+
+| Item | Estimate |
+|------|----------|
+| ProviderAdapter ABC + DispatchResult | 0.5 day |
+| ClaudeCLIAdapter + ClaudeAPIAdapter | 2 days |
+| GeminiAdapter | 1 day |
+| OpenAIAdapter | 1 day |
+| OllamaAdapter | 0.5 day |
+| ContainerAdapter | 1 day |
+| Router + routing table | 1 day |
+| Keychain integration (ai-keys.py) | 1 day |
+| Health checking + caching | 0.5 day |
+| Affinity tracking | 1.5 days |
+| Tests | 2 days |
+| Total | ~12 days |
+
+---
+
+## 19. Test Categories
+
+| Category | What | Count (est.) |
+|----------|------|-------------|
+| Unit | Each adapter (mock provider API), router, health check | 18 |
+| Integration | End-to-end dispatch through adapter to mock API | 6 |
+| Credential | Keychain store/retrieve/mask/multi-account | 6 |
+| Routing | Task type → provider resolution, fallback, override | 8 |
+| Health | Health check, caching, down detection, recovery | 6 |
+| Affinity | Score tracking, suggestion generation | 4 |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Provider API changes format | Adapter returns bad DispatchResult | Version pinning + adapter-level parsing |
+| Keychain unavailable | No API keys | Preflight catches before dispatch |
+| All providers down | No dispatch possible | Ollama (local) as last resort |
+| Routing table misconfigured | Wrong provider for task type | Config validation at startup |
+| Affinity data misleading | Bad routing suggestion | Manual override always wins |
+
+---
+
+## 21. Dependencies + Used By
+
+| Depends On | Why |
+|------------|-----|
+| REQ-100 | Core dispatch framework (defines Task, DispatchResult interface) |
+| REQ-103 | Preflight checks provider health |
+| CORE-ADR-001 | Service architecture — Rondo is sole AI-aware component |
+| CORE-IFS-001 | Universal contract patterns |
+| CORE-STD-008 | Secrets management (Keychain) |
+
+| Used By | Why |
+|---------|-----|
+| REQ-101 | Multi-account routing for overnight |
+| IFS-101 | Caliber tasks routed through adapters |
+| IFS-102 | OB tasks routed through adapters |
+| REQ-106 | Per-model trend data comes from adapter dispatch results |
+| REQ-107 | Per-model flakiness tracking |
+
+---
+
+## 22. Decisions
+
+| # | Decision | Date | Why |
+|---|----------|------|-----|
+| D1 | Abstract base class (not protocol/interface) | 2026-03-20 | ABCs enforce implementation at class creation time |
+| D2 | macOS Keychain for all credentials | 2026-03-20 | OS-level encryption, no plaintext anywhere |
+| D3 | Affinity is advisory, manual wins | 2026-03-20 | Mark controls routing. AI suggests, Mark decides. |
+| D4 | 6 adapter types in v1 | 2026-03-20 | Claude CLI/API, Gemini, OpenAI, Ollama, Container covers all known needs |
+| D5 | Session 83 default routing table | 2026-03-20 | Proven live — 3 providers tested with real API calls |
+
+---
+
+## 23. Open Questions
+
+| # | Question | Impact | Status |
+|---|----------|--------|--------|
+| Q1 | Should adapters support streaming responses? | Affects progress reporting for long dispatches | OPEN |
+| Q2 | Should affinity tracking influence automatic routing (not just suggestions)? | Automation vs control | OPEN — advisory only for now |
+| Q3 | Should there be a provider "marketplace" for sharing adapter configs? | Multi-user, future scope | OPEN — not in v1 |
+| Q4 | Should ContainerAdapter support Apple Containers natively? | macOS-specific optimization | OPEN — Docker first |
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **ProviderAdapter** | Abstract base class for AI provider integration |
+| **DispatchResult** | Standardized result format returned by all adapters |
+| **Routing table** | Config mapping task types to provider + model pairs |
+| **Affinity** | Learned performance profile of model-task combinations |
+| **Health check** | Quick API probe to verify provider availability |
+
+---
+
+## 25. Risk / Criticality
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Provider API breaking change | Medium | Adapter fails | Pin versions, test regularly |
+| Keychain API changes in macOS update | Low | Credential retrieval fails | Abstraction layer for credential store |
+| Model naming inconsistency across providers | Medium | Routing confusion | Canonical model names in config, adapter translates |
+| Single-point-of-failure (one provider) | Medium | Batch blocked | Fallback provider always configured |
+
+---
+
+## 26. External Scan
+
+Session 83 proved 3 providers live: Gemini (45 models, 133ms latency), OpenAI (129 models,
+524ms), Claude (9 models, 238ms). Industry pattern: LiteLLM provides a universal API for
+100+ LLM providers. Rondo's adapter approach is simpler (6 providers, Rondo-specific) but
+follows the same principle. The key difference: Rondo tracks affinity and routing — LiteLLM
+does not.
+
+---
+
+## 27. Security Considerations
+
+- All API keys in macOS Keychain — never in files, env, or git. CORE-STD-008 enforced.
+- `ai-keys.py status` shows masked keys only (last 4 chars).
+- Provider health checks use minimal API calls (list models, not dispatch).
+- Multi-account isolation prevents batch key from accessing interactive capacity.
+- HTTPS for all remote provider APIs (TLS enforced by provider SDKs).
+
+---
+
+## 28. Performance / Resource
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Adapter dispatch overhead | <100ms beyond API call | Prompt assembly + result parsing |
+| Health check | <500ms per provider | Cached for 5 minutes |
+| Keychain retrieval | <50ms | Cached per session |
+| Routing resolution | <1ms | Dict lookup |
+| Memory per adapter | <10MB | Stateless — no buffering between dispatches |
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Date | Verdict | Notes |
+|----------|------|---------|-------|
+| Mark Hubers | 2026-03-22 | APPROVED | Session 84 — fill to 35 sections |
+
+---
+
+## 30. AI Review
+
+Not yet performed. Scheduled for cross-spec review after all Rondo specs reach 35 sections.
+
+---
+
+## 31. AI Went Wrong
+
+Not yet populated. Will be filled during first build sprint implementing provider adapters.
+
+---
+
+## 32. AI Assumptions
+
+Not yet populated. Will capture model assumptions made during build.
+
+---
+
+## 33. AI Cost
+
+Not yet populated. Will track token/cost data from build sprints referencing this spec.
+
+---
+
+## 34. Notes
+
+- Session 83 live testing proved the multi-provider architecture works. Three providers
+  responded within 524ms worst case. This validates the adapter approach before building
+  the production implementation.
+- The ContainerAdapter is for running AI inside Apple Containers or Docker — dispatch the
+  prompt to a containerized model rather than a cloud API. This enables offline operation
+  and maximum isolation.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Provider adapter interface, credential management, model routing, affinity tracking. 25 requirements. Session 83: 3 providers proven live. |
+| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |

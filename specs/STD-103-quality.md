@@ -30,6 +30,14 @@ Defines the quality standards for Rondo's own codebase: TDD discipline, conventi
 - Consumer test requirements (OB/ACE define their own)
 - Build gate tooling (STD-101: Observability handles prefixes)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
+---
+
+## 2. The Problem
+
+AI dispatch frameworks are deceptively simple to build and deceptively hard to trust. Without rigorous TDD and convention enforcement, subtle bugs hide: a malformed stream-json parse passes silently, an environment variable leaks to a subprocess, a gate condition evaluates incorrectly. Rondo's quality standards prevent these bugs from reaching production dispatches.
+
 ---
 
 ## 3. Requirements
@@ -93,6 +101,42 @@ Defines the quality standards for Rondo's own codebase: TDD discipline, conventi
 
 ---
 
+## 4. Architecture / Design
+
+Quality is enforced at three gates: (1) pre-commit hooks (ruff, bandit, mypy), (2) `ace-build full` (lint + security + types + tests + coverage), (3) convention lock tests (AST-based structural enforcement). All three gates must pass before code merges. No gate can be bypassed without removing the hook config (which is tracked in git).
+
+---
+
+## 5. Data Model
+
+No dedicated data model. Quality metrics (coverage %, test count, convention count) are tracked as golden numbers (STD-112). Test results are standard pytest output. Convention test results are standard test pass/fail.
+
+---
+
+## 6. Data Boundary
+
+Quality enforcement is internal to Rondo's development process. It does not cross product boundaries. OB and Caliber define their own quality standards. The shared boundary is convention naming patterns — Rondo convention tests verify compliance with STD-100 data conventions.
+
+---
+
+## 7. MCP / API Interface
+
+No MCP interface for quality metrics. Quality data stays in the development pipeline. Future: CORE-IFS-005 MCP tools could expose test results for cross-product quality dashboards, but this is not planned for v1.0.
+
+---
+
+## 8. States & Modes
+
+Tests run in two modes: unit (default, mocked subprocesses, fast) and integration (`@pytest.mark.integration`, real Claude dispatches, slow, skipped in CI). Convention tests always run — they are unit tests that inspect source code structure.
+
+---
+
+## 9. Configuration
+
+Coverage threshold configured in `pyproject.toml` under `[tool.coverage]`. Convention count tracked in STD-112 golden numbers. No runtime configuration — quality gates are fixed rules, not tuneable parameters.
+
+---
+
 ## 10. Rules & Constraints
 
 ### Test Organization
@@ -125,8 +169,200 @@ The compound effect (CORE-STD-004 section 5) applies to Rondo through tests and 
 
 ---
 
+## 11. Quality Attributes
+
+- **Reproducibility:** Tests are deterministic — no network, no time dependencies, no inter-test state.
+- **Ratchet behavior:** Coverage and convention counts only go up. Regression is a build failure.
+- **Actionable failures:** Every test failure message tells you what to fix, not just what failed.
+
+---
+
+## 12. Shared Patterns
+
+- **AST-based convention enforcement:** Same pattern used in ACE2 OB convention locks.
+- **Coverage ratchet:** Threshold only increases — shared with Caliber quality standards.
+- **Subprocess mocking:** `unittest.mock.patch` for `subprocess.Popen` — standard Python testing pattern.
+
+---
+
+## 13. Integration Points
+
+| Integration | What Crosses | Standard Enforced |
+|-------------|-------------|-------------------|
+| Rondo tests → ace-build | Test pass/fail gates the build | Build gate (6 hard gates) |
+| Rondo conventions → STD-100 | Convention tests verify data standard compliance | Field naming, status vocabulary |
+| Rondo coverage → STD-112 | Coverage % is a golden number | Drift detection |
+| Rondo tests → CORE-STD-012 | Test pass is a readiness prerequisite | Requirement readiness |
+
+---
+
+## 14. Standards Applied
+
+| Standard | How It Applies |
+|----------|---------------|
+| CORE-STD-004 | Parent quality standard — Rondo adapts TDD, conventions, coverage |
+| CORE-STD-012 | Requirement readiness — all tests passing is a prerequisite for READY state |
+| CORE-STD-013 | TrackerData — test results are trackable events for trend analysis |
+| CORE-IFS-005 | MCP standard — future quality dashboards via MCP tools |
+
+---
+
+## 15. Self-Correction
+
+Rondo's test suite IS its self-correction mechanism. Every bug found becomes a regression test. Convention tests prevent structural drift. The coverage ratchet prevents blind spots from growing. This is CORE-STD-004's compound effect applied through tests rather than AI feedback loops.
+
+---
+
+## 16. Assumptions
+
+1. pytest is the test runner — no migration to unittest or nose planned.
+2. AST-based tests can detect all convention violations (no runtime-only conventions).
+3. Stream-json fixture files represent real Claude output accurately.
+4. Coverage measurement via `pytest-cov` is accurate for Python source.
+
+---
+
+## 17. Success Criteria
+
+| # | Criterion | How to Verify |
+|---|-----------|---------------|
+| 1 | Coverage >= 80% and ratchet never decreases | `ace-build full` gate |
+| 2 | Every public function has at least one test | Convention test |
+| 3 | Every convention has an enforcing AST test | Convention meta-test |
+| 4 | No test depends on another test's state | Randomized test order (`pytest-random-order`) |
+
+---
+
+## 18. Build Notes / Estimate
+
+Convention tests: 4 hours (6 categories). Stream-json fixtures: 2 hours (collect real output). Subprocess mocking: 2 hours (Popen mock wrapper). Coverage config: 1 hour. Total: ~9 hours.
+
+---
+
+## 19. Test Categories
+
+| Category | What It Tests |
+|----------|--------------|
+| Engine tests | Dataclass construction, validation, state transitions |
+| Dispatch tests | Subprocess args, env stripping, stream-json parsing |
+| Runner tests | Gate evaluation, task sequencing, result assembly |
+| Convention tests | AST-based naming, imports, type hints, security |
+| Config tests | TOML loading, COALESCE, validation |
+
+---
+
+## 20. Failure Modes
+
+| Failure | Impact | Mitigation |
+|---------|--------|------------|
+| Flaky test (non-deterministic) | False failures block builds | Isolation rule (req 5) + no network/time deps |
+| Convention test false positive | Valid code blocked | Review convention definition, adjust AST pattern |
+| Coverage drops below threshold | Build blocked | Ratchet prevents gradual erosion |
+
+---
+
+## 21. Dependencies + Used By
+
+| Direction | Spec | Relationship |
+|-----------|------|-------------|
+| Depends on | CORE-STD-004 | Parent quality standard |
+| Depends on | CORE-STD-012 | Readiness tracking requires tests passing |
+| Used by | STD-112 | Golden numbers track test count and coverage |
+| Used by | All Rondo specs | Convention tests enforce cross-spec compliance |
+
+---
+
+## 22. Decisions
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| D1: AST over regex for conventions | Regex matches strings, AST matches structure — fewer false positives | 2026-03-18 |
+| D2: 80% coverage floor, not 100% | 100% incentivizes trivial assertions. 80% with ratchet grows naturally. | 2026-03-18 |
+| D3: No self-correction section | Rondo is not AI-built iteratively. Tests are the correction mechanism. | 2026-03-18 |
+
+---
+
+## 23. Open Questions
+
+None currently. Quality standards are stable and proven by the existing test suite.
+
+---
+
+## 24. Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Convention lock** | AST-based test that enforces a structural rule in source code |
+| **Coverage ratchet** | Threshold that only increases — once hit, cannot drop back |
+| **Stream-json fixture** | Captured real Claude output used as test input |
+
+---
+
+## 25. Risk / Criticality
+
+**HIGH.** Quality standards protect every dispatch. A bug in dispatch logic (wrong env vars, malformed args) could send secrets to Claude or produce wrong results. Convention tests are the primary defense against structural regression.
+
+---
+
+## 26. External Scan
+
+Python testing best practices: pytest, coverage.py, AST inspection. No novel approaches — proven patterns from industry (Google testing blog, Martin Fowler's test pyramid). Rondo's convention lock pattern is adapted from ACE2 OB.
+
+---
+
+## 27. Security Considerations
+
+Convention tests enforce security rules: no `shell=True` in subprocess, no hardcoded secrets, no sqlite3 imports. These are security-critical conventions. See STD-107 rule 5 for the full list. Convention tests are the automated enforcement of security policy.
+
+---
+
+## 28. Performance / Resource
+
+Full test suite runs in <10 seconds (mocked subprocesses, no I/O). Convention tests add ~2 seconds (AST parsing). Integration tests (when enabled) take 30-300 seconds per dispatch. CI runs unit + convention only.
+
+---
+
+## 29. Approval Record
+
+| Reviewer | Role | Date | Verdict |
+|----------|------|------|---------|
+| Mark Hubers | Owner | 2026-03-22 | Approved (Session 84) |
+
+---
+
+## 30. AI Review
+
+— filled after build.
+
+---
+
+## 31. AI Went Wrong
+
+— filled during build.
+
+---
+
+## 32. AI Assumptions
+
+— filled during build.
+
+---
+
+## 33. AI Cost
+
+— filled during build.
+
+---
+
+## 34. Notes
+
+CORE-STD-012 (Requirement Readiness) requires all tests passing before a requirement reaches READY state. CORE-STD-013 (TrackerData) can ingest test result trends for quality dashboards. CORE-IFS-005 MCP tools could expose quality metrics in future versions.
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-004 topics (TDD, conventions, coverage) adapted for Rondo. 31 requirements. Self-correction N/A — Rondo tests itself, consumers do the learning. Convention categories for dispatch framework. Subprocess mocking and stream-json fixtures as testing patterns. |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |

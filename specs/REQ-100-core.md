@@ -36,6 +36,8 @@ Defines Rondo's core: the data model for describing AI work (Rounds, Tasks, Gate
 - Claude Code internals (Anthropic's product)
 - Alternative AI backends (future work)
 
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
+
 ---
 
 ## 2. The Problem
@@ -760,6 +762,9 @@ reports/rondo-results/
 | STD-108 Error & Resilience | Every failure includes task name, error, duration, prompt. Subprocess errors vs logic errors distinguished. |
 | STD-109 Configuration | TOML config. COALESCE: CLI → config → default. Zero-config works out of the box. |
 | STD-110 Concurrency & Safety | (REQ-100 is sequential only. STD-110 applied fully in REQ-101.) Subprocess args as list, never shell=True. API keys stripped from result files. |
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
 
 ---
 

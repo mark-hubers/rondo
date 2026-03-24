@@ -96,7 +96,7 @@ Sanitization runs as a pipeline stage between dispatch completion and storage: r
 
 ## 5. Data Model
 
-**Concurrency:** All sanitization event writes use WAL mode. Concurrent scrubbing and audit logging handled via row-level locking.
+**Concurrency:** File-level append locking on JSONL spool files (STD-113).
 
 Scrubbing event: `{timestamp, dispatch_id, pattern_matched, confidence, line_number, action: "SCRUBBED"|"ALLOWED"}`. No secret content in the event. Scrub summary: `{dispatch_id, secrets_scrubbed: int, patterns_triggered: list[str]}`. Attached to DispatchUsage metadata.
 

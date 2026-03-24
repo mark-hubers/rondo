@@ -90,7 +90,7 @@ For large audit trails (10K+ entries), an index file may accelerate date-range q
 
 ## 5. Data Model
 
-**Concurrency:** All audit trail writes use WAL mode. Concurrent dispatch logging and history view computation handled via row-level locking.
+**Concurrency:** File-level append locking on JSONL spool files (STD-113).
 
 No new tables or files. History views are computed from `rondo_audit.jsonl` (STD-113).
 

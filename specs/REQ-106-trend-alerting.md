@@ -121,7 +121,7 @@ averages, and compares against baseline thresholds.
 
 ## 5. Data Model
 
-**Concurrency:** All audit trail writes use WAL mode. Concurrent trend computation and alert persistence handled via row-level locking.
+**Concurrency:** File-level append locking on JSONL spool files (STD-113).
 
 No new storage. Trends are derived from STD-113 audit trail entries.
 

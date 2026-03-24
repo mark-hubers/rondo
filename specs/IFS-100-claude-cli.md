@@ -252,6 +252,12 @@ required tools/MCPs are available before trusting the result.
 
 ---
 
+## 2. The Problem
+
+REQUIRED — fill before build.
+
+---
+
 ## 3. Requirements
 
 *All requirements use MUST/SHOULD priority per CORE-STD-012.*
@@ -304,38 +310,6 @@ How each stream-json event maps to Rondo's dataclasses (REQ-100, STD-108):
 | parsed `status` | `TaskResult.status` | Map "done"→"done", "blocked"→"blocked" |
 | parsed `confidence` | `TaskResult.parsed_result.confidence` | Stored inside parsed dict |
 ---
-## 16. Assumptions
-
-| # | Assumption | If Wrong |
-|---|-----------|----------|
-| A1 | `claude -p` interface is stable across versions | Rondo may break on Claude Code updates — pin version or test |
-| A2 | Prompt text can be arbitrary length | Very long prompts may fail — test limits |
-| A3 | Claude respects `--model` flag for all model names | New models may use different flag format |
-| A4 | Stdout contains the complete response | Truncation would lose the JSON block |
-| A5 | `--output-format stream-json` event types are stable | New events may appear; missing events would break metadata parsing |
-| A6 | `rate_limit_event` is emitted on every call | If removed, capacity tracking loses its signal |
-| A7 | `[1m]` model suffix is the stable way to request 1M context | Anthropic may change the mechanism |
-| A8 | `total_cost_usd` reflects actual plan consumption | May be API-equivalent cost, not Max plan accounting |
-
----
-
-## Version Compatibility
-
-This interface was tested against Claude Code as of 2026-03-13. Anthropic may change the CLI interface at any time. Rondo should:
-1. Pin to a known-working Claude Code version if possible
-2. Test interface assumptions on every upgrade
-3. Log Claude Code version in overnight results for debugging
-
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
-
----
-
-## 2. The Problem
-
-REQUIRED — fill before build.
-
----
-
 ## 4. Architecture / Design
 
 REQUIRED — fill before build.
@@ -409,6 +383,32 @@ REQUIRED — fill before build.
 ## 15. Self-Correction
 
 — if applicable.
+
+---
+
+## 16. Assumptions
+
+| # | Assumption | If Wrong |
+|---|-----------|----------|
+| A1 | `claude -p` interface is stable across versions | Rondo may break on Claude Code updates — pin version or test |
+| A2 | Prompt text can be arbitrary length | Very long prompts may fail — test limits |
+| A3 | Claude respects `--model` flag for all model names | New models may use different flag format |
+| A4 | Stdout contains the complete response | Truncation would lose the JSON block |
+| A5 | `--output-format stream-json` event types are stable | New events may appear; missing events would break metadata parsing |
+| A6 | `rate_limit_event` is emitted on every call | If removed, capacity tracking loses its signal |
+| A7 | `[1m]` model suffix is the stable way to request 1M context | Anthropic may change the mechanism |
+| A8 | `total_cost_usd` reflects actual plan consumption | May be API-equivalent cost, not Max plan accounting |
+
+---
+
+## Version Compatibility
+
+This interface was tested against Claude Code as of 2026-03-13. Anthropic may change the CLI interface at any time. Rondo should:
+1. Pin to a known-working Claude Code version if possible
+2. Test interface assumptions on every upgrade
+3. Log Claude Code version in overnight results for debugging
+
+**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
 

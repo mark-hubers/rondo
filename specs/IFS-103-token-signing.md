@@ -53,7 +53,7 @@ SUPERSEDED. See CORE-IFS-002 §4 for the universal token architecture.
 
 ## 5. Data Model
 
-**Concurrency:** All token signing writes use database transactions with WAL mode. Concurrent token issuance handled via row-level locking.
+**Concurrency:** JSONL append-only writes with atomic file operations (STD-113).
 
 SUPERSEDED. See CORE-IFS-002 §5 for token data model.
 

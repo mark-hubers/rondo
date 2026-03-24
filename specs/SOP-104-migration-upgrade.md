@@ -103,7 +103,7 @@ The `rondo migrate` command:
 
 ## 5. Data Model
 
-**Concurrency:** All migration writes use database transactions with WAL mode. Concurrent schema changes are serialized to prevent data corruption.
+**Concurrency:** JSONL append-only writes with atomic file operations (STD-113).
 
 Migration affects these data artifacts:
 

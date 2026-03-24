@@ -145,6 +145,103 @@ REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 | 057 | Rondo SHALL support both --bare (headless) and normal (interactive) dispatch modes | SHOULD |
 
 ---
+## 4. Architecture / Design
+
+### Headless Dispatch (Claude Code --bare flag, v2.1.81+)
+
+The --bare flag strips hooks, LSP, and plugins for clean headless execution. Rondo uses this
+for all automated dispatch to prevent Caliber hooks, statusline, and other interactive-only
+features from interfering with batch tasks. Task-specific context is injected via --print-system-prompt
+or CLAUDE.md in the working directory.
+
+REQUIRED — fill remaining before build.
+
+---
+
+## 5. Data Model
+
+REQUIRED — fill before build.
+
+---
+
+## 6. Data Boundary
+
+REQUIRED — fill before build.
+
+---
+
+## 7. MCP / API Interface
+
+— if applicable.
+
+---
+
+## 8. States & Modes
+
+— if applicable.
+
+---
+
+## 9. Configuration
+
+— if applicable.
+
+---
+
+## 10. Rules & Constraints
+
+| Rule | Rationale |
+|------|-----------|
+| Phases don't block each other | One bad phase must not kill the whole overnight run. Resilience over strictness. |
+| Parallel is opt-in | Default is sequential (REQ-100). Parallel requires explicit --workers flag. |
+| Conflict detection is advisory | Flags potential issues but doesn't prevent execution. Consumer decides. |
+| No interactive input in overnight | Must run unattended from cron/LaunchAgent. Zero stdin. |
+| Morning report is always generated | Even if all phases fail. "Everything failed" is still a useful report. |
+
+---
+
+## 11. Quality Attributes
+
+| Attribute | Target | How Measured |
+|-----------|--------|-------------|
+| Throughput | 4x speedup with 4 workers vs sequential | Speedup ratio in summary |
+| Resilience | 95%+ overnight runs complete all phases | Event log analysis |
+| Visibility | Morning report readable in <30 seconds | Inspection |
+| Isolation | Single task failure never affects other tasks | Exception handling test |
+
+---
+
+## 12. Shared Patterns
+
+— if applicable.
+
+---
+
+## 13. Integration Points
+
+REQUIRED — fill before build.
+
+---
+
+## 14. Standards Applied
+
+| Standard | How Applied |
+|---------|-------------|
+| STD-108 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
+| STD-109 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
+| STD-110 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
+| CORE-STD-012 | Requirement readiness tracking |
+| CORE-STD-013 | TrackerData — universal tracking |
+| CORE-IFS-005 | MCP standard — AI tool access |
+
+---
+
+## 15. Self-Correction
+
+— if applicable.
+
+---
+
 ## 16. Assumptions
 
 | # | Assumption | If Wrong |
@@ -247,39 +344,27 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ---
 
-## 10. Rules & Constraints
+## 18. Build Notes / Estimate
 
-| Rule | Rationale |
-|------|-----------|
-| Phases don't block each other | One bad phase must not kill the whole overnight run. Resilience over strictness. |
-| Parallel is opt-in | Default is sequential (REQ-100). Parallel requires explicit --workers flag. |
-| Conflict detection is advisory | Flags potential issues but doesn't prevent execution. Consumer decides. |
-| No interactive input in overnight | Must run unattended from cron/LaunchAgent. Zero stdin. |
-| Morning report is always generated | Even if all phases fail. "Everything failed" is still a useful report. |
+— filled during build.
 
 ---
 
-## 11. Quality Attributes
+## 19. Test Categories
 
-| Attribute | Target | How Measured |
-|-----------|--------|-------------|
-| Throughput | 4x speedup with 4 workers vs sequential | Speedup ratio in summary |
-| Resilience | 95%+ overnight runs complete all phases | Event log analysis |
-| Visibility | Morning report readable in <30 seconds | Inspection |
-| Isolation | Single task failure never affects other tasks | Exception handling test |
+— filled during build.
 
 ---
 
-## 14. Standards Applied
+## 20. Failure Modes
 
-| Standard | How Applied |
-|---------|-------------|
-| STD-108 Error & Resilience | Phase failures logged and continued. Task exceptions isolated. Overnight always produces a report. |
-| STD-109 Configuration | Worker count, throttle, modes all configurable via TOML + CLI. |
-| STD-110 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
-| CORE-STD-012 | Requirement readiness tracking |
-| CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+— if applicable.
+
+---
+
+## 21. Dependencies + Used By
+
+REQUIRED — fill before build.
 
 ---
 
@@ -305,91 +390,6 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Q4 | How should the scheduler handle system-level scheduling (cron vs LaunchAgent vs systemd)? | Deferred — platform-specific |
 | Q5 | Should Rondo support alternative backends (Codex CLI, Ollama, direct API)? | Deferred — IFS-100 isolates the interface. Adding IFS-101 for other backends is architecturally possible without changing REQ-100/002. |
 | Q6 | Should worktree isolation use `git worktree` directly or Claude Code's `--worktree` flag? | Open — Claude Code has native worktree support via `--worktree` flag |
-
----
-
-## 4. Architecture / Design
-
-### Headless Dispatch (Claude Code --bare flag, v2.1.81+)
-
-The --bare flag strips hooks, LSP, and plugins for clean headless execution. Rondo uses this
-for all automated dispatch to prevent Caliber hooks, statusline, and other interactive-only
-features from interfering with batch tasks. Task-specific context is injected via --print-system-prompt
-or CLAUDE.md in the working directory.
-
-REQUIRED — fill remaining before build.
-
----
-
-## 5. Data Model
-
-REQUIRED — fill before build.
-
----
-
-## 6. Data Boundary
-
-REQUIRED — fill before build.
-
----
-
-## 7. MCP / API Interface
-
-— if applicable.
-
----
-
-## 8. States & Modes
-
-— if applicable.
-
----
-
-## 9. Configuration
-
-— if applicable.
-
----
-
-## 12. Shared Patterns
-
-— if applicable.
-
----
-
-## 13. Integration Points
-
-REQUIRED — fill before build.
-
----
-
-## 15. Self-Correction
-
-— if applicable.
-
----
-
-## 18. Build Notes / Estimate
-
-— filled during build.
-
----
-
-## 19. Test Categories
-
-— filled during build.
-
----
-
-## 20. Failure Modes
-
-— if applicable.
-
----
-
-## 21. Dependencies + Used By
-
-REQUIRED — fill before build.
 
 ---
 

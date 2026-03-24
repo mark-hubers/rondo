@@ -176,7 +176,7 @@ reports/rondo-results/                     # spool root
 | Database abstraction (Postgres/SQLite) | None | Rondo is stateless — spool files only |
 | Schema migrations | None | No schema to migrate |
 | Backup strategy | Spool files ARE the backup | Consumer imports from spool |
-| WAL mode / connection pooling | None | No database connections |
+| Database connections / pooling | None | No database — JSONL spool files only |
 | HMAC payload signing | None | Local dispatch only, no remote transport |
 | `--reimport` from files | N/A | Files are the primary store, not a backup |
 

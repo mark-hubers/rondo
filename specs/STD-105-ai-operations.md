@@ -142,7 +142,7 @@ Rondo produces DispatchUsage per dispatch. OB ingests it into `sprint_intelligen
 
 ## 7. MCP / API Interface
 
-Future MCP tools (Rondo-IFS-100, CORE-IFS-005): `rondo_query_cost` (cost estimate), `rondo_query_providers` (available models), `rondo_action_dispatch` (send prompt). Current v1.0: no MCP interface. Dispatch is via CLI (`rondo run`) or Python import.
+Future MCP tools (IFS-104, CORE-IFS-005): `rondo_query_cost` (cost estimate), `rondo_query_providers` (available models), `rondo_action_dispatch` (send prompt). Current v1.0: no MCP interface. Dispatch is via CLI (`rondo run`) or Python import.
 
 ---
 
@@ -396,7 +396,7 @@ Dispatch overhead: ~50ms (arg construction, env setup). Stream-json parsing: ~2m
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch prerequisite. CORE-STD-013 (TrackerData) records dispatch cost events for trend analysis. CORE-IFS-005 MCP tools will expose dispatch and cost queries when Rondo-IFS-100 is built.
+CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch prerequisite. CORE-STD-013 (TrackerData) records dispatch cost events for trend analysis. CORE-IFS-005 MCP tools will expose dispatch and cost queries when IFS-104 is built.
 
 ---
 

@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** REQ-100 (Core), REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract)
-**Used by:** REQ-101 (Automation — multi-account), IFS-101 (Caliber Integration), IFS-102 (OB Integration)
+**Used by:** REQ-110 (Multi-Account), REQ-101 (Automation), IFS-101 (Caliber Integration), IFS-102 (OB Integration)
 **Evidence:** Session 83 — 3 providers tested live (Gemini 45 models/133ms, OpenAI 129 models/524ms, Claude 9 models/238ms)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
 
@@ -30,7 +30,7 @@
 
 **OUT of scope:**
 - AI model internals (prompt engineering, response parsing)
-- Multi-account capacity management (REQ-101 addendum owns that)
+- Multi-account capacity management (REQ-110 owns that)
 - OB or Caliber integration details (IFS-101, IFS-102 own those)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
@@ -83,7 +83,7 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 013 | Default routing defined in config. Override per-dispatch via OAPayload `runtime.model` field. | MUST | Override test |
 | 014 | Each provider has 3 model tiers: `default_model` (balanced), `best_model` (quality), `cheap_model` (cost) | SHOULD | Tier test |
 | 015 | Routing fallback: if preferred provider is down, use fallback provider (configurable) | MUST | Fallback test |
-| 016 | NEVER fall back to Mark's interactive account for batch work (REQ-101 addendum rule) | MUST | Protect test |
+| 016 | NEVER fall back to Mark's interactive account for batch work (REQ-110 rule) | MUST | Protect test |
 
 
 ### Provider Health
@@ -289,7 +289,7 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 |-------------|------|-----------|----------|
 | Dispatch engine | REQ-100 | Internal | Router selects adapter, adapter returns DispatchResult |
 | Preflight | REQ-103 | Internal | Per-provider health checks |
-| Multi-account | REQ-101 addendum | Internal | Multiple adapter instances per provider |
+| Multi-account | REQ-110 | Internal | Multiple adapter instances per provider |
 | Caliber | IFS-101 | Indirect | Caliber requests model via Task.model, Rondo routes |
 | OB | IFS-102 | Indirect | OB requests model via OAPayload.runtime.model |
 | Audit trail | STD-113 | Outbound | Provider + model in every audit entry |
@@ -404,7 +404,7 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 
 | Used By | Why |
 |---------|-----|
-| REQ-101 | Multi-account routing for overnight |
+| REQ-110 | Multi-account routing for overnight |
 | IFS-101 | Caliber tasks routed through adapters |
 | IFS-102 | OB tasks routed through adapters |
 | REQ-106 | Per-model trend data comes from adapter dispatch results |

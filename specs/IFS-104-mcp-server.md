@@ -1,4 +1,4 @@
-# Rondo-IFS-100: Rondo MCP Server (Multi-Model Dispatch)
+# IFS-104: Rondo MCP Server (Multi-Model Dispatch)
 
 **Category:** IFS (Interface Specification)
 **Product:** Rondo (Multi-Model AI Dispatch)
@@ -126,10 +126,10 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 
 ## 10. Rules & Constraints
 
-1. **Rondo is the ONLY model-aware component** (per architecture decision). All other products dispatch through Rondo for non-Claude work (Gemini, OpenAI). Violation ID: `IFS100-SINGLE-ROUTER`
-2. **MCP tools follow CORE-IFS-005 naming convention.** `rondo_{category}_{action}` format. Violation ID: `IFS100-NAMING`
-3. **Action tools require authentication.** Query and status tools are read-only and may be unauthenticated in local mode. Violation ID: `IFS100-AUTH`
-4. **Sanitized responses only.** No raw subprocess output, no secrets, no unsanitized AI text crosses MCP boundary. Violation ID: `IFS100-SANITIZED`
+1. **Rondo is the ONLY model-aware component** (per architecture decision). All other products dispatch through Rondo for non-Claude work (Gemini, OpenAI). Violation ID: `IFS104-SINGLE-ROUTER`
+2. **MCP tools follow CORE-IFS-005 naming convention.** `rondo_{category}_{action}` format. Violation ID: `IFS104-NAMING`
+3. **Action tools require authentication.** Query and status tools are read-only and may be unauthenticated in local mode. Violation ID: `IFS104-AUTH`
+4. **Sanitized responses only.** No raw subprocess output, no secrets, no unsanitized AI text crosses MCP boundary. Violation ID: `IFS104-SANITIZED`
 
 ---
 

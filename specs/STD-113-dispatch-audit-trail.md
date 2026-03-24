@@ -112,7 +112,7 @@ Audit data stays local. The JSONL log and prompt/result files are in `~/.rondo/a
 
 ## 7. MCP / API Interface
 
-No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE-IFS-005 MCP tools in OB may reference dispatch_ids but do not query Rondo's audit files directly. Future: `rondo_query_batch_status` (Rondo-IFS-100) could include audit record references.
+No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE-IFS-005 MCP tools in OB may reference dispatch_ids but do not query Rondo's audit files directly. Future: `rondo_query_batch_status` (IFS-104) could include audit record references.
 
 ---
 

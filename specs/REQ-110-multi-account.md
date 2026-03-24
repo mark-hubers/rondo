@@ -1,4 +1,4 @@
-# REQ-101 Addendum: Multi-Account Capacity Management
+# REQ-110: Multi-Account Capacity Management
 
 **Parent:** REQ-101 (Automation)
 **Created:** 2026-03-20 | **Status:** DESIGNED
@@ -32,7 +32,6 @@
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 2. The Problem
 
@@ -56,7 +55,6 @@ Rondo's Account ($20-$100/month Max)
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 3. Requirements
 
@@ -79,7 +77,6 @@ Rondo's Account ($20-$100/month Max)
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 4. Architecture / Design
 
@@ -103,7 +100,6 @@ Adapter dispatches with its own API key + rate limit pool
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 5. Data Model
 
@@ -119,7 +115,6 @@ operation over the audit data, not a separate data store.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 6. Data Boundary
 
@@ -142,7 +137,6 @@ operation over the audit data, not a separate data store.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 7. MCP / API Interface
 
@@ -152,7 +146,6 @@ dispatching expensive tasks.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 8. States & Modes
 
@@ -170,7 +163,6 @@ dispatching expensive tasks.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 9. Configuration
 
@@ -222,18 +214,16 @@ switch_to_ollama_if_rate_limited = true # Use local model while waiting for rate
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 10. Rules & Constraints
 
-1. **NEVER fall back to interactive.** Batch rate-limited → use fallback provider or wait. Mark's account is sacred. Violation ID: `REQ101A-PROTECT-INTERACTIVE`
-2. **Config, not code.** Account selection lives in TOML. No hardcoded API key references. Violation ID: `REQ101A-CONFIG-DRIVEN`
-3. **Account-agnostic results.** OAPayload/OAResult never reveal which account dispatched. Model-agnostic AND account-agnostic. Violation ID: `REQ101A-AGNOSTIC`
-4. **Per-account budgets.** Each provider has its own budget_monthly_usd. Cross-account budget aggregation is for reporting only, not enforcement. Violation ID: `REQ101A-PER-ACCOUNT-BUDGET`
+1. **NEVER fall back to interactive.** Batch rate-limited → use fallback provider or wait. Mark's account is sacred. Violation ID: `REQ110-PROTECT-INTERACTIVE`
+2. **Config, not code.** Account selection lives in TOML. No hardcoded API key references. Violation ID: `REQ110-CONFIG-DRIVEN`
+3. **Account-agnostic results.** OAPayload/OAResult never reveal which account dispatched. Model-agnostic AND account-agnostic. Violation ID: `REQ110-AGNOSTIC`
+4. **Per-account budgets.** Each provider has its own budget_monthly_usd. Cross-account budget aggregation is for reporting only, not enforcement. Violation ID: `REQ110-PER-ACCOUNT-BUDGET`
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 11. Quality Attributes
 
@@ -265,7 +255,6 @@ switch_to_ollama_if_rate_limited = true # Use local model while waiting for rate
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 12. Shared Patterns
 
@@ -277,7 +266,6 @@ switch_to_ollama_if_rate_limited = true # Use local model while waiting for rate
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 13. Integration Points
 
@@ -312,7 +300,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 14. Standards Applied
 
@@ -327,7 +314,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 15. Self-Correction
 
@@ -340,7 +326,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 16. Assumptions
 
@@ -353,7 +338,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 17. Success Criteria
 
@@ -367,7 +351,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 18. Build Notes / Estimate
 
@@ -382,7 +365,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 19. Test Categories
 
@@ -396,7 +378,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 20. Failure Modes
 
@@ -409,7 +390,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 21. Dependencies + Used By
 
@@ -428,7 +408,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 22. Decisions
 
@@ -441,7 +420,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 23. Open Questions
 
@@ -453,7 +431,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 24. Glossary
 
@@ -466,7 +443,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 25. Risk / Criticality
 
@@ -478,7 +454,6 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 26. External Scan
 
@@ -488,7 +463,6 @@ is analogous to database connection pool isolation (OLTP vs OLAP pools).
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 27. Security Considerations
 
@@ -499,7 +473,6 @@ is analogous to database connection pool isolation (OLTP vs OLAP pools).
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 28. Performance / Resource
 
@@ -512,7 +485,6 @@ is analogous to database connection pool isolation (OLTP vs OLAP pools).
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 29. Approval Record
 
@@ -522,7 +494,6 @@ is analogous to database connection pool isolation (OLTP vs OLAP pools).
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 30. AI Review
 
@@ -530,7 +501,6 @@ Not yet performed. Scheduled for cross-spec review after all Rondo specs reach 3
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 31. AI Went Wrong
 
@@ -538,7 +508,6 @@ Not yet populated. Will be filled during first build sprint implementing multi-a
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 32. AI Assumptions
 
@@ -546,7 +515,6 @@ Not yet populated. Will capture model assumptions made during build.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 33. AI Cost
 
@@ -554,7 +522,6 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 34. Notes
 
@@ -566,7 +533,6 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ### Feature Maturity
 

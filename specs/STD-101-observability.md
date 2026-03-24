@@ -131,7 +131,7 @@ Rondo captures and stores observability data in spool files. Consumers (OB, ACE)
 
 ## 7. MCP / API Interface
 
-Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-IFS-005 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (Rondo-IFS-100) provides dispatch status over MCP.
+Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-IFS-005 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (IFS-104) provides dispatch status over MCP.
 
 ---
 

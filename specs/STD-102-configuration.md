@@ -148,7 +148,7 @@ Configuration is resolved at startup and frozen. No runtime config changes. The 
 
 ## 7. MCP / API Interface
 
-No MCP interface for configuration. Config is local to the Rondo process. CORE-IFS-005 MCP tools do not expose or modify Rondo configuration. Future: `rondo_query_routing` (Rondo-IFS-100) may expose the resolved model routing table read-only.
+No MCP interface for configuration. Config is local to the Rondo process. CORE-IFS-005 MCP tools do not expose or modify Rondo configuration. Future: `rondo_query_routing` (IFS-104) may expose the resolved model routing table read-only.
 
 ---
 

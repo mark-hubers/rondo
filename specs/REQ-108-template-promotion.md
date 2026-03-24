@@ -35,7 +35,6 @@
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 2. The Problem
 
@@ -47,7 +46,6 @@ reusable, reducing prompt reinvention and improving consistency.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 3. Requirements
 
@@ -70,7 +68,6 @@ reusable, reducing prompt reinvention and improving consistency.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 4. Architecture / Design
 
@@ -97,7 +94,6 @@ substitutes context variables.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 5. Data Model
 
@@ -117,7 +113,6 @@ templates are stored as YAML files in `~/.rondo/templates/`.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 6. Data Boundary
 
@@ -139,7 +134,6 @@ templates are stored as YAML files in `~/.rondo/templates/`.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 7. MCP / API Interface
 
@@ -149,7 +143,6 @@ code review?" → returns list of promoted templates with usage stats.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 8. States & Modes
 
@@ -171,7 +164,6 @@ but archiving requires manual confirmation.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 9. Configuration
 
@@ -185,7 +177,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 10. Rules & Constraints
 
@@ -196,7 +187,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 11. Quality Attributes
 
@@ -209,7 +199,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 12. Shared Patterns
 
@@ -223,7 +212,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 13. Integration Points
 
@@ -236,7 +224,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 14. Standards Applied
 
@@ -248,7 +235,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 15. Self-Correction
 
@@ -261,7 +247,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 16. Assumptions
 
@@ -274,7 +259,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 17. Success Criteria
 
@@ -288,7 +272,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 18. Build Notes / Estimate
 
@@ -304,7 +287,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 19. Test Categories
 
@@ -318,7 +300,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 20. Failure Modes
 
@@ -331,7 +312,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 21. Dependencies + Used By
 
@@ -346,7 +326,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 22. Decisions
 
@@ -359,7 +338,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 23. Open Questions
 
@@ -371,7 +349,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 24. Glossary
 
@@ -384,7 +361,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 25. Risk / Criticality
 
@@ -396,7 +372,6 @@ surface_candidates = true           # Show candidates in morning report
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 26. External Scan
 
@@ -406,7 +381,6 @@ local module → registry). The promotion lifecycle pattern is well-established 
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 27. Security Considerations
 
@@ -418,7 +392,6 @@ local module → registry). The promotion lifecycle pattern is well-established 
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 28. Performance / Resource
 
@@ -431,7 +404,6 @@ local module → registry). The promotion lifecycle pattern is well-established 
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 29. Approval Record
 
@@ -441,7 +413,6 @@ local module → registry). The promotion lifecycle pattern is well-established 
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 30. AI Review
 
@@ -449,7 +420,6 @@ Not yet performed. Scheduled for cross-spec review after all Rondo specs reach 3
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 31. AI Went Wrong
 
@@ -457,7 +427,6 @@ Not yet populated. Will be filled during first build sprint implementing templat
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 32. AI Assumptions
 
@@ -465,7 +434,6 @@ Not yet populated. Will capture model assumptions made during build.
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 33. AI Cost
 
@@ -473,7 +441,6 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ## 34. Notes
 
@@ -485,7 +452,6 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 ---
 
-**Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration.
 
 ### Feature Maturity
 

@@ -58,7 +58,7 @@ Specs are the source of truth for code. A bug in a spec becomes a bug in every i
 ### Interface Checks (checks 8-10)
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 008 | System SHALL **WIRING** — IFS contracts match on both sides of every product pair. Rondo-IFS-100 (Claude CLI) and IFS-102 (OB integration) must agree with their counterparts | MUST |
+| 008 | System SHALL **WIRING** — IFS contracts match on both sides of every product pair. IFS-100 (Claude CLI) and IFS-102 (OB integration) must agree with their counterparts | MUST |
 | 009 | System SHALL **TRANSPORT MATCH** — both sides agree on transport method (pipe/file/HTTPS/queue). No spec says "file" when the other says "pipe." | MUST |
 | 010 | System SHALL **MISSING IFS** — every product pair that communicates has BOTH sides spec'd. If Rondo dispatches for OB, both IFS-102 (Rondo) and OB-IFS-103 must exist | MUST |
 

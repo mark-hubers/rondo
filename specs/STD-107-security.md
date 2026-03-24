@@ -12,6 +12,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-008, STD-107 (Caliber), STD-107 (Rondo)
+**Depends on:** STD-102, STD-113, STD-104, CORE-STD-012, STD-101, CORE-STD-021, CORE-STD-013
 
 ---
 
@@ -130,7 +131,7 @@ Security enforcement happens at every data boundary: spool file read (HMAC valid
 
 ## 7. MCP / API Interface
 
-No MCP interface for security controls. Security is enforced internally. CORE-IFS-005 MCP tools do not expose security configuration or override security controls. Security events are queryable only via audit logs (STD-113), not via MCP.
+No MCP interface for security controls. Security is enforced internally. CORE-STD-021 MCP tools do not expose security configuration or override security controls. Security events are queryable only via audit logs (STD-113), not via MCP.
 
 ---
 
@@ -232,7 +233,7 @@ Security config in `rondo.toml` is limited to thresholds: `max_dispatches_per_ho
 | CORE-STD-008 | Parent security standard — Rondo adapts for dispatch pipeline threats |
 | CORE-STD-012 | Requirement readiness — security prerequisites must be met before dispatch |
 | CORE-STD-013 | TrackerData — security events are trackable for trend analysis |
-| CORE-IFS-005 | MCP standard — security controls are NOT exposed via MCP (by design) |
+| CORE-STD-021 | MCP standard — security controls are NOT exposed via MCP (by design) |
 
 ---
 
@@ -389,7 +390,7 @@ HMAC signing: ~1ms per spool file. Rate limit check: ~0.1ms per dispatch (in-mem
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) treats security prerequisites as gating conditions — dispatch cannot proceed if signing key is missing or permissions are wrong. CORE-STD-013 (TrackerData) records security events for trend analysis (are attack attempts increasing?). CORE-IFS-005 MCP tools intentionally do NOT expose security controls — security is enforced internally, not queryable externally.
+CORE-STD-012 (Requirement Readiness) treats security prerequisites as gating conditions — dispatch cannot proceed if signing key is missing or permissions are wrong. CORE-STD-013 (TrackerData) records security events for trend analysis (are attack attempts increasing?). CORE-STD-021 MCP tools intentionally do NOT expose security controls — security is enforced internally, not queryable externally.
 
 ---
 

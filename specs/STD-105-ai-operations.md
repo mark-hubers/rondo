@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-006, STD-105 (Caliber)
+**Depends on:** CORE-STD-006, CORE-STD-012, STD-101, ACE-STD-020, IFS-104, CORE-STD-021, STD-102, CORE-STD-013, STD-107
 
 ---
 
@@ -142,7 +143,7 @@ Rondo produces DispatchUsage per dispatch. OB ingests it into `sprint_intelligen
 
 ## 7. MCP / API Interface
 
-Future MCP tools (IFS-104, CORE-IFS-005): `rondo_query_cost` (cost estimate), `rondo_query_providers` (available models), `rondo_action_dispatch` (send prompt). Current v1.0: no MCP interface. Dispatch is via CLI (`rondo run`) or Python import.
+Future MCP tools (IFS-104, CORE-STD-021): `rondo_query_cost` (cost estimate), `rondo_query_providers` (available models), `rondo_action_dispatch` (send prompt). Current v1.0: no MCP interface. Dispatch is via CLI (`rondo run`) or Python import.
 
 ---
 
@@ -239,7 +240,7 @@ Round authors pick the right model per task. Operators override with `--model` w
 | CORE-STD-006 | Parent AI operations standard — Rondo adapts for dispatch context |
 | CORE-STD-012 | Requirement readiness — model availability is a dispatch prerequisite |
 | CORE-STD-013 | TrackerData — dispatch events (cost, model, duration) are trackable |
-| CORE-IFS-005 | MCP standard — future dispatch and cost query tools |
+| CORE-STD-021 | MCP standard — future dispatch and cost query tools |
 
 ---
 
@@ -396,7 +397,7 @@ Dispatch overhead: ~50ms (arg construction, env setup). Stream-json parsing: ~2m
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch prerequisite. CORE-STD-013 (TrackerData) records dispatch cost events for trend analysis. CORE-IFS-005 MCP tools will expose dispatch and cost queries when IFS-104 is built.
+CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch prerequisite. CORE-STD-013 (TrackerData) records dispatch cost events for trend analysis. CORE-STD-021 MCP tools will expose dispatch and cost queries when IFS-104 is built.
 
 ---
 

@@ -11,7 +11,8 @@
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-SOP-004, SOP-103 (Caliber), SOP-103 (Rondo)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
+**Depends on:** REQ-105, STD-113, REQ-109, REQ-103
 
 ---
 
@@ -137,7 +138,7 @@ No separate incident database in v1.
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could accept incident reports and trigger automated
+Future: an MCP tool per CORE-STD-021 could accept incident reports and trigger automated
 response actions (e.g., pause all dispatches, switch to fallback provider).
 
 ---
@@ -251,7 +252,7 @@ pir_required_for = ["SEV-1", "SEV-2"]  # Post-incident review required for these
 | CORE-STD-010 (Error Resilience) | Dispatch failures don't cascade to other tasks |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Incident events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for incident management |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for incident management |
 
 ---
 

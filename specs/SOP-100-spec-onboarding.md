@@ -11,7 +11,8 @@
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** OB-SOP-100, SOP-100 (Caliber), SOP-100 (Rondo)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
+**Depends on:** STD-100, CORE-STD-000, SOP-101, STD-105, REQ-100, SOP-102, STD-108, STD-109, IFS-102
 
 ---
 
@@ -112,7 +113,7 @@ Content is adapted for Rondo's context. The number and topic are the same across
 
 ## 7. MCP / API Interface
 
-Not applicable for this SOP. Future: CORE-IFS-005 MCP tools could query spec metadata
+Not applicable for this SOP. Future: CORE-STD-021 MCP tools could query spec metadata
 (list specs, check completeness, find missing sections) to support automated spec auditing.
 
 ---
@@ -230,7 +231,7 @@ Use IFS specs to formally define integration points between products.
 | CORE-STD-007 (Spec Quality) | Phase 5 review gate before build |
 | CORE-STD-012 (Requirement Readiness) | Readiness tracking for each requirement |
 | CORE-STD-013 (TrackerData) | Spec creation/update events as trackerdata |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for spec metadata queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for spec metadata queries |
 | DEC-017 | Universal numbering across products |
 
 ---

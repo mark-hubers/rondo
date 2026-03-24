@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-005, STD-104 (Caliber)
+**Depends on:** CORE-STD-005, CORE-STD-012, CORE-STD-021, STD-100, CORE-STD-013
 
 ---
 
@@ -112,7 +113,7 @@ Spool files are the data boundary between Rondo and consumers. Rondo writes to t
 
 ## 7. MCP / API Interface
 
-No MCP interface for infrastructure. Spool directory is accessed via filesystem, not API. CORE-IFS-005 MCP tools that query results read from consumer-side stores (OB database), not directly from Rondo's spool directory.
+No MCP interface for infrastructure. Spool directory is accessed via filesystem, not API. CORE-STD-021 MCP tools that query results read from consumer-side stores (OB database), not directly from Rondo's spool directory.
 
 ---
 
@@ -216,7 +217,7 @@ reports/rondo-results/                     # spool root
 | CORE-STD-005 | Parent infrastructure standard — Rondo adapts persistence, concurrency, security for stateless context |
 | CORE-STD-012 | Requirement readiness — infrastructure availability is a prerequisite |
 | CORE-STD-013 | TrackerData — spool write events are trackable |
-| CORE-IFS-005 | MCP standard — spool data accessed via consumer MCP tools, not directly |
+| CORE-STD-021 | MCP standard — spool data accessed via consumer MCP tools, not directly |
 
 ---
 
@@ -371,7 +372,7 @@ Worktree creation: ~100ms (git worktree add). Atomic write: ~5ms (write + fsync 
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) treats infrastructure availability as a gating condition — dispatch cannot proceed if the spool directory is not writable. CORE-STD-013 (TrackerData) can track spool write events for operational monitoring. CORE-IFS-005 MCP tools read from consumer stores, not directly from Rondo spool.
+CORE-STD-012 (Requirement Readiness) treats infrastructure availability as a gating condition — dispatch cannot proceed if the spool directory is not writable. CORE-STD-013 (TrackerData) can track spool write events for operational monitoring. CORE-STD-021 MCP tools read from consumer stores, not directly from Rondo spool.
 
 ---
 

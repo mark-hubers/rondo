@@ -16,7 +16,8 @@ Requirements from this spec are now in `core/specs/CORE-IFS-002-token-signing.md
 **Reviewed:** not-yet
 **Supersedes:** none
 **Superseded by:** CORE-IFS-002
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
+**Depends on:** CORE-IFS-002
 
 ---
 
@@ -28,6 +29,8 @@ Rondo's role: DELEGATOR — passes tokens in OAPayload.auth.token to downstream 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified IFS correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -67,7 +70,7 @@ SUPERSEDED. See CORE-IFS-002 §6 for data boundary.
 
 ## 7. MCP / API Interface
 
-SUPERSEDED. See CORE-IFS-002 and CORE-IFS-005 for MCP token validation tools.
+SUPERSEDED. See CORE-IFS-002 and CORE-STD-021 for MCP token validation tools.
 
 ---
 
@@ -114,7 +117,7 @@ SUPERSEDED. See CORE-IFS-002 §13 for cross-product integration points.
 | CORE-IFS-002 | This spec absorbed into CORE-IFS-002 |
 | CORE-STD-012 | Requirement readiness tracked in CORE-IFS-002 |
 | CORE-STD-013 | TrackerData patterns in CORE-IFS-002 |
-| CORE-IFS-005 | MCP token validation in CORE-IFS-002 |
+| CORE-STD-021 | MCP token validation in CORE-IFS-002 |
 
 ---
 

@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-004, STD-103 (Caliber)
+**Depends on:** CORE-STD-004, CORE-STD-012, STD-112, STD-100, CORE-STD-021, REQ-101
 
 ---
 
@@ -127,7 +128,7 @@ Quality enforcement is internal to Rondo's development process. It does not cros
 
 ## 7. MCP / API Interface
 
-No MCP interface for quality metrics. Quality data stays in the development pipeline. Future: CORE-IFS-005 MCP tools could expose test results for cross-product quality dashboards, but this is not planned for v1.0.
+No MCP interface for quality metrics. Quality data stays in the development pipeline. Future: CORE-STD-021 MCP tools could expose test results for cross-product quality dashboards, but this is not planned for v1.0.
 
 ---
 
@@ -209,7 +210,7 @@ The compound effect (CORE-STD-004 section 5) applies to Rondo through tests and 
 | CORE-STD-004 | Parent quality standard — Rondo adapts TDD, conventions, coverage |
 | CORE-STD-012 | Requirement readiness — all tests passing is a prerequisite for READY state |
 | CORE-STD-013 | TrackerData — test results are trackable events for trend analysis |
-| CORE-IFS-005 | MCP standard — future quality dashboards via MCP tools |
+| CORE-STD-021 | MCP standard — future quality dashboards via MCP tools |
 
 ---
 
@@ -362,7 +363,7 @@ Full test suite runs in <10 seconds (mocked subprocesses, no I/O). Convention te
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) requires all tests passing before a requirement reaches READY state. CORE-STD-013 (TrackerData) can ingest test result trends for quality dashboards. CORE-IFS-005 MCP tools could expose quality metrics in future versions.
+CORE-STD-012 (Requirement Readiness) requires all tests passing before a requirement reaches READY state. CORE-STD-013 (TrackerData) can ingest test result trends for quality dashboards. CORE-STD-021 MCP tools could expose quality metrics in future versions.
 
 ---
 

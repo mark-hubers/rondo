@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** IFS-100 (exit codes, stderr) | **Blocks:** REQ-100 (Dispatch)
+**Depends on:** IFS-100 (exit codes, stderr), REQ-101, STD-110 | **Blocks:** REQ-100 (Dispatch)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -33,6 +33,8 @@ No silent failures. No crashes from bad output. No hung processes.
 - Error storage backend (REQ-100 defines result file format)
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
 
 ## Principle
 
@@ -412,7 +414,7 @@ REQUIRED — fill before build.
 |----------|-------------|
 | CORE-STD-012 | Requirement readiness tracking |
 | CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+| CORE-STD-021 | MCP standard — AI tool access |
 
 ---
 

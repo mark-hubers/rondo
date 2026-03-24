@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-008 (Security), CORE-STD-010 (Error Resilience — credential scrubbing) | **Used by:** STD-113 (Audit Trail), IFS-102 (OB Integration), REQ-101 (Automation)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-008 (Security), CORE-STD-010 (Error Resilience — credential scrubbing), CORE-STD-012, CORE-STD-011, CORE-STD-021, CORE-STD-013, STD-107 | **Used by:** STD-113 (Audit Trail), IFS-102 (OB Integration), REQ-101 (Automation)
 **Cross-pollinated from:** ACE-REQ-017 (Privacy & Redaction) — adapted from knowledge-base redaction to dispatch-output sanitization
 
 ---
@@ -35,6 +35,8 @@
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -110,7 +112,7 @@ Sanitization happens at the storage boundary. In-memory processing uses raw (uns
 
 ## 7. MCP / API Interface
 
-No MCP interface for sanitization. Sanitization is an internal pipeline stage. CORE-IFS-005 MCP tools receive already-scrubbed data — they never see raw output. The `rondo sanitize allow` CLI manages the false positive allowlist locally.
+No MCP interface for sanitization. Sanitization is an internal pipeline stage. CORE-STD-021 MCP tools receive already-scrubbed data — they never see raw output. The `rondo sanitize allow` CLI manages the false positive allowlist locally.
 
 ---
 
@@ -180,7 +182,7 @@ custom_2 = "ghp_[A-Za-z0-9]{36}"
 | CORE-STD-010 | Error resilience — credential scrubbing rules (reqs 19-22) |
 | CORE-STD-012 | Requirement readiness — sanitization pipeline must be active |
 | CORE-STD-013 | TrackerData — scrubbing events are trackable |
-| CORE-IFS-005 | MCP standard — MCP tools receive scrubbed data only |
+| CORE-STD-021 | MCP standard — MCP tools receive scrubbed data only |
 
 ---
 
@@ -337,7 +339,7 @@ Pattern scanning: ~5ms per dispatch output (regex engine over ~10KB text). Entro
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) requires the sanitization pipeline to be active before dispatches can proceed. CORE-STD-013 (TrackerData) records scrubbing events for trend analysis (are secrets appearing more frequently?). CORE-IFS-005 MCP tools always receive scrubbed data — sanitization is transparent to MCP consumers.
+CORE-STD-012 (Requirement Readiness) requires the sanitization pipeline to be active before dispatches can proceed. CORE-STD-013 (TrackerData) records scrubbing events for trend analysis (are secrets appearing more frequently?). CORE-STD-021 MCP tools always receive scrubbed data — sanitization is transparent to MCP consumers.
 
 ---
 

@@ -9,7 +9,7 @@
 **Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-102 (Configuration) | **Used by:** REQ-103 (Preflight)
+**Depends on:** REQ-100 (Core), STD-102 (Configuration), OB-REQ-108, CORE-STD-012, STD-103, CORE-STD-021 | **Used by:** REQ-103 (Preflight)
 **Cross-pollinated from:** OB-REQ-108 (Golden Numbers) — adapted from methodology counts to dispatch counts
 
 ---
@@ -24,6 +24,8 @@ Defines how Rondo tracks golden numbers — the counts that must stay consistent
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -79,7 +81,7 @@ Golden numbers are internal to Rondo's development process. They do not cross pr
 
 ## 7. MCP / API Interface
 
-No MCP interface. Golden numbers are a development-time check, not a runtime service. CORE-IFS-005 MCP tools do not expose golden number queries. The `rondo golden` CLI is the query interface.
+No MCP interface. Golden numbers are a development-time check, not a runtime service. CORE-STD-021 MCP tools do not expose golden number queries. The `rondo golden` CLI is the query interface.
 
 ---
 
@@ -136,7 +138,7 @@ Golden number registry location: `rondo/golden-numbers.toml` or inline in `confi
 | OB-REQ-108 | Origin pattern — Rondo adapts golden numbers from methodology to dispatch counts |
 | CORE-STD-012 | Requirement readiness — golden number drift blocks READY state |
 | CORE-STD-013 | TrackerData — drift events are trackable for trend analysis |
-| CORE-IFS-005 | MCP standard — golden numbers not exposed via MCP (development-time only) |
+| CORE-STD-021 | MCP standard — golden numbers not exposed via MCP (development-time only) |
 
 ---
 
@@ -290,7 +292,7 @@ Scanner runs once at preflight (~100ms for a small codebase). No runtime overhea
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) uses golden number health as a readiness signal — if counts are drifting, the system is not in a consistent state. CORE-STD-013 (TrackerData) could ingest drift events for cross-session trend analysis. CORE-IFS-005 is not applicable — golden numbers are development-time only.
+CORE-STD-012 (Requirement Readiness) uses golden number health as a readiness signal — if counts are drifting, the system is not in a consistent state. CORE-STD-013 (TrackerData) could ingest drift events for cross-session trend analysis. CORE-STD-021 is not applicable — golden numbers are development-time only.
 
 ---
 

@@ -34,6 +34,8 @@ Documents the interface between Rondo (the conductor) and Claude Code's `claude 
 
 ---
 
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified IFS correct (Session 86) -->
+
 ## The Interface
 
 ### Invocation
@@ -376,7 +378,7 @@ REQUIRED — fill before build.
 |----------|-------------|
 | CORE-STD-012 | Requirement readiness tracking |
 | CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+| CORE-STD-021 | MCP standard — AI tool access |
 
 ---
 

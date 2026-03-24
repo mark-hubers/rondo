@@ -9,10 +9,10 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract)
+**Depends on:** REQ-100 (Core), REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), REQ-110, IFS-101, IFS-102, CORE-STD-008
 **Used by:** REQ-110 (Multi-Account), REQ-101 (Automation), IFS-101 (Caliber Integration), IFS-102 (OB Integration)
 **Evidence:** Session 83 — 3 providers tested live (Gemini 45 models/133ms, OpenAI 129 models/524ms, Claude 9 models/238ms)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -219,7 +219,7 @@ overnight_build = "claude-batch"
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could expose provider health and routing table,
+Future: an MCP tool per CORE-STD-021 could expose provider health and routing table,
 enabling AI agents to query available models and their status before requesting dispatch.
 Example: "Which providers are healthy?" → returns provider list with health + model count.
 
@@ -306,7 +306,7 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | CORE-STD-011 (Self-Correction) | Affinity tracking is self-correction — learn optimal routing |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Provider events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for provider health queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for provider health queries |
 
 ---
 

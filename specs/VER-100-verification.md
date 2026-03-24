@@ -12,6 +12,7 @@
 **Architect:** Mark G. Hubers — HubersTech
 **AI Assistant:** Claude (Opus 4.6) — production code built to Mark's specifications
 **AI Reviewer:** Gemini (Google AI) — Cold review, found cross-field validation gap
+**Depends on:** REQ-100, REQ-101, STD-108, STD-109, STD-110, IFS-100, STD-111
 
 ---
 
@@ -555,7 +556,7 @@ REQUIRED — fill before build.
 |----------|-------------|
 | CORE-STD-012 | Requirement readiness tracking |
 | CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+| CORE-STD-021 | MCP standard — AI tool access |
 
 ---
 

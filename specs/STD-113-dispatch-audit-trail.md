@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-010 (Error Resilience) | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration), REQ-104 (Dispatch History)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-010 (Error Resilience), STD-114, CORE-STD-012, CORE-STD-021, CORE-STD-013, STD-107 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration), REQ-104 (Dispatch History)
 **Cross-pollinated from:** OB-REQ-114 (Evidence & Audit Trail) — adapted from methodology audit to dispatch audit
 
 ---
@@ -36,6 +36,8 @@
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -112,7 +114,7 @@ Audit data stays local. The JSONL log and prompt/result files are in `~/.rondo/a
 
 ## 7. MCP / API Interface
 
-No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE-IFS-005 MCP tools in OB may reference dispatch_ids but do not query Rondo's audit files directly. Future: `rondo_query_batch_status` (IFS-104) could include audit record references.
+No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE-STD-021 MCP tools in OB may reference dispatch_ids but do not query Rondo's audit files directly. Future: `rondo_query_batch_status` (IFS-104) could include audit record references.
 
 ---
 
@@ -179,7 +181,7 @@ result_storage = true             # Store full result JSON
 | CORE-STD-010 | Error resilience — credential scrubbing for audit files |
 | CORE-STD-012 | Requirement readiness — audit completeness is a quality signal |
 | CORE-STD-013 | TrackerData — audit events feed cross-product tracking |
-| CORE-IFS-005 | MCP standard — audit queries not exposed via MCP (local CLI only) |
+| CORE-STD-021 | MCP standard — audit queries not exposed via MCP (local CLI only) |
 
 ---
 
@@ -337,7 +339,7 @@ JSONL append: ~1ms per record. Prompt file write: ~5ms (includes fsync). Disk us
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal — if dispatches are missing audit records, something is wrong. CORE-STD-013 (TrackerData) aligns with the append-only JSONL pattern. CORE-IFS-005 MCP tools may reference dispatch_ids from OB's side but do not query Rondo's audit files directly.
+CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal — if dispatches are missing audit records, something is wrong. CORE-STD-013 (TrackerData) aligns with the append-only JSONL pattern. CORE-STD-021 MCP tools may reference dispatch_ids from OB's side but do not query Rondo's audit files directly.
 
 ---
 

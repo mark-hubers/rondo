@@ -9,9 +9,9 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Handling)
+**Depends on:** REQ-100 (Core), STD-108 (Error Handling), IFS-103, REQ-109, IFS-102
 **Connects to:** IFS-103 (Caliber) (Caliber's side of this integration)
-**References:** NAMING-MAP.md, INTEGRATION-ARCHITECTURE.md, CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** NAMING-MAP.md, INTEGRATION-ARCHITECTURE.md, CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -36,6 +36,8 @@ Defines how Rondo receives and executes tasks dispatched by Caliber. Caliber sen
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified IFS correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -189,7 +191,7 @@ Rondo does not persist Caliber-specific data. Caliber stores its own findings.
 ## 7. MCP / API Interface
 
 Not applicable for initial release. Future: Caliber MAY invoke Rondo via MCP tool
-calls per CORE-IFS-005, enabling on-demand dispatch from any MCP-capable client.
+calls per CORE-STD-021, enabling on-demand dispatch from any MCP-capable client.
 The MCP tool would accept the same Task JSON and return the same TaskResult JSON.
 
 ---
@@ -264,7 +266,7 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 | CORE-STD-010 (Error Resilience) | Task failure returns error TaskResult, never crashes Rondo |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Dispatch events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool interface for on-demand dispatch |
+| CORE-STD-021 (MCP Standard) | Future MCP tool interface for on-demand dispatch |
 | STD-108 (Error Handling) | Error codes and structured error responses |
 | STD-113 (Audit Trail) | Every Caliber dispatch recorded in audit log |
 

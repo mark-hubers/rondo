@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011 (Self-Correction) | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011 (Self-Correction), CORE-STD-012, CORE-STD-021, ACE-STD-017, CORE-STD-013 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
 **Cross-pollinated from:** ACE-STD-017 (Data Lifecycle — quarantine pattern) — adapted from knowledge quarantine to dispatch result quarantine
 
 ---
@@ -34,6 +34,8 @@
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -119,7 +121,7 @@ Quarantine state is managed by Rondo but consumed by OB. OB reads quarantine_sta
 
 ## 7. MCP / API Interface
 
-No MCP interface for quarantine management. Quarantine state transitions happen via `rondo review` CLI (approve/reject) or auto-approval logic. CORE-IFS-005 MCP tools in OB may query quarantine state from ingested results but cannot modify it.
+No MCP interface for quarantine management. Quarantine state transitions happen via `rondo review` CLI (approve/reject) or auto-approval logic. CORE-STD-021 MCP tools in OB may query quarantine state from ingested results but cannot modify it.
 
 ---
 
@@ -214,7 +216,7 @@ overnight_mode = "stage_all"         # stage_all | auto_verify | auto_approve
 | CORE-STD-011 | Self-correction — rejected results feed the learning loop |
 | CORE-STD-012 | Requirement readiness — quarantine health is a quality signal |
 | CORE-STD-013 | TrackerData — quarantine events (approve, reject) are trackable |
-| CORE-IFS-005 | MCP standard — quarantine state queryable from consumer MCP tools |
+| CORE-STD-021 | MCP standard — quarantine state queryable from consumer MCP tools |
 
 ---
 
@@ -375,7 +377,7 @@ Quarantine state tracking: ~1ms per state transition (JSONL append). Verificatio
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) uses quarantine health (PENDING count, stale count) as a quality signal. CORE-STD-013 (TrackerData) records quarantine events for trend analysis (are results improving over time?). CORE-IFS-005 MCP tools in OB may query quarantine state for dashboard display.
+CORE-STD-012 (Requirement Readiness) uses quarantine health (PENDING count, stale count) as a quality signal. CORE-STD-013 (TrackerData) records quarantine events for trend analysis (are results improving over time?). CORE-STD-021 MCP tools in OB may query quarantine state for dashboard display.
 
 ---
 

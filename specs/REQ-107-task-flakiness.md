@@ -10,9 +10,9 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail) | **Used by:** REQ-106 (Trend Alerting), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), REQ-109 | **Used by:** REQ-106 (Trend Alerting), IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-122 (Flakiness Detection) — adapted from test flakiness to dispatch flakiness
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -135,7 +135,7 @@ Uses `rondo_audit.jsonl` from STD-113. Flakiness calculated from audit data — 
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could expose flakiness data for AI agents to query.
+Future: an MCP tool per CORE-STD-021 could expose flakiness data for AI agents to query.
 Example: "Which of my task templates are flaky?" The MCP tool would return flaky groups
 with scores and root cause categories.
 
@@ -221,7 +221,7 @@ confidence_variance_threshold = 0.3 # Flag if stddev(confidence) > this
 | CORE-STD-011 (Self-Correction) | Flakiness detection is self-correction — detect unreliable tasks, improve them |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Flakiness scores logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for flakiness queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for flakiness queries |
 
 ---
 

@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Claude Code CLI (`claude -p`) | **Blocks:** REQ-101 (Automation)
+**Depends on:** Claude Code CLI (`claude -p`), STD-108, STD-109, IFS-100 | **Blocks:** REQ-101 (Automation)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -664,7 +664,7 @@ REQUIRED — fill before build.
 | STD-110 Concurrency & Safety | (REQ-100 is sequential only. STD-110 applied fully in REQ-101.) Subprocess args as list, never shell=True. API keys stripped from result files. |
 | CORE-STD-012 | Requirement readiness tracking |
 | CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+| CORE-STD-021 | MCP standard — AI tool access |
 
 ---
 

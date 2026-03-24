@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-001, STD-100 (Caliber)
+**Depends on:** CORE-STD-012, CORE-STD-021, STD-102
 
 ---
 
@@ -100,7 +101,7 @@ Rondo produces data (spool files, RoundResult objects). Consumers (OB, Caliber, 
 
 ## 7. MCP / API Interface
 
-Rondo does not expose data standards via MCP. Data conventions are enforced in code (dataclass definitions) and verified by convention tests. MCP tools (CORE-IFS-005) that query Rondo results rely on these conventions being stable.
+Rondo does not expose data standards via MCP. Data conventions are enforced in code (dataclass definitions) and verified by convention tests. MCP tools (CORE-STD-021) that query Rondo results rely on these conventions being stable.
 
 ---
 
@@ -199,7 +200,7 @@ These Rondo fields MUST match NAMING-MAP.md exactly for cross-product compatibil
 | CORE-STD-001 | Parent standard — Rondo adapts time, IDs, nulls, naming, status for stateless context |
 | CORE-STD-012 | Requirement readiness tracking — status values align with Rondo's vocabulary |
 | CORE-STD-013 | TrackerData — field naming conventions shared for cross-product data exchange |
-| CORE-IFS-005 | MCP standard — query results from MCP tools follow these data conventions |
+| CORE-STD-021 | MCP standard — query results from MCP tools follow these data conventions |
 
 ---
 
@@ -350,7 +351,7 @@ No performance impact. Data conventions are enforced at definition time (datacla
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) and CORE-STD-013 (TrackerData) both consume Rondo's data conventions for cross-product compatibility. CORE-IFS-005 MCP tools that return Rondo data must follow these same conventions.
+CORE-STD-012 (Requirement Readiness) and CORE-STD-013 (TrackerData) both consume Rondo's data conventions for cross-product compatibility. CORE-STD-021 MCP tools that return Rondo data must follow these same conventions.
 
 ---
 

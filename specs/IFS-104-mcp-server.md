@@ -5,8 +5,8 @@
 **Created:** 2026-03-21 Session 84
 **Status:** STUB — to be expanded when Rondo is built
 **Revision:** rev-0003
-**Depends on:** CORE-IFS-005 (MCP Standard), REQ-109 (Provider Adapters)
-**Implements:** CORE-IFS-005 MCP Standard for Rondo product
+**Depends on:** CORE-STD-021 (MCP Standard), REQ-109 (Provider Adapters), STD-100, CORE-STD-012, STD-114, CORE-STD-013, STD-107
+**Implements:** CORE-STD-021 MCP Standard for Rondo product
 **Port:** 8300
 
 ---
@@ -22,6 +22,8 @@ Rondo's MCP server lets the AI dispatch work to other models, check provider sta
 
 ---
 
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified IFS correct (Session 86) -->
+
 ## 2. The Problem
 
 Without an MCP server, Rondo can only be invoked via CLI or Python import. AI sessions cannot dispatch work to other models mid-conversation. The MCP server makes Rondo's multi-model dispatch available as a tool that Claude (or any MCP client) can call directly.
@@ -35,13 +37,13 @@ Without an MCP server, Rondo can only be invoked via CLI or Python import. AI se
 
 | ID | Requirement | Priority | Verified By |
 |----|-------------|----------|-------------|
-| 001 | Implement CORE-IFS-005 MCP Standard for Rondo product | MUST | Compliance test |
+| 001 | Implement CORE-STD-021 MCP Standard for Rondo product | MUST | Compliance test |
 | 002 | Listen on port 8300 (Rondo's assigned port) | MUST | Port test |
 | 003 | Expose query tools: providers, routing, batch_status, cost | MUST | Tool test |
 | 004 | Expose action tools: dispatch, batch_submit, batch_cancel | MUST | Tool test |
 | 005 | Expose status tools: provider health, capacity | MUST | Tool test |
-| 006 | All tools follow CORE-IFS-005 naming convention: `rondo_{category}_{action}` | MUST | Naming test |
-| 007 | Authentication via MCP token (CORE-IFS-005 standard) | MUST | Auth test |
+| 006 | All tools follow CORE-STD-021 naming convention: `rondo_{category}_{action}` | MUST | Naming test |
+| 007 | Authentication via MCP token (CORE-STD-021 standard) | MUST | Auth test |
 | 008 | Rate limiting per MCP client session | SHOULD | Rate test |
 
 
@@ -117,7 +119,7 @@ MCP server has two states: `RUNNING` (accepting tool calls) and `STOPPED` (not l
 ```toml
 [mcp]
 enabled = false                    # MCP server disabled by default
-port = 8300                        # CORE-IFS-005 assigned port
+port = 8300                        # CORE-STD-021 assigned port
 auth_token_env = "RONDO_MCP_TOKEN" # Auth token from env var
 max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 ```
@@ -127,7 +129,7 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 ## 10. Rules & Constraints
 
 1. **Rondo is the ONLY model-aware component** (per architecture decision). All other products dispatch through Rondo for non-Claude work (Gemini, OpenAI). Violation ID: `IFS104-SINGLE-ROUTER`
-2. **MCP tools follow CORE-IFS-005 naming convention.** `rondo_{category}_{action}` format. Violation ID: `IFS104-NAMING`
+2. **MCP tools follow CORE-STD-021 naming convention.** `rondo_{category}_{action}` format. Violation ID: `IFS104-NAMING`
 3. **Action tools require authentication.** Query and status tools are read-only and may be unauthenticated in local mode. Violation ID: `IFS104-AUTH`
 4. **Sanitized responses only.** No raw subprocess output, no secrets, no unsanitized AI text crosses MCP boundary. Violation ID: `IFS104-SANITIZED`
 
@@ -137,14 +139,14 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 
 - **Latency:** Query/status tools respond in <100ms. Action tools respond with dispatch_id immediately, results available asynchronously.
 - **Reliability:** MCP server crash does not affect Rondo CLI or Python API operation.
-- **Compatibility:** Implements CORE-IFS-005 standard — any MCP client can connect.
+- **Compatibility:** Implements CORE-STD-021 standard — any MCP client can connect.
 - **Resilience:** Timeout with exponential backoff on all external calls.
 
 ---
 
 ## 12. Shared Patterns
 
-- **CORE-IFS-005 MCP Standard:** Port assignment, tool naming, authentication, transport.
+- **CORE-STD-021 MCP Standard:** Port assignment, tool naming, authentication, transport.
 - **Tool categorization:** Query/Action/Status — same 3-category pattern used by all ACE2 MCP servers.
 - **Structured responses:** JSON matching STD-100 conventions — same data format as spool files.
 
@@ -154,7 +156,7 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 
 | Integration | What Crosses | Standard Enforced |
 |-------------|-------------|-------------------|
-| MCP client → Rondo | Tool call parameters | CORE-IFS-005 protocol |
+| MCP client → Rondo | Tool call parameters | CORE-STD-021 protocol |
 | Rondo → AI providers | Dispatch requests | STD-105 dispatch protocol |
 | Rondo → MCP client | Structured tool responses | STD-100 data conventions |
 | Rondo MCP → OB MCP | dispatch_ids for cross-product tracing | CORE-STD-013 TrackerData |
@@ -165,7 +167,7 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 
 | Standard | How It Applies |
 |----------|---------------|
-| CORE-IFS-005 | MCP standard — this spec implements it for Rondo |
+| CORE-STD-021 | MCP standard — this spec implements it for Rondo |
 | CORE-STD-012 | Requirement readiness — MCP tool availability is a readiness signal |
 | CORE-STD-013 | TrackerData — MCP tool invocations are trackable events |
 | STD-100 | Data conventions — all MCP responses follow Rondo's data standards |
@@ -194,7 +196,7 @@ MCP tool usage patterns feed CORE-STD-011: which tools are called most, which fa
 |---|-----------|---------------|
 | 1 | Claude can call `rondo_query_providers` and get a provider list | Tool test |
 | 2 | `rondo_action_dispatch` sends a prompt to a non-Claude model and returns result | Dispatch test |
-| 3 | MCP server passes CORE-IFS-005 compliance check | Compliance test |
+| 3 | MCP server passes CORE-STD-021 compliance check | Compliance test |
 
 ---
 
@@ -208,7 +210,7 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 
 | Category | What It Tests |
 |----------|--------------|
-| Protocol tests | CORE-IFS-005 compliance, port binding, tool discovery |
+| Protocol tests | CORE-STD-021 compliance, port binding, tool discovery |
 | Tool tests | Each of 9 tools returns correct response format |
 | Auth tests | Unauthenticated action calls rejected |
 | Integration tests | End-to-end: MCP call → dispatch → result returned |
@@ -231,7 +233,7 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 
 | Direction | Spec | Relationship |
 |-----------|------|-------------|
-| Depends on | CORE-IFS-005 | MCP standard — defines protocol and conventions |
+| Depends on | CORE-STD-021 | MCP standard — defines protocol and conventions |
 | Depends on | REQ-109 | Provider adapters — required for multi-model dispatch |
 | Depends on | REQ-100 | Core dispatch engine — MCP wraps this |
 | Depends on | CORE-STD-012 | Readiness tracking for MCP tool availability |
@@ -244,7 +246,7 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| D1: Port 8300 | Assigned by CORE-IFS-005 port registry for Rondo | 2026-03-21 |
+| D1: Port 8300 | Assigned by CORE-STD-021 port registry for Rondo | 2026-03-21 |
 | D2: Disabled by default | MCP server is optional — most users run CLI or Python API | 2026-03-21 |
 | D3: Stub spec now, expand later | Provider adapters are not built yet — full spec premature | 2026-03-21 |
 
@@ -252,7 +254,7 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 
 ## 23. Open Questions
 
-1. Should MCP server support WebSocket transport (CORE-IFS-005 option)?
+1. Should MCP server support WebSocket transport (CORE-STD-021 option)?
 2. Should batch operations be synchronous or fire-and-forget with status polling?
 3. How should MCP rate limiting interact with STD-107 dispatch rate limits?
 
@@ -270,7 +272,7 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 
 ## 25. Risk / Criticality
 
-**MEDIUM.** MCP server is optional for v1.0 — CLI and Python API are the primary interfaces. Risk is limited to the multi-model future use case. Main risk: CORE-IFS-005 protocol changes before Rondo's MCP server is built.
+**MEDIUM.** MCP server is optional for v1.0 — CLI and Python API are the primary interfaces. Risk is limited to the multi-model future use case. Main risk: CORE-STD-021 protocol changes before Rondo's MCP server is built.
 
 ---
 
@@ -331,7 +333,7 @@ MCP server overhead: ~10MB memory, <1ms per tool call routing. Dispatch latency 
 - This spec will be expanded when Rondo moves from spikes to real code
 - CORE-STD-012 (Requirement Readiness) tracks MCP tool availability as a readiness prerequisite
 - CORE-STD-013 (TrackerData) records MCP tool invocations for usage analysis
-- CORE-IFS-005 is the parent standard — this spec is the Rondo implementation
+- CORE-STD-021 is the parent standard — this spec is the Rondo implementation
 
 ---
 

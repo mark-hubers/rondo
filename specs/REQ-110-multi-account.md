@@ -6,9 +6,9 @@
 **Version:** 0.2
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), REQ-109 (Provider Adapters), CORE-ADR-001 (Service Architecture)
+**Depends on:** REQ-100 (Core), REQ-109 (Provider Adapters), CORE-ADR-001 (Service Architecture), REQ-101, STD-113, REQ-103, REQ-105
 **Used by:** IFS-102 (OB Integration), REQ-103 (Preflight)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -140,7 +140,7 @@ operation over the audit data, not a separate data store.
 
 ## 7. MCP / API Interface
 
-Not applicable for initial release. Future: an MCP tool per CORE-IFS-005 could expose
+Not applicable for initial release. Future: an MCP tool per CORE-STD-021 could expose
 provider health and budget status, enabling AI agents to query account capacity before
 dispatching expensive tasks.
 
@@ -310,7 +310,7 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 | CORE-STD-010 (Error Resilience) | Provider down → fallback, never crash |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Account-level events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for account health queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for account health queries |
 
 ---
 

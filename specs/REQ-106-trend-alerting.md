@@ -10,9 +10,9 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), CORE-STD-011 (Self-Correction) | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), CORE-STD-011 (Self-Correction), REQ-107, REQ-105, REQ-104, REQ-109 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-121 (Trend & Regression Alerting) — adapted from methodology trends to dispatch execution trends
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -157,7 +157,7 @@ No new storage. Trends are derived from STD-113 audit trail entries.
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could expose trend data for AI agents to query.
+Future: an MCP tool per CORE-STD-021 could expose trend data for AI agents to query.
 Example: "Is Claude Opus degrading?" The MCP tool would return per-model health status
 and trend direction, enabling automated model-switching decisions.
 
@@ -247,7 +247,7 @@ baseline_window_days = 7           # Rolling window for baselines
 | CORE-STD-011 (Self-Correction) | Trend data is self-correction fuel — detect and adapt |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Trend calculations logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for trend queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for trend queries |
 
 ---
 

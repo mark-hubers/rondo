@@ -11,7 +11,7 @@
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-SOP-002, SOP-101 (Caliber), SOP-101 (Rondo)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -135,7 +135,7 @@ Not applicable — this is a build procedure. No runtime data model.
 
 ## 7. MCP / API Interface
 
-Not applicable for this SOP. Future: CORE-IFS-005 MCP tools could trigger build gates
+Not applicable for this SOP. Future: CORE-STD-021 MCP tools could trigger build gates
 remotely, enabling CI/CD integration without SSH access.
 
 ---
@@ -279,7 +279,7 @@ If all checks pass, Rondo is ready for development.
 | CORE-STD-003 (Quality) | 90% coverage floor, 6 build gates |
 | CORE-STD-012 (Requirement Readiness) | Build gates validate spec readiness |
 | CORE-STD-013 (TrackerData) | Build results logged as trackerdata |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for remote build triggering |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for remote build triggering |
 | STD-111 (Code Quality) | ruff lint rules |
 
 ---

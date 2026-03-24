@@ -9,7 +9,7 @@
 **Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-113 (Audit Trail), CORE-STD-011 (Self-Correction) | **Used by:** REQ-108 (Template Promotion), IFS-101 (Caliber Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Audit Trail), CORE-STD-011 (Self-Correction), CORE-STD-012, CORE-STD-021, CORE-STD-013 | **Used by:** REQ-108 (Template Promotion), IFS-101 (Caliber Integration)
 **Cross-pollinated from:** Caliber STD-107 (Security — prompt protection/versioning) — elevated from quality concern to security standard
 
 ---
@@ -71,7 +71,7 @@ Template protection is internal to Rondo. Template records and change logs are s
 
 ## 7. MCP / API Interface
 
-No MCP interface for template management. Templates are managed via `rondo freeze`, `rondo unfreeze`, and `rondo templates --changes` CLI commands. CORE-IFS-005 MCP tools do not expose template management — it is a local development concern.
+No MCP interface for template management. Templates are managed via `rondo freeze`, `rondo unfreeze`, and `rondo templates --changes` CLI commands. CORE-STD-021 MCP tools do not expose template management — it is a local development concern.
 
 ---
 
@@ -140,7 +140,7 @@ rule_count_method = "keyword"      # "keyword" (MUST/NEVER/etc.) or "numbered" (
 | CORE-STD-011 | Self-correction — measure whether template changes improve results |
 | CORE-STD-012 | Requirement readiness — frozen template violation blocks READY |
 | CORE-STD-013 | TrackerData — template change events are trackable |
-| CORE-IFS-005 | MCP standard — template data not exposed via MCP (local only) |
+| CORE-STD-021 | MCP standard — template data not exposed via MCP (local only) |
 
 ---
 
@@ -297,7 +297,7 @@ Hash computation: <1ms per template. Rule counting: ~5ms per template (regex sca
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) treats frozen template violations as blockers. CORE-STD-013 (TrackerData) records template change events for trend analysis (are templates getting stronger or weaker over time?). CORE-IFS-005 MCP tools do not expose template management — it is local to Rondo's development workflow.
+CORE-STD-012 (Requirement Readiness) treats frozen template violations as blockers. CORE-STD-013 (TrackerData) records template change events for trend analysis (are templates getting stronger or weaker over time?). CORE-STD-021 MCP tools do not expose template management — it is local to Rondo's development workflow.
 
 ---
 

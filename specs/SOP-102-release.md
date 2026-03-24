@@ -11,7 +11,8 @@
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-SOP-003, SOP-102 (Caliber), SOP-102 (Rondo)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
+**Depends on:** SOP-101
 
 ---
 
@@ -117,7 +118,7 @@ All items must be true before proceeding:
 
 ## 7. MCP / API Interface
 
-Not applicable for this SOP. Future: CORE-IFS-005 MCP tools could trigger release
+Not applicable for this SOP. Future: CORE-STD-021 MCP tools could trigger release
 automation and report release status.
 
 ---
@@ -253,7 +254,7 @@ If critical issues found after release:
 | CORE-STD-003 (Quality) | All build gates pass before release |
 | CORE-STD-012 (Requirement Readiness) | Release only includes ready requirements |
 | CORE-STD-013 (TrackerData) | Release events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for release automation |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for release automation |
 | DEC-017 | Universal SOP numbering |
 
 ---

@@ -9,9 +9,9 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail) | **Used by:** REQ-106 (Trend Alerting), REQ-107 (Flakiness), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), OB-REQ-115 | **Used by:** REQ-106 (Trend Alerting), REQ-107 (Flakiness), IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-115 (Test Build History) — adapted from sprint telemetry to dispatch telemetry
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -122,7 +122,7 @@ No new tables or files. History views are computed from `rondo_audit.jsonl` (STD
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could expose dispatch history for AI agents to
+Future: an MCP tool per CORE-STD-021 could expose dispatch history for AI agents to
 query. Example: "What was the average cost of overnight runs this week?" The MCP tool
 would accept a query (date range, model filter) and return aggregated history JSON.
 
@@ -201,7 +201,7 @@ audit_path = "rondo_audit.jsonl"  # Path to audit trail (relative to config dir)
 |----------|-------------|
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Audit trail entries follow trackerdata format |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for history queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for history queries |
 | STD-113 (Audit Trail) | Single source of truth for all dispatch data |
 
 ---

@@ -232,7 +232,7 @@ REQUIRED — fill before build.
 | STD-110 Concurrency & Safety | ThreadPoolExecutor with throttle. Conflict detection for parallel writes. No shared mutable state between tasks. |
 | CORE-STD-012 | Requirement readiness tracking |
 | CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+| CORE-STD-021 | MCP standard — AI tool access |
 
 ---
 

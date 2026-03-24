@@ -9,9 +9,9 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), REQ-101 (Automation), STD-113 (Audit Trail) | **Used by:** IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), REQ-101 (Automation), STD-113 (Audit Trail), REQ-104, IFS-100 | **Used by:** IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-118 (Notifications) — adapted from methodology notifications to dispatch notifications
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -124,7 +124,7 @@ is a simple append-only text log for overnight debugging. Dedup state is in-memo
 
 ## 7. MCP / API Interface
 
-Not applicable for initial release. Future: an MCP tool per CORE-IFS-005 could push
+Not applicable for initial release. Future: an MCP tool per CORE-STD-021 could push
 notifications to AI agents, enabling automated response to dispatch failures (e.g., AI
 agent retries failed task with different model after receiving failure notification).
 
@@ -207,7 +207,7 @@ deduplicate_interval_sec = 300        # Don't repeat same notification within 5 
 | CORE-STD-010 (Error Resilience) | Notification channel failure → fall back to file log |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Notification events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for push notifications to AI agents |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for push notifications to AI agents |
 
 ---
 

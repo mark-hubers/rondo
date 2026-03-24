@@ -35,6 +35,8 @@ everything.
 
 ---
 
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
+
 ## Principle
 
 Rondo works with zero config. Every setting has a sane default. A config file
@@ -416,7 +418,7 @@ REQUIRED — fill before build.
 |----------|-------------|
 | CORE-STD-012 | Requirement readiness tracking |
 | CORE-STD-013 | TrackerData — universal tracking |
-| CORE-IFS-005 | MCP standard — AI tool access |
+| CORE-STD-021 | MCP standard — AI tool access |
 
 ---
 

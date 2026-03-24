@@ -11,7 +11,8 @@
 **Universal procedure** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-SOP-005, SOP-104 (Caliber), SOP-104 (Rondo)
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
+**Depends on:** STD-109
 
 ---
 
@@ -140,7 +141,7 @@ Migration affects these data artifacts:
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could check upgrade compatibility and suggest
+Future: an MCP tool per CORE-STD-021 could check upgrade compatibility and suggest
 migration steps, enabling AI-assisted upgrades.
 
 ---
@@ -243,7 +244,7 @@ This matrix is maintained in `rondo/COMPATIBILITY.md` and updated with every MAJ
 | CORE-STD-010 (Error Resilience) | Migration failures are recoverable via rollback |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Migration events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for upgrade compatibility checks |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for upgrade compatibility checks |
 | DEC-017 | Universal SOP numbering |
 
 ---

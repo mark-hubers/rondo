@@ -10,9 +10,9 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-102 (Configuration), CORE-STD-010 (Error Resilience) | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-102 (Configuration), CORE-STD-010 (Error Resilience), OB-REQ-113, REQ-109 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-113 (Preflight System) — adapted from session preflight to dispatch preflight
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -170,7 +170,7 @@ records preflight status as part of the dispatch event.
 
 ## 7. MCP / API Interface
 
-Not applicable for initial release. Future: an MCP tool per CORE-IFS-005 could expose
+Not applicable for initial release. Future: an MCP tool per CORE-STD-021 could expose
 preflight status so AI agents can check environment health before requesting dispatch.
 
 ---
@@ -252,7 +252,7 @@ compatible_versions = ["1.0.*"]   # Known-good Claude Code versions
 | CORE-STD-010 (Error Resilience) | Preflight failure is graceful, not a crash |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Preflight events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for environment health queries |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for environment health queries |
 
 ---
 

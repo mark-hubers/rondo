@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-002, STD-101 (Caliber)
+**Depends on:** STD-104, STD-100, STD-102, CORE-STD-012, ACE-STD-020, CORE-STD-021, CORE-STD-013
 
 ---
 
@@ -131,7 +132,7 @@ Rondo captures and stores observability data in spool files. Consumers (OB, ACE)
 
 ## 7. MCP / API Interface
 
-Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-IFS-005 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (IFS-104) provides dispatch status over MCP.
+Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-STD-021 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (IFS-104) provides dispatch status over MCP.
 
 ---
 
@@ -240,7 +241,7 @@ RoundResult      spool file
 | CORE-STD-002 | Parent observability standard — Rondo adapts logging, errors, performance for dispatch context |
 | CORE-STD-012 | Requirement readiness — dispatch metrics feed readiness assessments |
 | CORE-STD-013 | TrackerData — dispatch events are trackable data points |
-| CORE-IFS-005 | MCP standard — future observability queries via MCP tools |
+| CORE-STD-021 | MCP standard — future observability queries via MCP tools |
 
 ---
 
@@ -394,7 +395,7 @@ Spool writes add ~5ms per dispatch (atomic write + fsync). Stream-json parsing a
 
 ## 34. Notes
 
-CORE-STD-012 readiness tracking depends on accurate dispatch metrics to assess whether requirements are testable. CORE-STD-013 TrackerData format aligns with the append-only spool pattern. CORE-IFS-005 MCP tools may expose observability queries in future versions.
+CORE-STD-012 readiness tracking depends on accurate dispatch metrics to assess whether requirements are testable. CORE-STD-013 TrackerData format aligns with the append-only spool pattern. CORE-STD-021 MCP tools may expose observability queries in future versions.
 
 ---
 

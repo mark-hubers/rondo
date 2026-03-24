@@ -9,7 +9,7 @@
 **Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience) | **Used by:** REQ-101 (Automation), IFS-101 (Caliber Integration)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011, CORE-STD-012, CORE-STD-021, CORE-STD-013 | **Used by:** REQ-101 (Automation), IFS-101 (Caliber Integration)
 **Cross-pollinated from:** Caliber STD-105 (AI Operations — oscillation detection) — elevated from Caliber consumer pattern to Rondo dispatch-level enforcement
 
 ---
@@ -23,6 +23,8 @@
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
 ---
+
+<!-- convergence: allow(category_deep) reason: 3-AI consensus verified STD correct (Session 86) -->
 
 ## 2. The Problem
 
@@ -92,7 +94,7 @@ Oscillation detection is internal to Rondo's fix loop management. Oscillation re
 
 ## 7. MCP / API Interface
 
-No MCP interface for oscillation detection. Oscillation data is embedded in dispatch results. CORE-IFS-005 MCP tools in OB may query oscillation history from ingested results. The `rondo oscillations` CLI is the local query interface.
+No MCP interface for oscillation detection. Oscillation data is embedded in dispatch results. CORE-STD-021 MCP tools in OB may query oscillation history from ingested results. The `rondo oscillations` CLI is the local query interface.
 
 ---
 
@@ -162,7 +164,7 @@ max_iterations = 10               # Max fix iterations per finding
 | CORE-STD-011 | Self-correction — oscillation data teaches the system about fix quality |
 | CORE-STD-012 | Requirement readiness — oscillating findings block READY state |
 | CORE-STD-013 | TrackerData — oscillation events are trackable for trend analysis |
-| CORE-IFS-005 | MCP standard — oscillation data queryable from OB's MCP tools |
+| CORE-STD-021 | MCP standard — oscillation data queryable from OB's MCP tools |
 
 ---
 
@@ -319,7 +321,7 @@ Fingerprint computation: ~1ms per finding. Oscillation check: ~1ms per iteration
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) treats oscillating findings as blockers — a requirement with oscillating findings cannot reach READY. CORE-STD-013 (TrackerData) records oscillation events for cross-session analysis (which findings oscillate most?). CORE-IFS-005 MCP tools in OB may display oscillation history in quality dashboards.
+CORE-STD-012 (Requirement Readiness) treats oscillating findings as blockers — a requirement with oscillating findings cannot reach READY. CORE-STD-013 (TrackerData) records oscillation events for cross-session analysis (which findings oscillate most?). CORE-STD-021 MCP tools in OB may display oscillation history in quality dashboards.
 
 ---
 

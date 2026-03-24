@@ -10,9 +10,9 @@
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
 **Implements:** CORE-IFS-001 (Integration Contract Standard) — universal payload/transport/isolation patterns
-**Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract)
+**Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, REQ-109
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
-**References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab), CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab), CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
 
 ---
@@ -415,7 +415,7 @@ Key schema files: `rondo/schemas/oa-payload-v1.json`, `rondo/schemas/oa-result-v
 
 ## 7. MCP / API Interface
 
-Future: OB MAY invoke Rondo via MCP tool per CORE-IFS-005. The MCP tool would accept
+Future: OB MAY invoke Rondo via MCP tool per CORE-STD-021. The MCP tool would accept
 OAPayload JSON and return OAResult JSON. This enables on-demand dispatch from any MCP
 client without CLI subprocess overhead. Not in v1.0 scope — pipe and file transports first.
 
@@ -506,7 +506,7 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 | CORE-STD-010 (Error Resilience) | Task failure → continue round, never crash pipeline |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Dispatch events, gate results logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool interface for on-demand OB→Rondo dispatch |
+| CORE-STD-021 (MCP Standard) | Future MCP tool interface for on-demand OB→Rondo dispatch |
 | STD-108 | Error handling patterns for task/gate failures |
 | STD-109 | COALESCE config resolution |
 

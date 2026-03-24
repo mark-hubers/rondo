@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-003, STD-102 (Caliber)
+**Depends on:** REQ-101, CORE-STD-012, CORE-STD-021, STD-101
 
 ---
 
@@ -148,7 +149,7 @@ Configuration is resolved at startup and frozen. No runtime config changes. The 
 
 ## 7. MCP / API Interface
 
-No MCP interface for configuration. Config is local to the Rondo process. CORE-IFS-005 MCP tools do not expose or modify Rondo configuration. Future: `rondo_query_routing` (IFS-104) may expose the resolved model routing table read-only.
+No MCP interface for configuration. Config is local to the Rondo process. CORE-STD-021 MCP tools do not expose or modify Rondo configuration. Future: `rondo_query_routing` (IFS-104) may expose the resolved model routing table read-only.
 
 ---
 
@@ -233,7 +234,7 @@ This uses: `auth=max`, `model=sonnet`, `workers=1`, `results_dir=reports/rondo-r
 | CORE-STD-003 | Parent configuration standard — Rondo adapts COALESCE, validation, env overrides |
 | CORE-STD-012 | Requirement readiness — config validity is a prerequisite for dispatch readiness |
 | CORE-STD-013 | TrackerData — config changes are trackable events |
-| CORE-IFS-005 | MCP standard — future config queries via MCP tools |
+| CORE-STD-021 | MCP standard — future config queries via MCP tools |
 
 ---
 
@@ -386,7 +387,7 @@ Config resolution happens once at startup (~1ms for TOML parse + COALESCE). No r
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) uses config validity as a prerequisite — a requirement cannot be READY if its config dependencies are invalid. CORE-STD-013 (TrackerData) records config change events for audit. CORE-IFS-005 MCP tools may expose read-only config queries in future versions.
+CORE-STD-012 (Requirement Readiness) uses config validity as a prerequisite — a requirement cannot be READY if its config dependencies are invalid. CORE-STD-013 (TrackerData) records config change events for audit. CORE-STD-021 MCP tools may expose read-only config queries in future versions.
 
 ---
 

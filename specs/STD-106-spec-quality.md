@@ -11,6 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-007, STD-106 (Caliber), STD-106 (Rondo)
+**Depends on:** OB-REQ-105, CORE-STD-012, IFS-102, STD-101, CORE-STD-021, OB-REQ-103
 
 ---
 
@@ -113,7 +114,7 @@ Spec quality checks read specs (input) and produce findings (output). The bounda
 
 ## 7. MCP / API Interface
 
-No direct MCP interface. Spec quality checks are run as Rondo tasks (dispatched to Claude for deep review) or as local scripts (structural checks). CORE-IFS-005 MCP tools could expose check results in future via consumer stores.
+No direct MCP interface. Spec quality checks are run as Rondo tasks (dispatched to Claude for deep review) or as local scripts (structural checks). CORE-STD-021 MCP tools could expose check results in future via consumer stores.
 
 ---
 
@@ -197,7 +198,7 @@ No configuration — the 28 checks are fixed. Check thresholds (e.g., what const
 | CORE-STD-007 | Parent spec quality standard — 28 checks adapted per product |
 | CORE-STD-012 | Requirement readiness — spec quality checks must pass before READY |
 | CORE-STD-013 | TrackerData — check results are trackable events |
-| CORE-IFS-005 | MCP standard — check results queryable via consumer MCP tools |
+| CORE-STD-021 | MCP standard — check results queryable via consumer MCP tools |
 
 ---
 
@@ -352,7 +353,7 @@ Manual review: ~2 hours per spec (all 28 checks). Automated structural/data chec
 
 ## 34. Notes
 
-CORE-STD-012 (Requirement Readiness) requires spec quality checks to pass before any requirement reaches READY state. CORE-STD-013 (TrackerData) records check results for trend analysis (are specs getting better over time?). CORE-IFS-005 MCP tools could expose spec quality dashboards in future versions.
+CORE-STD-012 (Requirement Readiness) requires spec quality checks to pass before any requirement reaches READY state. CORE-STD-013 (TrackerData) records check results for trend analysis (are specs getting better over time?). CORE-STD-021 MCP tools could expose spec quality dashboards in future versions.
 
 ---
 

@@ -9,9 +9,9 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail) | **Used by:** REQ-101 (Automation)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), REQ-107, OB-REQ-112 | **Used by:** REQ-101 (Automation)
 **Cross-pollinated from:** OB-REQ-112 (Ad-Hoc Promotion) — adapted from methodology tool promotion to task template promotion
-**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-IFS-005 (MCP Standard)
+**References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
 
@@ -137,7 +137,7 @@ templates are stored as YAML files in `~/.rondo/templates/`.
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-IFS-005 could list templates and candidates, enabling AI
+Future: an MCP tool per CORE-STD-021 could list templates and candidates, enabling AI
 agents to discover and use proven task patterns. Example: "What templates do I have for
 code review?" → returns list of promoted templates with usage stats.
 
@@ -231,7 +231,7 @@ surface_candidates = true           # Show candidates in morning report
 |----------|-------------|
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Promotion events logged as trackerdata entries |
-| CORE-IFS-005 (MCP Standard) | Future MCP tool for template discovery |
+| CORE-STD-021 (MCP Standard) | Future MCP tool for template discovery |
 
 ---
 

@@ -101,6 +101,8 @@ substitutes context variables.
 
 ## 5. Data Model
 
+**Concurrency:** All template writes use file-level locking. Concurrent template promotion and YAML file updates are serialized to prevent corruption.
+
 Template metadata is derived from STD-113 audit trail (no separate storage). Promoted
 templates are stored as YAML files in `~/.rondo/templates/`.
 

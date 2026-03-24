@@ -252,6 +252,8 @@ Automated structural checks (18-23): 3 hours (script to validate headings, filen
 | Check produces false positive | Valid spec blocked unnecessarily | Review check definition, update criteria |
 | NAMING-MAP.md stale | Check 11 passes but names are actually wrong | Monthly NAMING-MAP.md refresh |
 
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Spec quality gate enforcement (28-check requirement) can be bypassed under DR mode with human approval for urgent spec-to-build progression.
+
 ---
 
 ## 21. Dependencies + Used By

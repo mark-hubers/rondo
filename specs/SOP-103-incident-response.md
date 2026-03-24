@@ -100,6 +100,8 @@ Post-incident review (within 24h for SEV-1/2)
 
 ## 5. Data Model
 
+**Concurrency:** All incident log writes use WAL mode. Concurrent incident recording and report generation handled via row-level locking.
+
 Incidents are logged in the audit trail (STD-113) and summarized in the morning report.
 No separate incident database in v1.
 

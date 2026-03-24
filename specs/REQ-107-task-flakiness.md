@@ -95,6 +95,8 @@ model nor context changed → PROMPT or TEMPERATURE (needs investigation).
 
 ## 5. Data Model
 
+**Concurrency:** All audit trail writes use WAL mode. Concurrent flakiness scoring and status flip tracking handled via row-level locking.
+
 Uses `rondo_audit.jsonl` from STD-113. Flakiness calculated from audit data — no separate storage needed.
 
 **Flakiness query pattern:**

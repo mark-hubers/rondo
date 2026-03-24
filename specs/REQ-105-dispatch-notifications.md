@@ -280,6 +280,8 @@ deduplicate_interval_sec = 300        # Don't repeat same notification within 5 
 | All channels fail | Silent operation | Morning report is the last resort |
 | Dedup too aggressive | Missed notifications | Morning report includes all events |
 
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Notification guards (mandatory budget alerts, morning report requirement) can be suspended under DR mode with human approval for silent batch operations.
+
 ---
 
 ## 21. Dependencies + Used By

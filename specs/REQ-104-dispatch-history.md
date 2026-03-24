@@ -90,6 +90,8 @@ For large audit trails (10K+ entries), an index file may accelerate date-range q
 
 ## 5. Data Model
 
+**Concurrency:** All audit trail writes use WAL mode. Concurrent dispatch logging and history view computation handled via row-level locking.
+
 No new tables or files. History views are computed from `rondo_audit.jsonl` (STD-113).
 
 | View | Source Fields | Aggregation |
@@ -272,6 +274,8 @@ audit_path = "rondo_audit.jsonl"  # Path to audit trail (relative to config dir)
 | Corrupted JSONL line | Inaccurate aggregates | Skip bad lines, report count |
 | Very large audit file | Slow queries | Performance warning + archive suggestion |
 | Model name changed by provider | Historical model stats split | Alias table in config |
+
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Dispatch history guards (read-only audit enforcement, per-model breakdown requirement) can be suspended under DR mode with human approval.
 
 ---
 

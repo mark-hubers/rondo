@@ -121,6 +121,8 @@ averages, and compares against baseline thresholds.
 
 ## 5. Data Model
 
+**Concurrency:** All audit trail writes use WAL mode. Concurrent trend computation and alert persistence handled via row-level locking.
+
 No new storage. Trends are derived from STD-113 audit trail entries.
 
 | Derived Metric | Calculation | Window |
@@ -317,6 +319,8 @@ baseline_window_days = 7           # Rolling window for baselines
 | Audit trail corrupted | Inaccurate baselines | Skip corrupted entries, warn |
 | All models degrading simultaneously | No healthy baseline for comparison | Alert on absolute thresholds, not just relative |
 | Budget projection wildly wrong | Unexpected overnight cost | Post-overnight comparison in morning report |
+
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Dispatch trend alerting and budget projection guards can be suspended under DR mode with human approval to allow emergency overnight runs.
 
 ---
 

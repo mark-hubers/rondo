@@ -103,6 +103,8 @@ The `rondo migrate` command:
 
 ## 5. Data Model
 
+**Concurrency:** All migration writes use database transactions with WAL mode. Concurrent schema changes are serialized to prevent data corruption.
+
 Migration affects these data artifacts:
 
 | Artifact | Location | Migration Strategy |
@@ -315,6 +317,8 @@ This matrix is maintained in `rondo/COMPATIBILITY.md` and updated with every MAJ
 | Config format incompatible | Rondo won't start | Rollback from backup |
 | Audit trail too large to backup | Backup takes too long | Incremental backup (config only, audit stays in place) |
 | OB sends old OAPayload version | Rondo rejects | Version negotiation with clear error |
+
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Migration guards (mandatory backup, sequential enforcement) can be overridden under DR mode with human approval to force-apply or skip migration steps.
 
 ---
 

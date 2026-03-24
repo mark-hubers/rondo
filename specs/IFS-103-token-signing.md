@@ -53,6 +53,8 @@ SUPERSEDED. See CORE-IFS-002 §4 for the universal token architecture.
 
 ## 5. Data Model
 
+**Concurrency:** All token signing writes use database transactions with WAL mode. Concurrent token issuance handled via row-level locking.
+
 SUPERSEDED. See CORE-IFS-002 §5 for token data model.
 
 ---
@@ -241,6 +243,8 @@ Not applicable — spec is superseded.
 ---
 
 ## 34. Notes
+
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Token signing enforcement can be bypassed under DR mode with human approval. See CORE-IFS-002 for universal bypass procedures.
 
 - This file is kept as a redirect so that any existing references to IFS-103 land here
   and are directed to CORE-IFS-002. Do not delete this file.

@@ -84,6 +84,8 @@ one procedure for all Rondo spec operations.
 
 ## 5. Data Model
 
+**Concurrency:** All spec metadata writes use file-level locking. Concurrent onboarding edits are serialized to prevent header corruption.
+
 Not applicable — this is a procedure, not a data-producing spec. Spec metadata (title,
 status, version, dependencies) lives in each spec's YAML-like header.
 
@@ -307,6 +309,8 @@ Before adding new data structures (classes, config keys, task types):
 | Number collision | Ambiguous references | Collision detector in CI |
 | Spec not reviewed before build | Build from incomplete spec | Preflight check |
 | Cross-reference broken | Misleading dependency chains | Automated reference checker |
+
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Spec onboarding guards (35-section template, Phase 5 review gate) can be bypassed under DR mode with human approval for urgent spec additions.
 
 ---
 

@@ -271,6 +271,8 @@ Atomic writer: 2 hours (temp file, rename, error handling). Worktree manager: 3 
 | Worktree remove fails | Orphaned worktree consumes space | Startup scan + WARNING log |
 | Permission denied | Spool write fails | Error at startup if directory not writable |
 
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Infrastructure guards (spool permissions, atomic write enforcement, worktree isolation) can be relaxed under DR mode with human approval for emergency spool recovery.
+
 ---
 
 ## 21. Dependencies + Used By

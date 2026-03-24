@@ -138,6 +138,7 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 - **Latency:** Query/status tools respond in <100ms. Action tools respond with dispatch_id immediately, results available asynchronously.
 - **Reliability:** MCP server crash does not affect Rondo CLI or Python API operation.
 - **Compatibility:** Implements CORE-IFS-005 standard — any MCP client can connect.
+- **Resilience:** Timeout with exponential backoff on all external calls.
 
 ---
 
@@ -221,6 +222,8 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 | Port 8300 in use | MCP server fails to start | Clear error message, configurable port |
 | Provider unreachable | Action tool returns error | Error response with provider status |
 | Auth token missing | All action calls rejected | Startup warning if token not set |
+
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). MCP authentication and rate limiting guards can be suspended under DR mode with human approval for emergency dispatch operations.
 
 ---
 

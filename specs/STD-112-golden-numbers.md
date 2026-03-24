@@ -190,6 +190,8 @@ Registry definition: 1 hour. Scanner (file walk + regex): 2 hours. CLI (`rondo g
 | Number appears in comment | False appearance detected | Scanner uses context-aware matching |
 | New golden number not registered | Drift goes undetected | Review golden numbers when adding features |
 
+**Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Golden number drift enforcement can be suspended under DR mode with human approval.
+
 ---
 
 ## 21. Dependencies + Used By

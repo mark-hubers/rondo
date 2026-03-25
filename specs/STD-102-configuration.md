@@ -405,4 +405,4 @@ CORE-STD-012 (Requirement Readiness) uses config validity as a prerequisite — 
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-003 topics (config, paths, validation, env overrides) adapted for Rondo. 31 requirements. TOML for dispatch settings, Python for round definitions. COALESCE chain, zero-config operation, auth switching. No schema versioning section (Rondo has no DB). |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

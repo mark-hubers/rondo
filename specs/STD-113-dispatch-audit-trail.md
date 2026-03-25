@@ -357,4 +357,4 @@ CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-114. 16 requirements. |
-| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

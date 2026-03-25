@@ -470,4 +470,4 @@ Not yet populated. Will track cost impact of incidents.
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial stub. Reserved number. Session 79. |
-| 0.2 | 2026-03-22 | Full build from stub. 7 requirements, severity classification, 5 response playbooks, PIR process. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Full build from stub. 7 requirements, severity classification, 5 response playbooks, PIR process. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |

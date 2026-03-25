@@ -268,4 +268,4 @@ Not applicable — spec is superseded.
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. |
 | SUPERSEDED | 2026-03-20 | Absorbed into CORE-IFS-002. This file kept as redirect. |
-| 0.2 | 2026-03-22 | Added 35 section headers with SUPERSEDED redirects. CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Added 35 section headers with SUPERSEDED redirects. CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |

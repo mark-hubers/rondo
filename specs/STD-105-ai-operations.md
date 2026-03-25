@@ -415,4 +415,4 @@ CORE-STD-012 (Requirement Readiness) tracks model availability as a dispatch pre
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-006 topics (AI management, cost tracking, multi-model) adapted for Rondo as the dispatch layer. 26 requirements. COALESCE model routing, DispatchUsage field contract, rate limit handling, multi-backend future architecture, tool mode per task. |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

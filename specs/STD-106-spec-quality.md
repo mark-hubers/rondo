@@ -371,4 +371,4 @@ CORE-STD-012 (Requirement Readiness) requires spec quality checks to pass before
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. 28 checks across 5 categories: directional (7), interface (3), data consistency (7), structural (6), deep review (5). Gate mapping, evidence table from Sessions 75-79. Rondo adaptations for stateless design, sec/ms duration split, and 446-test traceability. |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

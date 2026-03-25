@@ -339,4 +339,4 @@ CORE-STD-012 (Requirement Readiness) treats oscillating findings as blockers —
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from Caliber STD-105. 10 requirements. Elevated to dispatch level. |
-| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

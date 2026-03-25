@@ -351,5 +351,5 @@ MCP server overhead: ~10MB memory, <1ms per tool call routing. Dispatch latency 
 | Rev | Date | Session | What Changed |
 |-----|------|---------|-------------|
 | rev-0001 | 2026-03-21 | 84 | Stub — planned tools only |
-| rev-0002 | 2026-03-22 | 84 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| rev-0002 | 2026-03-22 | 84 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |
 | rev-0003 | 2026-03-22 | 84 | Added context_cost annotations to all 9 tools + Context Budget Summary table. |

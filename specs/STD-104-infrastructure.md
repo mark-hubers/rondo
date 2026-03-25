@@ -390,4 +390,4 @@ CORE-STD-012 (Requirement Readiness) treats infrastructure availability as a gat
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-005 topics (persistence, concurrency, security) adapted for Rondo's stateless context. 26 requirements. Spool mailbox pattern, atomic writes, worktree isolation, subprocess environment control. No DB sections (Rondo has no database). |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

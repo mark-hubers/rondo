@@ -548,4 +548,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-20 | Initial addendum. 10 requirements. Multi-account architecture. |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |

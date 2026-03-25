@@ -369,4 +369,4 @@ CORE-STD-012 (Requirement Readiness) and CORE-STD-013 (TrackerData) both consume
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-001 topics (time, IDs, nulls, naming, status) adapted for Rondo's stateless context. 25 requirements. Duration split: sec for wall-clock, ms for stream-json. NAMING-MAP.md cross-reference table. |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

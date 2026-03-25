@@ -409,4 +409,4 @@ CORE-STD-012 (Requirement Readiness) treats security prerequisites as gating con
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. 27 rules across 5 categories: standard baseline (7), spool/pipeline threats (8), API key/cost control (4), audit/detection (4), data protection (4). Rondo attack surface table covering spool files, subprocess isolation, API keys, cost attacks, dispatch output, prompt protection, response validation, and replay prevention. |
-| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval record (Mark, Session 84). |
+| 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

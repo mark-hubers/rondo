@@ -766,4 +766,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 1.0 | 2026-03-18 | Initial spec. 75 requirements across 12 sections. OB mode detection, input contract (OAPayload with spec digest, AI memory, worktree config, overnight schedule), output contract (OAResult with RoundResult, TaskResult, DispatchUsage, GateResult, worktree merge status, learn section), field mapping (17 fields to 7 OB tables), 5-level transport progression (pipe → file → socket → HTTPS → queue), isolation boundaries (6 rules), standalone behavior (4 reqs), worktree management (8 reqs), overnight automation (6 reqs), feedback loop (5 reqs), OB config (5 reqs), 8 assumptions, 16 success criteria, 8 decisions. Session 79. |
-| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-IFS-005 refs. Approval (Mark, Session 84). |
+| 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |

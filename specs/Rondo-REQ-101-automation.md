@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Rondo-REQ-100 (Core) v1.0+, Rondo-STD-108, Rondo-STD-109, Rondo-STD-110, CORE-STD-001 (Data Standards), Python 3.12+ | **Blocks:** Nothing
+**Depends on:** Rondo-REQ-100, Rondo-REQ-109 (Provider Adapters — dispatch uses adapter interface, not claude -p directly) (Core) v1.0+, Rondo-STD-108, Rondo-STD-109, Rondo-STD-110, CORE-STD-001 (Data Standards), Python 3.12+ | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 
 ---

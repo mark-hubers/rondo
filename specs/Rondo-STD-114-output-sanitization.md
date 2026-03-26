@@ -138,7 +138,9 @@ custom_2 = "ghp_[A-Za-z0-9]{36}"
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+
+**Config race safety (MAJOR fix):** Sanitization allowlist MUST be loaded ONCE at round start and cached in memory for the round's duration. CLI modifications to the allowlist take effect on the NEXT round, not the current one. This prevents race conditions between parallel threads reading config while CLI modifies it. Pattern: read-at-start, immutable-during-execution. & Constraints
 
 1. **Scrub at storage boundary.** In-memory processing uses raw output. Scrubbing happens when writing to disk/DB/network. Violation ID: `STD114-BOUNDARY`
 2. **Never log the secret.** Log that scrubbing happened (pattern name, line number). Never log what was scrubbed. Violation ID: `STD114-NEVER-LOG-SECRET`

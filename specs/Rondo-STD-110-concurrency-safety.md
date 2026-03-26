@@ -457,7 +457,11 @@ Not applicable for this spec type — see related sections for details.
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Worktree vs conflict detection (CRIT fix):** When `workers > 1`, each task gets its own git worktree (req 007). This ELIMINATES file-level conflicts — worktrees are isolated by definition. The conflict detection mechanism (Section C4/C5) applies to SEQUENTIAL mode only (workers=1, shared working directory). In parallel mode: worktrees prevent conflicts. In sequential mode: conflict detection catches shared-state issues.
+
+**Conflict detection timing (CRIT fix):** Conflict detection runs BEFORE dispatch (req 004 is canonical). Section C4 description of 'after task complete' refers to VALIDATION of results, not detection of conflicts. Pre-dispatch: check for conflicting file paths. Post-task: validate results haven't corrupted shared state.
+**Sanitization ownership (CRIT fix):** Rondo-STD-114 is the CANONICAL output sanitization spec. Rondo-STD-110's `sanitize_result` is DEPRECATED — all sanitization MUST go through Rondo-STD-114's pipeline. STD-110 handles concurrency ONLY (locks, worktrees, conflict detection). STD-114 handles output ONLY (redaction, filtering, format validation). & Constraints
 
 Not applicable for this spec type — see related sections for details.
 

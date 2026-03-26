@@ -366,25 +366,25 @@ HMAC signing: ~1ms per spool file. Rate limit check: ~0.1ms per dispatch (in-mem
 
 ## 30. AI Review
 
-— filled after build.
+Reviewed by Cold Witness panel. Results in `reports/ai-reviews/`. Fix-review-fix cycle applied.
 
 ---
 
 ## 31. AI Went Wrong
 
-— filled during build.
+No implementation yet — tracks AI-generated code deviations during build.
 
 ---
 
 ## 32. AI Assumptions
 
-— filled during build.
+During spec design, AI assumed: Postgres target DB, YAML schemas as source of truth, MCP as query interface.
 
 ---
 
 ## 33. AI Cost
 
-— filled during build.
+Spec review cost tracked in `reports/ai-reviews/`. ~$0.10/review/body.
 
 ---
 

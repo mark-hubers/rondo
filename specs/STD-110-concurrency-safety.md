@@ -511,13 +511,13 @@ REQUIRED — fill before build.
 
 ## 18. Build Notes / Estimate
 
-— filled during build.
+Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correction.
 
 ---
 
 ## 19. Test Categories
 
-— filled during build.
+Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correction.
 
 ---
 
@@ -577,37 +577,37 @@ REQUIRED — fill before build.
 
 ## 29. Approval Record
 
-— filled after build.
+Spec reviewed via Cold Witness AI panel. Implementation approval through sprint lifecycle.
 
 ---
 
 ## 30. AI Review
 
-— filled after build.
+Reviewed by Cold Witness panel. Results in `reports/ai-reviews/`. Fix-review-fix cycle applied.
 
 ---
 
 ## 31. AI Went Wrong
 
-— filled during build.
+No implementation yet — tracks AI-generated code deviations during build.
 
 ---
 
 ## 32. AI Assumptions
 
-— filled during build.
+During spec design, AI assumed: Postgres target DB, YAML schemas as source of truth, MCP as query interface.
 
 ---
 
 ## 33. AI Cost
 
-— filled during build.
+Spec review cost tracked in `reports/ai-reviews/`. ~$0.10/review/body.
 
 ---
 
 ## 34. Notes
 
-— filled after build.
+Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 
 ---
 

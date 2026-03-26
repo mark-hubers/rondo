@@ -147,7 +147,10 @@ Security config in `rondo.toml` is limited to thresholds: `max_dispatches_per_ho
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Stateless clarification (CRIT fix):** Rondo is stateless for TASK EXECUTION (no persistent state between task dispatches). Security controls (credential cache, rate limit tracking) are OPERATIONAL STATE, not task state. These live in-memory for the duration of a round, not persisted to disk between rounds. Queue for quarantined results is in-memory with optional file flush. "Stateless" = no task-to-task state. "Operational state" = ephemeral round-lifetime caches.
+
+**BREAK_GLASS (CRIT fix):** BREAK_GLASS events are logged to `break_glass_events` in the SHARED schema (CORE-STD-015), not a Rondo-specific table. Security "has no modes" means no PERMANENT security downgrade — BREAK_GLASS is TEMPORARY (expires after N minutes) and AUDITED. It's an exception mechanism, not a mode toggle. & Constraints
 
 ### Rondo-Specific Attack Surface
 

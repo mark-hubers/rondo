@@ -159,7 +159,8 @@ AI operations config in `rondo.toml [dispatch]`: `default_model`, `auth`, `task_
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Rate limit handling (CRIT fix):** Rondo does NOT auto-retry at the DISPATCH level (STD-105 is correct). STD-107's "retry on rate limit" applies to the SECURITY LAYER only (re-checking credentials after provider cooldown). Dispatch returns rate_limit status to the consumer. Consumer decides whether to retry, switch provider, or abort. Two different levels: security retries auth checks, dispatch does not retry task execution. & Constraints
 
 ### Model Selection COALESCE
 

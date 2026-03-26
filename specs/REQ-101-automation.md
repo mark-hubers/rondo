@@ -4,11 +4,11 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.5
+**Version:** 0.6
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core) | **Blocks:** Nothing
+**Depends on:** REQ-100 (Core) v1.0+, STD-108, STD-109, STD-110, CORE-STD-001 (Data Standards), Python 3.12+ | **Blocks:** Nothing
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -113,7 +113,7 @@ REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 ### Worktree Isolation (Parallel Safety)
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 037 | Parallel dispatch SHOULD support optional git worktree isolation: each worker gets its own worktree copy of the repo | SHOULD |
+| 037 | Parallel dispatch MUST support optional git worktree isolation: each worker gets its own worktree copy of the repo. Worktree isolation is the only guaranteed way to prevent file conflicts in parallel execution. Conflict detection (reqs 005-006) is advisory only | MUST |
 | 038 | System SHALL when worktree isolation is enabled, each task runs in its own worktree. After all tasks complete, results are merged back to the main worktree | MUST |
 | 039 | Worktree isolation MUST be opt-in via config (`worktree_isolation = true`) or CLI (`--worktree`). Default: off | MUST |
 | 040 | System SHALL when worktree isolation is off, conflict detection (reqs 5-6) remains the safety mechanism | MUST |
@@ -147,26 +147,139 @@ REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 ---
 ## 4. Architecture / Design
 
+### Layer Architecture (REQ-101 on top of REQ-100)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   REQ-101: AUTOMATION                        │
+│                                                              │
+│  L3: OVERNIGHT (overnight.py)                                │
+│    Phase list → mode selection → sequential phase execution   │
+│    Self-healing watchdog: kills hung tasks on output silence  │
+│    Usage threshold gating: checks rate_limit_event per phase  │
+│    Event log: rolling JSON (last 100 entries)                 │
+│                                                              │
+│  L2: PARALLEL (parallel.py)                                  │
+│    ThreadPoolExecutor with configurable worker count          │
+│    Throttle delay between task launches (default: 2s)         │
+│    Conflict detection: files mentioned by 2+ tasks flagged    │
+│    Results collected as futures complete (not submission order)│
+│                                                              │
+│  L3: REPORT (report.py)                                      │
+│    Morning report: aggregates all phase results               │
+│    Health indicators: pass/partial/fail per round             │
+│    Action items: failed/blocked tasks listed                  │
+│    Usage summary: cost, tokens, overage, watchdog events      │
+│                                                              │
+│  L4: SPOOL (spool.py)                                        │
+│    Mailbox-pattern persistence for unattended runs            │
+│    Result files with ISO-timestamp filenames                  │
+│    TTL cleanup, CLI commands (list/clean/export)              │
+│    Falls back gracefully on write failure (WARNING, not ERROR)│
+│                                                              │
+│         ▼ Uses REQ-100: Engine + Dispatch + Runner ▼         │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### How REQ-101 Extends REQ-100
+
+REQ-101 builds on top of REQ-100's sequential core by adding:
+
+| REQ-100 Provides | REQ-101 Adds |
+|-------------------|-------------|
+| `engine.py` — Round, Task, Gate dataclasses | No changes — same data model |
+| `dispatch.py` — single task dispatch | No changes — same dispatch, called from parallel workers |
+| `runner.py` — sequential execution | `parallel.py` — wraps runner with ThreadPoolExecutor |
+| `RoundResult` return object | `overnight.py` — chains multiple rounds into phases |
+| Result JSON files in `results_dir` | `spool.py` — mailbox persistence for unattended runs |
+| `cli.py` — `rondo run` | Adds `rondo overnight`, `rondo report`, `rondo spool` subcommands |
+
 ### Headless Dispatch (Claude Code --bare flag, v2.1.81+)
 
-The --bare flag strips hooks, LSP, and plugins for clean headless execution. Rondo uses this
-for all automated dispatch to prevent Caliber hooks, statusline, and other interactive-only
-features from interfering with batch tasks. Task-specific context is injected via --print-system-prompt
-or CLAUDE.md in the working directory.
+The `--bare` flag strips hooks, LSP, and plugins for clean headless execution. Rondo uses
+this for all automated dispatch (both REQ-100 batch and REQ-101 overnight) to prevent
+Caliber hooks, statusline, and other interactive-only features from interfering with
+batch tasks. Task-specific context is injected via `--print-system-prompt` or CLAUDE.md
+in the working directory.
 
-REQUIRED — fill remaining before build.
+**Interaction with REQ-100 dispatch:** When `--bare` is available (Claude Code v2.1.81+),
+REQ-100's `dispatch.py` MUST add `--bare` to the subprocess command for all automated
+(non-interactive) dispatches. REQ-100 req 012 (`claude -p`) is the base command; `--bare`
+is added alongside `--output-format stream-json` and `--model`.
+
+### Timeout Coordination (REQ-100 + REQ-101)
+
+REQ-100 defines `task_timeout_sec` (hard wall-clock limit, default 300s) and
+`round_timeout_sec` (default 3600s). REQ-101 adds `watchdog_timeout_sec` (output
+silence detector, default 60s).
+
+```
+                      Time →
+Task starts
+    │
+    ├── Watchdog fires if no stdout for 60s ──→ kills task (ERR_WATCHDOG_TIMEOUT)
+    │   (watchdog resets each time output is produced)
+    │
+    └── Task timeout fires at 300s ──→ kills task unconditionally (ERR_TIMEOUT)
+        (hard limit regardless of output)
+```
+
+**Rules:**
+1. `watchdog_timeout_sec` MUST be less than `task_timeout_sec` (watchdog fires first on silence)
+2. `task_timeout_sec` is the absolute upper bound — watchdog cannot extend it
+3. Both produce `error` status but with different `error_code` values for diagnostics
 
 ---
 
 ## 5. Data Model
 
-REQUIRED — fill before build.
+REQ-101 adds no database tables. All data structures extend REQ-100's in-memory dataclasses:
+
+| Dataclass | Module | Purpose |
+|-----------|--------|---------|
+| `ParallelResult` | parallel.py | Extends RoundResult with conflict list, speedup ratio, worker count |
+| `OvernightResult` | overnight.py | Aggregates multiple RoundResults across phases |
+| `PhaseResult` | overnight.py | One phase's execution: round name, status, duration, errors |
+| `MorningReport` | report.py | Formatted aggregation of OvernightResult for human reading |
+| `SpoolEntry` | spool.py | Metadata for a spool file: path, age, size, task name |
+| `WatchdogEvent` | overnight.py | Kill/pause/skip event: timestamp, reason, task name |
+| `EventLogEntry` | overnight.py | Rolling log entry: timestamp, event type, mode, phase |
+
+**No tables owned.** REQ-101 inherits REQ-100's "no database" principle.
+Spool files are JSON on disk, not database records.
 
 ---
 
 ## 6. Data Boundary
 
-REQUIRED — fill before build.
+### What REQ-101 Produces
+
+| Output | Format | Consumer |
+|--------|--------|----------|
+| `OvernightResult` | Python dataclass | Calling code or spool |
+| Spool files | JSON in `~/.rondo/spool/` (configurable) | Consumer pickup via mailbox pattern |
+| Morning report | Markdown file `rondo-morning-YYYYMMDD.md` | Human reader |
+| Event log | Rolling JSON (last 100 entries) | Post-mortem analysis |
+
+### What REQ-101 Consumes
+
+| Input | Format | Producer |
+|-------|--------|----------|
+| REQ-100 RoundResult | Python dataclass | runner.py / dispatch.py |
+| Overnight config | TOML (modes, phases, thresholds) | User / project config |
+| Rate limit data | `rate_limit_event` from stream-json | Previous dispatch result |
+
+### Spool vs results_dir
+
+| Attribute | `results_dir` (REQ-100) | `spool/` (REQ-101) |
+|-----------|------------------------|---------------------|
+| Purpose | Backup for crash recovery | Mailbox for unattended pickup |
+| Lifetime | Permanent (user manages) | TTL-based cleanup (default 7 days) |
+| When written | Always (every round) | Only when no consumer connected |
+| Consumer reads | Replay / debugging | Consumer picks up and deletes |
+
+Both exist. They serve different purposes. `results_dir` is always written as a backup.
+Spool is written only when no consumer is connected at runtime (unattended/overnight runs).
 
 ---
 
@@ -178,13 +291,44 @@ REQUIRED — fill before build.
 
 ## 8. States & Modes
 
-— if applicable.
+### Overnight Scheduler States
+
+```
+idle ──→ preflight ──→ running_phases ──→ reporting ──→ done
+                  │                  │
+                  └──→ aborted       └──→ partial (some phases failed)
+                       (RED preflight)
+```
+
+### Phase States
+
+```
+pending ──→ in_progress ──→ done | error | partial
+```
+
+Phase failures do NOT block subsequent phases (req 012). A phase with status `error`
+is logged and the scheduler proceeds to the next phase.
 
 ---
 
 ## 9. Configuration
 
-— if applicable.
+Configuration follows STD-109 conventions. Extends REQ-100's config:
+
+| Setting | CLI Flag | Config Key | Default | Description |
+|---------|----------|------------|---------|-------------|
+| Workers | `--workers N` | `workers` | 4 (overnight) | Parallel worker count |
+| Throttle | `--throttle N` | `throttle_sec` | 2 | Seconds between task launches |
+| Mode | `--mode M` | `overnight_mode` | `standard` | Phase selection: minimal, standard, full |
+| Overage action | `--on-overage` | `on_overage` | `continue` | Action on overage: continue, pause, stop |
+| Watchdog timeout | `--watchdog-timeout` | `watchdog_timeout_sec` | 60 | Seconds of output silence before kill |
+| Spool path | `--spool-path` | `spool.path` | `~/.rondo/spool/` | Spool directory location |
+| Spool TTL | `--spool-ttl` | `spool.ttl_days` | 7 | Days before spool files are auto-cleaned |
+| Worktree isolation | `--worktree` | `worktree_isolation` | `false` | Enable git worktree per worker |
+| Report pattern | `--report-pattern` | `report_pattern` | `rondo-morning-YYYYMMDD.md` | Morning report filename |
+| Event log size | — | `event_log_max_entries` | 100 | Rolling event log capacity |
+
+All settings follow COALESCE: CLI flag → config file → built-in default.
 
 ---
 
@@ -211,15 +355,35 @@ REQUIRED — fill before build.
 
 ---
 
-## 12. Shared Patterns
+## 12. Shared Patterns / Tactical Solutions
 
-— if applicable.
+### Tactical Solutions (per CORE-STD-022)
+
+| TAC ID | Title | Dependency | Break Risk | Status |
+|--------|-------|------------|------------|--------|
+| TAC-RON-001 | `claude -p` non-interactive mode | Relies on `claude -p` behaving predictably; no formal API contract | CLI changes break all overnight dispatch | active |
+| TAC-RON-002 | JSONL as primary storage | No formal schema; parsing relies on line-by-line JSON | Schema changes break result parsing | active |
+
+### Shared Patterns
+
+- **Phase-continue-on-failure:** Each phase logs errors and continues to the next. One bad phase does not kill the run.
+- **Mailbox spool:** Consumer picks up and deletes spool files. No query interface — just files in a directory.
+- **Watchdog-then-timeout:** Watchdog detects silence; task_timeout is the hard upper bound.
 
 ---
 
 ## 13. Integration Points
 
-REQUIRED — fill before build.
+| Integration | Spec | Direction | Contract |
+|-------------|------|-----------|----------|
+| Core engine | REQ-100 | Depends on | Imports Round, Task, Gate, RoundResult, dispatch_task, run_round |
+| Preflight | REQ-103 | Depends on | Cached PreflightResult used for overnight batch (run once at start) |
+| Configuration | STD-109 | Depends on | Worker count, throttle, modes, spool path, TTL from TOML config |
+| Error handling | STD-108 | Shared | TaskResult error codes, status vocabulary |
+| Concurrency | STD-110 | Applies | ThreadPoolExecutor safety, no shared mutable state between tasks |
+| OB integration | IFS-102 | Outbound | OvernightResult returned for OB storage |
+| Morning report | Consumer | Outbound | Markdown file readable by human or downstream tools |
+| Spool | Consumer | Outbound | JSON files in spool directory for consumer pickup |
 
 ---
 
@@ -251,6 +415,7 @@ REQUIRED — fill before build.
 | A3 | File conflict detection via output parsing is sufficient | May need explicit file locking for write-heavy rounds |
 | A4 | 100-entry rolling log is sufficient for post-mortem | Increase if overnight runs generate more events |
 | A5 | Phases are independent enough to continue after failure | Some phases may depend on prior phase output — caller's responsibility to handle |
+| A6 | Python 3.12+ is available (inherited from REQ-100 for `tomllib`) | Fall back to `tomli` package for 3.11. See REQ-100 assumption A6 |
 
 ---
 
@@ -364,7 +529,20 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ## 21. Dependencies + Used By
 
-REQUIRED — fill before build.
+| Depends On | Why |
+|------------|-----|
+| REQ-100 (Core) v1.0+ | Engine, dispatch, runner — the entire execution substrate |
+| REQ-103 (Preflight) | Cached preflight for overnight batch |
+| STD-108 (Error & Resilience) | TaskResult fields, error codes |
+| STD-109 (Configuration) | TOML config loading, CLI flags (--workers, --model, etc.) |
+| STD-110 (Concurrency & Safety) | ThreadPoolExecutor patterns, no shared mutable state |
+| CORE-STD-001 (Data Standards) | Status vocabulary alignment (7-value lifecycle) |
+| Python 3.12+ | `tomllib` in stdlib (inherited from REQ-100) |
+
+| Used By | Why |
+|---------|-----|
+| IFS-102 (OB Integration) | OB consumes OvernightResult for sprint tracking |
+| Consumer scripts | Pick up spool files via mailbox pattern |
 
 ---
 
@@ -478,3 +656,4 @@ REQUIRED — fill before build.
 | 0.3 | 2026-03-14 | Deep review fixes: clarified watchdog vs task timeout relationship (reqs 19-20), cross-referenced CORE-IFS-001 reqs 53-54 (status vocabulary) |
 | 0.4 | 2026-03-18 | Result Spool — stateless persistence (reqs 42-52). Mailbox-pattern spool directory for disconnected runs. TTL cleanup, CLI commands, export for manual import. 52 requirements total. |
 | 0.5 | 2026-03-23 | Added Headless Dispatch group (reqs 053-057). --bare flag for clean headless execution (Claude Code v2.1.81+). Architecture note for dispatch modes. 57 requirements total. |
+| 0.6 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Filled §4 Architecture/Design (layer diagram, how REQ-101 extends REQ-100, headless dispatch interaction, timeout coordination diagram). Filled §5 Data Model (7 dataclasses). Filled §6 Data Boundary (spool vs results_dir clarification). Filled §13 Integration Points (8 integrations). Filled §21 Dependencies + Used By (added CORE-STD-001, Python 3.12+, STD-110). Upgraded req 037 worktree isolation from SHOULD to MUST. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Added assumption A6 (Python 3.12+). Updated dependencies header. |

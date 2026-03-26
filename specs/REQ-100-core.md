@@ -4,11 +4,11 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.9
+**Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Claude Code CLI (`claude -p`), STD-108, STD-109, IFS-100 | **Blocks:** REQ-101 (Automation)
+**Depends on:** Claude Code CLI (`claude -p`), STD-108 (Error & Resilience), STD-109 (Configuration), IFS-100 (Provider Interface), CORE-STD-001 (Data Standards — status vocabulary), Python 3.12+ (for `tomllib`) | **Blocks:** REQ-101 (Automation), REQ-103 (Dispatch Preflight)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -74,7 +74,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 ### Engine — State Machine
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 008 | Task status MUST follow this state machine: `pending → running → done | blocked | partial | error | skipped`. No other transitions. See "Task State Machine" below and STD-108 for definitions | MUST |
+| 008 | Task status MUST follow this state machine: `pending → in_progress → done | blocked | partial | error | skipped`. No other transitions. The transient state `in_progress` aligns with CORE-STD-001 req 021 shared lifecycle vocabulary. See "Task State Machine" below and STD-108 for definitions | MUST |
 | 009 | System SHALL a round is "complete" when all tasks are in a terminal state (done, blocked, partial, error, or skipped) | MUST |
 | 010 | Round state (task statuses, gate results) MUST be serializable to JSON for recovery after interruption | MUST |
 | 011 | A round MUST be resumable from serialized state — load JSON, skip completed tasks, continue from next pending | MUST |
@@ -82,7 +82,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 ### Dispatch — Subprocess
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 012 | Dispatch MUST invoke `claude -p` as a subprocess with the task's three-field contract formatted as the prompt | MUST |
+| 012 | Dispatch MUST invoke `claude -p` as a subprocess with the task's three-field contract formatted as the prompt. For automated (non-interactive) dispatch, `--bare` MUST be added when available (Claude Code v2.1.81+, see REQ-101 reqs 053-054) to strip hooks, LSP, and plugins | MUST |
 | 013 | Dispatch MUST strip the `CLAUDECODE` environment variable from child processes to prevent the nested-session guard | MUST |
 | 014 | Dispatch MUST capture stdout, stderr, exit code, and wall-clock duration from each subprocess | MUST |
 | 015 | Dispatch MUST use `--output-format stream-json` to capture real token counts, cost, cache stats, and API timing per call. Text mode cannot capture these. (ACE-STD-020 — Session 78: estimated costs were inaccurate without stream-json.) | MUST |
@@ -136,7 +136,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 | 039 | Rondo MUST be an importable Python package: `from rondo import run_round, RoundResult` | MUST |
 | 040 | The public API (`rondo/__init__.py`) MUST export: `Round`, `Task`, `Gate`, `GateResult`, `TaskResult`, `RoundResult`, `DispatchUsage`, `RondoConfig`, `run_round` | MUST |
 | 041 | Rondo MUST provide a CLI entry point: `rondo <subcommand> [options]` | MUST |
-| 042 | CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-109) | MUST |
+| 042 | CLI subcommands MUST include: `run` (execute a round), `overnight` (batch scheduler), `report` (generate morning report). Dry-run is a `--dry-run` flag on `run`, not a separate subcommand (STD-109). All subcommands are single-word. Multi-word subcommands, if added later, MUST use kebab-case per CORE-STD-001 req 019 | MUST |
 | 043 | The `run` subcommand MUST accept a path to a Python file containing a `build_round()` function that returns a `Round` object | MUST |
 | 044 | Round definition files MUST be loadable by path — Rondo dynamically imports the file and calls `build_round()` | MUST |
 | 045 | Rondo MUST auto-detect sequential vs parallel: `workers == 1` uses `runner.py`, `workers > 1` uses `parallel.py` | MUST |
@@ -159,9 +159,9 @@ rondo/
 │       ├── config.py             # -- RondoConfig, TOML loading, COALESCE, validation
 │       ├── dispatch.py           # -- claude -p subprocess, stream-json, TaskResult
 │       ├── runner.py             # -- sequential: pre-gates → tasks → post-gates → RoundResult
-│       ├── parallel.py           # -- ThreadPoolExecutor, throttle, conflicts
-│       ├── overnight.py          # -- phase scheduler, watchdog, usage gating
-│       ├── report.py             # -- morning report generator
+│       ├── parallel.py           # -- (REQ-101 scope) ThreadPoolExecutor, throttle, conflicts
+│       ├── overnight.py          # -- (REQ-101 scope) phase scheduler, watchdog, usage gating
+│       ├── report.py             # -- (REQ-101 scope) morning report generator
 │       └── cli.py                # -- CLI entry point (argparse)
 ├── tests/                        # -- pytest test suite (VER-100)
 │   ├── test_engine.py
@@ -356,19 +356,170 @@ def build_round(target_dir: str = "src/") -> Round:
 ---
 ## 4. Architecture / Design
 
-REQUIRED — fill before build.
+### Layer Architecture
+
+Rondo's core is three layers, each with a single responsibility:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                       REQ-100: CORE                          │
+│                                                              │
+│  L0: ENGINE (engine.py)                                      │
+│    Round, Task, Gate dataclasses + state machine              │
+│    Pure data — no I/O, no subprocess, no side effects         │
+│    Validates: task names unique, gates have check_fn,         │
+│    status transitions follow CORE-STD-001 vocabulary          │
+│                                                              │
+│  L1: DISPATCH (dispatch.py)                                  │
+│    Subprocess orchestration: claude -p with stream-json       │
+│    Auth switching (Max plan vs API key via env stripping)     │
+│    Model routing (COALESCE: CLI → task → config → default)   │
+│    Result capture: stdout/stderr/exit code → TaskResult       │
+│    Tool control: --tools "" | --dangerously-skip-permissions  │
+│    Permission mode: --permission-mode (COALESCE pattern)      │
+│                                                              │
+│  L2: RUNNER (runner.py)                                      │
+│    Sequential execution: pre-gates → tasks → post-gates       │
+│    Assembles RoundResult from task + gate results              │
+│    Saves result JSON files to results_dir                     │
+│    Returns RoundResult to caller (primary data path)          │
+│                                                              │
+│         ▲ REQ-101 adds: parallel.py, overnight.py, report.py │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Component Interactions
+
+```
+Consumer (OB, ACE, script)
+    │
+    ├── Option A: CLI
+    │   rondo run round.py --workers 1 --auth max --model sonnet
+    │   → cli.py → config.py → dynamic import → runner.py → dispatch.py
+    │
+    └── Option B: Library
+        from rondo import run_round, Round, Task, RondoConfig
+        result = run_round(my_round, config)
+        → runner.py → dispatch.py → returns RoundResult
+```
+
+### Dispatch Subprocess Detail
+
+```
+dispatch_task(task, config):
+    1. Build prompt from three-field contract (Do/Read/Done)
+    2. Select model: COALESCE(cli_flag, task.model, config.default_model, "sonnet")
+    3. Select auth: strip ANTHROPIC_API_KEY (max) or preserve it (api)
+    4. Strip CLAUDECODE env var (always — prevents nested session trap)
+    5. Select tool_mode: --tools "" (none) | --dangerously-skip-permissions (sandbox) | default
+    6. Select permission_mode: --permission-mode {mode} (COALESCE pattern)
+    7. Invoke: subprocess.Popen(["claude", "-p", "--output-format", "stream-json",
+                                 "--model", model, ...], env=clean_env, timeout=task_timeout_sec)
+    8. Parse stream-json: extract tokens, cost, cache stats, rate_limit_event
+    9. Parse Claude's JSON response: {status, confidence, result, question}
+   10. Return TaskResult + DispatchUsage
+```
+
+### tool_mode vs permission_mode Interaction
+
+These two settings control different aspects of Claude's tool access:
+
+| Setting | Controls | Values | When to Use |
+|---------|----------|--------|-------------|
+| `tool_mode` (reqs 022-024) | Which file tools Claude has | `none` (--tools ""), `sandbox` (--dangerously-skip-permissions), `default` | Code generation (none), code fixing (sandbox), general (default) |
+| `permission_mode` (reqs 047-049) | How Claude asks for permission | `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | Controls interactive prompts in subprocess |
+
+**Precedence:** `tool_mode` is applied first (determines available tools). `permission_mode` is applied second (determines permission prompts for available tools). If `tool_mode` is `none`, `permission_mode` is irrelevant (no tools to prompt for). Both follow the COALESCE pattern independently: CLI → config → default.
+
+### Data Flow
+
+```
+Round Definition (Python)
+    │
+    ▼
+Engine validates (L0)
+    │
+    ▼
+Runner executes (L2)
+    ├── Pre-gates: check_fn() → GateResult
+    │   (blocking gate fails → all tasks skipped, round status = "skipped")
+    ├── Tasks: dispatch_task() → TaskResult + DispatchUsage
+    │   (each task independent — failure does not affect others)
+    └── Post-gates: check_fn() → GateResult
+    │
+    ▼
+RoundResult returned to caller
+    ├── Primary: return object (consumer stores what they want)
+    └── Backup: JSON files in results_dir (crash recovery)
+```
 
 ---
 
 ## 5. Data Model
 
-REQUIRED — fill before build.
+Rondo has no database tables. All data is in-memory Python dataclasses during execution
+and JSON files on disk after execution. The core dataclasses are defined in §8 (States & Modes):
+
+| Dataclass | Purpose | Lifecycle |
+|-----------|---------|-----------|
+| `Task` | Single unit of AI work (interactive or auto) | Created by round definition, consumed by dispatch |
+| `Gate` | Boolean check guarding round entry/exit | Created by round definition, evaluated by runner |
+| `Round` | Collection of tasks + gates | Created by round definition, consumed by runner |
+| `GateResult` | Outcome of a gate check | Created by runner, stored in RoundResult |
+| `TaskResult` | Full outcome of a dispatched task (per STD-108) | Created by dispatch, stored in RoundResult |
+| `RoundResult` | Aggregate of all results for a round execution | Created by runner, returned to consumer |
+| `DispatchUsage` | Per-dispatch metadata from stream-json | Created by dispatch, stored in RoundResult |
+| `RondoConfig` | Frozen configuration (TOML + CLI + defaults) | Created by config.py, consumed by all layers |
+
+**No tables owned.** Rondo is a dispatch framework, not a data store.
+The consumer (OB, ACE, scripts) decides what to persist from the returned RoundResult.
 
 ---
 
 ## 6. Data Boundary
 
-REQUIRED — fill before build.
+**Rondo has no database.** It is a dispatch framework, not a data store.
+
+### What Rondo Produces
+
+| Output | Format | Consumer |
+|--------|--------|----------|
+| `RoundResult` | Python dataclass (primary) | Calling code (OB, ACE, scripts) |
+| Result JSON files | JSON in `results_dir` (backup) | Crash recovery, replay |
+| Spool files (REQ-101) | JSON in `~/.rondo/spool/` (unattended runs) | Consumer pickup via mailbox pattern |
+
+**Canonical data path:** The `RoundResult` return object is the primary output. Result
+JSON files in `results_dir` are a backup for crash recovery. The spool directory
+(REQ-101 reqs 042-052) is used only for unattended/disconnected runs where no consumer
+is connected at runtime. When a consumer is connected (e.g., OB calling Rondo via library),
+the result goes directly to the consumer — no spool file written.
+
+### What Rondo Consumes
+
+| Input | Format | Producer |
+|-------|--------|----------|
+| Round definition | Python file with `build_round()` | Consumer |
+| Config | TOML (`rondo.toml` or `.rondo/config.toml` per STD-109) | User / project |
+| Claude Code CLI | Binary on PATH | System |
+| Environment variables | `ANTHROPIC_API_KEY`, `CLAUDECODE` | System |
+
+### What Rondo Does NOT Own
+
+Rondo does NOT interact with any database tables. The `tactical_solutions` and
+`upstream_watches` tables defined in CORE-STD-022 are CORE tables accessed via
+the `ob` CLI — not by Rondo's dispatch engine. Rondo overnight jobs (REQ-101) may
+run scripts that query those tables, but the scripts are the consumer's responsibility,
+not Rondo's. Rondo dispatches the script; the script accesses the database.
+
+### Configuration File Location
+
+The Rondo configuration file follows STD-109 conventions. The canonical locations are:
+
+1. `rondo.toml` in the project root (project-specific config)
+2. `.rondo/config.toml` in the project root (alternative location for projects that prefer dotfile directories)
+3. `~/.config/rondo/config.toml` (user-level defaults)
+
+COALESCE order: CLI flags → project `rondo.toml` → `.rondo/config.toml` → user config → built-in defaults.
 
 ---
 
@@ -453,38 +604,43 @@ class Round:
 ### Task State Machine
 
 ```
-pending ──→ running ──→ done     (terminal — task completed successfully)
-                   ├──→ blocked  (terminal — Claude said it can't proceed)
-                   ├──→ partial  (terminal — got output, couldn't parse JSON)
-                   ├──→ error    (terminal — dispatch-level failure)
-                   └──→ skipped  (terminal — pre-gate blocked the round)
+pending ──→ in_progress ──→ done     (terminal — task completed successfully)
+                        ├──→ blocked  (terminal — Claude said it can't proceed)
+                        ├──→ partial  (terminal — got output, couldn't parse JSON)
+                        ├──→ error    (terminal — dispatch-level failure)
+                        └──→ skipped  (terminal — pre-gate blocked the round)
 ```
 
-**Status vocabulary is shared with STD-108.** These 5 values are the only valid
-task statuses across all of Rondo: `done`, `blocked`, `partial`, `error`, `skipped`.
+**Status vocabulary aligns with CORE-STD-001 req 021.** The 7-value shared lifecycle
+vocabulary is: `pending`, `in_progress`, `done`, `partial`, `error`, `skipped`, `blocked`.
+Rondo uses all 7 values. The transient state `in_progress` replaces the earlier term
+`running` (changed in v1.0 for cross-product consistency). Terminal task statuses
+are: `done`, `blocked`, `partial`, `error`, `skipped`.
 
 No backward transitions. No re-running. A failed task stays failed for this round.
 
 **State Machine Type:** FORWARD-ONLY
-**Rationale:** Tasks move pending → running → terminal state (done/blocked/partial/error/skipped). All terminal states are final within a round. No re-running, no backward transitions.
+**Rationale:** Tasks move pending → in_progress → terminal state (done/blocked/partial/error/skipped). All terminal states are final within a round. No re-running, no backward transitions.
 **Rollback:** Not applicable — a new round creates new task instances. Failed tasks stay failed.
 
 ---
 
-### Live Mode (Session 79-80 — NEW)
+### Live Mode (Session 79-80)
 
 *Rondo in the conversation, not just overnight. Human reviews, AI executes, step by step.*
 
-47. `rondo live <round-file>` executes a round definition INSIDE the current Claude session, not as a subprocess.
-48. Live mode presents ONE task at a time. Claude reads the instruction, executes it, proves done_when. Mark reviews. Then next task.
-49. Tasks with `human_input="ask"` PAUSE and present the question to Mark. Mark answers. Task continues.
-50. Tasks with `human_input="defer"` log the finding and move to next task (Mark reviews later).
-51. Live mode uses the SAME round definitions as batch mode. No separate format. `rondo run task.json` and `rondo live task.json` read the same file.
-52. Live mode tracks execution in the event system: creates event, logs each task start/complete/skip, captures timeline.
-53. Live mode output goes to terminal (not spool). Results visible immediately.
-54. If Claude's context is getting large, live mode can `--checkpoint` to save progress and resume after compaction.
-55. Live mode is for ORB-02 through ORB-04 (spec work with human review). Batch mode is for ORB-05+ (code building, overnight).
-56. `rondo live --resume` continues from last completed task (if interrupted by compaction or session end).
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 061 | `rondo live <round-file>` MUST execute a round definition INSIDE the current Claude session, not as a subprocess | MUST |
+| 062 | Live mode MUST present ONE task at a time. Claude reads the instruction, executes it, proves done_when. Human reviews. Then next task | MUST |
+| 063 | Tasks with `human_input="ask"` MUST PAUSE and present the question to the human. Human answers. Task continues | MUST |
+| 064 | Tasks with `human_input="defer"` MUST log the finding and move to next task (human reviews later) | MUST |
+| 065 | Live mode MUST use the SAME round definitions as batch mode. No separate format. `rondo run round.py` and `rondo live round.py` read the same file | MUST |
+| 066 | Live mode MUST track execution in the event system: creates event, logs each task start/complete/skip, captures timeline | MUST |
+| 067 | Live mode output MUST go to terminal (not spool). Results visible immediately | MUST |
+| 068 | Live mode SHOULD support `--checkpoint` to save progress and resume after compaction | SHOULD |
+| 069 | Live mode is for ORB-02 through ORB-04 (spec work with human review). Batch mode is for ORB-05+ (code building, overnight) | SHOULD |
+| 070 | `rondo live --resume` MUST continue from last completed task (if interrupted by compaction or session end) | MUST |
 
 **When to use which mode:**
 
@@ -498,16 +654,30 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 057 | Every dispatched task SHALL have a `task_timeout_sec` with default 300 seconds | MUST |
-| 058 | Every batch round SHALL have a `round_timeout_sec` with default 3600 seconds | MUST |
-| 059 | `subprocess.Popen` SHALL be wrapped in strict timeout enforcement | MUST |
-| 060 | On timeout, task status SHALL become `error` with reason `timeout_exceeded` and round continues | MUST |
+| 057 | Every dispatched task MUST have a `task_timeout_sec` with default 300 seconds. This is the hard wall-clock limit. When REQ-101's watchdog is active, `task_timeout_sec` is the upper bound — the watchdog fires on output silence, but the task timeout is the absolute maximum regardless of output | MUST |
+| 058 | Every batch round MUST have a `round_timeout_sec` with default 3600 seconds | MUST |
+| 059 | `subprocess.Popen` MUST be wrapped in strict timeout enforcement | MUST |
+| 060 | On timeout, task status MUST become `error` with error_code `ERR_TIMEOUT` and reason `timeout_exceeded`. Round continues to next task | MUST |
 
 ---
 
 ## 9. Configuration
 
-— if applicable.
+Configuration follows STD-109 conventions. See §6 Data Boundary for file locations.
+
+| Setting | CLI Flag | Config Key | Default | Description |
+|---------|----------|------------|---------|-------------|
+| Workers | `--workers N` | `workers` | 1 | Number of parallel workers (1 = sequential) |
+| Model | `--model M` | `default_model` | `sonnet` | Default model for dispatch |
+| Auth | `--auth max\|api` | `auth` | `max` | Auth mode (subscription vs API key) |
+| Tool mode | `--tool-mode` | `tool_mode` | `default` | `none`, `sandbox`, `default` |
+| Permission mode | `--permission-mode` | `permission_mode` | `auto` | Claude Code permission mode |
+| Dry run | `--dry-run` | — | `false` | Show prompts without dispatching |
+| Results dir | `--results-dir` | `results_dir` | `reports/rondo-results/` | Where to save result JSON files |
+| Task timeout | `--task-timeout` | `task_timeout_sec` | 300 | Hard wall-clock limit per task (seconds) |
+| Round timeout | `--round-timeout` | `round_timeout_sec` | 3600 | Hard wall-clock limit per round (seconds) |
+
+All settings follow COALESCE: CLI flag → config file → built-in default.
 
 ---
 
@@ -520,7 +690,7 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 | CLAUDECODE env var always stripped | Claude Code blocks nested sessions. This is non-negotiable. |
 | Results always saved to disk | Even on error. Can't rely on terminal output or memory. |
 | Sequential is the safe default | Parallel is opt-in (REQ-101). One task at a time is predictable. |
-| Zero external dependencies | stdlib only. Maximizes portability and ease of installation. |
+| Zero external dependencies (core engine) | The `rondo` Python package uses stdlib only. Maximizes portability. Rondo's core engine has no database dependency. Consumer scripts dispatched by Rondo may have their own dependencies (e.g., OB scripts query databases), but that is the consumer's concern, not Rondo's. |
 | Round definitions import only engine | Keeps definitions portable. They shouldn't know about dispatch internals. |
 
 ---
@@ -553,7 +723,10 @@ class RoundResult:
 
     # -- identity
     round_name: str                        # -- which round ran
-    started_at: str                        # -- ISO-8601 UTC
+    started_at: str                        # -- ISO-8601 UTC (domain name — not a DB table, so
+                                           #    created_at/updated_at convention from STD-001 req 003
+                                           #    does not apply. started_at/completed_at conveys
+                                           #    execution semantics more clearly for a return object)
     completed_at: str                      # -- ISO-8601 UTC
     duration_sec: float                    # -- wall-clock total
 
@@ -643,15 +816,36 @@ reports/rondo-results/
 
 ---
 
-## 12. Shared Patterns
+## 12. Shared Patterns / Tactical Solutions
 
-— if applicable.
+### Tactical Solutions (per CORE-STD-022)
+
+| TAC ID | Title | Dependency | Break Risk | Status |
+|--------|-------|------------|------------|--------|
+| TAC-RON-001 | `claude -p` non-interactive mode | Relies on `claude -p` behaving predictably; no formal API contract | CLI changes could break all dispatch | active |
+| TAC-RON-002 | JSONL as primary storage | No formal schema; parsing relies on line-by-line JSON | Schema changes break result parsing | active |
+
+### Shared Patterns
+
+- **Three-field contract (Do/Read/Done):** Every interactive task uses the same three fields. Adopted by all consumers.
+- **COALESCE routing:** CLI → config → task → default. Used for model, auth, permission_mode, tool_mode.
+- **Gate closures:** Gates capture context at definition time via closures. Runner calls with zero args.
 
 ---
 
 ## 13. Integration Points
 
-REQUIRED — fill before build.
+| Integration | Spec | Direction | Contract |
+|-------------|------|-----------|----------|
+| Claude Code CLI | External | Outbound | `claude -p --output-format stream-json --model M` subprocess |
+| Preflight | REQ-103 | Inbound | PreflightResult (GREEN/YELLOW/RED) before dispatch |
+| Parallel/Overnight | REQ-101 | Builds on | REQ-101 imports engine.py, dispatch.py, runner.py |
+| OB integration | IFS-102 | Outbound | RoundResult returned to OB for storage in sprint_results |
+| ACE integration | ACE consumers | Outbound | RoundResult returned for knowledge engine ingestion |
+| CORE-STD-022 | CORE-STD-022 | Indirect | Rondo overnight jobs may dispatch scripts that query tactical_solutions — but Rondo's core engine has no direct DB dependency |
+| Configuration | STD-109 | Inbound | TOML config loading, CLI flag definitions |
+| Error handling | STD-108 | Shared | TaskResult fields, error codes, status vocabulary |
+| `ob` CLI | External | Integration | CORE-STD-022 tactical tracking exposed via `ob` CLI, not Rondo CLI. Rondo is standalone (D7) |
 
 ---
 
@@ -966,7 +1160,7 @@ def build_my_round(target_file: str) -> Round:
 |---------|----------|----------|--------|
 | Round/Task/Gate data model | SPIKED | Spike prototyped engine with dataclasses | Phase 1 build |
 | Three-field contract (Do/Read/Done) | SPIKED | Spike validated claude -p with 3-field prompts | Phase 1 build |
-| Task state machine | THEORY | Specced: pending/running/done/blocked/partial/error/skipped | Phase 1 build |
+| Task state machine | THEORY | Specced: pending/in_progress/done/blocked/partial/error/skipped (CORE-STD-001 aligned) | Phase 1 build |
 | Auth switching (Max plan vs API key) | WORKING | API key regenerated, Max plan active | After plan changes |
 | Model routing (opus/sonnet/haiku) | THEORY | Specced for per-task model selection | Phase 1 build |
 | Round state serialization | THEORY | Specced for JSON-based recovery | Phase 1 build |
@@ -985,3 +1179,4 @@ def build_my_round(target_file: str) -> Round:
 | 0.7 | 2026-03-14 | Added reqs 47-49: `--permission-mode` dispatch flag — controls Claude Code tool access prompts in non-interactive subprocess dispatch |
 | 0.8 | 2026-03-14 | Defense in depth: validate_task() + validate_round() pre-flight in engine.py, VALID_MODELS fail-fast in dispatch, CLI exit code contract (0/1/2/130), validate_config() at CLI boundary, KeyboardInterrupt + catch-all exception handling. Cross-ref CORE-IFS-001 reqs 53-54 (status vocabulary). |
 | 0.9 | 2026-03-23 | Gemini R7 findings: +4 reqs (057-060) Task Safety — task_timeout_sec, round_timeout_sec, Popen timeout enforcement, timeout_exceeded error status. Total: 60 reqs. |
+| 1.0 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Replaced `running` with `in_progress` throughout (CORE-STD-001 alignment). Filled §4 Architecture/Design (layer diagram, component interactions, dispatch detail, tool_mode vs permission_mode). Filled §5 Data Model (dataclass inventory). Filled §6 Data Boundary (canonical data path, config file locations, clarified Rondo-has-no-DB vs CORE-STD-022 indirect relationship). Filled §13 Integration Points. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Renumbered Live Mode reqs 47-56 to 061-070 in proper table format. Clarified timeout coordination with REQ-101 watchdog (req 057). Added CORE-STD-001 to dependencies. Annotated parallel.py/overnight.py/report.py as REQ-101 scope in package layout. Clarified "zero external dependencies" applies to core engine, not consumer scripts. Total: 70 reqs. |

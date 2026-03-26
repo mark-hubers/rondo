@@ -6,11 +6,12 @@
 **Category:** REQ
 **Created:** 2026-03-20 | **Updated:** 2026-03-22 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.1
+**Version:** 1.2
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-102 (Configuration), CORE-STD-010 (Error Resilience), OB-REQ-113, REQ-109 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-109 (Configuration — STD-102 is an alias for STD-109, consolidated here), CORE-STD-001 (Data Standards — status vocabulary, naming), CORE-STD-010 (Error Resilience), Python 3.12+ | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Note:** STD-102 and STD-109 are the same standard. All Rondo specs now reference STD-109 as the canonical configuration standard.
 **Cross-pollinated from:** OB-REQ-113 (Preflight System) — adapted from session preflight to dispatch preflight
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -70,6 +71,7 @@ notices. Preflight catches these failures before the first dollar is spent.
 | 014 | For overnight batch: run preflight ONCE at start, not per-task. Cache result for batch duration. | SHOULD | Batch test |
 | 015 | `rondo preflight` standalone command: check without dispatching | SHOULD | Standalone test |
 | 016 | Preflight result included in OAResult metadata when OB-connected | SHOULD | Integration test |
+| 025 | Rate limit check MUST use cached `rate_limit_event` from the most recent dispatch (if < 5 minutes old). If no cached data exists (first run or stale cache), preflight MUST run a lightweight smoke dispatch (`claude -p "test" --output-format stream-json`) to obtain rate limit status. This breaks the dependency loop: preflight needs rate data, rate data comes from dispatch — cache bridges the gap | MUST | Cache test |
 
 
 ### CLI Version Compatibility (F-28 — Architecture Audit Session 85)
@@ -249,10 +251,12 @@ compatible_versions = ["1.0.*"]   # Known-good Claude Code versions
 
 | Standard | How Applied |
 |----------|-------------|
+| CORE-STD-001 (Data Standards) | Status vocabulary (GREEN/YELLOW/RED maps to shared lifecycle patterns), kebab-case CLI commands, snake_case Python |
 | CORE-STD-010 (Error Resilience) | Preflight failure is graceful, not a crash |
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Preflight events logged as trackerdata entries |
 | CORE-STD-021 (MCP Standard) | Future MCP tool for environment health queries |
+| STD-109 (Configuration) | Preflight config in TOML, COALESCE pattern for overrides |
 
 ---
 
@@ -331,9 +335,11 @@ compatible_versions = ["1.0.*"]   # Known-good Claude Code versions
 
 | Depends On | Why |
 |------------|-----|
-| REQ-100 | Core dispatch framework |
-| STD-102 | Configuration loading |
+| REQ-100 v1.0+ | Core dispatch framework |
+| STD-109 (Configuration) | Configuration loading (STD-102 was an alias — consolidated to STD-109) |
+| CORE-STD-001 (Data Standards) | Status vocabulary (GREEN/YELLOW/RED follows shared patterns), naming conventions |
 | CORE-STD-010 | Error resilience patterns |
+| Python 3.12+ | Inherited from REQ-100 for `tomllib` |
 
 | Used By | Why |
 |---------|-----|
@@ -471,3 +477,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-113. 16 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
+| 1.2 | 2026-03-25 | 4-AI cross-review fixes: Added CORE-STD-001 dependency (status vocabulary, naming). Consolidated STD-102 → STD-109 (same standard, one canonical name). Added req 025 (rate limit cache bridging — breaks preflight↔dispatch dependency loop). Updated §21 dependencies (added CORE-STD-001, Python 3.12+, STD-109). Updated §14 standards applied. Added STD-109 to standards. |

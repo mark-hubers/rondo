@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** IFS-100 (exit codes, stderr), REQ-101, STD-110 | **Blocks:** REQ-100 (Dispatch)
+**Depends on:** Rondo-IFS-100 (exit codes, stderr), REQ-101, STD-110 | **Blocks:** REQ-100 (Dispatch)
 **Author:** Mark Hubers — HubersTech
 
 ---

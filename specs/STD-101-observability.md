@@ -132,7 +132,7 @@ Rondo captures and stores observability data in spool files. Consumers (OB, ACE)
 
 ## 7. MCP / API Interface
 
-Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-STD-021 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (IFS-104) provides dispatch status over MCP.
+Rondo does not expose observability via MCP directly. Consumers query spool files or use CORE-STD-021 MCP tools to access ingested metrics from their own stores. Future: `rondo_query_batch_status` (Rondo-IFS-104) provides dispatch status over MCP.
 
 ---
 
@@ -307,7 +307,7 @@ Stream-json parser: 4 hours (event parsing, field extraction, fallback). Logging
 | Depends on | CORE-STD-013 | TrackerData event format |
 | Used by | STD-105 | AI operations cost tracking uses these metrics |
 | Used by | STD-113 | Audit trail stores observability data |
-| Used by | IFS-102 | OB ingests metrics from spool |
+| Used by | Rondo-IFS-102 | OB ingests metrics from spool |
 
 ---
 

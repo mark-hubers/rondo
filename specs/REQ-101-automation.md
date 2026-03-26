@@ -395,7 +395,7 @@ All settings follow COALESCE: CLI flag → config file → built-in default.
 | Configuration | STD-109 | Depends on | Worker count, throttle, modes, spool path, TTL from TOML config |
 | Error handling | STD-108 | Shared | TaskResult error codes, status vocabulary |
 | Concurrency | STD-110 | Applies | ThreadPoolExecutor safety, no shared mutable state between tasks |
-| OB integration | IFS-102 | Outbound | OvernightResult returned for OB storage |
+| OB integration | Rondo-IFS-102 | Outbound | OvernightResult returned for OB storage |
 | Morning report | Consumer | Outbound | Markdown file readable by human or downstream tools |
 | Spool | Consumer | Outbound | JSON files in spool directory for consumer pickup |
 
@@ -563,7 +563,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 | Used By | Why |
 |---------|-----|
-| IFS-102 (OB Integration) | OB consumes OvernightResult for sprint tracking |
+| Rondo-IFS-102 (OB Integration) | OB consumes OvernightResult for sprint tracking |
 | Consumer scripts | Pick up spool files via mailbox pattern |
 
 ---
@@ -588,7 +588,7 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | Q2 | Should overnight support `--resume` from a failed phase? | Open |
 | Q3 | Should the morning report support multiple output formats (markdown, JSON, HTML)? | Open |
 | Q4 | How should the scheduler handle system-level scheduling (cron vs LaunchAgent vs systemd)? | Deferred — platform-specific |
-| Q5 | Should Rondo support alternative backends (Codex CLI, Ollama, direct API)? | Deferred — IFS-100 isolates the interface. Adding IFS-101 for other backends is architecturally possible without changing REQ-100/002. |
+| Q5 | Should Rondo support alternative backends (Codex CLI, Ollama, direct API)? | Deferred — Rondo-IFS-100 isolates the interface. Adding Rondo-IFS-101 for other backends is architecturally possible without changing REQ-100/002. |
 | Q6 | Should worktree isolation use `git worktree` directly or Claude Code's `--worktree` flag? | Open — Claude Code has native worktree support via `--worktree` flag |
 
 ---

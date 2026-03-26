@@ -7,7 +7,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** REQ-100 (Core), REQ-109 (Provider Adapters), CORE-ADR-001 (Service Architecture), REQ-101, STD-113, REQ-103, REQ-105
-**Used by:** IFS-102 (OB Integration), REQ-103 (Preflight)
+**Used by:** Rondo-IFS-102 (OB Integration), REQ-103 (Preflight)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
@@ -275,7 +275,7 @@ switch_to_ollama_if_rate_limited = true # Use local model while waiting for rate
 | Preflight checks | REQ-103 | Internal | Per-account health status |
 | Budget alerts | REQ-105 | Internal | Per-account threshold notifications |
 | Morning report | REQ-101 | Internal | Per-account cost summary |
-| OB integration | IFS-102 | Outbound | Account-agnostic OAResult |
+| OB integration | Rondo-IFS-102 | Outbound | Account-agnostic OAResult |
 
 ## Provider Adapter Integration (CORE-ADR-001)
 
@@ -402,7 +402,7 @@ Multiple accounts of the SAME provider = multiple adapter instances with differe
 
 | Used By | Why |
 |---------|-----|
-| IFS-102 | OB integration needs account-agnostic dispatch |
+| Rondo-IFS-102 | OB integration needs account-agnostic dispatch |
 | REQ-103 | Preflight checks all configured accounts |
 | REQ-105 | Budget alerts use per-account thresholds |
 

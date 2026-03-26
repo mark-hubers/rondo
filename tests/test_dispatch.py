@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.dispatch — REQ-001 reqs 12-28, STD-001, IFS-001, STD-003.
+"""Tests for rondo.dispatch — REQ-001 reqs 12-28, STD-001, ACE-IFS-001, STD-003.
 
 VER-001 verification matrix: every test maps to a numbered requirement.
 TDD: these tests are written BEFORE dispatch.py exists.
@@ -153,7 +153,7 @@ class TestModelResolution:
         assert resolve_model(None, task, config) == "haiku"
 
     def test_model_1m_variant(self):
-        """IFS-001 req 10: 1M context model suffix accepted."""
+        """ACE-IFS-001 req 10: 1M context model suffix accepted."""
         task = Task(name="t", model="opus[1m]")
         config = RondoConfig()
         assert resolve_model(None, task, config) == "opus[1m]"
@@ -244,7 +244,7 @@ class TestErrorClassification:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Stream-JSON Parsing — IFS-001 reqs 1-9
+#  Stream-JSON Parsing — ACE-IFS-001 reqs 1-9
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -333,19 +333,19 @@ class TestStreamJsonParsing:
         return "\n".join(lines)
 
     def test_parse_lines(self):
-        """IFS-001 req 1: reads stream-json line by line."""
+        """ACE-IFS-001 req 1: reads stream-json line by line."""
         raw = self._make_stream_output()
         events, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert len(events) >= 3  # -- init, rate_limit, assistant, result
 
     def test_rate_limit_extraction(self):
-        """IFS-001 req 2: rate_limit_event populates DispatchUsage."""
+        """ACE-IFS-001 req 2: rate_limit_event populates DispatchUsage."""
         raw = self._make_stream_output(rate_status="allowed", is_overage=False)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.rate_limit_status == "allowed"
 
     def test_result_metadata_extraction(self):
-        """IFS-001 req 3: result event populates cost/token/duration."""
+        """ACE-IFS-001 req 3: result event populates cost/token/duration."""
         raw = self._make_stream_output(cost=0.12, input_tokens=500, output_tokens=300)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.cost_usd == 0.12
@@ -353,7 +353,7 @@ class TestStreamJsonParsing:
         assert usage.output_tokens == 300
 
     def test_init_event_extraction(self):
-        """IFS-001 req 4: system:init model extracted."""
+        """ACE-IFS-001 req 4: system:init model extracted."""
         raw = self._make_stream_output(model="claude-opus-4-6")
         events, _ = parse_stream_json_events(raw.split("\n"), task_name="t")
         init_events = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
@@ -361,26 +361,26 @@ class TestStreamJsonParsing:
         assert init_events[0]["model"] == "claude-opus-4-6"
 
     def test_overage_flag(self):
-        """IFS-001 req 6: isUsingOverage captured."""
+        """ACE-IFS-001 req 6: isUsingOverage captured."""
         raw = self._make_stream_output(is_overage=True)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.is_using_overage is True
 
     def test_cost_capture(self):
-        """IFS-001 req 7: total_cost_usd captured."""
+        """ACE-IFS-001 req 7: total_cost_usd captured."""
         raw = self._make_stream_output(cost=0.25)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.cost_usd == 0.25
 
     def test_duration_capture(self):
-        """IFS-001 req 8: duration_ms captured."""
+        """ACE-IFS-001 req 8: duration_ms captured."""
         raw = self._make_stream_output(duration_ms=12345, duration_api_ms=11000)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.duration_ms == 12345
         assert usage.duration_api_ms == 11000
 
     def test_missing_rate_limit(self):
-        """IFS-001 req 9: missing rate_limit_event uses defaults."""
+        """ACE-IFS-001 req 9: missing rate_limit_event uses defaults."""
         # -- Build output WITHOUT rate_limit_event
         lines = [
             json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"}),

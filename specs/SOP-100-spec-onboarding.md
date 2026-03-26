@@ -12,7 +12,7 @@
 **Product:** Rondo
 **Matches:** OB-SOP-100, SOP-100 (Caliber), SOP-100 (Rondo)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
-**Depends on:** STD-100, CORE-STD-000, SOP-101, STD-105, REQ-100, SOP-102, STD-108, STD-109, IFS-102
+**Depends on:** STD-100, CORE-STD-000, SOP-101, STD-105, REQ-100, SOP-102, STD-108, STD-109, Rondo-IFS-102
 
 ---
 
@@ -76,7 +76,7 @@ one procedure for all Rondo spec operations.
 | REQ | Requirements | What Rondo must do | REQ-100 (Core), REQ-101 (Automation) |
 | STD | Standards | How code must be written | STD-108 (Error Resilience), STD-109 (Configuration) |
 | SOP | Procedures | How to do things (step-by-step) | SOP-101 (Build & Run), SOP-102 (Release) |
-| IFS | Interfaces | How Rondo connects to other products | IFS-100 (Claude CLI), IFS-102 (OB Integration) |
+| IFS | Interfaces | How Rondo connects to other products | Rondo-IFS-100 (Claude CLI), Rondo-IFS-102 (OB Integration) |
 | VER | Verification | How to prove specs are implemented | VER-100 (Verification Matrix) |
 | TST | Test Plans | Detailed test strategies | (not yet created) |
 | ADR | Decisions | Why we chose X over Y | (not yet created) |
@@ -217,7 +217,7 @@ When referencing specs from other products:
 | Rondo spec from Rondo | `SOP-100` or `REQ-100` | "See REQ-100 (Core)" |
 | OB spec from Rondo | `OB-NN` or `OB-SOP-NNN` | "OB-SOP-100 defines build integration" |
 | Caliber spec from Rondo | `Caliber SOP-101` | "Caliber SOP-101 defines the build flow" |
-| Cross-product interface | `IFS-NNN` with product context | "IFS-102 defines OB integration" |
+| Cross-product interface | `IFS-NNN` with product context | "Rondo-IFS-102 defines OB integration" |
 
 Use IFS specs to formally define integration points between products.
 

@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-008 (Security), CORE-STD-010 (Error Resilience — credential scrubbing), CORE-STD-012, CORE-STD-011, CORE-STD-021, CORE-STD-013, STD-107 | **Used by:** STD-113 (Audit Trail), IFS-102 (OB Integration), REQ-101 (Automation)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-008 (Security), CORE-STD-010 (Error Resilience — credential scrubbing), CORE-STD-012, CORE-STD-011, CORE-STD-021, CORE-STD-013, STD-107 | **Used by:** STD-113 (Audit Trail), Rondo-IFS-102 (OB Integration), REQ-101 (Automation)
 **Cross-pollinated from:** ACE-REQ-017 (Privacy & Redaction) — adapted from knowledge-base redaction to dispatch-output sanitization
 
 ---
@@ -106,7 +106,7 @@ Scrubbing event: `{timestamp, dispatch_id, pattern_matched, confidence, line_num
 
 ## 6. Data Boundary
 
-Sanitization happens at the storage boundary. In-memory processing uses raw (unscrubbed) output. Scrubbing triggers when writing to: audit files (STD-113), spool files (STD-104), OAResult JSON (IFS-102), and morning reports (REQ-101). The boundary is write-to-disk/write-to-network.
+Sanitization happens at the storage boundary. In-memory processing uses raw (unscrubbed) output. Scrubbing triggers when writing to: audit files (STD-113), spool files (STD-104), OAResult JSON (Rondo-IFS-102), and morning reports (REQ-101). The boundary is write-to-disk/write-to-network.
 
 ---
 
@@ -168,7 +168,7 @@ custom_2 = "ghp_[A-Za-z0-9]{36}"
 | Integration | What Crosses | Standard Enforced |
 |-------------|-------------|-------------------|
 | STD-114 → STD-113 | Scrubbed output in audit files | CORE-STD-010 rules 19-22 |
-| STD-114 → IFS-102 | Scrubbed OAResult for OB | No secrets cross product boundary |
+| STD-114 → Rondo-IFS-102 | Scrubbed OAResult for OB | No secrets cross product boundary |
 | STD-114 → REQ-101 | Scrubbed morning reports | No secrets in reports |
 | STD-114 → CORE-STD-013 | Scrubbing events as TrackerData | Append-only event format |
 
@@ -248,7 +248,7 @@ Pattern scanner: 3 hours (regex engine, default patterns, custom pattern loading
 | Depends on | CORE-STD-010 | Credential scrubbing rules (reqs 19-22) |
 | Depends on | CORE-STD-012 | Readiness — sanitization pipeline must be active |
 | Used by | STD-113 | Audit trail stores scrubbed output |
-| Used by | IFS-102 | OB integration receives scrubbed results |
+| Used by | Rondo-IFS-102 | OB integration receives scrubbed results |
 | Used by | REQ-101 | Morning reports use scrubbed content |
 
 ---

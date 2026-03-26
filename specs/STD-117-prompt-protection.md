@@ -9,7 +9,7 @@
 **Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-113 (Audit Trail), CORE-STD-011 (Self-Correction), CORE-STD-012, CORE-STD-021, CORE-STD-013 | **Used by:** REQ-108 (Template Promotion), IFS-101 (Caliber Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Audit Trail), CORE-STD-011 (Self-Correction), CORE-STD-012, CORE-STD-021, CORE-STD-013 | **Used by:** REQ-108 (Template Promotion), Rondo-IFS-101 (Caliber Integration)
 **Cross-pollinated from:** Caliber STD-107 (Security — prompt protection/versioning) — elevated from quality concern to security standard
 
 ---
@@ -126,7 +126,7 @@ rule_count_method = "keyword"      # "keyword" (MUST/NEVER/etc.) or "numbered" (
 | Integration | What Crosses | Standard Enforced |
 |-------------|-------------|-------------------|
 | STD-117 → Preflight | Weakening alerts shown at session start | Template change detection |
-| STD-117 → OB | Template versions in OAResult | IFS-102 metadata |
+| STD-117 → OB | Template versions in OAResult | Rondo-IFS-102 metadata |
 | STD-117 → CORE-STD-011 | Template change effect measured | record_guess/record_outcome |
 | STD-117 → CORE-STD-013 | Template change events as TrackerData | Append-only tracking |
 
@@ -207,7 +207,7 @@ Hash computation and change detection: 2 hours. Rule counter (keyword parser): 2
 | Depends on | CORE-STD-011 | Self-correction — measure template change effects |
 | Depends on | CORE-STD-012 | Readiness — frozen template violations block READY |
 | Used by | REQ-108 | Template promotion lifecycle |
-| Used by | IFS-101 | Caliber integration uses protected templates |
+| Used by | Rondo-IFS-101 | Caliber integration uses protected templates |
 
 ---
 

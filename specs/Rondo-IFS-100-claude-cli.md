@@ -1,4 +1,4 @@
-# IFS-100: Claude Code CLI Interface
+# Rondo-IFS-100: Claude Code CLI Interface
 
 *The exact contract between Rondo and Claude Code's `claude -p` command.*
 

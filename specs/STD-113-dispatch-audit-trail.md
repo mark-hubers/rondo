@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-010 (Error Resilience), STD-114, CORE-STD-012, CORE-STD-021, CORE-STD-013, STD-107 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration), REQ-104 (Dispatch History)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-010 (Error Resilience), STD-114, CORE-STD-012, CORE-STD-021, CORE-STD-013, STD-107 | **Used by:** REQ-101 (Automation), Rondo-IFS-102 (OB Integration), REQ-104 (Dispatch History)
 **Cross-pollinated from:** OB-REQ-114 (Evidence & Audit Trail) — adapted from methodology audit to dispatch audit
 
 ---
@@ -114,7 +114,7 @@ Audit data stays local. The JSONL log and prompt/result files are in `~/.rondo/a
 
 ## 7. MCP / API Interface
 
-No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE-STD-021 MCP tools in OB may reference dispatch_ids but do not query Rondo's audit files directly. Future: `rondo_query_batch_status` (IFS-104) could include audit record references.
+No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE-STD-021 MCP tools in OB may reference dispatch_ids but do not query Rondo's audit files directly. Future: `rondo_query_batch_status` (Rondo-IFS-104) could include audit record references.
 
 ---
 
@@ -248,7 +248,7 @@ JSONL writer with atomic append: 2 hours. Prompt/result file storage: 2 hours. C
 | Depends on | CORE-STD-010 | Credential scrubbing for stored prompts/results |
 | Depends on | CORE-STD-012 | Readiness tracking — audit health is a quality signal |
 | Used by | REQ-101 | Overnight automation references audit in morning report |
-| Used by | IFS-102 | OB integration receives dispatch_ids |
+| Used by | Rondo-IFS-102 | OB integration receives dispatch_ids |
 | Used by | REQ-104 | Dispatch history queries the audit trail |
 
 ---

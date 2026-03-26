@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), CORE-STD-011 (Self-Correction), REQ-107, REQ-105, REQ-104, REQ-109 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), CORE-STD-011 (Self-Correction), REQ-107, REQ-105, REQ-104, REQ-109 | **Used by:** REQ-101 (Automation), Rondo-IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-121 (Trend & Regression Alerting) — adapted from methodology trends to dispatch execution trends
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -110,7 +110,7 @@ Trend Engine
 Alerts → Notifications (REQ-105)
        → Morning report (REQ-101)
        → CLI output (rondo trends)
-       → OAResult metadata (IFS-102)
+       → OAResult metadata (Rondo-IFS-102)
 ```
 
 Trends are computed on demand from audit data — no separate trend database.
@@ -235,7 +235,7 @@ baseline_window_days = 7           # Rolling window for baselines
 | Notifications | REQ-105 | Outbound | Trend alerts as notifications |
 | Morning report | REQ-101 | Outbound | Trend summary section |
 | Flakiness | REQ-107 | Outbound | Flakiness score feeds trend health |
-| OB integration | IFS-102 | Outbound | Per-model health in OAResult |
+| OB integration | Rondo-IFS-102 | Outbound | Per-model health in OAResult |
 | Provider routing | REQ-109 | Advisory | Degrading model → suggest routing change |
 
 ---
@@ -337,7 +337,7 @@ baseline_window_days = 7           # Rolling window for baselines
 | REQ-101 | Morning report includes trend summary |
 | REQ-105 | Trend alerts flow through notification channels |
 | REQ-107 | Flakiness detection shares trend data |
-| IFS-102 | OB integration includes per-model health |
+| Rondo-IFS-102 | OB integration includes per-model health |
 
 ---
 

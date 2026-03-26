@@ -9,7 +9,7 @@
 **Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011, CORE-STD-012, CORE-STD-021, CORE-STD-013 | **Used by:** REQ-101 (Automation), IFS-101 (Caliber Integration)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011, CORE-STD-012, CORE-STD-021, CORE-STD-013 | **Used by:** REQ-101 (Automation), Rondo-IFS-101 (Caliber Integration)
 **Cross-pollinated from:** Caliber STD-105 (AI Operations — oscillation detection) — elevated from Caliber consumer pattern to Rondo dispatch-level enforcement
 
 ---
@@ -149,8 +149,8 @@ max_iterations = 10               # Max fix iterations per finding
 
 | Integration | What Crosses | Standard Enforced |
 |-------------|-------------|-------------------|
-| STD-116 → Caliber | Caliber findings feed oscillation tracking | IFS-101 finding format |
-| STD-116 → OB | Oscillation events in OAResult | IFS-102 integration contract |
+| STD-116 → Caliber | Caliber findings feed oscillation tracking | Rondo-IFS-101 finding format |
+| STD-116 → OB | Oscillation events in OAResult | Rondo-IFS-102 integration contract |
 | STD-116 → CORE-STD-011 | Oscillation feeds self-correction learning | record_outcome pattern |
 | STD-116 → CORE-STD-013 | Oscillation events as TrackerData | Append-only tracking |
 
@@ -230,8 +230,8 @@ Finding tracker (fingerprint across iterations): 3 hours. Oscillation detector (
 | Depends on | CORE-STD-011 | Self-correction — oscillation feeds learning |
 | Depends on | CORE-STD-012 | Readiness — oscillating findings block READY |
 | Used by | REQ-101 | Overnight automation halts on oscillation |
-| Used by | IFS-101 | Caliber integration provides findings to track |
-| Used by | IFS-102 | OB receives oscillation events in results |
+| Used by | Rondo-IFS-101 | Caliber integration provides findings to track |
+| Used by | Rondo-IFS-102 | OB receives oscillation events in results |
 
 ---
 

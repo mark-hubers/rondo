@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-109 (Configuration — STD-102 is an alias for STD-109, consolidated here), CORE-STD-001 (Data Standards — status vocabulary, naming), CORE-STD-010 (Error Resilience), Python 3.12+ | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-109 (Configuration — STD-102 is an alias for STD-109, consolidated here), CORE-STD-001 (Data Standards — status vocabulary, naming), CORE-STD-010 (Error Resilience), Python 3.12+ | **Used by:** REQ-101 (Automation), Rondo-IFS-102 (OB Integration)
 **Note:** STD-102 and STD-109 are the same standard. All Rondo specs now reference STD-109 as the canonical configuration standard.
 **Cross-pollinated from:** OB-REQ-113 (Preflight System) — adapted from session preflight to dispatch preflight
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
@@ -58,7 +58,7 @@ notices. Preflight catches these failures before the first dollar is spent.
 | 001 | Preflight runs automatically before every `rondo run` command | MUST | Auto test |
 | 002 | Preflight completes in <3 seconds | MUST | Performance test |
 | 003 | Check: `claude` binary on PATH and executable | MUST | Binary test |
-| 004 | Check: Claude Code version matches known-compatible versions (IFS-100 assumption A1) | SHOULD | Version test |
+| 004 | Check: Claude Code version matches known-compatible versions (Rondo-IFS-100 assumption A1) | SHOULD | Version test |
 | 005 | Check: API key or Max plan auth available (per auth mode in config) | MUST | Auth test |
 | 006 | Check: rate limit status — if `blocked`, abort with "Rate limited. Resets at: {time}" | MUST | Rate test |
 | 007 | Check: if `isUsingOverage`, warn "Using overage capacity — costs may be higher" | SHOULD | Overage test |
@@ -242,7 +242,7 @@ compatible_versions = ["1.0.*"]   # Known-good Claude Code versions
 |-------------|------|-----------|----------|
 | Dispatch engine | REQ-100 | Internal | Preflight → go/no-go signal |
 | Provider health | REQ-109 | Internal | Per-provider health check |
-| OB integration | IFS-102 | Outbound | Preflight summary in OAResult |
+| OB integration | Rondo-IFS-102 | Outbound | Preflight summary in OAResult |
 | Overnight batch | REQ-101 | Internal | Cache preflight for batch duration |
 | Notifications | REQ-105 | Internal | RED preflight triggers notification |
 
@@ -345,7 +345,7 @@ compatible_versions = ["1.0.*"]   # Known-good Claude Code versions
 | Used By | Why |
 |---------|-----|
 | REQ-101 | Automation uses cached preflight for overnight batch |
-| IFS-102 | OB integration includes preflight in OAResult metadata |
+| Rondo-IFS-102 | OB integration includes preflight in OAResult metadata |
 | REQ-109 | Provider adapters extend preflight with per-provider health |
 
 ---

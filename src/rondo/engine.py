@@ -115,7 +115,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
 
 @dataclass
 class DispatchUsage:  # pylint: disable=too-many-instance-attributes
-    """Stream-json metadata captured from each claude -p call (IFS-001)."""
+    """Stream-json metadata captured from each claude -p call (ACE-IFS-001)."""
 
     task_name: str = ""
     model: str = ""
@@ -128,8 +128,8 @@ class DispatchUsage:  # pylint: disable=too-many-instance-attributes
     duration_api_ms: int = 0
     num_turns: int = 0
     context_window: int = 0
-    rate_limit_status: str = "unknown"  # -- default per IFS-001 req 9
-    is_using_overage: bool = False  # -- default per IFS-001 req 9
+    rate_limit_status: str = "unknown"  # -- default per ACE-IFS-001 req 9
+    is_using_overage: bool = False  # -- default per ACE-IFS-001 req 9
     rate_limit_resets_at: int = 0  # -- 0 = not available
 
 

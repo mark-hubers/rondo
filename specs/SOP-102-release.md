@@ -34,7 +34,7 @@ post-release verification, and rollback.
 **OUT scope:**
 - Build process details (SOP-101 owns that)
 - PyPI publishing (future — Rondo is git-distributed for now)
-- OB integration testing (IFS-102 owns that)
+- OB integration testing (Rondo-IFS-102 owns that)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 

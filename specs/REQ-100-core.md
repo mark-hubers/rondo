@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Claude Code CLI (`claude -p`), STD-108 (Error & Resilience), STD-109 (Configuration), IFS-100 (Provider Interface), CORE-STD-001 (Data Standards — status vocabulary), Python 3.12+ (for `tomllib`) | **Blocks:** REQ-101 (Automation), REQ-103 (Dispatch Preflight)
+**Depends on:** Claude Code CLI (`claude -p`), STD-108 (Error & Resilience), STD-109 (Configuration), Rondo-IFS-100 (Provider Interface), CORE-STD-001 (Data Standards — status vocabulary), Python 3.12+ (for `tomllib`) | **Blocks:** REQ-101 (Automation), REQ-103 (Dispatch Preflight)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -797,8 +797,8 @@ class DispatchUsage:
     duration_api_ms: int                   # -- API time only (ms — from stream-json)
     num_turns: int                         # -- tool-use loops
     context_window: int                    # -- 200000 or 1000000
-    rate_limit_status: str = "unknown"     # -- "allowed", "blocked", or "unknown" (default per IFS-100 req 9)
-    is_using_overage: bool = False         # -- past plan allocation? (default per IFS-100 req 9)
+    rate_limit_status: str = "unknown"     # -- "allowed", "blocked", or "unknown" (default per Rondo-IFS-100 req 9)
+    is_using_overage: bool = False         # -- past plan allocation? (default per Rondo-IFS-100 req 9)
     rate_limit_resets_at: int = 0          # -- epoch timestamp (0 = not available)
 ```
 
@@ -870,7 +870,7 @@ reports/rondo-results/
 | Claude Code CLI | External | Outbound | `claude -p --output-format stream-json --model M` subprocess |
 | Preflight | REQ-103 | Inbound | PreflightResult (GREEN/YELLOW/RED) before dispatch |
 | Parallel/Overnight | REQ-101 | Builds on | REQ-101 imports engine.py, dispatch.py, runner.py |
-| OB integration | IFS-102 | Outbound | RoundResult returned to OB for storage in sprint_results |
+| OB integration | Rondo-IFS-102 | Outbound | RoundResult returned to OB for storage in sprint_results |
 | ACE integration | ACE consumers | Outbound | RoundResult returned for knowledge engine ingestion |
 | CORE-STD-022 | CORE-STD-022 | Indirect | Rondo overnight jobs may dispatch scripts that query tactical_solutions — but Rondo's core engine has no direct DB dependency |
 | Configuration | STD-109 | Inbound | TOML config loading, CLI flag definitions |

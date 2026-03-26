@@ -221,8 +221,8 @@ from config, the hardcoded default applies. No migration needed — just works.
 
 | Integration | Spec | Direction | Contract |
 |-------------|------|-----------|----------|
-| OB integration | IFS-102 | Bidirectional | OAPayload/OAResult version negotiation |
-| Caliber integration | IFS-101 | Bidirectional | TaskResult format compatibility |
+| OB integration | Rondo-IFS-102 | Bidirectional | OAPayload/OAResult version negotiation |
+| Caliber integration | Rondo-IFS-101 | Bidirectional | TaskResult format compatibility |
 | Provider adapters | REQ-109 | Internal | Adapter interface stability |
 | Config system | STD-109 | Internal | COALESCE handles missing keys |
 
@@ -330,7 +330,7 @@ This matrix is maintained in `rondo/COMPATIBILITY.md` and updated with every MAJ
 | SOP-101 | Build procedure (pip install after migration) |
 | SOP-102 | Release procedure (creates the versions being upgraded to) |
 | STD-109 | Config system (COALESCE handles missing keys) |
-| IFS-102 | OAPayload/OAResult versioning |
+| Rondo-IFS-102 | OAPayload/OAResult versioning |
 
 | Used By | Why |
 |---------|-----|

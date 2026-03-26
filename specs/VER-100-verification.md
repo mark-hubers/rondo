@@ -12,7 +12,7 @@
 **Architect:** Mark G. Hubers — HubersTech
 **AI Assistant:** Claude (Opus 4.6) — production code built to Mark's specifications
 **AI Reviewer:** Gemini (Google AI) — Cold review, found cross-field validation gap
-**Depends on:** REQ-100, REQ-101, STD-108, STD-109, STD-110, IFS-100, STD-111
+**Depends on:** REQ-100, REQ-101, STD-108, STD-109, STD-110, Rondo-IFS-100, STD-111
 
 ---
 
@@ -216,7 +216,7 @@
 
 ---
 
-### IFS-100: Claude Code CLI Interface (10 requirements)
+### Rondo-IFS-100: Claude Code CLI Interface (10 requirements)
 
 #### Stream-JSON Metadata Parsing
 
@@ -323,7 +323,7 @@ Each test file, what it contains, and which specs it proves.
 | Test File | Tests | Proves Specs | What It Covers |
 |-----------|-------|-------------|----------------|
 | `test_engine.py` | 71 | REQ-100 reqs 1-11, 23, 29-31, 34-35, 45-46 | Round/Task/Gate data model, state machine, serialization, resume, public API |
-| `test_dispatch.py` | 72 | REQ-100 reqs 12-18, 20-22, 24-28, 47; IFS-100 reqs 1-10; STD-108 rules 1-3, 5, 8; STD-110 S2-S3, S5, R1-R2 | Subprocess invocation, auth, model routing, result parsing, stream-json, credential safety, kill sequence |
+| `test_dispatch.py` | 72 | REQ-100 reqs 12-18, 20-22, 24-28, 47; Rondo-IFS-100 reqs 1-10; STD-108 rules 1-3, 5, 8; STD-110 S2-S3, S5, R1-R2 | Subprocess invocation, auth, model routing, result parsing, stream-json, credential safety, kill sequence |
 | `test_config.py` | 61 | REQ-100 reqs 48-49; STD-109 rules 1-8; STD-110 C6 | TOML loading, COALESCE resolution, CLI override, validation, zero-config, permission modes |
 | `test_cli.py` | 64 | REQ-100 reqs 19, 36-41 | CLI entry point, subcommands, flags, dynamic import, auto-runner selection |
 | `test_runner.py` | 28 | REQ-100 (runner orchestration) | Sequential runner, gate enforcement, task dispatch coordination |
@@ -345,7 +345,7 @@ Each test file, what it contains, and which specs it proves.
 |------|-----------|----------|----------|--------------|----------------|
 | REQ-100 | 49 | 43 | 0 | 2 | 4 |
 | REQ-101 | 41 | 35 | 3 | 2 | 1 |
-| IFS-100 | 10 | 10 | 0 | 0 | 0 |
+| Rondo-IFS-100 | 10 | 10 | 0 | 0 | 0 |
 | **Total** | **100** | **88** | **3** | **4** | **5** |
 
 **88% verified by automated test. 100% covered by at least one method.**
@@ -364,7 +364,7 @@ Each test file, what it contains, and which specs it proves.
 
 | Category | Items | Verified |
 |----------|-------|----------|
-| Requirements (REQ-100, REQ-101, IFS-100) | 100 | 100 (100%) |
+| Requirements (REQ-100, REQ-101, Rondo-IFS-100) | 100 | 100 (100%) |
 | Standards (STD-108 through STD-111) | 53 | 53 (100%) |
 | **All verified items** | **153** | **153 (100%)** |
 | Automated tests (T only) | -- | 132 of 153 (86%) |
@@ -389,7 +389,7 @@ Production code was built from specs, not spikes. Full gap analysis: `rondo/spik
 | REQ-101 24-28 | -- | **Not spiked** | Built from spec (usage gating) |
 | REQ-101 29-36 | `spikes/report.py` | Result aggregation, grouping, dated file | Missing health indicators, usage summary |
 | REQ-101 37-41 | -- | **Not spiked** | Built from spec (worktree isolation) |
-| IFS-100 1-10 | -- | **Not spiked** (text mode only) | Session 76 spike proved stream-json works |
+| Rondo-IFS-100 1-10 | -- | **Not spiked** (text mode only) | Session 76 spike proved stream-json works |
 
 ---
 
@@ -695,7 +695,7 @@ REQUIRED — fill before build.
 | Version | Date | What Changed |
 |---------|------|-------------|
 | 0.1 | 2026-03-13 | Initial verification matrix for REQ-100 + REQ-101 |
-| 0.2 | 2026-03-14 | Added IFS-100 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
+| 0.2 | 2026-03-14 | Added Rondo-IFS-100 stream-json verification (10 tests). Total: 68 reqs, 58 automated tests |
 | 0.3 | 2026-03-14 | Added REQ-101 watchdog (5), usage gating (5), report usage (1), worktree (5). Total: 84 reqs, 72 automated tests |
 | 0.4 | 2026-03-14 | Deep review fixes: corrected coverage counts (74 automated tests, not 72), fixed table header, aligned status vocabulary with CORE-IFS-001 reqs 53-54 |
 | 0.5 | 2026-03-14 | Added spike validation evidence: which reqs were proved by spikes, what diverged, what was never spiked (watchdog, usage gating, worktree, stream-json) |

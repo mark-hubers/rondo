@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo dispatch — send tasks to Claude via `claude -p`, parse results.
 
-REQ-001 reqs 12-28, STD-001, IFS-001, STD-003.
+REQ-001 reqs 12-28, STD-001, ACE-IFS-001, STD-003.
 This is the L1 layer: uses engine types (L0) and config settings (L0).
 
 Import direction:
@@ -175,7 +175,7 @@ def classify_error(stderr: str) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Stream-JSON Parsing — IFS-001 reqs 1-10
+#  Stream-JSON Parsing — ACE-IFS-001 reqs 1-10
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -183,11 +183,11 @@ def parse_stream_json_events(
     lines: list[str],
     task_name: str = "",
 ) -> tuple[list[dict[str, Any]], DispatchUsage]:
-    """Parse stream-json output line by line (IFS-001 req 1).
+    """Parse stream-json output line by line (ACE-IFS-001 req 1).
 
     Returns:
         Tuple of (all_events, dispatch_usage).
-        DispatchUsage has defaults for missing fields (IFS-001 req 9).
+        DispatchUsage has defaults for missing fields (ACE-IFS-001 req 9).
     """
     events: list[dict[str, Any]] = []
     usage = DispatchUsage(task_name=task_name)
@@ -204,7 +204,7 @@ def parse_stream_json_events(
         events.append(event)
         event_type = event.get("type", "")
 
-        # -- rate_limit_event → DispatchUsage rate limit fields (IFS-001 req 2)
+        # -- rate_limit_event → DispatchUsage rate limit fields (ACE-IFS-001 req 2)
         if event_type == "rate_limit_event":
             info = event.get("rate_limit_info", {})
             usage = DispatchUsage(
@@ -224,7 +224,7 @@ def parse_stream_json_events(
                 rate_limit_resets_at=info.get("resetsAt", 0),
             )
 
-        # -- result event → DispatchUsage cost/token/duration (IFS-001 req 3)
+        # -- result event → DispatchUsage cost/token/duration (ACE-IFS-001 req 3)
         elif event_type == "result":
             u = event.get("usage", {})
             model_usage = event.get("modelUsage", {})

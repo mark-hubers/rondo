@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), REQ-109 | **Used by:** REQ-106 (Trend Alerting), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), REQ-109 | **Used by:** REQ-106 (Trend Alerting), Rondo-IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-122 (Flakiness Detection) — adapted from test flakiness to dispatch flakiness
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -210,7 +210,7 @@ confidence_variance_threshold = 0.3 # Flag if stddev(confidence) > this
 | Trend alerting | REQ-106 | Outbound | Flakiness feeds trend health status |
 | Morning report | REQ-101 | Outbound | Flaky task summary section |
 | Provider routing | REQ-109 | Advisory | Per-model flakiness feeds routing suggestions |
-| OB integration | IFS-102 | Outbound | Flakiness data in OAResult metadata |
+| OB integration | Rondo-IFS-102 | Outbound | Flakiness data in OAResult metadata |
 
 ---
 
@@ -308,7 +308,7 @@ confidence_variance_threshold = 0.3 # Flag if stddev(confidence) > this
 |---------|-----|
 | REQ-106 | Trend alerting includes flakiness in model health |
 | REQ-109 | Provider routing uses per-model flakiness for affinity suggestions |
-| IFS-102 | OB integration includes flakiness data |
+| Rondo-IFS-102 | OB integration includes flakiness data |
 
 ---
 

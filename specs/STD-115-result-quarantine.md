@@ -10,7 +10,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011 (Self-Correction), CORE-STD-012, CORE-STD-021, ACE-STD-017, CORE-STD-013 | **Used by:** REQ-101 (Automation), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-108 (Error Resilience), CORE-STD-011 (Self-Correction), CORE-STD-012, CORE-STD-021, ACE-STD-017, CORE-STD-013 | **Used by:** REQ-101 (Automation), Rondo-IFS-102 (OB Integration)
 **Cross-pollinated from:** ACE-STD-017 (Data Lifecycle — quarantine pattern) — adapted from knowledge quarantine to dispatch result quarantine
 
 ---
@@ -284,8 +284,8 @@ State machine: 2 hours (transitions, validation, no-backward rule). Verification
 | Depends on | CORE-STD-011 | Self-correction — rejected results feed learning |
 | Depends on | CORE-STD-012 | Readiness — quarantine health as quality signal |
 | Used by | REQ-101 | Overnight results staged in quarantine |
-| Used by | IFS-102 | OB reads quarantine_state from results |
-| Used by | IFS-101 | Caliber integration for verification checks |
+| Used by | Rondo-IFS-102 | OB reads quarantine_state from results |
+| Used by | Rondo-IFS-101 | Caliber integration for verification checks |
 
 ---
 

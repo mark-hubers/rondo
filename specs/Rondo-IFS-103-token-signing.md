@@ -1,5 +1,5 @@
 <!-- document-type: reference -->
-# IFS-103: Token & Signing Interface — SUPERSEDED
+# Rondo-IFS-103: Token & Signing Interface — SUPERSEDED
 
 **THIS SPEC HAS BEEN ABSORBED INTO CORE-IFS-002 (Token & Signing Interface).**
 
@@ -165,7 +165,7 @@ SUPERSEDED. See CORE-IFS-002 §20.
 
 | Used By | Why |
 |---------|-----|
-| IFS-102 | OAPayload.auth.token delegation |
+| Rondo-IFS-102 | OAPayload.auth.token delegation |
 
 ---
 
@@ -249,7 +249,7 @@ Not applicable — spec is superseded.
 
 **Emergency Bypass:** BREAK_GLASS override via `break_glass_events` table audit trail (CORE-STD-015). Token signing enforcement can be bypassed under DR mode with human approval. See CORE-IFS-002 for universal bypass procedures.
 
-- This file is kept as a redirect so that any existing references to IFS-103 land here
+- This file is kept as a redirect so that any existing references to Rondo-IFS-103 land here
   and are directed to CORE-IFS-002. Do not delete this file.
 - Session 84 added 35 section headers with SUPERSEDED redirects for template compliance.
 

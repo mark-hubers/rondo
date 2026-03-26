@@ -220,7 +220,7 @@ surface_candidates = true           # Show candidates in morning report
 | Audit trail | STD-113 | Inbound | JSONL audit records with prompt_hash |
 | Morning report | REQ-101 | Outbound | Candidate surfacing section |
 | Template runner | REQ-100 | Internal | `--template <name>` loads YAML |
-| OB integration | IFS-102 | Outbound | Promotion events in OAResult |
+| OB integration | Rondo-IFS-102 | Outbound | Promotion events in OAResult |
 
 ---
 

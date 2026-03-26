@@ -1,4 +1,4 @@
-# IFS-104: Rondo MCP Server (Multi-Model Dispatch)
+# Rondo-IFS-104: Rondo MCP Server (Multi-Model Dispatch)
 
 **Category:** IFS (Interface Specification)
 **Product:** Rondo (Multi-Model AI Dispatch)

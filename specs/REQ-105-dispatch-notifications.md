@@ -9,7 +9,7 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), REQ-101 (Automation), STD-113 (Audit Trail), REQ-104, IFS-100 | **Used by:** IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), REQ-101 (Automation), STD-113 (Audit Trail), REQ-104, Rondo-IFS-100 | **Used by:** Rondo-IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-118 (Notifications) — adapted from methodology notifications to dispatch notifications
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -117,7 +117,7 @@ is a simple append-only text log for overnight debugging. Dedup state is in-memo
 |-------|--------|----------|
 | Dispatch events | Internal Python events | REQ-100 core engine |
 | Budget data | Aggregated from audit trail | STD-113 / REQ-104 |
-| Rate limit events | Stream-JSON from Claude | IFS-100 |
+| Rate limit events | Stream-JSON from Claude | Rondo-IFS-100 |
 | Config | TOML | `.rondo/config.toml` |
 
 ---
@@ -194,9 +194,9 @@ deduplicate_interval_sec = 300        # Don't repeat same notification within 5 
 |-------------|------|-----------|----------|
 | Dispatch engine | REQ-100 | Inbound | Completion/failure events |
 | Budget tracking | REQ-104 / STD-113 | Inbound | Cost threshold crossings |
-| Rate limit | IFS-100 | Inbound | Rate limit state changes |
+| Rate limit | Rondo-IFS-100 | Inbound | Rate limit state changes |
 | Morning report | REQ-101 | Outbound | Notification summary section |
-| OB integration | IFS-102 | Outbound | Event metadata in OAResult |
+| OB integration | Rondo-IFS-102 | Outbound | Event metadata in OAResult |
 
 ---
 
@@ -291,11 +291,11 @@ deduplicate_interval_sec = 300        # Don't repeat same notification within 5 
 | REQ-100 | Core dispatch events (completion, failure) |
 | REQ-101 | Morning report generation |
 | STD-113 | Budget data from audit trail |
-| IFS-100 | Rate limit events from Claude CLI |
+| Rondo-IFS-100 | Rate limit events from Claude CLI |
 
 | Used By | Why |
 |---------|-----|
-| IFS-102 | OB integration reads notification events from OAResult |
+| Rondo-IFS-102 | OB integration reads notification events from OAResult |
 
 ---
 

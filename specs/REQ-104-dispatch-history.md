@@ -9,7 +9,7 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), OB-REQ-115 | **Used by:** REQ-106 (Trend Alerting), REQ-107 (Flakiness), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), STD-113 (Dispatch Audit Trail), OB-REQ-115 | **Used by:** REQ-106 (Trend Alerting), REQ-107 (Flakiness), Rondo-IFS-102 (OB Integration)
 **Cross-pollinated from:** OB-REQ-115 (Test Build History) — adapted from sprint telemetry to dispatch telemetry
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -190,7 +190,7 @@ audit_path = "rondo_audit.jsonl"  # Path to audit trail (relative to config dir)
 | Audit trail | STD-113 | Inbound | JSONL audit records |
 | Trend alerting | REQ-106 | Outbound | Per-model aggregates feed trend detection |
 | Flakiness | REQ-107 | Outbound | Per-task history feeds flakiness scoring |
-| OB integration | IFS-102 | Outbound | History summary in OAResult metadata |
+| OB integration | Rondo-IFS-102 | Outbound | History summary in OAResult metadata |
 | Morning report | REQ-101 | Outbound | Overnight cost summary |
 
 ---
@@ -290,7 +290,7 @@ audit_path = "rondo_audit.jsonl"  # Path to audit trail (relative to config dir)
 |---------|-----|
 | REQ-106 | Trend alerting reads history for baseline calculations |
 | REQ-107 | Flakiness detection reads per-task history |
-| IFS-102 | OB integration includes history summary |
+| Rondo-IFS-102 | OB integration includes history summary |
 | REQ-101 | Morning report includes overnight cost summary |
 
 ---

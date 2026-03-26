@@ -1,4 +1,4 @@
-# IFS-102: OB Integration Contract
+# Rondo-IFS-102: OB Integration Contract
 
 *How Rondo talks to OB — what it sends, what it receives, when it connects, and what it never touches. The execution muscle plugged into the methodology brain.*
 
@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
 **Implements:** CORE-IFS-001 (Integration Contract Standard) — universal payload/transport/isolation patterns
-**Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, REQ-109
+**Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, Rondo-IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, REQ-109
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
 **References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab), CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
@@ -37,8 +37,8 @@ Defines the exact contract between Rondo and OB. Rondo is a standalone AI dispat
 - OB's internal storage (OB-REQ-100 owns that)
 - OB's dispatch engine (OB-REQ-128 owns that)
 - How OB calls Rondo (OB-IFS-102 owns that)
-- Caliber integration (IFS-102 (Caliber) or Rondo's internal Caliber calls)
-- Claude Code CLI details (IFS-100 owns that)
+- Caliber integration (Rondo-IFS-102 (Caliber) or Rondo's internal Caliber calls)
+- Claude Code CLI details (Rondo-IFS-100 owns that)
 - Rondo's engine internals (REQ-100 owns that)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
@@ -490,7 +490,7 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 |-------------|------|-----------|----------|
 | OB → Rondo | OB-IFS-102 | Inbound | OAPayload JSON |
 | Rondo → OB | This spec | Outbound | OAResult JSON |
-| Rondo → Claude | IFS-100 | Outbound | CLI subprocess |
+| Rondo → Claude | Rondo-IFS-100 | Outbound | CLI subprocess |
 | Rondo → Providers | REQ-109 | Outbound | Provider adapter interface |
 | Rondo → File system | Internal | Outbound | OAResult file, morning report |
 | Rondo ← Config | STD-109 | Internal | TOML / COALESCE |
@@ -533,7 +533,7 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 | A4 | Rondo's RoundResult/TaskResult is rich enough for OB's needs | May need OB-specific extension fields in the result |
 | A5 | Git worktree is available on all target systems | May need fallback to directory copies on systems without git worktree support |
 | A6 | Overnight sprints are independent enough to process sequentially | If sprints have dependencies, OB must encode that in schedule ordering |
-| A7 | Claude Code's `--output-format stream-json` provides accurate token/cost data | If Anthropic changes the format, IFS-100 and dispatch.py need updates |
+| A7 | Claude Code's `--output-format stream-json` provides accurate token/cost data | If Anthropic changes the format, Rondo-IFS-100 and dispatch.py need updates |
 | A8 | Post-merge shakedown via Caliber is fast enough to run per-worktree merge | If shakedown is slow, may need to batch post-merge checks |
 
 ---
@@ -609,7 +609,7 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 |------------|-----|
 | REQ-100 | Core engine defines Round, Task, Gate, RoundResult, TaskResult, DispatchUsage, GateResult |
 | REQ-101 | Automation defines parallel dispatch, overnight scheduler, morning report |
-| IFS-100 | Claude CLI interface (how Rondo calls `claude -p`) |
+| Rondo-IFS-100 | Claude CLI interface (how Rondo calls `claude -p`) |
 | STD-108 | Error resilience (task failure → continue, not crash) |
 | STD-109 | Configuration (COALESCE pattern, TOML loading) |
 | OB-REQ-128 | OAPayload/OAResult contract format definition |
@@ -633,7 +633,7 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 
 | # | Decision | Date | Why |
 |---|----------|------|-----|
-| D1 | JSON contracts, never direct DB access | 2026-03-18 | Isolation. Rondo and OB can be developed independently. Same principle as IFS-102 (Caliber) D1. |
+| D1 | JSON contracts, never direct DB access | 2026-03-18 | Isolation. Rondo and OB can be developed independently. Same principle as Rondo-IFS-102 (Caliber) D1. |
 | D2 | OB mode detection via .ob/config.toml | 2026-03-18 | Simple, no magic. File exists = OB is here. Same mechanism as Caliber. |
 | D3 | Rondo is the execution authority, OB is the methodology authority | 2026-03-18 | Clear ownership. Rondo knows HOW to dispatch. OB knows WHAT to dispatch and WHY. |
 | D4 | Rondo never advances sprint state | 2026-03-18 | Sprint lifecycle is OB's domain. Rondo reports; OB decides. Prevents split-brain state. |

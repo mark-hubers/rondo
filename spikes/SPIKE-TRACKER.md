@@ -11,7 +11,7 @@
 | File | Lines | Created | Spec Coverage |
 |------|-------|---------|--------------|
 | `engine.py` | 505 | Session 74-75 | REQ-001 reqs 1-11 (Engine) |
-| `dispatch.py` | 344 | Session 75 | REQ-001 reqs 12-28 (Dispatch) + IFS-001 partial |
+| `dispatch.py` | 344 | Session 75 | REQ-001 reqs 12-28 (Dispatch) + ACE-IFS-001 partial |
 | `runner.py` | ~300 | Session 75 | REQ-001 Runner layer |
 | `parallel.py` | ~250 | Session 75 | REQ-002 reqs 1-9 (Parallel) |
 | `overnight.py` | ~200 | Session 75 | REQ-002 reqs 10-18 (Overnight) |
@@ -39,7 +39,7 @@
 - `Gate` has `description` and `passed` state fields — spec's `Gate` is simpler, `GateResult` is separate
 - `Task.model` defaults to `"sonnet"` — spec says `None` (let COALESCE handle it)
 
-### dispatch.py — REQ-001 Dispatch + IFS-001
+### dispatch.py — REQ-001 Dispatch + ACE-IFS-001
 
 **Proved:**
 - `claude -p` subprocess invocation works (req 12)
@@ -54,9 +54,9 @@
 
 **Diverged from specs:**
 - Returns plain dict, not `TaskResult` dataclass (STD-001)
-- Uses `text` output format, not `stream-json` (IFS-001)
+- Uses `text` output format, not `stream-json` (ACE-IFS-001)
 - No `files_modified` extraction (STD-001/STD-003)
-- No cost/token/rate_limit capture (IFS-001 reqs 2-9)
+- No cost/token/rate_limit capture (ACE-IFS-001 reqs 2-9)
 - Uses `subprocess.run(timeout=300)` — spec says use `Popen` with SIGTERM-first (STD-001)
 - Hardcodes `timeout=300`, not configurable (STD-002)
 

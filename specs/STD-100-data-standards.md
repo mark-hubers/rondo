@@ -263,7 +263,7 @@ Data standards are enforced via dataclass definitions and convention tests. No s
 | Depends on | CORE-STD-012 | Status vocabulary alignment |
 | Used by | STD-101 | Logging field names follow these conventions |
 | Used by | STD-105 | DispatchUsage fields defined here |
-| Used by | IFS-102 | OB integration uses these field names |
+| Used by | Rondo-IFS-102 | OB integration uses these field names |
 
 ---
 

@@ -9,8 +9,8 @@
 **Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** REQ-100 (Core), REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), REQ-110, IFS-101, IFS-102, CORE-STD-008
-**Used by:** REQ-110 (Multi-Account), REQ-101 (Automation), IFS-101 (Caliber Integration), IFS-102 (OB Integration)
+**Depends on:** REQ-100 (Core), REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
+**Used by:** REQ-110 (Multi-Account), REQ-101 (Automation), Rondo-IFS-101 (Caliber Integration), Rondo-IFS-102 (OB Integration)
 **Evidence:** Session 83 — 3 providers tested live (Gemini 45 models/133ms, OpenAI 129 models/524ms, Claude 9 models/238ms)
 **References:** CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -31,7 +31,7 @@
 **OUT of scope:**
 - AI model internals (prompt engineering, response parsing)
 - Multi-account capacity management (REQ-110 owns that)
-- OB or Caliber integration details (IFS-101, IFS-102 own those)
+- OB or Caliber integration details (Rondo-IFS-101, Rondo-IFS-102 own those)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -290,8 +290,8 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | Dispatch engine | REQ-100 | Internal | Router selects adapter, adapter returns DispatchResult |
 | Preflight | REQ-103 | Internal | Per-provider health checks |
 | Multi-account | REQ-110 | Internal | Multiple adapter instances per provider |
-| Caliber | IFS-101 | Indirect | Caliber requests model via Task.model, Rondo routes |
-| OB | IFS-102 | Indirect | OB requests model via OAPayload.runtime.model |
+| Caliber | Rondo-IFS-101 | Indirect | Caliber requests model via Task.model, Rondo routes |
+| OB | Rondo-IFS-102 | Indirect | OB requests model via OAPayload.runtime.model |
 | Audit trail | STD-113 | Outbound | Provider + model in every audit entry |
 
 ---
@@ -405,8 +405,8 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | Used By | Why |
 |---------|-----|
 | REQ-110 | Multi-account routing for overnight |
-| IFS-101 | Caliber tasks routed through adapters |
-| IFS-102 | OB tasks routed through adapters |
+| Rondo-IFS-101 | Caliber tasks routed through adapters |
+| Rondo-IFS-102 | OB tasks routed through adapters |
 | REQ-106 | Per-model trend data comes from adapter dispatch results |
 | REQ-107 | Per-model flakiness tracking |
 

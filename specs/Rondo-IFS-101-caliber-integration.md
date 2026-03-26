@@ -1,4 +1,4 @@
-# IFS-101: Caliber Integration Contract
+# Rondo-IFS-101: Caliber Integration Contract
 
 *How Rondo receives and executes tasks from Caliber — AI review, AI fix, rule contradiction checks.*
 
@@ -9,8 +9,8 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Handling), IFS-103, REQ-109, IFS-102
-**Connects to:** IFS-103 (Caliber) (Caliber's side of this integration)
+**Depends on:** REQ-100 (Core), STD-108 (Error Handling), Rondo-IFS-103, REQ-109, Rondo-IFS-102
+**Connects to:** Rondo-IFS-103 (Caliber) (Caliber's side of this integration)
 **References:** NAMING-MAP.md, INTEGRATION-ARCHITECTURE.md, CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
 ---
@@ -18,7 +18,7 @@
 ## 1. Purpose & Scope
 
 **What this spec does:**
-Defines how Rondo receives and executes tasks dispatched by Caliber. Caliber sends review, fix, and contradiction check tasks. Rondo dispatches to AI (Claude, Gemini), collects results, returns to Caliber. This is Rondo's side — IFS-103 (Caliber) defines Caliber's side.
+Defines how Rondo receives and executes tasks dispatched by Caliber. Caliber sends review, fix, and contradiction check tasks. Rondo dispatches to AI (Claude, Gemini), collects results, returns to Caliber. This is Rondo's side — Rondo-IFS-103 (Caliber) defines Caliber's side.
 
 **IN scope:**
 - Task types Rondo accepts from Caliber (review, fix, contradiction)
@@ -29,9 +29,9 @@ Defines how Rondo receives and executes tasks dispatched by Caliber. Caliber sen
 - Standalone behavior (Rondo works without Caliber)
 
 **OUT scope:**
-- How Caliber decides what to send (IFS-103 (Caliber) owns that)
-- How Caliber merges findings (IFS-103 (Caliber) owns that)
-- OB integration (IFS-102 (Rondo) owns that)
+- How Caliber decides what to send (Rondo-IFS-103 (Caliber) owns that)
+- How Caliber merges findings (Rondo-IFS-103 (Caliber) owns that)
+- OB integration (Rondo-IFS-102 (Rondo) owns that)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -222,7 +222,7 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 1. Rondo treats Caliber like any other consumer — no special handling
 2. Task format is standard Rondo Task — Caliber-specific semantics are in the instruction text
 3. Rondo never interprets finding severity — that's Caliber's job
-4. Rondo never merges multi-AI results — that's Caliber's job (IFS-103 (Caliber) reqs 29-31)
+4. Rondo never merges multi-AI results — that's Caliber's job (Rondo-IFS-103 (Caliber) reqs 29-31)
 
 ---
 
@@ -252,9 +252,9 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 
 | Integration | Spec | Direction | Contract |
 |-------------|------|-----------|----------|
-| Caliber → Rondo | IFS-103 (Caliber) | Inbound | Task objects |
-| Rondo → AI providers | IFS-100, REQ-109 | Outbound | Provider adapter interface |
-| Rondo → OB (if connected) | IFS-102 | Outbound | OAResult wrapping |
+| Caliber → Rondo | Rondo-IFS-103 (Caliber) | Inbound | Task objects |
+| Rondo → AI providers | Rondo-IFS-100, REQ-109 | Outbound | Provider adapter interface |
+| Rondo → OB (if connected) | Rondo-IFS-102 | Outbound | OAResult wrapping |
 | Rondo ← config | STD-109 | Internal | TOML / COALESCE |
 
 ---
@@ -347,11 +347,11 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 |------------|-----|
 | REQ-100 | Core dispatch framework |
 | STD-108 | Error handling patterns |
-| IFS-100 | Claude CLI interface (how Rondo calls AI) |
+| Rondo-IFS-100 | Claude CLI interface (how Rondo calls AI) |
 
 | Used By | Why |
 |---------|-----|
-| IFS-103 (Caliber) | Caliber's side of this integration |
+| Rondo-IFS-103 (Caliber) | Caliber's side of this integration |
 
 ---
 

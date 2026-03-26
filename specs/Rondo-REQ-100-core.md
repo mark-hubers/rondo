@@ -542,7 +542,7 @@ COALESCE order: CLI flags → project `rondo.toml` → `.rondo/config.toml` → 
 
 ## 7. MCP / API Interface
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -894,7 +894,7 @@ reports/rondo-results/
 
 ## 15. Self-Correction
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -1057,7 +1057,7 @@ Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correct
 
 ## 20. Failure Modes
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -1134,19 +1134,19 @@ Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correct
 
 ## 26. External Scan
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 27. Security Considerations
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 28. Performance / Resource
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 

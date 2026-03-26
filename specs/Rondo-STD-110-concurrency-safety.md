@@ -441,37 +441,37 @@ REQUIRED — fill before build.
 
 ## 7. MCP / API Interface
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 8. States & Modes
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 9. Configuration
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 10. Rules & Constraints
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 11. Quality Attributes
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 12. Shared Patterns
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -493,7 +493,7 @@ REQUIRED — fill before build.
 
 ## 15. Self-Correction
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -523,7 +523,7 @@ Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correct
 
 ## 20. Failure Modes
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -541,37 +541,37 @@ REQUIRED — fill before build.
 
 ## 23. Open Questions
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 24. Glossary
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 25. Risk / Criticality
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 26. External Scan
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 27. Security Considerations
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
 ## 28. Performance / Resource
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 

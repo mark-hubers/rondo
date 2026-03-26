@@ -299,7 +299,7 @@ schema migrations. `results_dir` is permanent backup. Spool is a transient mailb
 
 ## 7. MCP / API Interface
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -416,7 +416,7 @@ All settings follow COALESCE: CLI flag → config file → built-in default.
 
 ## 15. Self-Correction
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -595,7 +595,7 @@ Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correct
 
 ## 24. Glossary
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -614,7 +614,7 @@ Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correct
 
 ## 26. External Scan
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 
@@ -633,7 +633,7 @@ Tracked during implementation. Cross-ref ACE-STD-019 for systematic self-correct
 
 ## 28. Performance / Resource
 
-— if applicable.
+Not applicable for this spec type — see related sections for details.
 
 ---
 

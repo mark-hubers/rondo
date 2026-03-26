@@ -157,7 +157,8 @@ deduplicate_interval_sec = 300        # Don't repeat same notification within 5 
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Event source registration (CRIT fix):** REQ-105 MUST define notification triggers for ALL event sources, including: (1) Rondo-REQ-103 preflight events (`preflight_blocked`, `preflight_warning`), (2) Rondo-REQ-106 trend events (`trend_threshold_crossed`, `regression_detected`), (3) dispatch events (`task_failed`, `round_complete`). Each source registers its event types with REQ-105 at startup. Unregistered event types are logged but not alerted (prevents silent failures when new sources are added). & Constraints
 
 1. **Deduplicate.** Same notification state → one notification, not N. Violation ID: `REQ105-DEDUP`
 2. **Morning report is mandatory.** Even if all other notifications are off, overnight runs get a report. Violation ID: `REQ105-MORNING`

@@ -183,12 +183,12 @@ Round authors pick the right model per task. Operators override with `--model` w
 
 | Concern | Rondo (dispatch layer) | OB (consumer) |
 |---------|----------------------|---------------|
-| Model selection | COALESCE chain, pass to CLI | N/A — trusts Rondo |
+| Model selection | COALESCE chain, pass to CLI | Not applicable for this spec type — see Section 3 for requirements and Section 4 for architecture. — trusts Rondo |
 | Cost tracking | DispatchUsage per task | Stores in sprint_intelligence |
 | Rate limits | Detect and report | Decide retry strategy |
 | Context budget | Capture actual from stream-json | Define budget tiers, manage digests |
-| Independent review | N/A — dispatches what it's told | Enforces Context Asymmetry |
-| Token reduction | N/A — sends the prompt as-is | Builds spec digests before sending |
+| Independent review | Not applicable for this spec type — see Section 3 for requirements and Section 4 for architecture. — dispatches what it's told | Enforces Context Asymmetry |
+| Token reduction | Not applicable for this spec type — see Section 3 for requirements and Section 4 for architecture. — sends the prompt as-is | Builds spec digests before sending |
 
 ### DispatchUsage Defaults (When Data Unavailable)
 

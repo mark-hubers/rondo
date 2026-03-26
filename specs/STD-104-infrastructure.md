@@ -179,7 +179,7 @@ reports/rondo-results/                     # spool root
 | Backup strategy | Spool files ARE the backup | Consumer imports from spool |
 | Database connections / pooling | None | No database — JSONL spool files only |
 | HMAC payload signing | None | Local dispatch only, no remote transport |
-| `--reimport` from files | N/A | Files are the primary store, not a backup |
+| `--reimport` from files | Not applicable for this spec type — see Section 3 for requirements and Section 4 for architecture. | Files are the primary store, not a backup |
 
 ---
 

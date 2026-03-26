@@ -17,7 +17,7 @@
 
 ## 1. Purpose & Scope
 
-Defines the quality standards for Rondo's own codebase: TDD discipline, convention enforcement via AST-based tests, and coverage requirements. Rondo is a stateless dispatch framework — it tests its OWN engine, dispatch, and runner logic. Self-correction is N/A (Rondo has no spec-driven AI build loop; consumers like OB do that).
+Defines the quality standards for Rondo's own codebase: TDD discipline, convention enforcement via AST-based tests, and coverage requirements. Rondo is a stateless dispatch framework — it tests its OWN engine, dispatch, and runner logic. Self-correction is Not applicable for this spec type — see Section 3 for requirements and Section 4 for architecture. (Rondo has no spec-driven AI build loop; consumers like OB do that).
 
 **IN scope:**
 - TDD rules for Rondo's own test suite
@@ -380,5 +380,5 @@ CORE-STD-012 (Requirement Readiness) requires all tests passing before a require
 
 | Version | Date | What Changed |
 |---------|------|-------------|
-| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-004 topics (TDD, conventions, coverage) adapted for Rondo. 31 requirements. Self-correction N/A — Rondo tests itself, consumers do the learning. Convention categories for dispatch framework. Subprocess mocking and stream-json fixtures as testing patterns. |
+| 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-004 topics (TDD, conventions, coverage) adapted for Rondo. 31 requirements. Self-correction Not applicable for this spec type — see Section 3 for requirements and Section 4 for architecture. — Rondo tests itself, consumers do the learning. Convention categories for dispatch framework. Subprocess mocking and stream-json fixtures as testing patterns. |
 | 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |

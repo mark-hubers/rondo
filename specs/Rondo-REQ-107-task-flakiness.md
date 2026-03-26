@@ -171,7 +171,8 @@ confidence_variance_threshold = 0.3 # Flag if stddev(confidence) > this
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Audit log contract (CRIT fix):** REQ-107 requires `prompt_hash` in rondo_audit.jsonl. This field MUST be declared as a requirement in Rondo-STD-113 (Dispatch Audit Trail) — the log producer. Consumer specs (REQ-107, REQ-110) MUST NOT assume fields exist without the producer spec mandating them. Pattern: producer declares schema, consumers reference it. & Constraints
 
 1. **Same prompt only.** Only compare results where prompt_hash matches. Different prompts are different experiments. Violation ID: `REQ107-SAME-PROMPT`
 2. **20% threshold for AI.** AI is inherently non-deterministic. 10% would flag everything. 20% means genuinely unreliable. Violation ID: `REQ107-THRESHOLD`

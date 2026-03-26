@@ -215,7 +215,8 @@ switch_to_ollama_if_rate_limited = true # Use local model while waiting for rate
 ---
 
 
-## 10. Rules & Constraints
+## 10. Rules
+**Audit field dependency (CRIT fix):** REQ-110 requires `provider_id` in audit records. This MUST be added to Rondo-STD-113 (Dispatch Audit Trail) as a required field. Multi-account dispatch is meaningless without knowing which account was used. STD-113 is the producer — it MUST include `provider_id` in the audit schema. & Constraints
 
 1. **NEVER fall back to interactive.** Batch rate-limited → use fallback provider or wait. Mark's account is sacred. Violation ID: `REQ110-PROTECT-INTERACTIVE`
 2. **Config, not code.** Account selection lives in TOML. No hardcoded API key references. Violation ID: `REQ110-CONFIG-DRIVEN`

@@ -128,6 +128,13 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 | 032 | If the subprocess returns exit code != 0 or empty stdout, dispatch MUST record status "error" with stderr content | MUST |
 | 033 | Every result (success or failure) MUST include: task name, status, model used, auth mode, duration, timestamp | MUST |
 
+### Dispatch — Circuit Breaker
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 057 | If 3 consecutive tasks fail with the same dispatch-level error (subprocess crash, auth failure, API timeout), the runner MUST halt the round and report `circuit_breaker_tripped` with the repeated error. | MUST |
+| 058 | Circuit breaker resets when a task succeeds. Individual task failures (bad output, wrong result) do NOT trip the breaker — only systemic dispatch errors. | MUST |
+| 059 | After circuit breaker trips, remaining tasks are marked `skipped` with reason `circuit_breaker`. Round status = `error`. | MUST |
+
 ### Round Definitions — The Pattern
 | ID | Requirement | Priority |
 |----|-------------|----------|
@@ -585,10 +592,18 @@ class Gate:
     blocking: bool = True                  # -- if False, failure is a warning only
 
 
-**Gate calling convention:** The runner calls `gate.check_fn()` with **no arguments**.
-Gates that need external context (e.g., task results for post-gates, config values)
-MUST capture it via closure at round-definition time. The `Callable[..., tuple[bool, str]]`
-type allows any signature, but the runner always invokes with zero args.
+**Gate calling convention:** The runner calls `gate.check_fn(ctx)` with a **GateContext** argument.
+Gates MAY ignore the argument (backward-compatible with zero-arg lambdas via `*args` catch).
+GateContext provides: `ctx.task_results` (list of completed TaskResults), `ctx.round_name`, `ctx.config` (Rondo config dict), `ctx.elapsed_seconds`. This replaces brittle closure-based state capture with explicit dependency injection.
+
+```python
+@dataclass
+class GateContext:
+    task_results: list[TaskResult]
+    round_name: str
+    config: dict
+    elapsed_seconds: float
+```
 
 ```python
 # -- CORRECT: closure captures what the gate needs

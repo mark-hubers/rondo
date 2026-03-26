@@ -65,7 +65,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 |----|-------------|----------|
 | 001 | A **Round** MUST contain: a name, zero or more pre-gates, one or more tasks, zero or more post-gates | MUST |
 | 002 | A **Task** MUST have: a name, a mode (auto or interactive), a status, and an optional description and model hint | MUST |
-| 003 | An **interactive task** MUST have three fields: instruction (Do), context_files (Read), done_when (Done). This is the **three-field contract** | MUST |
+| 003 | An **interactive task** MUST have three fields: instruction (Do), context_files (Read), done_when (Done). This is the **three-field contract**. **Sandboxing:** context_files paths MUST be resolved relative to the project root and validated: (1) no `..` traversal, (2) no symlinks outside project root, (3) no absolute paths, (4) total context size capped at `max_context_bytes` (default 500KB). Paths failing validation are rejected with `context_file_rejected` error. | MUST |
 | 004 | An **auto task** MUST have: a Python callable that returns `(passed: bool, detail: str)` | MUST |
 | 005 | A **Gate** MUST have: a name, a check function, and a blocking flag. Blocking gates halt the round on failure | MUST |
 | 006 | Pre-gates MUST run before any task dispatch. If a blocking pre-gate fails, no tasks run | MUST |
@@ -658,6 +658,8 @@ executes tasks directly via tool calls. There is no `dispatch.py` invocation, no
 `subprocess.Popen`, or the spool directory. Batch mode (`rondo run`) dispatches via
 `claude -p` subprocess. The distinction is architectural: live = in-process tool
 calls within the current session; batch = out-of-process subprocess dispatch.
+
+**Architecture reconciliation:** These are TWO execution backends for the SAME round definitions. The `RondoEngine` interface is shared — only the executor differs (LiveExecutor vs BatchExecutor). The round definition format, gate interface, task contract, and event system are identical. Code sharing: ~80% shared (engine, gates, events, results), ~20% per-mode (executor, output, checkpointing).
 
 | ID | Requirement | Priority |
 |----|-------------|----------|

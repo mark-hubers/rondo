@@ -117,7 +117,8 @@ Data standards are not configurable. Timestamp format, naming conventions, statu
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Spool naming convention (CRIT fix):** The canonical spool directory structure is: `~/.rondo/spool/{round_name}/{timestamp}_{ulid}/`. Result files within: `{task_name}.result.json`. Directory naming per CORE-STD-001 (kebab-case). Any conflicting directory patterns in other Rondo specs MUST align to this definition. Rondo-STD-100 owns the file/directory naming rules for Rondo. & Constraints
 
 ### Status Vocabulary (Rondo Output)
 

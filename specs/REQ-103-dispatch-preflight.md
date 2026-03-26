@@ -6,7 +6,7 @@
 **Category:** REQ
 **Created:** 2026-03-20 | **Updated:** 2026-03-22 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.2
+**Version:** 1.3
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -81,11 +81,12 @@ notices. Preflight catches these failures before the first dollar is spent.
 | 017 | Preflight MUST check that Claude Code CLI supports ALL flags used by Rondo dispatch: `--output-format stream-json`, `--model`, `--tools`, `--dangerously-skip-permissions`, `-p` | MUST | Flag test |
 | 018 | Preflight MUST run a lightweight smoke test dispatch (`claude -p "test" --output-format stream-json`) and verify the output format matches expected JSON structure | MUST | Smoke test |
 | 019 | Smoke test result (output format, flag support, response time) MUST be cached for batch duration — not re-run per task | SHOULD | Cache test |
-| 020 | When Claude Code version changes (detected via `claude --version`), cached preflight results MUST be invalidated and smoke test re-run | MUST | Version change test |
+| 020 | When Claude Code version changes (detected via `claude --version`), ALL cached preflight results MUST be invalidated and smoke test re-run. The cache key MUST include the Claude Code version string — a stale preflight cache with the wrong version SHALL trigger automatic re-run before any dispatch proceeds. Violation ID: `REQ103-VERSION-INVALIDATE` | MUST | Version change test |
 | 021 | Preflight MUST maintain a version compatibility matrix: `{claude_version: {flags_tested: [...], last_tested: timestamp, result: pass/fail}}` | SHOULD | Matrix test |
 | 022 | If smoke test detects changed output format (e.g., stream-json schema changed), preflight MUST return RED with "CLI output format changed — Rondo adapter update required" | MUST | Format change test |
 | 023 | `CLAUDECODE` env var stripping (req 010) MUST be verified by smoke test — not just checked for presence but confirmed that the stripped subprocess does not trigger ERR_NESTED_SESSION | MUST | Nesting verify test |
 | 024 | Preflight MUST log the Claude Code version, tested flags, and smoke test result to enable debugging when overnight runs fail silently | MUST | Debug log test |
+| 026 | System SHALL re-validate preflight cache if Claude Code version changed since last preflight run. Cache MUST store `{version: str, timestamp: float, result: PreflightResult}`. On cache hit, compare stored version against current `claude --version` output — mismatch = cache miss, re-run full preflight. This prevents stale cache from masking breaking CLI changes between versions. Violation ID: `REQ103-CACHE-VERSION-KEY` | MUST | Cache version test |
 
 
 ---
@@ -478,3 +479,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-113. 16 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-25 | 4-AI cross-review fixes: Added CORE-STD-001 dependency (status vocabulary, naming). Consolidated STD-102 → STD-109 (same standard, one canonical name). Added req 025 (rate limit cache bridging — breaks preflight↔dispatch dependency loop). Updated §21 dependencies (added CORE-STD-001, Python 3.12+, STD-109). Updated §14 standards applied. Added STD-109 to standards. |
+| 1.3 | 2026-03-25 | Grok cross-review fixes: (M3) Strengthened req 020 with explicit cache invalidation on version change — cache key MUST include version string, stale version triggers automatic re-run. Added req 026: version-keyed cache structure with mismatch detection. 26 requirements total. |

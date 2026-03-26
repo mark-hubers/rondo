@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.6
+**Version:** 0.7
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -109,6 +109,13 @@ REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at 3 min
 | 034 | The report MUST save to a dated file: `rondo-morning-YYYYMMDD.md` (or configurable pattern) | MUST |
 | 035 | The report MUST include: total duration, total tasks run, total errors, timestamp | MUST |
 | 036 | The report MUST include a usage summary: total cost, total tokens, overage status, watchdog interventions | MUST |
+
+### Parallel Safety Contract
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 058 | System SHALL default to sequential execution unless all tasks in the round declare `safe_parallel: true`. Tasks without explicit `safe_parallel` annotation MUST be executed sequentially even when `--workers > 1`. Violation ID: `REQ101-PARALLEL-SAFETY` | MUST |
+| 059 | Parallel-safe tasks MUST either be read-only (no file writes) OR use explicit worktree isolation (reqs 037-041). File locking or atomic commit is required for shared filesystem writes outside of worktree isolation. Violation ID: `REQ101-PARALLEL-WRITE-SAFETY` | MUST |
+| 060 | When `--workers > 1` and any task lacks `safe_parallel: true`, the runner MUST log a WARNING identifying which tasks will run sequentially and why | SHOULD |
 
 ### Worktree Isolation (Parallel Safety)
 | ID | Requirement | Priority |
@@ -278,8 +285,15 @@ Spool files are JSON on disk, not database records.
 | When written | Always (every round) | Only when no consumer connected |
 | Consumer reads | Replay / debugging | Consumer picks up and deletes |
 
-Both exist. They serve different purposes. `results_dir` is always written as a backup.
-Spool is written only when no consumer is connected at runtime (unattended/overnight runs).
+**Two distinct storage paths (neither is a database):**
+
+1. **`results_dir`** — Consumer-owned backup. Write-once archive of RoundResults.
+   Immutable after write. Consumer manages retention. Always written (every round).
+2. **`spool/`** — Rondo-owned mailbox. Stateful buffer with TTL/CLEAN/EXPORT lifecycle
+   for disconnected consumers. Written only when no consumer is connected at runtime.
+
+Both exist. They serve different purposes. Neither supports queries, indexes, or
+schema migrations. `results_dir` is permanent backup. Spool is a transient mailbox.
 
 ---
 
@@ -523,7 +537,15 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ## 20. Failure Modes
 
-— if applicable.
+| Failure | Impact | Detection | Mitigation |
+|---------|--------|-----------|------------|
+| Watchdog kills healthy task (false positive) | Valid work lost, task marked error | Event log shows ERR_WATCHDOG_TIMEOUT on task that was producing output | Increase `watchdog_timeout_sec`. Review event log — if output was being produced, watchdog timer wasn't resetting (bug). |
+| All workers rate-limited simultaneously | Overnight run stalls, phases timeout | Usage threshold gating detects `blocked` status | `on_overage: pause` waits for reset. Reduce worker count to stay under rate limits. |
+| Spool directory fills disk | Subsequent spool writes fail (WARNING), tasks still succeed but results not persisted for pickup | Spool write failure logged as WARNING (req 052) | Reduce `spool.ttl_days`. Run `rondo spool clean --all`. Monitor disk space in preflight (REQ-103 req 008). |
+| Task timeout fires during valid long-running task | Work lost, task marked ERR_TIMEOUT | Task result shows error_code ERR_TIMEOUT | Increase `task_timeout_sec` for known long tasks. Use per-task timeout overrides. |
+| Phase dependency not declared | Phase N+1 runs with incomplete input from failed Phase N | Morning report shows Phase N failed + Phase N+1 produced unexpected results | Phases are independent by design (req 012). If phases have dependencies, caller must encode them in phase ordering and check prior phase results. |
+| Worktree merge conflict after parallel execution | Results from isolated worktrees can't merge cleanly | Git merge failure logged in event log | Manual conflict resolution. Consider making conflicting tasks sequential instead. |
+| Morning report generation fails | No visibility into overnight results | Report generation error logged, raw OvernightResult still available | Fall back to raw JSON results in results_dir. Fix report template. |
 
 ---
 
@@ -579,7 +601,14 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ## 25. Risk / Criticality
 
-— if applicable.
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Rate limit exhaustion during overnight run | Medium | Overnight run stalls or produces partial results | Usage threshold gating (reqs 024-028). `on_overage: pause` waits for reset window. Reduce worker count. |
+| Parallel file conflicts corrupt working tree | Low | Modified files in inconsistent state | Worktree isolation (reqs 037-041). Conflict detection (reqs 005-006) as advisory. `safe_parallel` annotation (req 058). |
+| Watchdog false positives kill valid tasks | Low | Wasted API spend, lost results | Tunable `watchdog_timeout_sec`. Event log for post-mortem. Task-level timeout override. |
+| Overnight run exceeds cost budget | Medium | Unexpected charges on API key auth | Usage summary in morning report (req 036). `on_overage: stop` halts early. Prefer Max plan auth for overnight. |
+| Spool files accumulate without consumer pickup | Low | Disk space consumed, stale results | TTL cleanup (req 046). `rondo spool clean` command (req 048). Preflight disk check (REQ-103 req 008). |
+| Claude Code CLI breaking change between versions | Low | All overnight dispatch fails silently | Preflight smoke test (REQ-103 reqs 017-024). Version-keyed cache invalidation (REQ-103 req 020). |
 
 ---
 
@@ -591,7 +620,14 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 
 ## 27. Security Considerations
 
-— if applicable.
+| Concern | Risk | Mitigation |
+|---------|------|------------|
+| API keys in overnight environment | Keys persist in env vars for hours during unattended runs | Auth switching (REQ-100 reqs 019-021): Max plan auth strips API key entirely. API key auth preserves it only in child process env, never logged to result files. |
+| Headless dispatch runs without human review | Automated tasks could modify files, execute code without oversight | `--bare` flag strips hooks/plugins. `tool_mode` controls file access (REQ-100 reqs 022-024). `permission_mode` controls permission prompts. Read-only tasks should use `tool_mode: none`. |
+| Spool files contain task results on disk | Sensitive AI output persists in plaintext JSON | Spool directory permissions: user-only 0700 (req 051). TTL cleanup limits exposure window. Consumer should encrypt/redact sensitive results after pickup. |
+| CLAUDECODE env var nesting trap | Nested subprocess hangs indefinitely | Always stripped (REQ-100 req 013). Preflight detects presence (REQ-103 req 010). Smoke test verifies stripping works (REQ-103 req 023). |
+| Overnight runs with `--dangerously-skip-permissions` | Full file system access without human approval | Only for containerized/sandboxed environments with no network. Task `tool_mode: sandbox` must be explicitly set. Never default to sandbox mode. |
+| Event log contains dispatch metadata | Timestamps, models, task names could reveal project structure | Event log is local-only (not transmitted). Rolling window limits retention to 100 entries. No API keys or response content in event log. |
 
 ---
 
@@ -657,3 +693,4 @@ This keeps Rondo generic — OB defines its phases, ACE defines its phases, a th
 | 0.4 | 2026-03-18 | Result Spool — stateless persistence (reqs 42-52). Mailbox-pattern spool directory for disconnected runs. TTL cleanup, CLI commands, export for manual import. 52 requirements total. |
 | 0.5 | 2026-03-23 | Added Headless Dispatch group (reqs 053-057). --bare flag for clean headless execution (Claude Code v2.1.81+). Architecture note for dispatch modes. 57 requirements total. |
 | 0.6 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Filled §4 Architecture/Design (layer diagram, how REQ-101 extends REQ-100, headless dispatch interaction, timeout coordination diagram). Filled §5 Data Model (7 dataclasses). Filled §6 Data Boundary (spool vs results_dir clarification). Filled §13 Integration Points (8 integrations). Filled §21 Dependencies + Used By (added CORE-STD-001, Python 3.12+, STD-110). Upgraded req 037 worktree isolation from SHOULD to MUST. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Added assumption A6 (Python 3.12+). Updated dependencies header. |
+| 0.7 | 2026-03-25 | Grok cross-review fixes: (M4) §6 Data Boundary clarified two distinct storage paths with owner/purpose/lifecycle. (M5) Added reqs 058-060: parallel safety contract — `safe_parallel: true` annotation required, read-only or worktree isolation enforced, sequential fallback with WARNING. (M6) Filled §20 Failure Modes (7 scenarios with detection/mitigation). Filled §25 Risk/Criticality (6 risks with likelihood/impact). Filled §27 Security Considerations (6 concerns with mitigations). 60 requirements total. |

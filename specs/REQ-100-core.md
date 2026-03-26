@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 1.0
+**Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -103,6 +103,13 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 | 022 | For code generation tasks (output to stdout): dispatch MUST pass `--tools ""` to disable file tools. Without this, Claude tries to write files and hangs on permission prompts | MUST |
 | 023 | For code fixing tasks (needs file access in sandbox): dispatch MUST pass `--dangerously-skip-permissions` (only in containers with no internet) | MUST |
 | 024 | Task definition MUST include `tool_mode: "none" | "sandbox" | "default"` to control which flag is used | MUST |
+
+### Dispatch — Bare Flag (Headless Execution)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 071 | Dispatch MUST detect Claude Code version at startup (via `claude --version`) and add `--bare` flag when available (v2.1.81+). Violation ID: `REQ100-BARE-DETECT` | MUST |
+| 072 | Flag precedence: `--output-format stream-json` is mandatory (req 015), `--bare` is additive. `--bare` skips hooks/plugins for speed but does not replace stream-json. The full command for automated dispatch is: `claude -p --output-format stream-json --bare --model M` | MUST |
+| 073 | When `--bare` is used, Caliber guards (Check/Block/Brief) are bypassed — only use `--bare` for automated/read-only tasks. Tasks requiring Caliber enforcement MUST NOT use `--bare`. Task definition MAY include `bare: false` to opt out. Violation ID: `REQ100-BARE-CALIBER` | MUST |
 
 ### Dispatch — Model Routing
 | ID | Requirement | Priority |
@@ -488,11 +495,21 @@ The consumer (OB, ACE, scripts) decides what to persist from the returned RoundR
 | Result JSON files | JSON in `results_dir` (backup) | Crash recovery, replay |
 | Spool files (REQ-101) | JSON in `~/.rondo/spool/` (unattended runs) | Consumer pickup via mailbox pattern |
 
-**Canonical data path:** The `RoundResult` return object is the primary output. Result
-JSON files in `results_dir` are a backup for crash recovery. The spool directory
-(REQ-101 reqs 042-052) is used only for unattended/disconnected runs where no consumer
-is connected at runtime. When a consumer is connected (e.g., OB calling Rondo via library),
-the result goes directly to the consumer — no spool file written.
+**Canonical data path:** The `RoundResult` return object is the primary output.
+
+**Two distinct storage paths (neither is a database):**
+
+| Path | Owner | Purpose | Lifecycle | Written When |
+|------|-------|---------|-----------|-------------|
+| `results_dir` | Consumer-owned | Write-once archive of RoundResults for crash recovery and replay | Permanent — consumer manages retention | Always (every round) |
+| `spool/` (REQ-101) | Rondo-owned | Stateful mailbox buffer for disconnected consumers | TTL-based cleanup (default 7 days), CLEAN/EXPORT lifecycle | Only when no consumer connected at runtime |
+
+`results_dir` is a backup — immutable after write, consumer reads for replay/debugging.
+`spool/` is a mailbox — consumer picks up and deletes, Rondo manages TTL and cleanup.
+Neither is a database. Neither supports queries, indexes, or schema migrations.
+
+When a consumer is connected (e.g., OB calling Rondo via library), the result goes
+directly to the consumer — no spool file written. `results_dir` is still written as backup.
 
 ### What Rondo Consumes
 
@@ -604,20 +621,26 @@ class Round:
 ### Task State Machine
 
 ```
-pending ──→ in_progress ──→ done     (terminal — task completed successfully)
-                        ├──→ blocked  (terminal — Claude said it can't proceed)
-                        ├──→ partial  (terminal — got output, couldn't parse JSON)
-                        ├──→ error    (terminal — dispatch-level failure)
-                        └──→ skipped  (terminal — pre-gate blocked the round)
+                         ┌──→ done     (terminal — task completed successfully)
+                         ├──→ blocked  (terminal — Claude said it can't proceed)
+pending ──→ in_progress ─┼──→ partial  (terminal — got output, couldn't parse JSON)
+  │                      ├──→ error    (terminal — dispatch-level failure)
+  │                      └──→ skipped  (terminal — pre-gate blocked the round)
+  │
+  └── Initial state for all tasks at round creation
 ```
 
-**Status vocabulary aligns with CORE-STD-001 req 021.** The 7-value shared lifecycle
-vocabulary is: `pending`, `in_progress`, `done`, `partial`, `error`, `skipped`, `blocked`.
-Rondo uses all 7 values. The transient state `in_progress` replaces the earlier term
-`running` (changed in v1.0 for cross-product consistency). Terminal task statuses
-are: `done`, `blocked`, `partial`, `error`, `skipped`.
+**7-state vocabulary (per CORE-STD-001 req 021):**
+`pending`, `in_progress`, `done`, `partial`, `error`, `skipped`, `blocked`.
 
-No backward transitions. No re-running. A failed task stays failed for this round.
+Rondo uses all 7 values. `pending` is the initial state — every task starts here
+when a Round is created. `in_progress` is the sole transient state (replaces the
+earlier term `running`, changed in v1.0 for cross-product consistency). Terminal
+task statuses are: `done`, `blocked`, `partial`, `error`, `skipped`.
+
+**Transition restrictions: forward-only.** No backward transitions (e.g., no
+`done → pending`, no `error → in_progress`). No re-running within a round. A
+failed task stays failed. To retry, create a new round with new task instances.
 
 **State Machine Type:** FORWARD-ONLY
 **Rationale:** Tasks move pending → in_progress → terminal state (done/blocked/partial/error/skipped). All terminal states are final within a round. No re-running, no backward transitions.
@@ -628,6 +651,13 @@ No backward transitions. No re-running. A failed task stays failed for this roun
 ### Live Mode (Session 79-80)
 
 *Rondo in the conversation, not just overnight. Human reviews, AI executes, step by step.*
+
+**Live mode is human-in-loop — no subprocess dispatch.** The current Claude session
+executes tasks directly via tool calls. There is no `dispatch.py` invocation, no
+`ThreadPoolExecutor`, no spool writes. Live mode does NOT use `dispatch.py`,
+`subprocess.Popen`, or the spool directory. Batch mode (`rondo run`) dispatches via
+`claude -p` subprocess. The distinction is architectural: live = in-process tool
+calls within the current session; batch = out-of-process subprocess dispatch.
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
@@ -1053,6 +1083,8 @@ def build_my_round(target_file: str) -> Round:
 | D6 | Zero external dependencies | 2026-03-13 | stdlib only. Anyone with Python + Claude Code can use Rondo |
 | D7 | Rondo is its own product | 2026-03-13 | Not an OB feature. Not an ACE feature. A standalone framework |
 | D8 | Sequential default | 2026-03-13 | Parallel is REQ-101's concern. REQ-100 is simple and predictable |
+| D9 | 7-state vocabulary subset per CORE-STD-001 | 2026-03-25 | Rondo uses the full 7-state vocabulary: pending, in_progress, done, partial, error, skipped, blocked. Transition restrictions: forward-only (no completed→pending, no error→in_progress). `pending` is initial state, `in_progress` is sole transient state, 5 terminal states. Vocabulary is a strict subset — no custom states invented. |
+| D10 | Dataclass timestamps use domain semantics | 2026-03-25 | Rondo dataclass timestamps (started_at/completed_at) use domain semantics, not DB conventions (created_at/updated_at). Rondo dataclasses are NOT database tables — they're serialized to JSONL. Display format: ISO-8601 UTC per CORE-STD-001 req 001. DB naming conventions from STD-001 req 003 do not apply to in-memory return objects. |
 
 ---
 
@@ -1180,3 +1212,4 @@ def build_my_round(target_file: str) -> Round:
 | 0.8 | 2026-03-14 | Defense in depth: validate_task() + validate_round() pre-flight in engine.py, VALID_MODELS fail-fast in dispatch, CLI exit code contract (0/1/2/130), validate_config() at CLI boundary, KeyboardInterrupt + catch-all exception handling. Cross-ref CORE-IFS-001 reqs 53-54 (status vocabulary). |
 | 0.9 | 2026-03-23 | Gemini R7 findings: +4 reqs (057-060) Task Safety — task_timeout_sec, round_timeout_sec, Popen timeout enforcement, timeout_exceeded error status. Total: 60 reqs. |
 | 1.0 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Replaced `running` with `in_progress` throughout (CORE-STD-001 alignment). Filled §4 Architecture/Design (layer diagram, component interactions, dispatch detail, tool_mode vs permission_mode). Filled §5 Data Model (dataclass inventory). Filled §6 Data Boundary (canonical data path, config file locations, clarified Rondo-has-no-DB vs CORE-STD-022 indirect relationship). Filled §13 Integration Points. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Renumbered Live Mode reqs 47-56 to 061-070 in proper table format. Clarified timeout coordination with REQ-101 watchdog (req 057). Added CORE-STD-001 to dependencies. Annotated parallel.py/overnight.py/report.py as REQ-101 scope in package layout. Clarified "zero external dependencies" applies to core engine, not consumer scripts. Total: 70 reqs. |
+| 1.1 | 2026-03-25 | Grok cross-review fixes: (C1) Task state machine diagram now shows `pending` as explicit initial state with forward-only transition restrictions. Added D9 (7-state vocabulary DEC). (C2) Added reqs 071-073: --bare flag detection, flag precedence (stream-json mandatory, --bare additive), Caliber bypass warning. (M4) §6 Data Boundary clarified two distinct storage paths (results_dir vs spool) with owner/purpose/lifecycle table. (M7) Added D10 (dataclass timestamp domain semantics DEC). (M8) Live mode clarified: no subprocess dispatch, no ThreadPoolExecutor, no spool — in-process tool calls only. Total: 73 reqs. |

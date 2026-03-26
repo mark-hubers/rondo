@@ -9,7 +9,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** REQ-100 (Core), STD-108 (Error Handling), Rondo-IFS-103, REQ-109, Rondo-IFS-102
+**Depends on:** Rondo-REQ-100 (Core), Rondo-STD-108 (Error Handling), Rondo-IFS-103, Rondo-REQ-109, Rondo-IFS-102
 **Connects to:** Rondo-IFS-103 (Caliber) (Caliber's side of this integration)
 **References:** NAMING-MAP.md, INTEGRATION-ARCHITECTURE.md, CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 
@@ -160,9 +160,9 @@ Rondo uses its standard dataclasses for Caliber interactions. No Caliber-specifi
 
 | Dataclass | Key Fields | Owner |
 |-----------|-----------|-------|
-| `Task` | instruction, context_files, done_when, model, timeout_sec | REQ-100 |
-| `TaskResult` | status, parsed_result, raw_output, duration_sec | REQ-100 |
-| `DispatchUsage` | model, tokens_in, tokens_out, cost_usd, duration_ms | REQ-100 |
+| `Task` | instruction, context_files, done_when, model, timeout_sec | Rondo-REQ-100 |
+| `TaskResult` | status, parsed_result, raw_output, duration_sec | Rondo-REQ-100 |
+| `DispatchUsage` | model, tokens_in, tokens_out, cost_usd, duration_ms | Rondo-REQ-100 |
 | `Finding` | file, line, severity, message, reviewer | Caliber (Rondo passes through) |
 
 Rondo does not persist Caliber-specific data. Caliber stores its own findings.
@@ -253,9 +253,9 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 | Integration | Spec | Direction | Contract |
 |-------------|------|-----------|----------|
 | Caliber → Rondo | Rondo-IFS-103 (Caliber) | Inbound | Task objects |
-| Rondo → AI providers | Rondo-IFS-100, REQ-109 | Outbound | Provider adapter interface |
+| Rondo → AI providers | Rondo-IFS-100, Rondo-REQ-109 | Outbound | Provider adapter interface |
 | Rondo → OB (if connected) | Rondo-IFS-102 | Outbound | OAResult wrapping |
-| Rondo ← config | STD-109 | Internal | TOML / COALESCE |
+| Rondo ← config | Rondo-STD-109 | Internal | TOML / COALESCE |
 
 ---
 
@@ -267,8 +267,8 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Dispatch events logged as trackerdata entries |
 | CORE-STD-021 (MCP Standard) | Future MCP tool interface for on-demand dispatch |
-| STD-108 (Error Handling) | Error codes and structured error responses |
-| STD-113 (Audit Trail) | Every Caliber dispatch recorded in audit log |
+| Rondo-STD-108 (Error Handling) | Error codes and structured error responses |
+| Rondo-STD-113 (Audit Trail) | Every Caliber dispatch recorded in audit log |
 
 ---
 
@@ -276,10 +276,10 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 
 - If Caliber sends a task with an unknown model name, Rondo returns an error result
   with suggested valid model names from the routing table.
-- If repeated Caliber tasks fail on the same model, trend alerting (REQ-106) flags
+- If repeated Caliber tasks fail on the same model, trend alerting (Rondo-REQ-106) flags
   the model as degrading. Caliber can read this from the morning report.
 - Cost overruns on Caliber-initiated tasks are tracked per-provider and surfaced in
-  budget alerts (REQ-105) so Caliber review cycles don't silently drain funds.
+  budget alerts (Rondo-REQ-105) so Caliber review cycles don't silently drain funds.
 
 ---
 
@@ -335,7 +335,7 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 | Failure | Impact | Mitigation |
 |---------|--------|------------|
 | AI timeout on review task | Caliber gets partial/no findings | Return partial results if available |
-| Model unavailable | Caliber review cycle blocked | Fallback provider per REQ-109 |
+| Model unavailable | Caliber review cycle blocked | Fallback provider per Rondo-REQ-109 |
 | Budget exceeded mid-batch | Remaining Caliber tasks skipped | Return status="skipped" with budget info |
 | Malformed finding JSON from AI | Caliber can't parse results | Raw output preserved for manual inspection |
 
@@ -345,8 +345,8 @@ Caliber-side config (which models for which review type) is in Caliber's own con
 
 | Depends On | Why |
 |------------|-----|
-| REQ-100 | Core dispatch framework |
-| STD-108 | Error handling patterns |
+| Rondo-REQ-100 | Core dispatch framework |
+| Rondo-STD-108 | Error handling patterns |
 | Rondo-IFS-100 | Claude CLI interface (how Rondo calls AI) |
 
 | Used By | Why |
@@ -408,7 +408,7 @@ linters/scanners, where the runner (Rondo) is generic and the tool (Caliber) own
 ## 27. Security Considerations
 
 - Caliber tasks may contain source code in context_files. Rondo transmits this to AI
-  providers. API keys must be secured per REQ-109 (Keychain only).
+  providers. API keys must be secured per Rondo-REQ-109 (Keychain only).
 - No Caliber credentials flow through Rondo. Caliber authenticates to Rondo via standard
   Python import or CLI invocation — no separate auth layer needed for local usage.
 - HTTPS transport (future) requires mTLS per CORE-STD-005 rule 16.

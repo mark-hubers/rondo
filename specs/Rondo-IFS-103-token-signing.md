@@ -56,7 +56,7 @@ SUPERSEDED. See CORE-IFS-002 §4 for the universal token architecture.
 
 ## 5. Data Model
 
-**Concurrency:** JSONL append-only writes with atomic file operations (STD-113).
+**Concurrency:** JSONL append-only writes with atomic file operations (Rondo-STD-113).
 
 SUPERSEDED. See CORE-IFS-002 §5 for token data model.
 

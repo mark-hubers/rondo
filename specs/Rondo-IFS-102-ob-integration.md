@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
 **Implements:** CORE-IFS-001 (Integration Contract Standard) — universal payload/transport/isolation patterns
-**Depends on:** REQ-100 (Core), REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, Rondo-IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, REQ-109
+**Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, Rondo-IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, Rondo-REQ-109
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
 **References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab), CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
@@ -39,7 +39,7 @@ Defines the exact contract between Rondo and OB. Rondo is a standalone AI dispat
 - How OB calls Rondo (OB-IFS-102 owns that)
 - Caliber integration (Rondo-IFS-102 (Caliber) or Rondo's internal Caliber calls)
 - Claude Code CLI details (Rondo-IFS-100 owns that)
-- Rondo's engine internals (REQ-100 owns that)
+- Rondo's engine internals (Rondo-REQ-100 owns that)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -171,12 +171,12 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 | 044 | System SHALL oAPayload malformed → Rondo rejects with exit code 2 and structured error: `{"error": "Invalid payload", "detail": "{specifics}", "contract": "OAPayload", "version": "1.0"}` | MUST |
 | 045 | System SHALL oAPayload version mismatch (payload $version != supported) → Rondo rejects with clear error: "Unsupported OAPayload version: {v}. Supported: 1.0" | MUST |
 | 046 | System SHALL network timeout (HTTPS/queue transport) → Rondo completes locally, queues result for later delivery. Result file is the fallback — never lose work | MUST |
-| 047 | System SHALL claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (STD-108 error resilience), and includes the partial round result in the OAResult | MUST |
+| 047 | System SHALL claude CLI failure mid-round → Rondo records the failed task as status "error" with stderr content, continues to next task in the round (Rondo-STD-108 error resilience), and includes the partial round result in the OAResult | MUST |
 
 ### Standalone Behavior (Rondo without OB)
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 048 | System SHALL without OB, Rondo works with Python round definitions (REQ-100): a `build_round()` function returns a `Round` object, Rondo dispatches tasks and returns a `RoundResult` | MUST |
+| 048 | System SHALL without OB, Rondo works with Python round definitions (Rondo-REQ-100): a `build_round()` function returns a `Round` object, Rondo dispatches tasks and returns a `RoundResult` | MUST |
 | 049 | System SHALL standalone results use the same JSON format as OB-connected results. The only difference: no `dispatch.sprint_id` (populated as null), no `spec` digest in the payload | MUST |
 | 050 | System SHALL standalone Rondo can still accept `--ob-payload` with a hand-crafted JSON file — useful for testing the OB integration path without running OB | MUST |
 | 051 | System SHALL transition from standalone to OB-connected requires ZERO code changes in Rondo — only adding `.ob/config.toml` with `[rondo] enabled = true` | MUST |
@@ -201,7 +201,7 @@ This spec makes the plug explicit. Rondo and OB can be developed independently a
 | 062 | System SHALL sprint advancement: Rondo DOES NOT advance sprint state. Rondo returns the result. OB reads the result and decides whether to advance (BUILD → VERIFY → COMPLETE). This is OB's decision, not Rondo's | MUST |
 | 063 | System SHALL all-gates-pass shortcut: when OB detects that all pre-gates, tasks, and post-gates passed for a sprint, OB MAY advance the sprint without human intervention. Rondo just reports — OB decides | SHOULD |
 | 064 | System SHALL overnight failure: if a sprint's round fails, Rondo logs the failure, saves the partial OAResult, and moves to the next sprint in the schedule. Never halt the overnight pipeline for one sprint's failure | MUST |
-| 065 | System SHALL morning report: Rondo generates its standard morning report (REQ-101 reqs 29-36) covering all sprints processed. OB MAY consume this report or generate its own from the individual OAResults | SHOULD |
+| 065 | System SHALL morning report: Rondo generates its standard morning report (Rondo-REQ-101 reqs 29-36) covering all sprints processed. OB MAY consume this report or generate its own from the individual OAResults | SHOULD |
 
 ### Feedback Loop (the compound intelligence path)
 | ID | Requirement | Priority |
@@ -369,7 +369,7 @@ OB (schedule builder)           Rondo (overnight executor)
 
 ## 5. Data Model
 
-Rondo's OB integration uses the same core dataclasses from REQ-100 (Round, Task, Gate,
+Rondo's OB integration uses the same core dataclasses from Rondo-REQ-100 (Round, Task, Gate,
 RoundResult, TaskResult, GateResult, DispatchUsage). No OB-specific dataclasses exist.
 
 The OAPayload and OAResult are JSON schemas, not Python dataclasses — they are the
@@ -491,9 +491,9 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 | OB → Rondo | OB-IFS-102 | Inbound | OAPayload JSON |
 | Rondo → OB | This spec | Outbound | OAResult JSON |
 | Rondo → Claude | Rondo-IFS-100 | Outbound | CLI subprocess |
-| Rondo → Providers | REQ-109 | Outbound | Provider adapter interface |
+| Rondo → Providers | Rondo-REQ-109 | Outbound | Provider adapter interface |
 | Rondo → File system | Internal | Outbound | OAResult file, morning report |
-| Rondo ← Config | STD-109 | Internal | TOML / COALESCE |
+| Rondo ← Config | Rondo-STD-109 | Internal | TOML / COALESCE |
 
 ---
 
@@ -507,8 +507,8 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 | CORE-STD-012 (Requirement Readiness) | Each requirement tagged with readiness state |
 | CORE-STD-013 (TrackerData) | Dispatch events, gate results logged as trackerdata entries |
 | CORE-STD-021 (MCP Standard) | Future MCP tool interface for on-demand OB→Rondo dispatch |
-| STD-108 | Error handling patterns for task/gate failures |
-| STD-109 | COALESCE config resolution |
+| Rondo-STD-108 | Error handling patterns for task/gate failures |
+| Rondo-STD-109 | COALESCE config resolution |
 
 ---
 
@@ -607,11 +607,11 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 
 | Depends On | Why |
 |------------|-----|
-| REQ-100 | Core engine defines Round, Task, Gate, RoundResult, TaskResult, DispatchUsage, GateResult |
-| REQ-101 | Automation defines parallel dispatch, overnight scheduler, morning report |
+| Rondo-REQ-100 | Core engine defines Round, Task, Gate, RoundResult, TaskResult, DispatchUsage, GateResult |
+| Rondo-REQ-101 | Automation defines parallel dispatch, overnight scheduler, morning report |
 | Rondo-IFS-100 | Claude CLI interface (how Rondo calls `claude -p`) |
-| STD-108 | Error resilience (task failure → continue, not crash) |
-| STD-109 | Configuration (COALESCE pattern, TOML loading) |
+| Rondo-STD-108 | Error resilience (task failure → continue, not crash) |
+| Rondo-STD-109 | Configuration (COALESCE pattern, TOML loading) |
 | OB-REQ-128 | OAPayload/OAResult contract format definition |
 | OB-IFS-102 | OB's side of the integration (how OB calls Rondo) |
 | OB-REQ-103 | Sprint lifecycle (Rondo reports to, but never modifies) |
@@ -691,7 +691,7 @@ adds AI-specific fields (tokens, cost, ai_memory) and methodology-specific field
 
 - OAPayload may contain source code, spec content, and AI prompts. Transport must protect
   confidentiality: pipe/file (local, no network), Unix socket (local), HTTPS (mTLS required).
-- API keys are never in OAPayload — Rondo retrieves them from Keychain per REQ-109.
+- API keys are never in OAPayload — Rondo retrieves them from Keychain per Rondo-REQ-109.
 - OAResult may contain generated code. Stored as files on disk with project-appropriate permissions.
 - Queue transport (future) must use encrypted channels and authenticated producers/consumers.
 

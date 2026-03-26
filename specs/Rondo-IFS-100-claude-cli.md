@@ -8,7 +8,7 @@
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
-**Depends on:** Claude Code CLI (Anthropic) | **Blocks:** REQ-100 (Core)
+**Depends on:** Claude Code CLI (Anthropic) | **Blocks:** Rondo-REQ-100 (Core)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -29,7 +29,7 @@ Documents the interface between Rondo (the conductor) and Claude Code's `claude 
 
 **OUT of scope:**
 - Claude Code internals (Anthropic's product, may change)
-- Rondo's dispatch logic (REQ-100)
+- Rondo's dispatch logic (Rondo-REQ-100)
 - Authentication with Anthropic's servers
 
 ---
@@ -264,7 +264,7 @@ REQUIRED — fill before build.
 
 *All requirements use MUST/SHOULD priority per CORE-STD-012.*
 
-Numbered requirements for VER-100 traceability:
+Numbered requirements for Rondo-VER-100 traceability:
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | 001 | Rondo MUST read stream-json output line by line, parsing each as a JSON object | MUST |
@@ -280,7 +280,7 @@ Numbered requirements for VER-100 traceability:
 
 ---
 ## Stream-JSON to Dataclass Mapping
-How each stream-json event maps to Rondo's dataclasses (REQ-100, STD-108):
+How each stream-json event maps to Rondo's dataclasses (Rondo-REQ-100, Rondo-STD-108):
 ### `rate_limit_event` → `DispatchUsage` fields
 | Stream-JSON Path | Dataclass Field | Transform |
 |-----------------|-----------------|-----------|

@@ -5,7 +5,7 @@
 **Created:** 2026-03-21 Session 84
 **Status:** STUB — to be expanded when Rondo is built
 **Revision:** rev-0003
-**Depends on:** CORE-STD-021 (MCP Standard), REQ-109 (Provider Adapters), STD-100, CORE-STD-012, STD-114, CORE-STD-013, STD-107
+**Depends on:** CORE-STD-021 (MCP Standard), Rondo-REQ-109 (Provider Adapters), Rondo-STD-100, CORE-STD-012, Rondo-STD-114, CORE-STD-013, Rondo-STD-107
 **Implements:** CORE-STD-021 MCP Standard for Rondo product
 **Port:** 8300
 
@@ -16,7 +16,7 @@
 Rondo's MCP server lets the AI dispatch work to other models, check provider status, and manage batch jobs — all from conversation.
 
 **IN scope:** MCP tool definitions, transport protocol, authentication, provider routing.
-**OUT of scope:** Provider adapter internals (REQ-109), dispatch execution logic (REQ-100), cost tracking details (STD-105).
+**OUT of scope:** Provider adapter internals (Rondo-REQ-109), dispatch execution logic (Rondo-REQ-100), cost tracking details (Rondo-STD-105).
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
 
@@ -51,7 +51,7 @@ Without an MCP server, Rondo can only be invoked via CLI or Python import. AI se
 
 ## 4. Architecture / Design
 
-MCP server wraps Rondo's dispatch engine as tool endpoints. Query tools are read-only (no side effects). Action tools trigger dispatches and return dispatch_ids. Status tools query provider health in real-time. All tools return structured JSON matching STD-100 data conventions.
+MCP server wraps Rondo's dispatch engine as tool endpoints. Query tools are read-only (no side effects). Action tools trigger dispatches and return dispatch_ids. Status tools query provider health in real-time. All tools return structured JSON matching Rondo-STD-100 data conventions.
 
 ---
 
@@ -63,7 +63,7 @@ MCP tool responses use Rondo's standard dataclasses: `DispatchUsage` for cost da
 
 ## 6. Data Boundary
 
-MCP is the boundary between AI conversation and Rondo's dispatch engine. Tools receive structured parameters (JSON), invoke Rondo's Python API, and return structured responses. No raw subprocess output crosses the MCP boundary — all results are parsed and sanitized (STD-114) before returning.
+MCP is the boundary between AI conversation and Rondo's dispatch engine. Tools receive structured parameters (JSON), invoke Rondo's Python API, and return structured responses. No raw subprocess output crosses the MCP boundary — all results are parsed and sanitized (Rondo-STD-114) before returning.
 
 ---
 
@@ -148,7 +148,7 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 
 - **CORE-STD-021 MCP Standard:** Port assignment, tool naming, authentication, transport.
 - **Tool categorization:** Query/Action/Status — same 3-category pattern used by all ACE2 MCP servers.
-- **Structured responses:** JSON matching STD-100 conventions — same data format as spool files.
+- **Structured responses:** JSON matching Rondo-STD-100 conventions — same data format as spool files.
 
 ---
 
@@ -157,8 +157,8 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 | Integration | What Crosses | Standard Enforced |
 |-------------|-------------|-------------------|
 | MCP client → Rondo | Tool call parameters | CORE-STD-021 protocol |
-| Rondo → AI providers | Dispatch requests | STD-105 dispatch protocol |
-| Rondo → MCP client | Structured tool responses | STD-100 data conventions |
+| Rondo → AI providers | Dispatch requests | Rondo-STD-105 dispatch protocol |
+| Rondo → MCP client | Structured tool responses | Rondo-STD-100 data conventions |
 | Rondo MCP → OB MCP | dispatch_ids for cross-product tracing | CORE-STD-013 TrackerData |
 
 ---
@@ -170,8 +170,8 @@ max_concurrent_dispatches = 5      # Limit concurrent MCP-initiated dispatches
 | CORE-STD-021 | MCP standard — this spec implements it for Rondo |
 | CORE-STD-012 | Requirement readiness — MCP tool availability is a readiness signal |
 | CORE-STD-013 | TrackerData — MCP tool invocations are trackable events |
-| STD-100 | Data conventions — all MCP responses follow Rondo's data standards |
-| STD-114 | Output sanitization — MCP responses are scrubbed before returning |
+| Rondo-STD-100 | Data conventions — all MCP responses follow Rondo's data standards |
+| Rondo-STD-114 | Output sanitization — MCP responses are scrubbed before returning |
 
 ---
 
@@ -202,7 +202,7 @@ MCP tool usage patterns feed CORE-STD-011: which tools are called most, which fa
 
 ## 18. Build Notes / Estimate
 
-MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 tools): 6 hours (dispatch integration). Status tools (2 tools): 2 hours. Auth: 2 hours. Total: ~18 hours. Blocked until provider adapters (REQ-109) are built.
+MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 tools): 6 hours (dispatch integration). Status tools (2 tools): 2 hours. Auth: 2 hours. Total: ~18 hours. Blocked until provider adapters (Rondo-REQ-109) are built.
 
 ---
 
@@ -234,8 +234,8 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 | Direction | Spec | Relationship |
 |-----------|------|-------------|
 | Depends on | CORE-STD-021 | MCP standard — defines protocol and conventions |
-| Depends on | REQ-109 | Provider adapters — required for multi-model dispatch |
-| Depends on | REQ-100 | Core dispatch engine — MCP wraps this |
+| Depends on | Rondo-REQ-109 | Provider adapters — required for multi-model dispatch |
+| Depends on | Rondo-REQ-100 | Core dispatch engine — MCP wraps this |
 | Depends on | CORE-STD-012 | Readiness tracking for MCP tool availability |
 | Used by | OB | Cross-product dispatch via MCP tools |
 | Used by | Caliber | Multi-model review dispatch via MCP |
@@ -256,7 +256,7 @@ MCP server skeleton: 4 hours. Query tools (4 tools): 4 hours. Action tools (3 to
 
 1. Should MCP server support WebSocket transport (CORE-STD-021 option)?
 2. Should batch operations be synchronous or fire-and-forget with status polling?
-3. How should MCP rate limiting interact with STD-107 dispatch rate limits?
+3. How should MCP rate limiting interact with Rondo-STD-107 dispatch rate limits?
 
 ---
 
@@ -284,7 +284,7 @@ MCP is Anthropic's standard. Rondo implements it rather than inventing a custom 
 
 ## 27. Security Considerations
 
-MCP auth token required for action tools (dispatch costs money). Query/status tools read-only in local mode. All responses sanitized per STD-114. Rate limiting prevents MCP-initiated cost flooding. See STD-107 for broader security context.
+MCP auth token required for action tools (dispatch costs money). Query/status tools read-only in local mode. All responses sanitized per Rondo-STD-114. Rate limiting prevents MCP-initiated cost flooding. See Rondo-STD-107 for broader security context.
 
 ---
 

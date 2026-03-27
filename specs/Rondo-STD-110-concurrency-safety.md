@@ -458,6 +458,7 @@ Not applicable for this spec type — see related sections for details.
 ---
 
 ## 10. Rules
+**Conflict detection timing (CRIT fix — reconciled):** Conflict detection runs at TWO points: (1) PRE-DISPATCH: check for conflicting file paths in the task queue (fast, prevents obvious conflicts). (2) POST-TASK: validate worktree state matches expected state (catches unexpected mutations). These are COMPLEMENTARY checks, not contradicting. Pre = prevention, Post = verification.
 **Worktree vs conflict detection (CRIT fix):** When `workers > 1`, each task gets its own git worktree (req 007). This ELIMINATES file-level conflicts — worktrees are isolated by definition. The conflict detection mechanism (Section C4/C5) applies to SEQUENTIAL mode only (workers=1, shared working directory). In parallel mode: worktrees prevent conflicts. In sequential mode: conflict detection catches shared-state issues.
 
 **Conflict detection timing (CRIT fix):** Conflict detection runs BEFORE dispatch (req 004 is canonical). Section C4 description of 'after task complete' refers to VALIDATION of results, not detection of conflicts. Pre-dispatch: check for conflicting file paths. Post-task: validate results haven't corrupted shared state.

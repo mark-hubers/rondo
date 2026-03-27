@@ -167,7 +167,8 @@ automation and report release status.
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Maturity alignment (CRIT fix):** SOP-102 (Release) maturity cannot exceed SOP-101 (Build). If build is WORKING, release is AT MOST WORKING. If build has untested components, release is THEORY for those components. Current status: SOP-101 build is WORKING for core dispatch, THEORY for parallel workers. Therefore SOP-102 release is WORKING for sequential releases, THEORY for parallel. & Constraints
 
 1. **All gates pass.** No release with failing build gates. No exceptions. Violation ID: `SOP102-GATES-PASS`
 2. **Semver is strict.** Breaking changes = MAJOR bump. No hiding breaks in MINOR. Violation ID: `SOP102-SEMVER-STRICT`

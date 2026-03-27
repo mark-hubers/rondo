@@ -86,7 +86,16 @@ SUPERSEDED. See CORE-IFS-002 for token configuration patterns.
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Token signing actor matrix:**
+| Role | ACE | OB | Caliber | Rondo | CORE |
+|------|-----|-----|---------|-------|------|
+| **Key owner** | — | — | — | — | CORE-IFS-002 (defines format) |
+| **Token issuer** | ACE-IFS-004 (registry) | OB after clean build | Caliber after clean check | — | — |
+| **Token verifier** | LOCAL per product | LOCAL per product | LOCAL per product | LOCAL per product | Defines verification spec |
+| **Revocation push** | ACE-IFS-004 (ace_inbox) | Reads revocation list | Reads revocation list | Reads revocation list | — |
+Verification is ALWAYS local. ACE pushes revocation lists as an optimization. Each product verifies independently.
+ & Constraints
 
 SUPERSEDED. See CORE-IFS-002 §10 for token rules and constraints.
 

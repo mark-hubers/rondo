@@ -10,7 +10,7 @@
 **Supersedes:** none
 **Architect:** Mark G. Hubers — HubersTech
 **Implements:** CORE-IFS-001 (Integration Contract Standard) — universal payload/transport/isolation patterns
-**Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, Rondo-IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, Rondo-REQ-109
+**Depends on:** CORE-IFS-002, Rondo-REQ-100 (Core), Rondo-REQ-101 (Automation), CORE-IFS-001 (universal contract), OB-IFS-102, Rondo-IFS-100, OB-REQ-103, OB-REQ-128, OB-SOP-100, Rondo-REQ-109
 **Connects to:** OB-IFS-102 (External Integration), OB-REQ-128 (Dispatch), OB-REQ-103 (Sprint)
 **References:** CORE-IFS-001 §5 (field mapping), CORE-IFS-001 §3 reqs 53-57 (status/severity vocab), CORE-STD-012 (Requirement Readiness), CORE-STD-013 (TrackerData), CORE-STD-021 (MCP Standard)
 **Decision:** DEC-017 (OB standalone standards — Rondo is standalone, OB is standalone, they plug together)
@@ -446,7 +446,28 @@ COALESCE resolution order: CLI flag → `.ob/config.toml` → `rondo.toml` → h
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Transport contract (per CORE-IFS-001):** Progressive transport levels:
+| Level | Transport | When Used | Required |
+|-------|-----------|-----------|----------|
+| 1 | PIPE | Same-machine, in-process | YES (base) |
+| 2 | FILE | ace_inbox/, spool directories | YES (offline-safe) |
+| 3 | HTTPS | Cross-network (future) | NO (Phase 2) |
+| 4 | MTLS | Cross-network authenticated | NO (Phase 3) |
+| 5 | MCP | Tool calls via MCP protocol | YES (runtime queries) |
+Products negotiate UP from Level 1. Both sides MUST support Level 1+2+5 minimum.
+
+**Data format contract (per CORE-IFS-001):** Canonical payload/result types:
+| Entity | Used By | Direction |
+|--------|---------|-----------|
+| OAPayload | OB dispatch → agent | Outbound (task definition) |
+| OAResult | Agent → OB | Inbound (task results) |
+| RoundResult | Rondo → consumer | Return value from run_round() |
+| TaskResult | Within Rondo | Per-task execution outcome |
+| GateResult | Within Rondo | Gate check pass/fail |
+| TrackerData | CORE → all | Shared metrics schema |
+All cross-product data exchange MUST use one of these canonical types. Ad-hoc JSON structures MUST map to the nearest canonical type.
+ & Constraints
 
 1. **Contract versioning:** Every OAPayload and OAResult has `$contract` + `$version`. Rondo MUST reject unknown versions.
 2. **Backward compatibility:** New optional fields can be added (minor version). Removing or changing required fields = major version bump.

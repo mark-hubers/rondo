@@ -129,7 +129,8 @@ Infrastructure config in `rondo.toml`: `paths.results_dir` (spool root), `parall
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Stateless consistency (CRIT fix):** STD-104 req 001 says 'no database.' `break_glass_events` is a SHARED table (owned by CORE-STD-015, stored in Postgres), NOT a Rondo-local database. Rondo WRITES to it via the shared DB connection but does NOT own a local DB. Spool directory remains the ONLY Rondo-local persistence. The shared Postgres connection is infrastructure, not Rondo state. & Constraints
 
 ### Spool Directory Layout
 

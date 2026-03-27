@@ -184,7 +184,8 @@ from config, the hardcoded default applies. No migration needed — just works.
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Upgrade failure (CRIT fix):** SOP-104 scopes out incident handling BUT must define the HANDOFF to SOP-103. When migration fails: SOP-104 rolls back migration → logs failure details → creates incident ticket referencing SOP-103 → SOP-103 takes over. The handoff is explicit, not assumed. & Constraints
 
 1. **PATCH = zero migration.** Install and go. No config changes, no data changes. Violation ID: `SOP104-PATCH-ZERO`
 2. **MINOR = additive only.** New keys with defaults. Never remove or rename keys in MINOR. Violation ID: `SOP104-MINOR-ADDITIVE`

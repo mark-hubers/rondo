@@ -137,7 +137,8 @@ result_storage = true             # Store full result JSON
 
 ---
 
-## 10. Rules & Constraints
+## 10. Rules
+**Audit field completeness (CRIT fix):** STD-113 MUST include ALL fields that consumer specs require: `prompt_hash` (for REQ-107 flakiness), `provider_id` (for REQ-110 multi-account), `model_used` (for cost tracking), `duration_ms` (for performance). Producer (STD-113) defines the schema — consumers reference it. Any new consumer field requirement MUST be added to STD-113 first. & Constraints
 
 1. **Record BEFORE dispatch.** Intent is captured even if the subprocess crashes. Violation ID: `STD113-PRE-RECORD`
 2. **Append-only.** Never modify or delete audit records. They're evidence. Violation ID: `STD113-APPEND-ONLY`

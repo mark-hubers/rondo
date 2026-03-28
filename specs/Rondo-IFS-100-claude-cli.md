@@ -178,7 +178,7 @@ provides structured metadata alongside the AI response.
 
 ### Rate Limit Event (Usage Signal)
 
-Every dispatch receives this event for free — no extra API call needed.
+Most dispatches receive this event — no extra API call needed. However, it may be absent if the subprocess crashes before the first API call completes, or if CC changes its event format. Req 009 requires graceful handling of missing events.
 
 ```json
 {
@@ -355,7 +355,23 @@ REQUIRED — fill before build.
 
 ## 6. Data Boundary
 
-REQUIRED — fill before build.
+### What Crosses the AI Boundary
+
+| Direction | Data | Sensitivity | Handling |
+|-----------|------|-------------|----------|
+| **Rondo → Claude** | Task instruction (prompt) | May contain code context, file paths | Sanitize: strip absolute paths, env vars before dispatch |
+| **Rondo → Claude** | `context_files` content | Source code, configs — may contain secrets | Validate: sandbox paths (REQ-100 req 003), cap at `max_context_bytes` |
+| **Rondo → Claude** | `context_data` (structured input) | User-defined — unknown sensitivity | Validate: JSON-serializable, size-capped |
+| **Rondo → Claude** | `--system-prompt` text | Rondo dispatch instructions | No secrets — this is sent to Anthropic API |
+| **Claude → Rondo** | `stream-json` events | AI-generated output — may hallucinate file paths, code | Parse strictly: `--json-schema` enforces contract |
+| **Claude → Rondo** | `rate_limit_event` | Usage data (tokens, overage status) | Non-sensitive — store in `DispatchUsage` |
+| **Claude → Rondo** | Error messages | May contain file paths, stack traces | Truncate to 500 chars in logs, strip paths |
+
+### Data NOT Sent
+
+- API keys (handled via env vars, never in prompts)
+- Mark's personal data (never in task instructions)
+- Other task results (tasks are isolated — no cross-task data leakage)
 
 ---
 
@@ -505,7 +521,27 @@ Not applicable for this spec type — see related sections for details.
 
 ## 27. Security Considerations
 
-Not applicable for this spec type — see related sections for details.
+### Permission Bypass Risks
+
+| Flag | Risk | Mitigation |
+|------|------|------------|
+| `--dangerously-skip-permissions` | Bypasses ALL permission checks — file writes, bash execution, network access | ONLY in containers with no internet access. Never on host machine. |
+| `--allow-dangerously-skip-permissions` | Enables bypass as option (safer variant) | Preferred over full bypass for sandbox environments |
+| `--permission-mode bypassPermissions` | Skips all tool permission prompts | Use `dontAsk` instead — skips prompts without full security bypass |
+| `--bare` | Skips ALL hooks including Caliber quality enforcement | Agents using `--bare` have zero quality protection. Session 91: agent deleted functions, rewrote files without quality checks. |
+
+### Data Exfiltration
+
+- Dispatched Claude subprocess has read access to `context_files` and working directory
+- `--system-prompt` content is sent to Anthropic API — do not include secrets
+- Task `instruction` is sent as prompt — do not include API keys or credentials
+- `--max-budget-usd` prevents runaway token usage but does not prevent data exposure
+
+### API Key Handling
+
+- `ANTHROPIC_API_KEY` is stripped/set per auth mode (REQ-100 reqs 019-021)
+- Key MUST NOT appear in logs, task results, or error messages
+- `--bare` mode requires explicit `ANTHROPIC_API_KEY` env var (no keychain/OAuth)
 
 ---
 

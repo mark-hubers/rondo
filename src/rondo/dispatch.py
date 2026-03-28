@@ -53,6 +53,17 @@ def build_prompt(task: Task) -> str:
         files = ", ".join(task.context_files)
         parts.append(f"\n**Read these files first:** {files}")
 
+    # -- REQ-106: structured input data in prompt
+    if task.context_data:
+        parts.append("\n---\n## Structured Input Data\n")
+        for key, value in task.context_data.items():
+            parts.append(f"### {key}")
+            if isinstance(value, list) and len(value) > 100:
+                lines = "\n".join(json.dumps(item) for item in value)
+                parts.append(f"```jsonl\n{lines}\n```")
+            else:
+                parts.append(f"```json\n{json.dumps(value, indent=2)}\n```")
+
     parts.append(f"\n**Do:** {task.instruction}")
     parts.append(f"\n**Done when:** {task.done_when}")
 

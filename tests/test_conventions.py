@@ -157,7 +157,7 @@ class TestImportLayering:
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner"},
         "live.py": {"engine"},
-        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
+        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live", "preflight"},
         "report.py": {"engine", "config", "overnight"},
         "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "__main__.py": {"cli"},

@@ -1250,4 +1250,29 @@ class TestRondoConstants:
         assert cmd[idx + 1] == RONDO_DISPATCH_PROMPT
 
 
+# -- Rondo-REQ-100 req 078: budget exceeded detection
+class TestBudgetExceeded:
+    """Detect when --max-budget-usd causes CC to stop early."""
+
+    def test_budget_exceeded_in_result_events(self):
+        """error_max_budget_usd subtype detected in result event."""
+        from rondo.dispatch import parse_stream_json_events
+
+        lines = [
+            '{"type":"result","subtype":"error_max_budget_usd","total_cost_usd":0.022,"is_error":false}',
+        ]
+        events, usage = parse_stream_json_events(lines, task_name="t1")
+        assert usage.budget_exceeded is True
+
+    def test_success_result_not_budget_exceeded(self):
+        """Normal success result has budget_exceeded=False."""
+        from rondo.dispatch import parse_stream_json_events
+
+        lines = [
+            '{"type":"result","subtype":"success","total_cost_usd":0.01,"is_error":false}',
+        ]
+        events, usage = parse_stream_json_events(lines, task_name="t1")
+        assert usage.budget_exceeded is False
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

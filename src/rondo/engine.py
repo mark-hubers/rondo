@@ -139,6 +139,7 @@ class DispatchUsage:  # pylint: disable=too-many-instance-attributes
     rate_limit_status: str = "unknown"  # -- default per Rondo-IFS-100 req 9
     is_using_overage: bool = False  # -- default per Rondo-IFS-100 req 9
     rate_limit_resets_at: int = 0  # -- 0 = not available
+    budget_exceeded: bool = False  # -- Rondo-REQ-100 req 078: CC stopped due to --max-budget-usd
 
 
 @dataclass

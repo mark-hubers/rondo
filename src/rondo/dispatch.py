@@ -309,6 +309,7 @@ def parse_stream_json_events(
                 rate_limit_status=usage.rate_limit_status,
                 is_using_overage=usage.is_using_overage,
                 rate_limit_resets_at=usage.rate_limit_resets_at,
+                budget_exceeded=event.get("subtype") == "error_max_budget_usd",
             )
 
     return events, usage

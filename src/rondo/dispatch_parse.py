@@ -145,6 +145,20 @@ def extract_structured_output(events: list[dict[str, Any]]) -> dict[str, Any] | 
     return result
 
 
+def _collect_assistant_text(events: list[dict[str, Any]]) -> str:
+    """Extract concatenated assistant text from stream-json events."""
+    parts: list[str] = []
+    for event in events:
+        if event.get("type") != "assistant":
+            continue
+        message = event.get("message", {})
+        content = message.get("content", [])
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+    return "\n".join(parts)
+
+
 def classify_error(stderr: str) -> str:
     """Classify error from stderr content (Rondo-STD-108 stderr patterns)."""
     if not stderr:

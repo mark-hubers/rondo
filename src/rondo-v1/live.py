@@ -1,0 +1,159 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo live mode — execute round tasks in current conversation.
+
+REQ-001 reqs 47-56.
+Presents one task at a time. Claude reads instruction, executes, proves done_when.
+Mark reviews. Same round definition as batch mode.
+
+Usage:
+    rondo live round.py             # run all tasks
+    rondo live round.py --from 3    # resume from task 3
+    rondo live round.py --task 5    # run only task 5
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+
+from rondo.engine import Round, Task
+
+
+def present_task(task: Task, index: int, total: int) -> dict:
+    """Present one task for live execution. Returns task summary dict.
+
+    REQ-001 req 48: presents ONE task at a time.
+    """
+    print(f"\n{'═' * 70}")
+    print(f"  TASK {index + 1} of {total}: {task.name}")
+    print(f"{'═' * 70}")
+    print()
+
+    if task.description:
+        print(f"  {task.description}")
+        print()
+
+    if task.is_auto:
+        print("  MODE: auto (Python callable)")
+        print("  This task runs automatically.")
+    else:
+        print("INSTRUCTION:")
+        instruction = task.instruction.strip()
+        for line in instruction.split("\n"):
+            print(f"  {line}")
+        print()
+        print(f"DONE WHEN: {task.done_when}")
+        print()
+        if task.context_files:
+            print(f"CONTEXT FILES ({len(task.context_files)}):")
+            for cf in task.context_files:
+                print(f"  → {cf}")
+            print()
+
+    if task.model:
+        print(f"MODEL: {task.model}")
+
+    print(f"{'─' * 70}")
+    print()
+
+    return {
+        "task_index": index + 1,
+        "task_name": task.name,
+        "presented_at": datetime.now(UTC).isoformat(),
+        "mode": "auto" if task.is_auto else "interactive",
+    }
+
+
+def run_live(
+    round_def: Round,
+    start_from: int = 0,
+    single_task: int = -1,
+    progress_file: Path | None = None,
+) -> list[dict]:
+    """Execute a round in live mode — present tasks step by step.
+
+    REQ-001 reqs 47-56.
+
+    Args:
+        round_def: The round to execute.
+        start_from: Resume from this task index (0-based).
+        single_task: Run only this task index (0-based). -1 = run all.
+        progress_file: Optional path to save progress for --resume.
+
+    Returns:
+        List of task presentation records.
+    """
+    tasks = round_def.tasks
+    total = len(tasks)
+    presentations: list[dict] = []
+
+    print("=== RONDO LIVE MODE ===")
+    print(f"Round: {round_def.name}")
+    print(f"Tasks: {total}")
+    if start_from > 0:
+        print(f"Resuming from task {start_from + 1}")
+    print()
+
+    # -- Pre-gates
+    for gate in round_def.pre_gates:
+        print(f"  PRE-GATE: {gate.name}")
+        if gate.check_fn:
+            passed, detail = gate.check_fn()
+            status = "✓ PASS" if passed else "✗ FAIL"
+            print(f"    {status}: {detail}")
+            if not passed and gate.blocking:
+                print("\n  -ERROR- Pre-gate failed. Cannot proceed.")
+                return presentations
+        else:
+            print(f"    Manual check: {gate.description}")
+    print()
+
+    if single_task >= 0:
+        # -- Single task mode
+        if single_task >= total:
+            print(
+                f"-ERROR- Task {single_task + 1} doesn't exist (max {total})",
+            )
+            return presentations
+        record = present_task(tasks[single_task], single_task, total)
+        presentations.append(record)
+    else:
+        # -- Sequential mode
+        for idx in range(start_from, total):
+            record = present_task(tasks[idx], idx, total)
+            presentations.append(record)
+
+            # -- Save progress for --resume
+            if progress_file:
+                progress = {
+                    "round": round_def.name,
+                    "completed_task": idx,
+                    "total_tasks": total,
+                    "saved_at": datetime.now(UTC).isoformat(),
+                }
+                progress_file.write_text(json.dumps(progress, indent=2), encoding="utf-8")
+
+    print(f"\n{'═' * 70}")
+    if single_task >= 0:
+        print(f"  TASK {single_task + 1} PRESENTED")
+    else:
+        completed = len(presentations)
+        print(f"  {completed}/{total} TASKS PRESENTED")
+    print(f"{'═' * 70}")
+
+    return presentations
+
+
+def load_progress(progress_file: Path) -> dict:
+    """Load saved progress for --resume.
+
+    REQ-001 req 56: resume from last completed task.
+    """
+    if progress_file.exists():
+        return json.loads(progress_file.read_text())
+    return {}
+
+
+# -- sig: mgh-6201.cd.bd955f.a1b2.c3d4e5

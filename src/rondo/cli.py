@@ -71,6 +71,13 @@ def build_parser() -> argparse.ArgumentParser:
     # -- preflight subcommand (Rondo-REQ-103 req 015)
     subparsers.add_parser("preflight", help="Check dispatch environment without running")
 
+    # -- history subcommand (Rondo-REQ-104 req 005)
+    hist_parser = subparsers.add_parser("history", help="Show dispatch history")
+    hist_parser.add_argument("--model", default="", help="Filter by model")
+    hist_parser.add_argument("--status", default="", help="Filter by status")
+    hist_parser.add_argument("--json", action="store_true", help="JSON output")
+    hist_parser.add_argument("--results-dir", default="reports", help="Results directory")
+
     return parser
 
 
@@ -219,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_report(args)
         if args.command == "preflight":
             return _cmd_preflight()
+        if args.command == "history":
+            return _cmd_history(args)
 
         return EXIT_SUCCESS
 
@@ -349,6 +358,35 @@ def _cmd_report(args: argparse.Namespace) -> int:
     # -- Future: re-generate report from saved results
     print(f"Report from {args.results_dir} — not yet implemented", file=sys.stderr)
     return EXIT_FAILURE
+
+
+def _cmd_history(args: argparse.Namespace) -> int:
+    """Execute 'rondo history' — show dispatch history.
+
+    Rondo-REQ-104 req 005.
+    """
+    from rondo.history import load_history, query_history  # pylint: disable=import-outside-toplevel
+
+    history_dir = str(Path(args.results_dir) / "history")
+    records = load_history(history_dir)
+    filtered = query_history(records, model=args.model, status=args.status)
+
+    if args.json:
+        import json  # pylint: disable=import-outside-toplevel
+
+        print(json.dumps(filtered, indent=2, default=str))
+    elif not filtered:
+        print("  No dispatch history found.")
+    else:
+        total_cost = sum(r.get("cost_usd", 0) for r in filtered)
+        print(f"  Dispatches: {len(filtered)} | Total cost: ${total_cost:.4f}")
+        print()
+        for r in filtered[-10:]:  # -- last 10
+            cost = r.get("cost_usd", 0)
+            print(f"  {r.get('status', '?'):8s} {r.get('task_name', '?'):30s} "
+                  f"{r.get('model', '?'):8s} ${cost:.4f} {r.get('duration_sec', 0):.1f}s")
+
+    return EXIT_SUCCESS
 
 
 def _cmd_preflight() -> int:

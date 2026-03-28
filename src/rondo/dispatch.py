@@ -832,7 +832,36 @@ def _parse_and_build_result(
         files_modified=extract_modified_files(assistant_text),
     )
 
+    # -- Rondo-REQ-104: log dispatch to history
+    _log_to_history(result, usage, config)
+
     return result, usage
+
+
+def _log_to_history(
+    result: TaskResult, usage: DispatchUsage, config: RondoConfig,
+) -> None:
+    """Log dispatch result to JSONL history — Rondo-REQ-104 req 001."""
+    try:
+        from rondo.history import DispatchRecord, log_dispatch
+
+        record = DispatchRecord(
+            round_name="",  # -- set by caller if available
+            task_name=result.task_name,
+            model=result.model,
+            status=result.status,
+            cost_usd=usage.cost_usd,
+            duration_sec=result.duration_sec,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            confidence=0.0,  # -- set from parsed JSON if available
+            error_code=result.error_code,
+            budget_exceeded=usage.budget_exceeded,
+        )
+        history_dir = str(Path(config.results_dir).parent / "history")
+        log_dispatch(record, history_dir)
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("History logging failed (non-fatal): %s", exc)
 
 
 # -- sig: mgh-6201.cd.bd955f.e969.bc3711

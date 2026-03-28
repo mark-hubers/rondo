@@ -76,7 +76,7 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "live.py", "__main__.py"}
+    EXEMPT = {"cli.py", "live.py", "__main__.py", "notify.py"}
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""

@@ -33,6 +33,27 @@ logger = logging.getLogger(__name__)
 # -- Maximum size for raw_output in result files (Rondo-STD-110 R2)
 _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
 
+# -- Rondo-REQ-100 req 079: canonical result schema for --json-schema
+RONDO_RESULT_SCHEMA = json.dumps({
+    "type": "object",
+    "properties": {
+        "status": {"type": "string", "enum": ["done", "error", "blocked", "partial"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "result": {"type": "string"},
+        "question": {"type": "string"},
+    },
+    "required": ["status", "result"],
+})
+
+# -- Rondo-REQ-100 req 080: default system prompt for dispatch
+RONDO_DISPATCH_PROMPT = (
+    "You are executing a Rondo automated task. "
+    "Return your answer as structured JSON matching the result schema. "
+    "Fields: status (done/error/blocked/partial), result (what you did), "
+    "confidence (0.0-1.0), question (if blocked, what you need). "
+    "Do not wrap in markdown code fences — use the StructuredOutput tool."
+)
+
 # -- Rondo-REQ-100 req 071: CC version detection (cached per process)
 _cc_version_cache: tuple[int, int, int] | None = None
 _BARE_MIN_VERSION = (2, 1, 81)
@@ -687,18 +708,25 @@ def _build_subprocess_cmd(
             cmd.append("--dangerously-skip-permissions")
         # -- "default" adds no flags
 
-    # -- REQ-100 reqs 078-080: cost & output control
-    if config.max_budget_usd is not None:
-        cmd.extend(["--max-budget-usd", str(config.max_budget_usd)])
-    if config.json_schema:
-        cmd.extend(["--json-schema", config.json_schema])
-    if config.dispatch_system_prompt:
-        cmd.extend(["--system-prompt", config.dispatch_system_prompt])
-
-    # -- Rondo-REQ-100 req 081: don't clutter CC session store with ephemeral dispatches
-    cmd.append("--no-session-persistence")
+    # -- REQ-100 reqs 078-081: cost, output, session control
+    _add_output_flags(cmd, config)
 
     return cmd
+
+
+def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:
+    """Add cost/output/session flags — extracted for complexity (Rondo-REQ-100 reqs 078-081)."""
+    if config.max_budget_usd is not None:
+        cmd.extend(["--max-budget-usd", str(config.max_budget_usd)])
+    # -- "auto" → use Rondo's canonical schema/prompt constants
+    schema = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
+    if schema:
+        cmd.extend(["--json-schema", schema])
+    prompt_val = RONDO_DISPATCH_PROMPT if config.dispatch_system_prompt == "auto" else config.dispatch_system_prompt
+    if prompt_val:
+        cmd.extend(["--system-prompt", prompt_val])
+    # -- req 081: don't clutter CC session store
+    cmd.append("--no-session-persistence")
 
 
 def _run_subprocess(

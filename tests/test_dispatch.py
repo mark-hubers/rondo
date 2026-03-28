@@ -1197,4 +1197,57 @@ class TestStructuredOutputParsing:
         assert result["status"] == "done"
 
 
+# -- Rondo-REQ-100 reqs 079-080: Result schema + default system prompt
+class TestRondoConstants:
+    """Rondo defines reusable constants for dispatch configuration."""
+
+    def test_result_schema_is_valid_json(self):
+        """RONDO_RESULT_SCHEMA is a valid JSON string."""
+        from rondo.dispatch import RONDO_RESULT_SCHEMA
+
+        parsed = json.loads(RONDO_RESULT_SCHEMA)
+        assert parsed["type"] == "object"
+        assert "status" in parsed["properties"]
+        assert "result" in parsed["properties"]
+
+    def test_result_schema_has_required_fields(self):
+        """Schema requires status and result."""
+        from rondo.dispatch import RONDO_RESULT_SCHEMA
+
+        parsed = json.loads(RONDO_RESULT_SCHEMA)
+        assert "status" in parsed["required"]
+        assert "result" in parsed["required"]
+
+    def test_default_system_prompt_exists(self):
+        """RONDO_DISPATCH_PROMPT is a non-empty string."""
+        from rondo.dispatch import RONDO_DISPATCH_PROMPT
+
+        assert isinstance(RONDO_DISPATCH_PROMPT, str)
+        assert len(RONDO_DISPATCH_PROMPT) > 20
+
+    def test_default_system_prompt_mentions_json(self):
+        """Default prompt tells Claude to return structured output."""
+        from rondo.dispatch import RONDO_DISPATCH_PROMPT
+
+        assert "json" in RONDO_DISPATCH_PROMPT.lower() or "JSON" in RONDO_DISPATCH_PROMPT
+
+    def test_config_uses_schema_constant(self):
+        """When json_schema is 'auto', it uses RONDO_RESULT_SCHEMA."""
+        from rondo.dispatch import RONDO_RESULT_SCHEMA
+
+        config = RondoConfig(json_schema="auto")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        idx = cmd.index("--json-schema")
+        assert cmd[idx + 1] == RONDO_RESULT_SCHEMA
+
+    def test_config_uses_default_prompt_when_auto(self):
+        """When dispatch_system_prompt is 'auto', uses RONDO_DISPATCH_PROMPT."""
+        from rondo.dispatch import RONDO_DISPATCH_PROMPT
+
+        config = RondoConfig(dispatch_system_prompt="auto")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        idx = cmd.index("--system-prompt")
+        assert cmd[idx + 1] == RONDO_DISPATCH_PROMPT
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

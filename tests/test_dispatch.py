@@ -1094,4 +1094,45 @@ class TestCostOutputControl:
         assert "--system-prompt" not in cmd
 
 
+# -- Rondo-REQ-100 req 071: CC version detection + gated --bare
+class TestCCVersionDetection:
+    """Detect CC version and gate --bare flag usage."""
+
+    def test_detect_cc_version(self):
+        """Parses 'X.Y.Z' from claude --version output."""
+        from rondo.dispatch import detect_cc_version
+        import rondo.dispatch
+
+        rondo.dispatch._cc_version_cache = None  # -- reset cache
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.stdout = "2.1.86 (Claude Code)\n"
+            mock_run.return_value.returncode = 0
+            version = detect_cc_version()
+        assert version == (2, 1, 86)
+
+    def test_detect_cc_version_missing(self):
+        """Returns None when claude not available."""
+        from rondo.dispatch import detect_cc_version
+        import rondo.dispatch
+
+        rondo.dispatch._cc_version_cache = None  # -- reset cache
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            version = detect_cc_version()
+        assert version is None
+
+    def test_bare_skipped_when_version_too_old(self):
+        """--bare not added when CC < 2.1.81."""
+        config = RondoConfig(bare=True)
+        with patch("rondo.dispatch._cc_version_cache", (2, 1, 50)):
+            cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--bare" not in cmd
+
+    def test_bare_added_when_version_sufficient(self):
+        """--bare added when CC >= 2.1.81."""
+        config = RondoConfig(bare=True)
+        with patch("rondo.dispatch._cc_version_cache", (2, 1, 86)):
+            cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--bare" in cmd
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

@@ -33,6 +33,34 @@ logger = logging.getLogger(__name__)
 # -- Maximum size for raw_output in result files (Rondo-STD-110 R2)
 _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
 
+# -- Rondo-REQ-100 req 071: CC version detection (cached per process)
+_cc_version_cache: tuple[int, int, int] | None = None
+_BARE_MIN_VERSION = (2, 1, 81)
+
+
+def detect_cc_version(binary: str = "claude") -> tuple[int, int, int] | None:
+    """Detect Claude Code version via `claude --version`.
+
+    Returns (major, minor, patch) or None if unavailable.
+    Caches result — called once per process lifetime.
+    """
+    global _cc_version_cache  # noqa: PLW0603
+    if _cc_version_cache is not None:
+        return _cc_version_cache
+    try:
+        result = subprocess.run(
+            [binary, "--version"],
+            capture_output=True, text=True, check=False, timeout=5,
+        )
+        if result.returncode == 0:
+            version_str = result.stdout.strip().split()[0]
+            parts = version_str.split(".")
+            _cc_version_cache = (int(parts[0]), int(parts[1]), int(parts[2]))
+            return _cc_version_cache
+    except (FileNotFoundError, IndexError, ValueError, subprocess.TimeoutExpired):
+        pass
+    return None
+
 
 # ──────────────────────────────────────────────────────────────────
 #  Prompt Building — Rondo-REQ-100 reqs 12, 24
@@ -612,13 +640,18 @@ def _build_subprocess_cmd(
     if config.permission_mode:
         cmd.extend(["--permission-mode", config.permission_mode])
 
-    # -- REQ-100 req 071-073: --bare for automated dispatch
+    # -- Rondo-REQ-100 req 071-073: --bare for automated dispatch
     # -- Task can opt out with bare=False (req 073: Caliber enforcement needed)
+    # -- Only add --bare when CC version >= 2.1.81 (req 071)
     use_bare = config.bare
     if task and task.bare is not None:
         use_bare = task.bare
     if use_bare:
-        cmd.append("--bare")
+        cc_ver = _cc_version_cache or detect_cc_version(config.claude_binary)
+        if cc_ver and cc_ver >= _BARE_MIN_VERSION:
+            cmd.append("--bare")
+        else:
+            logger.info("--bare skipped: CC version %s < %s", cc_ver, _BARE_MIN_VERSION)
 
     # -- REQ-100 reqs 022-024: tool_mode controls tool access
     if task:

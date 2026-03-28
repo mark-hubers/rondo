@@ -273,7 +273,12 @@ def calculate_round_status(task_results: list[TaskResult]) -> str:
 # ──────────────────────────────────────────────────────────────────
 
 
-def validate_task(task: Task) -> list[str]:
+def validate_task(
+    task: Task,
+    *,
+    project_root: str | None = None,
+    max_context_bytes: int = 500_000,
+) -> list[str]:
     """Validate a task before dispatch. Returns list of errors (empty = valid).
 
     Checks:
@@ -281,6 +286,7 @@ def validate_task(task: Task) -> list[str]:
         - Interactive tasks have instruction + done_when
         - Auto tasks have auto_fn
         - Task doesn't set both auto_fn AND three-field contract
+        - context_files: no traversal, no absolute, no symlinks outside root, size cap
     """
     errors: list[str] = []
 
@@ -311,12 +317,48 @@ def validate_task(task: Task) -> list[str]:
         except (TypeError, ValueError) as e:
             errors.append(f"Task '{task.name}' context_data not JSON-serializable: {e}")
 
-    # -- REQ-100 req 003: context_files path validation
-    for path in task.context_files:
-        if ".." in path:
-            errors.append(f"Task '{task.name}' context_file '{path}' contains '..' traversal")
-        if path.startswith("/"):
-            errors.append(f"Task '{task.name}' context_file '{path}' is absolute path")
+    # -- REQ-100 req 003: context_files validation (extracted for complexity)
+    errors.extend(_validate_context_files(task, project_root, max_context_bytes))
+
+    return errors
+
+
+def _validate_context_files(
+    task: Task,
+    project_root: str | None,
+    max_context_bytes: int,
+) -> list[str]:
+    """Validate context_files paths — REQ-100 req 003.
+
+    Checks: no traversal, no absolute (without root), no symlinks outside root, size cap.
+    """
+    from pathlib import Path
+
+    errors: list[str] = []
+    total_size = 0
+
+    for path_str in task.context_files:
+        if ".." in path_str:
+            errors.append(f"Task '{task.name}' context_file '{path_str}' contains '..' traversal")
+        if path_str.startswith("/") and not project_root:
+            errors.append(f"Task '{task.name}' context_file '{path_str}' is absolute path")
+
+        # -- Symlink check: resolve and verify within project root
+        if project_root:
+            resolved = Path(path_str).resolve()
+            root = Path(project_root).resolve()
+            if Path(path_str).is_symlink() and not str(resolved).startswith(str(root)):
+                errors.append(f"Task '{task.name}' context_file '{path_str}' is symlink outside project root")
+
+        # -- Size accumulator
+        p = Path(path_str)
+        if p.exists() and p.is_file():
+            total_size += p.stat().st_size
+
+    if total_size > max_context_bytes:
+        errors.append(
+            f"Task '{task.name}' context_files total {total_size} bytes exceeds max_context_bytes ({max_context_bytes})"
+        )
 
     return errors
 

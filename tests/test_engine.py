@@ -642,5 +642,45 @@ class TestContextData:
         errors = validate_task(t)
         assert errors == []
 
+    def test_context_files_symlink_outside_root_rejected(self, tmp_path):
+        """REQ-100 req 003: symlinks pointing outside project root are rejected."""
+        ## -- Create a symlink pointing to /etc
+        link = tmp_path / "sneaky_link"
+        link.symlink_to("/etc")
+        t = Task(name="bad", instruction="do", done_when="done",
+                 context_files=[str(link)])
+        errors = validate_task(t, project_root=str(tmp_path))
+        assert any("symlink" in e for e in errors)
+
+    def test_context_files_symlink_inside_root_ok(self, tmp_path):
+        """REQ-100 req 003: symlinks within project root are valid."""
+        target = tmp_path / "real_file.md"
+        target.write_text("content")
+        link = tmp_path / "good_link"
+        link.symlink_to(target)
+        t = Task(name="ok", instruction="do", done_when="done",
+                 context_files=[str(link)])
+        errors = validate_task(t, project_root=str(tmp_path))
+        assert not any("symlink" in e for e in errors)
+
+    def test_context_files_total_size_capped(self, tmp_path):
+        """REQ-100 req 003: total context size capped at max_context_bytes."""
+        ## -- Create files totaling > 500KB
+        for i in range(6):
+            (tmp_path / f"big_{i}.txt").write_text("x" * 100_000)
+        files = [str(tmp_path / f"big_{i}.txt") for i in range(6)]
+        t = Task(name="big", instruction="do", done_when="done",
+                 context_files=files)
+        errors = validate_task(t, max_context_bytes=500_000)
+        assert any("max_context_bytes" in e for e in errors)
+
+    def test_context_files_under_size_cap_ok(self, tmp_path):
+        """REQ-100 req 003: files under the cap pass validation."""
+        (tmp_path / "small.txt").write_text("hello")
+        t = Task(name="ok", instruction="do", done_when="done",
+                 context_files=[str(tmp_path / "small.txt")])
+        errors = validate_task(t, max_context_bytes=500_000)
+        assert not any("max_context_bytes" in e for e in errors)
+
 
 # -- sig: mgh-6201.cd.bd955f.39ed.655d8b

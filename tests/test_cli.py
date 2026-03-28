@@ -700,4 +700,30 @@ class TestMainModule:
         assert exc_info.value.code == 0
 
 
+# -- Rondo-REQ-103 req 015: preflight standalone command
+class TestPreflightSubcommand:
+    def test_preflight_returns_success_when_green(self, capsys):
+        """rondo preflight returns 0 when all checks pass."""
+        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+            exit_code = main(["preflight"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        assert "GREEN" in captured.out
+
+    def test_preflight_returns_failure_when_red(self, capsys):
+        """rondo preflight returns 1 when critical check fails."""
+        with patch("shutil.which", return_value=None):
+            exit_code = main(["preflight"])
+        assert exit_code == EXIT_FAILURE
+        captured = capsys.readouterr()
+        assert "RED" in captured.err or "RED" in captured.out
+
+    def test_preflight_shows_checks(self, capsys):
+        """Preflight output shows individual check results."""
+        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+            main(["preflight"])
+        captured = capsys.readouterr()
+        assert "claude" in captured.out.lower()
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

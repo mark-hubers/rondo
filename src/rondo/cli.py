@@ -68,6 +68,9 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("results_dir", help="Path to results directory")
     report_parser.add_argument("--config", default=None, help="Path to rondo.toml config")
 
+    # -- preflight subcommand (Rondo-REQ-103 req 015)
+    subparsers.add_parser("preflight", help="Check dispatch environment without running")
+
     return parser
 
 
@@ -214,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_overnight(args)
         if args.command == "report":
             return _cmd_report(args)
+        if args.command == "preflight":
+            return _cmd_preflight()
 
         return EXIT_SUCCESS
 
@@ -344,6 +349,34 @@ def _cmd_report(args: argparse.Namespace) -> int:
     # -- Future: re-generate report from saved results
     print(f"Report from {args.results_dir} — not yet implemented", file=sys.stderr)
     return EXIT_FAILURE
+
+
+def _cmd_preflight() -> int:
+    """Execute 'rondo preflight' — check environment without dispatching.
+
+    Rondo-REQ-103 req 015: standalone preflight command.
+    """
+    from rondo.preflight import run_preflight  # pylint: disable=import-outside-toplevel
+
+    result = run_preflight()
+
+    # -- Show checks
+    for check in result.checks:
+        print(f"  -PASS- {check}")
+    for warn in result.warnings:
+        print(f"  -WARNING- {warn}")
+    for err in result.errors:
+        print(f"  -ERROR- {err}", file=sys.stderr)
+
+    # -- Status line
+    if result.status == "GREEN":
+        print(f"\n  Preflight: {result.status} — ready to dispatch")
+    elif result.status == "YELLOW":
+        print(f"\n  Preflight: {result.status} — proceed with caution")
+    else:
+        print(f"\n  Preflight: {result.status} — cannot dispatch", file=sys.stderr)
+
+    return EXIT_SUCCESS if result.can_proceed else EXIT_FAILURE
 
 
 # ──────────────────────────────────────────────────────────────────

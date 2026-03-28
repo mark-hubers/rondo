@@ -10,15 +10,12 @@ without invoking real subprocesses.
 """
 
 import json
-import sys
 import time
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.config import RondoConfig
 from rondo.engine import (

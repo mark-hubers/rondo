@@ -9,15 +9,12 @@ CLI tests verify argument parsing, dynamic loading, and
 integration wiring without invoking real subprocesses.
 """
 
-import sys
 import textwrap
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.cli import (
     EXIT_FAILURE,

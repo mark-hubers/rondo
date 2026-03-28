@@ -10,13 +10,10 @@ without invoking real subprocesses. Threading behavior tested
 via controlled execution.
 """
 
-import sys
 import time
-from pathlib import Path
 from unittest.mock import patch
 
 # -- Add rondo/src to path so we can import rondo
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.config import RondoConfig
 from rondo.engine import (

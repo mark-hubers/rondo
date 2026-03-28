@@ -13,10 +13,7 @@ CC behavior. They're marked slow and can be skipped with -m "not slow".
 import json
 import shutil
 import subprocess
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pytest
 

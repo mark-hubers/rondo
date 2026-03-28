@@ -6,11 +6,7 @@ VER-001 verification matrix: morning report generation.
 TDD: tests written BEFORE report.py exists.
 """
 
-import sys
 from pathlib import Path
-
-# -- Add rondo/src to path so we can import rondo
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.config import RondoConfig
 from rondo.engine import (

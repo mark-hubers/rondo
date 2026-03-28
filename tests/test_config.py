@@ -6,15 +6,12 @@ VER-001 verification matrix: every test maps to a numbered rule.
 TDD: these tests are written BEFORE config.py exists.
 """
 
-import sys
 import warnings
 from dataclasses import FrozenInstanceError
-from pathlib import Path
 
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.config import (
     RondoConfig,

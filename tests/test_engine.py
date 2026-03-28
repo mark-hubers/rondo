@@ -7,11 +7,8 @@ TDD: these tests are written BEFORE engine.py exists.
 """
 
 import json
-import sys
-from pathlib import Path
 
 # -- Add rondo/src to path so we can import rondo
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from rondo.engine import (
     TERMINAL_STATES,

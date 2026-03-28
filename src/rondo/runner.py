@@ -164,7 +164,7 @@ def _dispatch_with_safety_net(
     If dispatch_task raises (shouldn't — it catches internally),
     convert to error result so subsequent tasks still run.
     """
-    task.status = "running"
+    task.status = "in_progress"
     try:
         return dispatch_task(task, config)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:

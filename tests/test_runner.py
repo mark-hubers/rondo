@@ -356,8 +356,8 @@ class TestAutoDetect:
 
 
 class TestTaskStateUpdates:
-    def test_task_status_updated_to_running(self):
-        """Task status set to 'running' before dispatch."""
+    def test_task_status_updated_to_in_progress(self):
+        """Task status set to 'in_progress' before dispatch."""
         states_seen = []
 
         def _capture_dispatch(task, config, **kw):
@@ -367,7 +367,7 @@ class TestTaskStateUpdates:
         r = Round(name="state", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_capture_dispatch):
             run_round(r, config=SEQ_CONFIG)
-            assert "running" in states_seen
+            assert "in_progress" in states_seen
 
     def test_task_status_updated_after_dispatch(self):
         """Task status set to terminal state after dispatch."""

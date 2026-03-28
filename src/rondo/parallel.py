@@ -149,7 +149,7 @@ def _execute_parallel(
         # -- Submit tasks with throttle delay (REQ-002 req 3, STD-003 C3)
         futures: dict[Future[tuple[TaskResult, DispatchUsage]], str] = {}
         for i, task in enumerate(tasks):
-            task.status = "running"
+            task.status = "in_progress"
             if i > 0 and config.throttle_sec > 0:
                 time.sleep(config.throttle_sec)
             future = pool.submit(_dispatch_worker, task, config)

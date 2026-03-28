@@ -226,7 +226,7 @@ class TestPostgateTiming:
         assert results[1].passed is False
 
 
-# -- REQ-001 Req 8: State machine — pending → running → terminal
+# -- REQ-100 Req 008: State machine — pending → in_progress → terminal
 class TestStateTransitions:
     def test_terminal_states(self):
         assert TERMINAL_STATES == {"done", "blocked", "partial", "error", "skipped"}
@@ -236,7 +236,7 @@ class TestStateTransitions:
             assert is_terminal(state) is True, f"{state} should be terminal"
 
     def test_is_terminal_false(self):
-        for state in ("pending", "running"):
+        for state in ("pending", "in_progress"):
             assert is_terminal(state) is False, f"{state} should not be terminal"
 
     def test_task_starts_pending(self):
@@ -245,8 +245,8 @@ class TestStateTransitions:
 
     def test_task_status_can_be_set(self):
         t = Task(name="t")
-        t.status = "running"
-        assert t.status == "running"
+        t.status = "in_progress"
+        assert t.status == "in_progress"
         t.status = "done"
         assert t.status == "done"
 
@@ -272,9 +272,9 @@ class TestRoundCompletion:
         tasks[1].status = "pending"
         assert is_round_complete(tasks) is False
 
-    def test_running_is_not_complete(self):
+    def test_in_progress_is_not_complete(self):
         tasks = [Task(name="t1")]
-        tasks[0].status = "running"
+        tasks[0].status = "in_progress"
         assert is_round_complete(tasks) is False
 
     def test_empty_tasks_is_complete(self):
@@ -556,6 +556,91 @@ class TestValidateRound:
         """Round with no tasks is valid (handled at runner level)."""
         r = Round(name="empty-round")
         assert validate_round(r) == []
+
+
+# ──────────────────────────────────────────────────────────────────
+#  REQ-106: Structured Task Input (context_data)
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestContextData:
+    """REQ-106 reqs 001-009: context_data on Task and TaskResult."""
+
+    def test_task_has_context_data_default_empty(self):
+        """REQ-106 req 001: Task has context_data field, defaults to empty dict."""
+        t = Task(name="t", instruction="do", done_when="done")
+        assert t.context_data == {}
+
+    def test_task_context_data_accepts_dict(self):
+        """REQ-106 req 001: context_data accepts a dict."""
+        t = Task(name="t", instruction="do", done_when="done",
+                 context_data={"findings": [1, 2, 3], "product": "ob"})
+        assert t.context_data["product"] == "ob"
+        assert len(t.context_data["findings"]) == 3
+
+    def test_task_result_has_context_data(self):
+        """REQ-106 req 002: TaskResult has context_data for audit trail."""
+        r = TaskResult(task_name="t", context_data={"input": "test"})
+        assert r.context_data["input"] == "test"
+
+    def test_task_result_context_data_default_empty(self):
+        """REQ-106 req 002: TaskResult context_data defaults to empty dict."""
+        r = TaskResult(task_name="t")
+        assert r.context_data == {}
+
+    def test_validate_rejects_non_serializable(self):
+        """REQ-106 req 009: non-JSON-serializable context_data is an error."""
+        t = Task(name="bad", instruction="do", done_when="done",
+                 context_data={"fn": lambda: None})
+        errors = validate_task(t)
+        assert any("JSON-serializable" in e for e in errors)
+
+    def test_validate_accepts_serializable(self):
+        """REQ-106 req 009: valid JSON context_data passes validation."""
+        t = Task(name="ok", instruction="do", done_when="done",
+                 context_data={"findings": [{"check": "yaml", "status": "pass"}]})
+        errors = validate_task(t)
+        assert errors == []
+
+    def test_validate_empty_context_data_ok(self):
+        """REQ-106: empty context_data is valid (it's optional)."""
+        t = Task(name="ok", instruction="do", done_when="done")
+        errors = validate_task(t)
+        assert errors == []
+
+    def test_context_data_with_nested_structures(self):
+        """REQ-106: nested dicts and lists work."""
+        data = {
+            "findings": [
+                {"check": "yaml_parses", "severity": "error", "files": ["a.yaml", "b.yaml"]},
+                {"check": "fk_match", "severity": "warning", "count": 5},
+            ],
+            "metadata": {"product": "ob", "total": 132},
+        }
+        t = Task(name="deep", instruction="review", done_when="JSON", context_data=data)
+        assert len(t.context_data["findings"]) == 2
+        assert t.context_data["metadata"]["total"] == 132
+
+    def test_context_files_path_traversal_rejected(self):
+        """REQ-100 req 003: context_files with '..' are rejected."""
+        t = Task(name="bad", instruction="do", done_when="done",
+                 context_files=["../../etc/passwd"])
+        errors = validate_task(t)
+        assert any(".." in e for e in errors)
+
+    def test_context_files_absolute_path_rejected(self):
+        """REQ-100 req 003: absolute paths in context_files are rejected."""
+        t = Task(name="bad", instruction="do", done_when="done",
+                 context_files=["/etc/passwd"])
+        errors = validate_task(t)
+        assert any("absolute" in e for e in errors)
+
+    def test_context_files_relative_path_ok(self):
+        """REQ-100 req 003: relative paths in context_files are valid."""
+        t = Task(name="ok", instruction="do", done_when="done",
+                 context_files=["specs/my-spec.md", "platform.yaml"])
+        errors = validate_task(t)
+        assert errors == []
 
 
 # -- sig: mgh-6201.cd.bd955f.39ed.655d8b

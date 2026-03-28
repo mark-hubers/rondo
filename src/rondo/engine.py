@@ -8,7 +8,7 @@ import types from engine — never the other way around.
 
 Status vocabulary (shared with STD-001):
     done, blocked, partial, error, skipped  (terminal)
-    pending, running                        (non-terminal)
+    pending, in_progress                    (non-terminal)
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Any
 
 # -- Status constants (REQ-001 req 8)
 TERMINAL_STATES: set[str] = {"done", "blocked", "partial", "error", "skipped"}
-VALID_STATES: set[str] = {"pending", "running"} | TERMINAL_STATES
+VALID_STATES: set[str] = {"pending", "in_progress"} | TERMINAL_STATES
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -40,6 +40,9 @@ class Task:  # pylint: disable=too-many-instance-attributes
     context_files: list[str] = field(default_factory=list)  # -- Read: files for context
     done_when: str = ""  # -- Done: completion criteria
 
+    # -- structured input (REQ-106 req 001)
+    context_data: dict[str, Any] = field(default_factory=dict)
+
     # -- auto task (alternative to three-field — REQ-001 req 4)
     auto_fn: Callable[..., tuple[bool, str]] | None = None
 
@@ -48,7 +51,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
     mode: str = "interactive"  # -- "interactive" or "auto"
 
     # -- state (REQ-001 req 8)
-    status: str = "pending"  # -- pending → running → terminal
+    status: str = "pending"  # -- pending → in_progress → terminal
 
     @property
     def is_auto(self) -> bool:
@@ -111,6 +114,9 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
 
     # -- file tracking (STD-003 conflict detection)
     files_modified: list[str] = field(default_factory=list)
+
+    # -- structured input audit (REQ-106 req 002)
+    context_data: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -293,6 +299,22 @@ def validate_task(task: Task) -> list[str]:
             errors.append(f"Task '{task.name}' Do field (instruction) is empty")
         if not task.done_when.strip():
             errors.append(f"Task '{task.name}' Done field (done_when) is empty")
+
+    # -- REQ-106 req 009: context_data must be JSON-serializable
+    if task.context_data:
+        import json
+
+        try:
+            json.dumps(task.context_data)
+        except (TypeError, ValueError) as e:
+            errors.append(f"Task '{task.name}' context_data not JSON-serializable: {e}")
+
+    # -- REQ-100 req 003: context_files path validation
+    for path in task.context_files:
+        if ".." in path:
+            errors.append(f"Task '{task.name}' context_file '{path}' contains '..' traversal")
+        if path.startswith("/"):
+            errors.append(f"Task '{task.name}' context_file '{path}' is absolute path")
 
     return errors
 

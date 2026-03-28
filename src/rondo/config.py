@@ -63,6 +63,11 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     results_dir: str = "reports/rondo-results"
     report_dir: str = "reports"
 
+    # -- cost & output control (REQ-100 reqs 078-080)
+    max_budget_usd: float | None = None  # -- req 078: hard cost cap per task
+    json_schema: str = ""  # -- req 079: enforce structured output at CC level
+    dispatch_system_prompt: str = ""  # -- req 080: persistent dispatch context
+
     # -- flags
     bare: bool = False  # -- REQ-100 req 071: add --bare for automated dispatch
     dry_run: bool = False

@@ -1049,4 +1049,49 @@ class TestBuildSubprocessCmd:
         assert cmd[idx + 1] == "dontAsk"
 
 
+# -- REQ-100 reqs 078-080: --max-budget-usd, --json-schema, --system-prompt
+class TestCostOutputControl:
+    """Tests for new CC flags in dispatch command."""
+
+    def test_max_budget_in_cmd(self):
+        """REQ-100 req 078: --max-budget-usd from config."""
+        config = RondoConfig(max_budget_usd=0.50)
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        idx = cmd.index("--max-budget-usd")
+        assert cmd[idx + 1] == "0.5"
+
+    def test_max_budget_absent_when_none(self):
+        """No --max-budget-usd when not configured."""
+        config = RondoConfig()
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--max-budget-usd" not in cmd
+
+    def test_json_schema_in_cmd(self):
+        """REQ-100 req 079: --json-schema from config."""
+        schema = '{"type":"object","properties":{"status":{"type":"string"}}}'
+        config = RondoConfig(json_schema=schema)
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        idx = cmd.index("--json-schema")
+        assert cmd[idx + 1] == schema
+
+    def test_json_schema_absent_when_empty(self):
+        """No --json-schema when not configured."""
+        config = RondoConfig()
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--json-schema" not in cmd
+
+    def test_system_prompt_in_cmd(self):
+        """REQ-100 req 080: --system-prompt from config."""
+        config = RondoConfig(dispatch_system_prompt="You are Rondo.")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        idx = cmd.index("--system-prompt")
+        assert cmd[idx + 1] == "You are Rondo."
+
+    def test_system_prompt_absent_when_empty(self):
+        """No --system-prompt when not configured."""
+        config = RondoConfig()
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--system-prompt" not in cmd
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

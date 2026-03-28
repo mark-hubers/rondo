@@ -628,6 +628,14 @@ def _build_subprocess_cmd(
             cmd.append("--dangerously-skip-permissions")
         # -- "default" adds no flags
 
+    # -- REQ-100 reqs 078-080: cost & output control
+    if config.max_budget_usd is not None:
+        cmd.extend(["--max-budget-usd", str(config.max_budget_usd)])
+    if config.json_schema:
+        cmd.extend(["--json-schema", config.json_schema])
+    if config.dispatch_system_prompt:
+        cmd.extend(["--system-prompt", config.dispatch_system_prompt])
+
     return cmd
 
 

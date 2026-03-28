@@ -101,4 +101,20 @@ class TestCCFlagSpikes:
         )
 
 
+    def test_s9_rondo_can_load_round(self):
+        """S9: Rondo can load and dry-run its own round definitions."""
+        from rondo.engine import Round, Task
+        from rondo.runner import run_round
+        from rondo.config import RondoConfig
+
+        r = Round(
+            name="self-test",
+            tasks=[Task(name="t1", instruction="do", done_when="done")],
+        )
+        config = RondoConfig(dry_run=True)
+        result = run_round(r, config=config)
+        assert result.round_name == "self-test"
+        assert result.task_results[0].status == "skipped"  # dry-run
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.5a1ce1

@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Rondo dispatch — send tasks to Claude via `claude -p`, parse results.
+"""Rondo dispatch — send tasks to Claude via `claude -p`.
 
 Rondo-REQ-100 reqs 12-28, Rondo-STD-108, Rondo-IFS-100, Rondo-STD-110.
 This is the L1 layer: uses engine types (L0) and config settings (L0).
 
-Import direction:
-    engine.py → (no rondo imports)
-    config.py → (no rondo imports)
-    dispatch.py → imports engine + config
+Session 91 Sprint 19: Split into 3 modules (Cursor Finding #144):
+    dispatch_prompt.py — prompt building + constants
+    dispatch_parse.py — JSON extraction + error classification
+    dispatch.py (this) — core subprocess dispatch + env + model
+
+All functions re-exported here for backward compatibility.
 """
 
 from __future__ import annotations

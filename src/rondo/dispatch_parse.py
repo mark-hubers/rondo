@@ -1,0 +1,183 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo dispatch parsing — JSON extraction + error classification.
+
+Rondo-REQ-100 reqs 25-27, Rondo-IFS-100, Rondo-STD-108.
+Extracted from dispatch.py (Session 91 Sprint 19 — Cursor review Finding #144).
+
+Import direction:
+    dispatch_parse.py → imports engine (for DispatchUsage type)
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from typing import Any
+
+from rondo.engine import DispatchUsage
+
+
+def parse_task_json(text: str) -> dict[str, Any] | None:
+    """Extract the last valid JSON block from Claude's text output.
+
+    Looks for JSON blocks in code fences or bare JSON objects.
+    Returns None if no valid JSON found (Rondo-REQ-100 req 26 → "partial").
+    """
+    # -- Try code-fenced JSON blocks first (last one wins)
+    fenced = re.findall(r"```(?:json)?\s*\n(.*?)\n\s*```", text, re.DOTALL)
+    for block in reversed(fenced):
+        try:
+            parsed = json.loads(block.strip())
+            if isinstance(parsed, dict) and "status" in parsed:
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    # -- Try bare JSON objects (last one wins)
+    bare = re.findall(r"\{[^{}]*\}", text)
+    for block in reversed(bare):
+        try:
+            parsed = json.loads(block)
+            if isinstance(parsed, dict) and "status" in parsed:
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    return None
+
+
+def parse_stream_json_events(
+    lines: list[str],
+    task_name: str = "",
+) -> tuple[list[dict[str, Any]], DispatchUsage]:
+    """Parse stream-json output line by line (Rondo-IFS-100 req 1).
+
+    Returns:
+        Tuple of (all_events, dispatch_usage).
+        DispatchUsage has defaults for missing fields (Rondo-IFS-100 req 9).
+    """
+    events: list[dict[str, Any]] = []
+    usage = DispatchUsage(task_name=task_name)
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+        events.append(event)
+        event_type = event.get("type", "")
+
+        # -- rate_limit_event → DispatchUsage rate limit fields (Rondo-IFS-100 req 2)
+        if event_type == "rate_limit_event":
+            info = event.get("rate_limit_info", {})
+            usage = DispatchUsage(
+                task_name=usage.task_name,
+                model=usage.model,
+                cost_usd=usage.cost_usd,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cache_read_tokens=usage.cache_read_tokens,
+                cache_create_tokens=usage.cache_create_tokens,
+                duration_ms=usage.duration_ms,
+                duration_api_ms=usage.duration_api_ms,
+                num_turns=usage.num_turns,
+                context_window=usage.context_window,
+                rate_limit_status=info.get("status", "unknown"),
+                is_using_overage=info.get("isUsingOverage", False),
+                rate_limit_resets_at=info.get("resetsAt", 0),
+            )
+
+        # -- result event → DispatchUsage cost/token/duration (Rondo-IFS-100 req 3)
+        elif event_type == "result":
+            u = event.get("usage", {})
+            model_usage = event.get("modelUsage", {})
+            ctx_window = 0
+            for model_info in model_usage.values():
+                ctx_window = model_info.get("contextWindow", 0)
+                break
+
+            usage = DispatchUsage(
+                task_name=usage.task_name,
+                model=usage.model,
+                cost_usd=event.get("total_cost_usd", 0.0),
+                input_tokens=u.get("input_tokens", 0),
+                output_tokens=u.get("output_tokens", 0),
+                cache_read_tokens=u.get("cache_read_input_tokens", 0),
+                cache_create_tokens=u.get("cache_creation_input_tokens", 0),
+                duration_ms=event.get("duration_ms", 0),
+                duration_api_ms=event.get("duration_api_ms", 0),
+                num_turns=event.get("num_turns", 0),
+                context_window=ctx_window,
+                rate_limit_status=usage.rate_limit_status,
+                is_using_overage=usage.is_using_overage,
+                rate_limit_resets_at=usage.rate_limit_resets_at,
+                budget_exceeded=event.get("subtype") == "error_max_budget_usd",
+            )
+
+    return events, usage
+
+
+def extract_structured_output(events: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Extract result from StructuredOutput tool_use events.
+
+    When --json-schema is used, CC returns a StructuredOutput tool call.
+    Returns the LAST StructuredOutput input dict, or None if not found.
+    Rondo-REQ-100 req 079.
+    """
+    result = None
+    for event in events:
+        if event.get("type") != "assistant":
+            continue
+        message = event.get("message", {})
+        content = message.get("content", [])
+        for block in content:
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "tool_use"
+                and block.get("name") == "StructuredOutput"
+            ):
+                result = block.get("input", {})
+    return result
+
+
+def classify_error(stderr: str) -> str:
+    """Classify error from stderr content (Rondo-STD-108 stderr patterns)."""
+    if not stderr:
+        return "ERR_SUBPROCESS"
+    lower = stderr.lower()
+    if "credit balance is too low" in lower or "invalid api key" in lower:
+        return "ERR_AUTH"
+    if "cannot be launched inside another" in lower:
+        return "ERR_NESTED_SESSION"
+    if "rate limit" in lower or "rate_limit" in lower:
+        return "ERR_RATE_LIMIT"
+    return "ERR_SUBPROCESS"
+
+
+def extract_modified_files(raw_output: str) -> list[str]:
+    """Extract file paths from Claude's output (heuristic).
+
+    Rondo-STD-108: populated by parsing raw_output for file paths.
+    """
+    pattern = (
+        r"(?:^|\s)"
+        r"((?:\./|/)?(?:[\w.-]+/)*[\w.-]+\."
+        r"(?:py|md|toml|json|sql|sh|ts|js|yaml|yml))"
+        r"\b"
+    )
+    matches = re.findall(pattern, raw_output)
+    seen: set[str] = set()
+    result: list[str] = []
+    for m in matches:
+        if m not in seen:
+            seen.add(m)
+            result.append(m)
+    return result
+
+
+# -- sig: mgh-6201.cd.bd955f.e4a1.b2c3d4

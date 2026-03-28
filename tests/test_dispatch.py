@@ -83,6 +83,47 @@ class TestPromptBuilder:
         assert "status" in prompt.lower()
 
 
+# -- REQ-106: context_data in prompt
+class TestContextDataInPrompt:
+    """context_data fields appear in prompt as structured data."""
+
+    def test_context_data_appears_in_prompt(self):
+        """REQ-106 req 001: context_data dict injected into prompt."""
+        task = Task(
+            name="t", instruction="analyze", done_when="done",
+            context_data={"findings": [{"id": 1, "msg": "bad"}]},
+        )
+        prompt = build_prompt(task)
+        assert "Structured Input Data" in prompt
+        assert "findings" in prompt
+
+    def test_context_data_json_formatted(self):
+        """Context data rendered as JSON code blocks."""
+        task = Task(
+            name="t", instruction="do", done_when="done",
+            context_data={"config": {"key": "value"}},
+        )
+        prompt = build_prompt(task)
+        assert "```json" in prompt
+        assert '"key"' in prompt
+
+    def test_large_list_uses_jsonl(self):
+        """REQ-106: lists > 100 items use JSONL format."""
+        big_list = [{"id": i} for i in range(101)]
+        task = Task(
+            name="t", instruction="do", done_when="done",
+            context_data={"items": big_list},
+        )
+        prompt = build_prompt(task)
+        assert "```jsonl" in prompt
+
+    def test_empty_context_data_not_in_prompt(self):
+        """Empty context_data doesn't add section to prompt."""
+        task = Task(name="t", instruction="do", done_when="done")
+        prompt = build_prompt(task)
+        assert "Structured Input Data" not in prompt
+
+
 # ──────────────────────────────────────────────────────────────────
 #  Environment Preparation — REQ-001 reqs 13, 17, 18
 # ──────────────────────────────────────────────────────────────────

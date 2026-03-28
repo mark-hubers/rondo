@@ -120,13 +120,51 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
             result.duration_sec = time.monotonic() - start_time
             return result
 
-    # -- Phase 2: Dispatch tasks sequentially
+    # -- Phase 2: Dispatch tasks sequentially (with circuit breaker — REQ-100 reqs 057-059)
+    consecutive_errors = 0
+    last_error_code = ""
+    breaker_tripped = False
+
     for task in round_def.tasks:
+        # -- Circuit breaker: skip remaining tasks after 3 consecutive same-error
+        if breaker_tripped:
+            task.status = "skipped"
+            result.task_results.append(
+                TaskResult(
+                    task_name=task.name,
+                    status="skipped",
+                    error_message=f"circuit_breaker: halted after 3 consecutive {last_error_code}",
+                    model=config.default_model,
+                    auth_mode=config.auth,
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
+            result.usage.append(DispatchUsage(task_name=task.name))
+            continue
+
         task_result, usage = _dispatch_with_safety_net(task, config)
         task.status = task_result.status
         result.task_results.append(task_result)
         result.usage.append(usage)
         _save_result_safe(task_result, usage, config.results_dir)
+
+        # -- Circuit breaker tracking (REQ-100 req 057-058)
+        if task_result.error_code and task_result.error_code == last_error_code:
+            consecutive_errors += 1
+        elif task_result.error_code:
+            consecutive_errors = 1
+            last_error_code = task_result.error_code
+        else:
+            consecutive_errors = 0
+            last_error_code = ""
+
+        if consecutive_errors >= 3:
+            breaker_tripped = True
+            logger.warning(
+                "Circuit breaker tripped: 3 consecutive %s in round '%s'",
+                last_error_code,
+                round_def.name,
+            )
 
     # -- Phase 3: Post-gates (REQ-001 req 7)
     if round_def.post_gates:

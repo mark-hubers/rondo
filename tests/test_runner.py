@@ -450,4 +450,74 @@ class TestRunnerValidation:
             assert result.status != "error" or "Validation" not in result.summary
 
 
+# -- REQ-100 reqs 057-059: Circuit breaker
+class TestCircuitBreaker:
+    """Circuit breaker halts round after 3 consecutive same dispatch errors."""
+
+    def test_three_consecutive_errors_trips_breaker(self):
+        """REQ-100 req 057: 3 consecutive same-error halts round."""
+        tasks = [Task(name=f"t{i}", instruction="do", done_when="done") for i in range(5)]
+        r = Round(name="cb", tasks=tasks)
+        with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch_error):
+            result = run_round(r, config=SEQ_CONFIG)
+        # -- First 3 tasks error, remaining 2 should be skipped
+        statuses = [tr.status for tr in result.task_results]
+        assert statuses.count("error") == 3
+        assert statuses.count("skipped") == 2
+        assert result.status == "error"
+
+    def test_success_resets_breaker(self):
+        """REQ-100 req 058: success resets consecutive error counter."""
+        call_count = [0]
+
+        def _alternating(task, config, **kw):
+            call_count[0] += 1
+            if call_count[0] % 3 == 0:
+                return _mock_dispatch(task, config, **kw)  # -- success every 3rd
+            return _mock_dispatch_error(task, config, **kw)
+
+        tasks = [Task(name=f"t{i}", instruction="do", done_when="done") for i in range(6)]
+        r = Round(name="cb-reset", tasks=tasks)
+        with patch("rondo.runner.dispatch_task", side_effect=_alternating):
+            result = run_round(r, config=SEQ_CONFIG)
+        # -- No skipped tasks — success resets counter before hitting 3
+        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
+        assert len(skipped) == 0
+
+    def test_skipped_tasks_have_circuit_breaker_reason(self):
+        """REQ-100 req 059: skipped tasks get reason 'circuit_breaker'."""
+        tasks = [Task(name=f"t{i}", instruction="do", done_when="done") for i in range(5)]
+        r = Round(name="cb-reason", tasks=tasks)
+        with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch_error):
+            result = run_round(r, config=SEQ_CONFIG)
+        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
+        for tr in skipped:
+            assert "circuit_breaker" in tr.error_message
+
+    def test_different_errors_dont_trip_breaker(self):
+        """REQ-100 req 058: only SAME error code counts as consecutive."""
+        call_count = [0]
+        error_codes = ["ERR_AUTH", "ERR_SUBPROCESS", "ERR_TIMEOUT", "ERR_AUTH", "ERR_SUBPROCESS"]
+
+        def _different_errors(task, config, **kw):
+            code = error_codes[call_count[0] % len(error_codes)]
+            call_count[0] += 1
+            return (
+                TaskResult(
+                    task_name=task.name, status="error", error_code=code,
+                    error_message=f"fail: {code}", raw_output="", model="sonnet",
+                    auth_mode="max", timestamp="2026-03-14T00:00:00Z",
+                ),
+                DispatchUsage(task_name=task.name, model="sonnet"),
+            )
+
+        tasks = [Task(name=f"t{i}", instruction="do", done_when="done") for i in range(5)]
+        r = Round(name="cb-diff", tasks=tasks)
+        with patch("rondo.runner.dispatch_task", side_effect=_different_errors):
+            result = run_round(r, config=SEQ_CONFIG)
+        # -- All 5 should run (different errors, never 3 consecutive same)
+        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
+        assert len(skipped) == 0
+
+
 # -- sig: mgh-6201.cd.bd955f.d451.a88884

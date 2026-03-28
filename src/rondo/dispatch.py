@@ -293,6 +293,32 @@ def parse_stream_json_events(
     return events, usage
 
 
+def extract_structured_output(events: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Extract result from StructuredOutput tool_use events.
+
+    When --json-schema is used, CC returns a StructuredOutput tool call
+    with the result matching the schema. This is more reliable than
+    parsing JSON from freeform text.
+
+    Returns the LAST StructuredOutput input dict, or None if not found.
+    Rondo-REQ-100 req 079.
+    """
+    result = None
+    for event in events:
+        if event.get("type") != "assistant":
+            continue
+        message = event.get("message", {})
+        content = message.get("content", [])
+        for block in content:
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "tool_use"
+                and block.get("name") == "StructuredOutput"
+            ):
+                result = block.get("input", {})
+    return result
+
+
 def _collect_assistant_text(events: list[dict[str, Any]]) -> str:
     """Extract concatenated assistant text from stream-json events."""
     parts: list[str] = []
@@ -746,8 +772,12 @@ def _parse_and_build_result(
         rate_limit_resets_at=usage.rate_limit_resets_at,
     )
 
-    assistant_text = _collect_assistant_text(events)
-    parsed = parse_task_json(assistant_text)
+    # -- Rondo-REQ-100 req 079: prefer StructuredOutput over text JSON parsing
+    parsed = extract_structured_output(events)
+    if parsed is None:
+        # -- Fallback: parse JSON from assistant text (pre-json-schema path)
+        assistant_text = _collect_assistant_text(events)
+        parsed = parse_task_json(assistant_text)
 
     if parsed is not None:
         task_status = parsed.get("status", "done")

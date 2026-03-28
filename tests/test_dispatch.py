@@ -1135,4 +1135,66 @@ class TestCCVersionDetection:
         assert "--bare" in cmd
 
 
+# -- Rondo-REQ-100 req 079: StructuredOutput parsing from --json-schema
+class TestStructuredOutputParsing:
+    """When --json-schema is used, CC returns StructuredOutput tool calls."""
+
+    def test_extract_structured_output_found(self):
+        """Extracts input dict from StructuredOutput tool_use event."""
+        from rondo.dispatch import extract_structured_output
+
+        events = [
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "StructuredOutput",
+                 "input": {"status": "done", "result": "all good"}}
+            ]}},
+        ]
+        result = extract_structured_output(events)
+        assert result == {"status": "done", "result": "all good"}
+
+    def test_extract_structured_output_not_found(self):
+        """Returns None when no StructuredOutput in events."""
+        from rondo.dispatch import extract_structured_output
+
+        events = [
+            {"type": "assistant", "message": {"content": [
+                {"type": "text", "text": "hello"}
+            ]}},
+        ]
+        result = extract_structured_output(events)
+        assert result is None
+
+    def test_extract_structured_output_multiple_events(self):
+        """Uses LAST StructuredOutput if multiple exist."""
+        from rondo.dispatch import extract_structured_output
+
+        events = [
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "StructuredOutput",
+                 "input": {"status": "error", "result": "first try"}}
+            ]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "StructuredOutput",
+                 "input": {"status": "done", "result": "second try"}}
+            ]}},
+        ]
+        result = extract_structured_output(events)
+        assert result["status"] == "done"
+
+    def test_structured_output_preferred_over_text_parsing(self):
+        """When both structured and text JSON exist, structured wins."""
+        from rondo.dispatch import extract_structured_output
+
+        # Event has both text with JSON and a StructuredOutput tool call
+        events = [
+            {"type": "assistant", "message": {"content": [
+                {"type": "text", "text": '```json\n{"status":"error"}\n```'},
+                {"type": "tool_use", "name": "StructuredOutput",
+                 "input": {"status": "done", "result": "structured wins"}}
+            ]}},
+        ]
+        result = extract_structured_output(events)
+        assert result["status"] == "done"
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

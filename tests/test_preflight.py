@@ -120,6 +120,53 @@ class TestAuthCheck:
         assert "api key" not in " ".join(result.errors).lower()
 
 
+class TestDiskSpaceCheck:
+    """REQ-103 req 008: disk space > 500MB free."""
+
+    def test_enough_disk_space(self):
+        """500MB+ free = passes."""
+        import rondo.preflight
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch.object(rondo.preflight.shutil, "disk_usage", return_value=(int(1e12), int(5e11), int(1e9))),
+        ):
+            result = run_preflight()
+        assert not any("disk" in w.lower() for w in result.warnings)
+
+    def test_low_disk_space(self):
+        """< 500MB free = YELLOW warning."""
+        import rondo.preflight
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch.object(rondo.preflight.shutil, "disk_usage", return_value=(int(1e12), int(9.9e11), int(1e8))),
+        ):
+            result = run_preflight()
+        assert any("disk" in w.lower() for w in result.warnings)
+
+
+class TestGitCheck:
+    """REQ-103 req 009: git available."""
+
+    def test_git_available(self):
+        """git on PATH = passes."""
+        with patch("shutil.which", side_effect=lambda x: "/usr/bin/git" if x == "git" else "/usr/local/bin/claude"):
+            result = run_preflight()
+        assert not any("git" in w.lower() for w in result.warnings)
+
+    def test_git_missing(self):
+        """git not on PATH = YELLOW warning (not RED — git is SHOULD, not MUST)."""
+        def _which(name: str) -> str | None:
+            if name == "git":
+                return None
+            return "/usr/local/bin/claude"
+
+        with patch("shutil.which", side_effect=_which):
+            result = run_preflight()
+        assert any("git" in w.lower() for w in result.warnings)
+
+
 class TestPreflightPerformance:
     """REQ-103 req 002: preflight < 3 seconds."""
 

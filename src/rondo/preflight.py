@@ -66,6 +66,12 @@ def run_preflight(
     # -- REQ-103 req 005: API key / auth
     _check_auth(result, config)
 
+    # -- REQ-103 req 008: disk space
+    _check_disk_space(result)
+
+    # -- REQ-103 req 009: git available
+    _check_git(result)
+
     # -- Calculate final status
     if result.errors:
         result.status = "RED"
@@ -117,6 +123,34 @@ def _check_auth(result: PreflightResult, config: RondoConfig) -> None:
     else:
         result.warnings.append(
             f"Unknown auth mode '{config.auth}' — expected 'max' or 'api'"
+        )
+
+
+_MIN_DISK_MB = 500
+
+
+def _check_disk_space(result: PreflightResult) -> None:
+    """REQ-103 req 008: disk space > 500MB free (SHOULD)."""
+    try:
+        total, used, free = shutil.disk_usage(".")
+        free_mb = free / (1024 * 1024)
+        if free_mb < _MIN_DISK_MB:
+            result.warnings.append(
+                f"Low disk space: {free_mb:.0f}MB free (need {_MIN_DISK_MB}MB for worktrees)"
+            )
+        else:
+            result.checks.append(f"Disk space: {free_mb:.0f}MB free")
+    except OSError:
+        result.warnings.append("Could not check disk space")
+
+
+def _check_git(result: PreflightResult) -> None:
+    """REQ-103 req 009: git available (SHOULD)."""
+    if shutil.which("git"):
+        result.checks.append("git available")
+    else:
+        result.warnings.append(
+            "git not found on PATH — worktree operations will fail"
         )
 
 

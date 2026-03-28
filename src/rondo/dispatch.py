@@ -669,6 +669,9 @@ def _build_subprocess_cmd(
     if config.dispatch_system_prompt:
         cmd.extend(["--system-prompt", config.dispatch_system_prompt])
 
+    # -- Rondo-REQ-100 req 081: don't clutter CC session store with ephemeral dispatches
+    cmd.append("--no-session-persistence")
+
     return cmd
 
 

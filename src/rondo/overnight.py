@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo overnight — phase scheduler, watchdog response, usage gating.
 
-REQ-002 reqs 10-28.
+Rondo-REQ-101 reqs 10-28.
 This is the L3 layer: orchestrates run_round (L2) across phases.
 
 Import direction:
@@ -56,12 +56,12 @@ class OvernightResult:  # pylint: disable=too-many-instance-attributes
 
 
 # ──────────────────────────────────────────────────────────────────
-#  EventLog — rolling 100-entry JSON file (REQ-002 req 18)
+#  EventLog — rolling 100-entry JSON file (Rondo-REQ-101 req 18)
 # ──────────────────────────────────────────────────────────────────
 
 
 class EventLog:
-    """Rolling event log — keeps last 100 entries (REQ-002 req 18)."""
+    """Rolling event log — keeps last 100 entries (Rondo-REQ-101 req 18)."""
 
     MAX_ENTRIES = 100
 
@@ -98,7 +98,7 @@ class EventLog:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Usage gating — REQ-002 reqs 24-28
+#  Usage gating — Rondo-REQ-101 reqs 24-28
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -108,9 +108,9 @@ def check_usage_gate(
 ) -> str:
     """Check rate limit status and return action.
 
-    REQ-002 req 24: check most recent rate_limit_event.
-    REQ-002 req 25: overage action (continue/pause/stop).
-    REQ-002 req 26: blocked status → blocked action.
+    Rondo-REQ-101 req 24: check most recent rate_limit_event.
+    Rondo-REQ-101 req 25: overage action (continue/pause/stop).
+    Rondo-REQ-101 req 26: blocked status → blocked action.
 
     Returns:
         "continue" — proceed normally
@@ -118,11 +118,11 @@ def check_usage_gate(
         "pause" — wait for rate limit reset
         "blocked" — rate limit blocked (must wait)
     """
-    # -- REQ-002 req 26: blocked status always blocks
+    # -- Rondo-REQ-101 req 26: blocked status always blocks
     if usage.rate_limit_status == "blocked":
         return "blocked"
 
-    # -- REQ-002 req 25: overage check
+    # -- Rondo-REQ-101 req 25: overage check
     if usage.is_using_overage:
         return on_overage
 
@@ -130,7 +130,7 @@ def check_usage_gate(
 
 
 # ──────────────────────────────────────────────────────────────────
-#  run_overnight() — REQ-002 reqs 10-28
+#  run_overnight() — Rondo-REQ-101 reqs 10-28
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -144,11 +144,11 @@ def run_overnight(
 ) -> OvernightResult:
     """Execute overnight automation: phases → usage gating → event logging.
 
-    REQ-002 req 10: accept list of round definitions.
-    REQ-002 req 11: phases execute sequentially.
-    REQ-002 req 12: phase failure doesn't block next.
-    REQ-002 req 13-15: mode selects which phases run.
-    REQ-002 req 17: start/end events logged.
+    Rondo-REQ-101 req 10: accept list of round definitions.
+    Rondo-REQ-101 req 11: phases execute sequentially.
+    Rondo-REQ-101 req 12: phase failure doesn't block next.
+    Rondo-REQ-101 req 13-15: mode selects which phases run.
+    Rondo-REQ-101 req 17: start/end events logged.
     """
     started_at = datetime.now(UTC).isoformat()
     start_time = time.monotonic()
@@ -159,7 +159,7 @@ def run_overnight(
         started_at=started_at,
     )
 
-    # -- Log start event (REQ-002 req 17)
+    # -- Log start event (Rondo-REQ-101 req 17)
     event_log.append(
         {
             "type": "start_overnight",
@@ -168,19 +168,19 @@ def run_overnight(
         }
     )
 
-    # -- Filter phases by mode (REQ-002 reqs 13-15)
+    # -- Filter phases by mode (Rondo-REQ-101 reqs 13-15)
     active_phases = _filter_phases(phases, mode, modes)
 
-    # -- Execute phases sequentially (REQ-002 reqs 11-12)
+    # -- Execute phases sequentially (Rondo-REQ-101 reqs 11-12)
     last_usage: DispatchUsage | None = None
     stopped = False
 
     for phase in active_phases:
-        # -- Pre-phase usage gate (REQ-002 reqs 24-28)
+        # -- Pre-phase usage gate (Rondo-REQ-101 reqs 24-28)
         if last_usage is not None:
             gate_action = check_usage_gate(last_usage, on_overage=config.on_overage)
 
-            # -- Log usage gate decision (REQ-002 req 28)
+            # -- Log usage gate decision (Rondo-REQ-101 req 28)
             event_log.append(
                 {
                     "type": "usage_gate",
@@ -196,7 +196,7 @@ def run_overnight(
                 stopped = True
                 break
             if gate_action == "blocked":
-                # -- REQ-002 req 26: wait for reset
+                # -- Rondo-REQ-101 req 26: wait for reset
                 if last_usage.rate_limit_resets_at > 0:
                     wait_sec = max(0, last_usage.rate_limit_resets_at - time.time())
                     if wait_sec > 0:
@@ -211,7 +211,7 @@ def run_overnight(
             }
         )
 
-        # -- Execute phase (REQ-002 req 12: failure isolation)
+        # -- Execute phase (Rondo-REQ-101 req 12: failure isolation)
         try:
             phase_result = run_round(phase, config=config)
         except (OSError, ValueError, RuntimeError, TypeError) as exc:
@@ -236,10 +236,10 @@ def run_overnight(
             }
         )
 
-        # -- Check for watchdog errors and log them (REQ-002 req 23)
+        # -- Check for watchdog errors and log them (Rondo-REQ-101 req 23)
         _log_watchdog_events(phase_result, event_log)
 
-        # -- Check for rate limit errors → backoff (REQ-002 req 22)
+        # -- Check for rate limit errors → backoff (Rondo-REQ-101 req 22)
         if _has_rate_limit_error(phase_result):
             event_log.append(
                 {
@@ -271,7 +271,7 @@ def run_overnight(
     result.completed_at = datetime.now(UTC).isoformat()
     result.duration_sec = time.monotonic() - start_time
 
-    # -- Log end event (REQ-002 req 17)
+    # -- Log end event (Rondo-REQ-101 req 17)
     event_log.append(
         {
             "type": "end_overnight",
@@ -302,8 +302,8 @@ def _filter_phases(
 ) -> list[Round]:
     """Filter phases based on mode selection.
 
-    REQ-002 req 13: mode selects which phases run.
-    REQ-002 req 15: no mode → all phases.
+    Rondo-REQ-101 req 13: mode selects which phases run.
+    Rondo-REQ-101 req 15: no mode → all phases.
     """
     if mode is None or modes is None:
         return phases
@@ -334,7 +334,7 @@ def _has_rate_limit_error(phase_result: RoundResult) -> bool:
 
 
 def _log_watchdog_events(phase_result: RoundResult, event_log: EventLog) -> None:
-    """Log any watchdog timeout errors from phase results (REQ-002 req 23)."""
+    """Log any watchdog timeout errors from phase results (Rondo-REQ-101 req 23)."""
     for tr in phase_result.task_results:
         if tr.error_code == "ERR_WATCHDOG_TIMEOUT":
             event_log.append(

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.cli — REQ-001 reqs 36-41.
+"""Tests for rondo.cli — Rondo-REQ-100 reqs 36-41.
 
 VER-001 verification matrix: CLI entry point, subcommands, flags.
 TDD: tests written BEFORE cli.py exists.
@@ -70,13 +70,13 @@ def _write_round_file(tmp_path, content=None):
 
 
 # ──────────────────────────────────────────────────────────────────
-#  CLI entry point — REQ-001 req 36
+#  CLI entry point — Rondo-REQ-100 req 36
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestCliEntryPoint:
     def test_parser_exists(self):
-        """REQ-001 req 36: CLI entry point exists."""
+        """Rondo-REQ-100 req 36: CLI entry point exists."""
         parser = build_parser()
         assert parser is not None
 
@@ -89,38 +89,38 @@ class TestCliEntryPoint:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Subcommands — REQ-001 req 37
+#  Subcommands — Rondo-REQ-100 req 37
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestSubcommands:
     def test_run_subcommand(self):
-        """REQ-001 req 37: 'run' subcommand exists."""
+        """Rondo-REQ-100 req 37: 'run' subcommand exists."""
         parser = build_parser()
         args = parser.parse_args(["run", "path/to/round.py"])
         assert args.command == "run"
 
     def test_overnight_subcommand(self):
-        """REQ-001 req 37: 'overnight' subcommand exists."""
+        """Rondo-REQ-100 req 37: 'overnight' subcommand exists."""
         parser = build_parser()
         args = parser.parse_args(["overnight", "path/to/phases.py"])
         assert args.command == "overnight"
 
     def test_report_subcommand(self):
-        """REQ-001 req 37: 'report' subcommand exists."""
+        """Rondo-REQ-100 req 37: 'report' subcommand exists."""
         parser = build_parser()
         args = parser.parse_args(["report", "path/to/results/"])
         assert args.command == "report"
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Run with file — REQ-001 req 38
+#  Run with file — Rondo-REQ-100 req 38
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestRunWithFile:
     def test_run_accepts_file_path(self):
-        """REQ-001 req 38: run accepts round definition file."""
+        """Rondo-REQ-100 req 38: run accepts round definition file."""
         parser = build_parser()
         args = parser.parse_args(["run", "rounds/my_round.py"])
         assert args.file == "rounds/my_round.py"
@@ -133,13 +133,13 @@ class TestRunWithFile:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dynamic loading — REQ-001 req 39
+#  Dynamic loading — Rondo-REQ-100 req 39
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestDynamicImport:
     def test_load_round_file(self, tmp_path):
-        """REQ-001 req 39: load round definition from file."""
+        """Rondo-REQ-100 req 39: load round definition from file."""
         filepath = _write_round_file(tmp_path)
         round_def = load_round_file(filepath)
         assert isinstance(round_def, Round)
@@ -167,7 +167,7 @@ class TestDynamicImport:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  CLI flags — REQ-001 req 41
+#  CLI flags — Rondo-REQ-100 req 41
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -203,7 +203,7 @@ class TestCliFlags:
         assert args.config == "rondo.toml"
 
     def test_dry_run_flag(self):
-        """REQ-001 req 16: --dry-run flag."""
+        """Rondo-REQ-100 req 16: --dry-run flag."""
         parser = build_parser()
         args = parser.parse_args(["run", "file.py", "--dry-run"])
         assert args.dry_run is True
@@ -240,7 +240,7 @@ class TestCliFlags:
         assert args.on_overage == "stop"
 
     def test_permission_mode_flag(self):
-        """REQ-001 req 48: --permission-mode flag parsed."""
+        """Rondo-REQ-100 req 48: --permission-mode flag parsed."""
         parser = build_parser()
         args = parser.parse_args(["run", "file.py", "--permission-mode", "bypassPermissions"])
         assert args.permission_mode == "bypassPermissions"
@@ -301,7 +301,7 @@ class TestMainIntegration:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Exit code contract — REQ-001 req 36
+#  Exit code contract — Rondo-REQ-100 req 36
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -384,7 +384,7 @@ class TestRunnerValidation:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dynamic loading — load_phases_file() (REQ-001 req 39)
+#  Dynamic loading — load_phases_file() (Rondo-REQ-100 req 39)
 # ──────────────────────────────────────────────────────────────────
 
 

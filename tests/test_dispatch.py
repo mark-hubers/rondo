@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.dispatch — REQ-001 reqs 12-28, STD-001, ACE-IFS-001, STD-003.
+"""Tests for rondo.dispatch — Rondo-REQ-100 reqs 12-28, Rondo-STD-108, Rondo-IFS-100, Rondo-STD-110.
 
 VER-001 verification matrix: every test maps to a numbered requirement.
 TDD: these tests are written BEFORE dispatch.py exists.
@@ -34,7 +34,7 @@ from rondo.dispatch import (
 from rondo.engine import DispatchUsage, Task, TaskResult
 
 # ──────────────────────────────────────────────────────────────────
-#  Prompt Building — REQ-001 req 12, 24
+#  Prompt Building — Rondo-REQ-100 req 12, 24
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -71,7 +71,7 @@ class TestPromptBuilder:
         assert "A quick check" in prompt
 
     def test_prompt_requests_json_output(self):
-        """REQ-001 req 24: prompt instructs Claude to return JSON."""
+        """Rondo-REQ-100 req 24: prompt instructs Claude to return JSON."""
         task = Task(name="t", instruction="do", done_when="done")
         prompt = build_prompt(task)
         assert "json" in prompt.lower() or "JSON" in prompt
@@ -125,27 +125,27 @@ class TestContextDataInPrompt:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Environment Preparation — REQ-001 reqs 13, 17, 18
+#  Environment Preparation — Rondo-REQ-100 reqs 13, 17, 18
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestEnvPrep:
     def test_claudecode_stripped(self):
-        """REQ-001 req 13: CLAUDECODE removed from child env."""
+        """Rondo-REQ-100 req 13: CLAUDECODE removed from child env."""
         config = RondoConfig(auth="max")
         with patch.dict(os.environ, {"CLAUDECODE": "1", "HOME": "/home/user"}):
             env = prepare_env(config)
             assert "CLAUDECODE" not in env
 
     def test_auth_max_strips_api_key(self):
-        """REQ-001 req 17: auth=max strips ANTHROPIC_API_KEY."""
+        """Rondo-REQ-100 req 17: auth=max strips ANTHROPIC_API_KEY."""
         config = RondoConfig(auth="max")
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret", "HOME": "/home"}):
             env = prepare_env(config)
             assert "ANTHROPIC_API_KEY" not in env
 
     def test_auth_api_keeps_api_key(self):
-        """REQ-001 req 18: auth=api keeps ANTHROPIC_API_KEY."""
+        """Rondo-REQ-100 req 18: auth=api keeps ANTHROPIC_API_KEY."""
         config = RondoConfig(auth="api")
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret", "HOME": "/home"}):
             env = prepare_env(config)
@@ -159,25 +159,25 @@ class TestEnvPrep:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Model Resolution — REQ-001 reqs 20, 21, 22, 23
+#  Model Resolution — Rondo-REQ-100 reqs 20, 21, 22, 23
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestModelResolution:
     def test_model_default_sonnet(self):
-        """REQ-001 req 22: default model is sonnet."""
+        """Rondo-REQ-100 req 22: default model is sonnet."""
         task = Task(name="t")
         config = RondoConfig()
         assert resolve_model(None, task, config) == "sonnet"
 
     def test_model_from_task_hint(self):
-        """REQ-001 req 23: task.model used when no CLI override."""
+        """Rondo-REQ-100 req 23: task.model used when no CLI override."""
         task = Task(name="t", model="opus")
         config = RondoConfig()
         assert resolve_model(None, task, config) == "opus"
 
     def test_model_cli_overrides_task(self):
-        """REQ-001 req 21: CLI override wins over task hint."""
+        """Rondo-REQ-100 req 21: CLI override wins over task hint."""
         task = Task(name="t", model="haiku")
         config = RondoConfig()
         assert resolve_model("opus", task, config) == "opus"
@@ -195,20 +195,20 @@ class TestModelResolution:
         assert resolve_model(None, task, config) == "haiku"
 
     def test_model_1m_variant(self):
-        """ACE-IFS-001 req 10: 1M context model suffix accepted."""
+        """Rondo-IFS-100 req 10: 1M context model suffix accepted."""
         task = Task(name="t", model="opus[1m]")
         config = RondoConfig()
         assert resolve_model(None, task, config) == "opus[1m]"
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Task JSON Parsing — REQ-001 reqs 25, 26
+#  Task JSON Parsing — Rondo-REQ-100 reqs 25, 26
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestTaskJsonParsing:
     def test_valid_json_parsed(self):
-        """REQ-001 req 25: valid JSON extracted and returned."""
+        """Rondo-REQ-100 req 25: valid JSON extracted and returned."""
         text = (
             'Here is the result:\n```json\n{"status": "done", "confidence": 0.9, "result": "ok", "question": ""}\n```'
         )
@@ -225,7 +225,7 @@ class TestTaskJsonParsing:
         assert parsed["status"] == "done"
 
     def test_malformed_json_returns_none(self):
-        """REQ-001 req 26: malformed JSON returns None."""
+        """Rondo-REQ-100 req 26: malformed JSON returns None."""
         text = "This is not JSON at all, just regular text output."
         parsed = parse_task_json(text)
         assert parsed is None
@@ -258,7 +258,7 @@ class TestTaskJsonParsing:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Error Classification — STD-001 error categories
+#  Error Classification — Rondo-STD-108 error categories
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -286,7 +286,7 @@ class TestErrorClassification:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Stream-JSON Parsing — ACE-IFS-001 reqs 1-9
+#  Stream-JSON Parsing — Rondo-IFS-100 reqs 1-9
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -375,19 +375,19 @@ class TestStreamJsonParsing:
         return "\n".join(lines)
 
     def test_parse_lines(self):
-        """ACE-IFS-001 req 1: reads stream-json line by line."""
+        """Rondo-IFS-100 req 1: reads stream-json line by line."""
         raw = self._make_stream_output()
         events, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert len(events) >= 3  # -- init, rate_limit, assistant, result
 
     def test_rate_limit_extraction(self):
-        """ACE-IFS-001 req 2: rate_limit_event populates DispatchUsage."""
+        """Rondo-IFS-100 req 2: rate_limit_event populates DispatchUsage."""
         raw = self._make_stream_output(rate_status="allowed", is_overage=False)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.rate_limit_status == "allowed"
 
     def test_result_metadata_extraction(self):
-        """ACE-IFS-001 req 3: result event populates cost/token/duration."""
+        """Rondo-IFS-100 req 3: result event populates cost/token/duration."""
         raw = self._make_stream_output(cost=0.12, input_tokens=500, output_tokens=300)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.cost_usd == 0.12
@@ -395,7 +395,7 @@ class TestStreamJsonParsing:
         assert usage.output_tokens == 300
 
     def test_init_event_extraction(self):
-        """ACE-IFS-001 req 4: system:init model extracted."""
+        """Rondo-IFS-100 req 4: system:init model extracted."""
         raw = self._make_stream_output(model="claude-opus-4-6")
         events, _ = parse_stream_json_events(raw.split("\n"), task_name="t")
         init_events = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
@@ -403,26 +403,26 @@ class TestStreamJsonParsing:
         assert init_events[0]["model"] == "claude-opus-4-6"
 
     def test_overage_flag(self):
-        """ACE-IFS-001 req 6: isUsingOverage captured."""
+        """Rondo-IFS-100 req 6: isUsingOverage captured."""
         raw = self._make_stream_output(is_overage=True)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.is_using_overage is True
 
     def test_cost_capture(self):
-        """ACE-IFS-001 req 7: total_cost_usd captured."""
+        """Rondo-IFS-100 req 7: total_cost_usd captured."""
         raw = self._make_stream_output(cost=0.25)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.cost_usd == 0.25
 
     def test_duration_capture(self):
-        """ACE-IFS-001 req 8: duration_ms captured."""
+        """Rondo-IFS-100 req 8: duration_ms captured."""
         raw = self._make_stream_output(duration_ms=12345, duration_api_ms=11000)
         _, usage = parse_stream_json_events(raw.split("\n"), task_name="t")
         assert usage.duration_ms == 12345
         assert usage.duration_api_ms == 11000
 
     def test_missing_rate_limit(self):
-        """ACE-IFS-001 req 9: missing rate_limit_event uses defaults."""
+        """Rondo-IFS-100 req 9: missing rate_limit_event uses defaults."""
         # -- Build output WITHOUT rate_limit_event
         lines = [
             json.dumps({"type": "system", "subtype": "init", "model": "claude-sonnet-4-6"}),
@@ -471,7 +471,7 @@ class TestStreamJsonParsing:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  File Extraction — STD-001 files_modified
+#  File Extraction — Rondo-STD-108 files_modified
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -501,13 +501,13 @@ class TestFileExtraction:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Credential Sanitization — STD-001 rule 8
+#  Credential Sanitization — Rondo-STD-108 rule 8
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestCredentialSanitization:
     def test_api_key_not_in_saved_result(self, tmp_path):
-        """STD-001 rule 8: API keys never in result files."""
+        """Rondo-STD-108 rule 8: API keys never in result files."""
         result = TaskResult(
             task_name="t",
             status="done",
@@ -526,13 +526,13 @@ class TestCredentialSanitization:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Result Saving — REQ-001 req 15, STD-003 S5, R2
+#  Result Saving — Rondo-REQ-100 req 15, Rondo-STD-110 S5, R2
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestResultSaving:
     def test_result_saved_to_json(self, tmp_path):
-        """REQ-001 req 15: result saved to JSON file."""
+        """Rondo-REQ-100 req 15: result saved to JSON file."""
         result = TaskResult(
             task_name="my-task",
             status="done",
@@ -551,7 +551,7 @@ class TestResultSaving:
         assert data["status"] == "done"
 
     def test_result_file_permissions(self, tmp_path):
-        """STD-003 S5: result files have restrictive permissions (0o600)."""
+        """Rondo-STD-110 S5: result files have restrictive permissions (0o600)."""
         result = TaskResult(
             task_name="t",
             status="done",
@@ -568,7 +568,7 @@ class TestResultSaving:
         assert mode == "600"
 
     def test_output_truncation(self, tmp_path):
-        """STD-003 R2: output bounded at 1MB."""
+        """Rondo-STD-110 R2: output bounded at 1MB."""
         big_output = "x" * (2 * 1024 * 1024)  # -- 2MB
         result = TaskResult(
             task_name="t",
@@ -587,7 +587,7 @@ class TestResultSaving:
         assert len(data["raw_output"]) <= 1024 * 1024 + 100  # -- 1MB + margin for truncation note
 
     def test_result_includes_metadata(self, tmp_path):
-        """REQ-001 req 28: result includes task_name, status, model, auth, duration, timestamp."""
+        """Rondo-REQ-100 req 28: result includes task_name, status, model, auth, duration, timestamp."""
         result = TaskResult(
             task_name="check",
             status="done",
@@ -611,13 +611,13 @@ class TestResultSaving:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dry Run — REQ-001 req 16
+#  Dry Run — Rondo-REQ-100 req 16
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestDryRun:
     def test_dry_run_returns_prompt(self):
-        """REQ-001 req 16: dry-run shows prompt without invoking."""
+        """Rondo-REQ-100 req 16: dry-run shows prompt without invoking."""
         task = Task(name="t", instruction="Check spec", done_when="List found")
         config = RondoConfig(dry_run=True)
         result, usage = dispatch_task(task, config)
@@ -635,7 +635,7 @@ class TestDryRun:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Auto Task Dispatch — REQ-001 req 4
+#  Auto Task Dispatch — Rondo-REQ-100 req 4
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -678,7 +678,7 @@ class TestAutoTaskDispatch:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dispatch Integration (mocked subprocess) — REQ-001 reqs 12-14, 27
+#  Dispatch Integration (mocked subprocess) — Rondo-REQ-100 reqs 12-14, 27
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -692,7 +692,7 @@ class TestDispatchIntegration:
         return mock_proc
 
     def test_subprocess_command_has_claude_p(self):
-        """REQ-001 req 12: invokes claude -p."""
+        """Rondo-REQ-100 req 12: invokes claude -p."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()
         mock_proc = self._mock_popen(
@@ -721,7 +721,7 @@ class TestDispatchIntegration:
             assert "-p" in call_args
 
     def test_model_flag_passed(self):
-        """REQ-001 req 20: --model passed to subprocess."""
+        """Rondo-REQ-100 req 20: --model passed to subprocess."""
         task = Task(name="t", instruction="do", done_when="done", model="opus")
         config = RondoConfig()
         mock_proc = self._mock_popen(
@@ -751,7 +751,7 @@ class TestDispatchIntegration:
             assert call_args[model_idx + 1] == "opus"
 
     def test_permission_mode_passed(self):
-        """REQ-001 req 47: --permission-mode passed to subprocess."""
+        """Rondo-REQ-100 req 47: --permission-mode passed to subprocess."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig(permission_mode="bypassPermissions")
         mock_proc = self._mock_popen(
@@ -781,7 +781,7 @@ class TestDispatchIntegration:
             assert call_args[perm_idx + 1] == "bypassPermissions"
 
     def test_permission_mode_default_auto(self):
-        """REQ-001 req 48: default permission_mode 'auto' is passed."""
+        """Rondo-REQ-100 req 48: default permission_mode 'auto' is passed."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()  # -- default permission_mode="auto"
         mock_proc = self._mock_popen(
@@ -811,7 +811,7 @@ class TestDispatchIntegration:
             assert call_args[perm_idx + 1] == "auto"
 
     def test_error_exit_code(self):
-        """REQ-001 req 27: exit code != 0 → status error."""
+        """Rondo-REQ-100 req 27: exit code != 0 → status error."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()
         mock_proc = self._mock_popen(stdout="", stderr="Something failed", returncode=1)
@@ -821,7 +821,7 @@ class TestDispatchIntegration:
             assert result.exit_code == 1
 
     def test_empty_stdout_error(self):
-        """STD-001: empty stdout → ERR_EMPTY_OUTPUT."""
+        """Rondo-STD-108: empty stdout → ERR_EMPTY_OUTPUT."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()
         mock_proc = self._mock_popen(stdout="", stderr="", returncode=0)
@@ -831,7 +831,7 @@ class TestDispatchIntegration:
             assert result.error_code == "ERR_EMPTY_OUTPUT"
 
     def test_malformed_json_partial(self):
-        """REQ-001 req 26: malformed JSON → status partial."""
+        """Rondo-REQ-100 req 26: malformed JSON → status partial."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()
         # -- Non-JSON assistant output
@@ -869,7 +869,7 @@ class TestDispatchIntegration:
             assert "I did the work" in result.raw_output
 
     def test_result_capture_fields(self):
-        """REQ-001 req 14: captures stdout, stderr, exit code, duration."""
+        """Rondo-REQ-100 req 14: captures stdout, stderr, exit code, duration."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig()
         stream_lines = [

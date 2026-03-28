@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: MIT
 """Rondo engine — data model, state machine, gate execution, serialization.
 
-REQ-001 reqs 1-11, 23, 29, 31, 46.
+Rondo-REQ-100 reqs 1-11, 23, 29, 31, 46.
 All dataclasses live here. Other modules (dispatch, runner, parallel)
 import types from engine — never the other way around.
 
-Status vocabulary (shared with STD-001):
+Status vocabulary (shared with Rondo-STD-108):
     done, blocked, partial, error, skipped  (terminal)
     pending, in_progress                    (non-terminal)
 """
@@ -17,25 +17,25 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-# -- Status constants (REQ-001 req 8)
+# -- Status constants (Rondo-REQ-100 req 8)
 TERMINAL_STATES: set[str] = {"done", "blocked", "partial", "error", "skipped"}
 VALID_STATES: set[str] = {"pending", "in_progress"} | TERMINAL_STATES
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dataclasses — REQ-001 reqs 1-5, STD-001, REQ-001 Data Boundary
+#  Dataclasses — Rondo-REQ-100 reqs 1-5, Rondo-STD-108, Rondo-REQ-100 Data Boundary
 # ──────────────────────────────────────────────────────────────────
 
 
 @dataclass
 class Task:  # pylint: disable=too-many-instance-attributes
-    """A single unit of AI work (REQ-001 req 2)."""
+    """A single unit of AI work (Rondo-REQ-100 req 2)."""
 
     # -- identity
     name: str  # -- unique within round
     description: str = ""  # -- brief human summary
 
-    # -- three-field contract (interactive tasks — REQ-001 req 3)
+    # -- three-field contract (interactive tasks — Rondo-REQ-100 req 3)
     instruction: str = ""  # -- Do: what Claude should do
     context_files: list[str] = field(default_factory=list)  # -- Read: files for context
     done_when: str = ""  # -- Done: completion criteria
@@ -43,16 +43,16 @@ class Task:  # pylint: disable=too-many-instance-attributes
     # -- structured input (REQ-106 req 001)
     context_data: dict[str, Any] = field(default_factory=dict)
 
-    # -- auto task (alternative to three-field — REQ-001 req 4)
+    # -- auto task (alternative to three-field — Rondo-REQ-100 req 4)
     auto_fn: Callable[..., tuple[bool, str]] | None = None
 
     # -- dispatch hints
-    model: str | None = None  # -- recommended model (COALESCE — REQ-001 req 23)
+    model: str | None = None  # -- recommended model (COALESCE — Rondo-REQ-100 req 23)
     mode: str = "interactive"  # -- "interactive" or "auto"
     tool_mode: str = "default"  # -- "none" | "sandbox" | "default" (REQ-100 reqs 022-024)
     bare: bool | None = None  # -- task-level --bare override (REQ-100 req 073: false to opt out)
 
-    # -- state (REQ-001 req 8)
+    # -- state (Rondo-REQ-100 req 8)
     status: str = "pending"  # -- pending → in_progress → terminal
 
     @property
@@ -63,7 +63,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
 
 @dataclass
 class Gate:
-    """Boolean check that guards round entry or exit (REQ-001 req 5).
+    """Boolean check that guards round entry or exit (Rondo-REQ-100 req 5).
 
     Calling convention: runner calls check_fn() with NO arguments.
     Gates needing external context MUST capture it via closure.
@@ -86,7 +86,7 @@ class GateResult:
 
 @dataclass
 class TaskResult:  # pylint: disable=too-many-instance-attributes
-    """Outcome of dispatching a single task (STD-001).
+    """Outcome of dispatching a single task (Rondo-STD-108).
 
     Created by dispatch.py, consumed by runner.py and consumers.
     Defined here to avoid circular imports.
@@ -114,7 +114,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     timestamp: str = ""
     cost_usd: float | None = None
 
-    # -- file tracking (STD-003 conflict detection)
+    # -- file tracking (Rondo-STD-110 conflict detection)
     files_modified: list[str] = field(default_factory=list)
 
     # -- structured input audit (REQ-106 req 002)
@@ -123,7 +123,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
 
 @dataclass
 class DispatchUsage:  # pylint: disable=too-many-instance-attributes
-    """Stream-json metadata captured from each claude -p call (ACE-IFS-001)."""
+    """Stream-json metadata captured from each claude -p call (Rondo-IFS-100)."""
 
     task_name: str = ""
     model: str = ""
@@ -136,14 +136,14 @@ class DispatchUsage:  # pylint: disable=too-many-instance-attributes
     duration_api_ms: int = 0
     num_turns: int = 0
     context_window: int = 0
-    rate_limit_status: str = "unknown"  # -- default per ACE-IFS-001 req 9
-    is_using_overage: bool = False  # -- default per ACE-IFS-001 req 9
+    rate_limit_status: str = "unknown"  # -- default per Rondo-IFS-100 req 9
+    is_using_overage: bool = False  # -- default per Rondo-IFS-100 req 9
     rate_limit_resets_at: int = 0  # -- 0 = not available
 
 
 @dataclass
 class RoundResult:  # pylint: disable=too-many-instance-attributes
-    """Everything a consumer needs to know about a round execution (REQ-001)."""
+    """Everything a consumer needs to know about a round execution (Rondo-REQ-100)."""
 
     # -- identity
     round_name: str = ""
@@ -172,7 +172,7 @@ class RoundResult:  # pylint: disable=too-many-instance-attributes
 
 @dataclass
 class Round:
-    """A collection of tasks with pre/post gates (REQ-001 req 1)."""
+    """A collection of tasks with pre/post gates (Rondo-REQ-100 req 1)."""
 
     name: str
     tasks: list[Task] = field(default_factory=list)
@@ -181,7 +181,7 @@ class Round:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Gate execution (REQ-001 reqs 5-7)
+#  Gate execution (Rondo-REQ-100 reqs 5-7)
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -206,7 +206,7 @@ def run_gates(gates: list[Gate]) -> list[GateResult]:
 
 
 def should_proceed(gate_results: list[GateResult]) -> bool:
-    """Check if execution should proceed after gate checks (REQ-001 req 6).
+    """Check if execution should proceed after gate checks (Rondo-REQ-100 req 6).
 
     Returns False if ANY blocking gate failed. Non-blocking failures
     are warnings only — they don't prevent execution.
@@ -218,27 +218,27 @@ def should_proceed(gate_results: list[GateResult]) -> bool:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  State management (REQ-001 reqs 8-9)
+#  State management (Rondo-REQ-100 reqs 8-9)
 # ──────────────────────────────────────────────────────────────────
 
 
 def is_terminal(status: str) -> bool:
-    """Check if a task status is terminal (REQ-001 req 8)."""
+    """Check if a task status is terminal (Rondo-REQ-100 req 8)."""
     return status in TERMINAL_STATES
 
 
 def is_round_complete(tasks: list[Task]) -> bool:
-    """Check if all tasks are in terminal state (REQ-001 req 9)."""
+    """Check if all tasks are in terminal state (Rondo-REQ-100 req 9)."""
     return all(is_terminal(t.status) for t in tasks)
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Round status calculation (REQ-001 req 46)
+#  Round status calculation (Rondo-REQ-100 req 46)
 # ──────────────────────────────────────────────────────────────────
 
 
 def calculate_round_status(task_results: list[TaskResult]) -> str:
-    """Calculate RoundResult.status from task statuses (REQ-001 req 46).
+    """Calculate RoundResult.status from task statuses (Rondo-REQ-100 req 46).
 
     Rules:
         "done"    — all tasks have status done
@@ -269,7 +269,7 @@ def calculate_round_status(task_results: list[TaskResult]) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Validation — STD-001 defensive checks
+#  Validation — Rondo-STD-108 defensive checks
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -387,7 +387,7 @@ def validate_round(round_def: Round) -> list[str]:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Serialization (REQ-001 reqs 10-11)
+#  Serialization (Rondo-REQ-100 reqs 10-11)
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -395,7 +395,7 @@ def round_state_to_dict(
     tasks: list[Task],
     gate_results: list[GateResult],
 ) -> dict[str, Any]:
-    """Serialize round state to a dict (JSON-safe). REQ-001 req 10."""
+    """Serialize round state to a dict (JSON-safe). Rondo-REQ-100 req 10."""
     return {
         "task_statuses": {t.name: t.status for t in tasks},
         "gate_results": [
@@ -410,7 +410,7 @@ def round_state_to_dict(
 
 
 def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
-    """Apply saved state to tasks for resume. REQ-001 req 11.
+    """Apply saved state to tasks for resume. Rondo-REQ-100 req 11.
 
     Mutates tasks in place — sets status from saved state.
     Tasks not in the saved state keep their current status (pending).

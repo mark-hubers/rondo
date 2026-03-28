@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo runner — sequential orchestration: pre-gates → tasks → post-gates.
 
-REQ-001 reqs 6, 7, 40, 45, 46.
+Rondo-REQ-100 reqs 6, 7, 40, 45, 46.
 This is the L2 layer: orchestrates dispatch (L1) using engine types (L0).
 
 Import direction:
@@ -38,7 +38,7 @@ from rondo.engine import (
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────
-#  run_round() — REQ-001 req 45 (primary library entry point)
+#  run_round() — Rondo-REQ-100 req 45 (primary library entry point)
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -48,8 +48,8 @@ def run_round(
 ) -> RoundResult:
     """Execute a round and return a RoundResult.
 
-    REQ-001 req 45: primary library entry point.
-    REQ-001 req 40: auto-detect sequential vs parallel.
+    Rondo-REQ-100 req 45: primary library entry point.
+    Rondo-REQ-100 req 40: auto-detect sequential vs parallel.
 
     Args:
         round_def: The Round to execute.
@@ -61,7 +61,7 @@ def run_round(
     if config is None:
         config = RondoConfig()
 
-    # -- Round pre-flight validation (STD-001 defensive check)
+    # -- Round pre-flight validation (Rondo-STD-108 defensive check)
     round_errors = validate_round(round_def)
     if round_errors:
         msg = "; ".join(round_errors)
@@ -72,7 +72,7 @@ def run_round(
             summary=f"Validation failed: {msg}",
         )
 
-    # -- REQ-001 req 40: auto-detect sequential vs parallel
+    # -- Rondo-REQ-100 req 40: auto-detect sequential vs parallel
     if config.workers > 1:
         from rondo.parallel import run_parallel  # pylint: disable=import-outside-toplevel
 
@@ -88,8 +88,8 @@ def run_round(
 def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
     """Execute a round sequentially: pre-gates → tasks → post-gates.
 
-    REQ-001 reqs 6, 7: gate ordering and blocking behavior.
-    STD-001 rule 6: single task failure doesn't crash framework.
+    Rondo-REQ-100 reqs 6, 7: gate ordering and blocking behavior.
+    Rondo-STD-108 rule 6: single task failure doesn't crash framework.
     """
     started_at = datetime.now(UTC).isoformat()
     start_time = time.monotonic()
@@ -108,7 +108,7 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         result.duration_sec = time.monotonic() - start_time
         return result
 
-    # -- Phase 1: Pre-gates (REQ-001 req 6)
+    # -- Phase 1: Pre-gates (Rondo-REQ-100 req 6)
     if round_def.pre_gates:
         result.pre_gate_results = run_gates(round_def.pre_gates)
         if not should_proceed(result.pre_gate_results):
@@ -166,11 +166,11 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
                 round_def.name,
             )
 
-    # -- Phase 3: Post-gates (REQ-001 req 7)
+    # -- Phase 3: Post-gates (Rondo-REQ-100 req 7)
     if round_def.post_gates:
         result.post_gate_results = run_gates(round_def.post_gates)
 
-    # -- Calculate round status (REQ-001 req 46 — DRY: reuse engine function)
+    # -- Calculate round status (Rondo-REQ-100 req 46 — DRY: reuse engine function)
     result.status = calculate_round_status(result.task_results)
 
     # -- Summary
@@ -197,7 +197,7 @@ def _dispatch_with_safety_net(
     task: Task,
     config: RondoConfig,
 ) -> tuple[TaskResult, DispatchUsage]:
-    """Dispatch a task with STD-001 rule 6 safety net.
+    """Dispatch a task with Rondo-STD-108 rule 6 safety net.
 
     If dispatch_task raises (shouldn't — it catches internally),
     convert to error result so subsequent tasks still run.

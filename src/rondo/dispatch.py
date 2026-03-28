@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo dispatch — send tasks to Claude via `claude -p`, parse results.
 
-REQ-001 reqs 12-28, STD-001, ACE-IFS-001, STD-003.
+Rondo-REQ-100 reqs 12-28, Rondo-STD-108, Rondo-IFS-100, Rondo-STD-110.
 This is the L1 layer: uses engine types (L0) and config settings (L0).
 
 Import direction:
@@ -30,19 +30,19 @@ from rondo.engine import DispatchUsage, Task, TaskResult, validate_task
 
 logger = logging.getLogger(__name__)
 
-# -- Maximum size for raw_output in result files (STD-003 R2)
+# -- Maximum size for raw_output in result files (Rondo-STD-110 R2)
 _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Prompt Building — REQ-001 reqs 12, 24
+#  Prompt Building — Rondo-REQ-100 reqs 12, 24
 # ──────────────────────────────────────────────────────────────────
 
 
 def build_prompt(task: Task) -> str:
     """Build the dispatch prompt from a task's three-field contract.
 
-    Includes JSON output instructions (REQ-001 req 24).
+    Includes JSON output instructions (Rondo-REQ-100 req 24).
     """
     parts = [f"# Rondo Task: {task.name}"]
 
@@ -80,7 +80,7 @@ def build_prompt(task: Task) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Environment Preparation — REQ-001 reqs 13, 17, 18
+#  Environment Preparation — Rondo-REQ-100 reqs 13, 17, 18
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -104,7 +104,7 @@ def prepare_env(config: RondoConfig) -> dict[str, str]:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Model Resolution — REQ-001 reqs 20-23
+#  Model Resolution — Rondo-REQ-100 reqs 20-23
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -118,7 +118,7 @@ def resolve_model(
 ) -> str:
     """COALESCE: CLI → task.model → config.default_model.
 
-    REQ-001 req 21: CLI override → task hint → config default.
+    Rondo-REQ-100 req 21: CLI override → task hint → config default.
     Validates against VALID_MODELS — fails fast with clear message.
     """
     model = cli_model or task.model or config.default_model
@@ -128,7 +128,7 @@ def resolve_model(
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Task JSON Parsing — REQ-001 reqs 25, 26
+#  Task JSON Parsing — Rondo-REQ-100 reqs 25, 26
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -136,7 +136,7 @@ def parse_task_json(text: str) -> dict[str, Any] | None:
     """Extract the last valid JSON block from Claude's text output.
 
     Looks for JSON blocks in code fences or bare JSON objects.
-    Returns None if no valid JSON found (REQ-001 req 26 → "partial").
+    Returns None if no valid JSON found (Rondo-REQ-100 req 26 → "partial").
     """
     # -- Try code-fenced JSON blocks first (last one wins)
     fenced = re.findall(r"```(?:json)?\s*\n(.*?)\n\s*```", text, re.DOTALL)
@@ -162,12 +162,12 @@ def parse_task_json(text: str) -> dict[str, Any] | None:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Error Classification — STD-001 error categories
+#  Error Classification — Rondo-STD-108 error categories
 # ──────────────────────────────────────────────────────────────────
 
 
 def classify_error(stderr: str) -> str:
-    """Classify error from stderr content (STD-001 stderr patterns)."""
+    """Classify error from stderr content (Rondo-STD-108 stderr patterns)."""
     if not stderr:
         return "ERR_SUBPROCESS"
 
@@ -186,7 +186,7 @@ def classify_error(stderr: str) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Stream-JSON Parsing — ACE-IFS-001 reqs 1-10
+#  Stream-JSON Parsing — Rondo-IFS-100 reqs 1-10
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -194,11 +194,11 @@ def parse_stream_json_events(
     lines: list[str],
     task_name: str = "",
 ) -> tuple[list[dict[str, Any]], DispatchUsage]:
-    """Parse stream-json output line by line (ACE-IFS-001 req 1).
+    """Parse stream-json output line by line (Rondo-IFS-100 req 1).
 
     Returns:
         Tuple of (all_events, dispatch_usage).
-        DispatchUsage has defaults for missing fields (ACE-IFS-001 req 9).
+        DispatchUsage has defaults for missing fields (Rondo-IFS-100 req 9).
     """
     events: list[dict[str, Any]] = []
     usage = DispatchUsage(task_name=task_name)
@@ -215,7 +215,7 @@ def parse_stream_json_events(
         events.append(event)
         event_type = event.get("type", "")
 
-        # -- rate_limit_event → DispatchUsage rate limit fields (ACE-IFS-001 req 2)
+        # -- rate_limit_event → DispatchUsage rate limit fields (Rondo-IFS-100 req 2)
         if event_type == "rate_limit_event":
             info = event.get("rate_limit_info", {})
             usage = DispatchUsage(
@@ -235,7 +235,7 @@ def parse_stream_json_events(
                 rate_limit_resets_at=info.get("resetsAt", 0),
             )
 
-        # -- result event → DispatchUsage cost/token/duration (ACE-IFS-001 req 3)
+        # -- result event → DispatchUsage cost/token/duration (Rondo-IFS-100 req 3)
         elif event_type == "result":
             u = event.get("usage", {})
             model_usage = event.get("modelUsage", {})
@@ -280,14 +280,14 @@ def _collect_assistant_text(events: list[dict[str, Any]]) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  File Extraction — STD-001 files_modified
+#  File Extraction — Rondo-STD-108 files_modified
 # ──────────────────────────────────────────────────────────────────
 
 
 def extract_modified_files(raw_output: str) -> list[str]:
     """Extract file paths from Claude's output (heuristic).
 
-    STD-001: populated by parsing raw_output for file paths.
+    Rondo-STD-108: populated by parsing raw_output for file paths.
     Used by detect_conflicts() in parallel dispatch (advisory).
     """
     # -- Match file paths with known extensions in Claude output.
@@ -311,7 +311,7 @@ def extract_modified_files(raw_output: str) -> list[str]:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Result Saving — REQ-001 req 15, STD-003 S5, R2
+#  Result Saving — Rondo-REQ-100 req 15, Rondo-STD-110 S5, R2
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -322,9 +322,9 @@ def save_result(
 ) -> str:
     """Save task result to JSON file with restrictive permissions.
 
-    STD-003 S5: file permissions 0o600.
-    STD-003 R2: raw_output truncated to 1MB.
-    STD-001 rule 8: no credentials in output (enforced by env prep).
+    Rondo-STD-110 S5: file permissions 0o600.
+    Rondo-STD-110 R2: raw_output truncated to 1MB.
+    Rondo-STD-108 rule 8: no credentials in output (enforced by env prep).
     """
     out_dir = Path(results_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -332,7 +332,7 @@ def save_result(
     # -- Build result dict
     data = asdict(result)
 
-    # -- Truncate raw_output if needed (STD-003 R2)
+    # -- Truncate raw_output if needed (Rondo-STD-110 R2)
     if len(data.get("raw_output", "")) > _MAX_OUTPUT_BYTES:
         data["raw_output"] = data["raw_output"][:_MAX_OUTPUT_BYTES] + "\n... [TRUNCATED — exceeded 1MB limit]"
 
@@ -355,7 +355,7 @@ def save_result(
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dispatch — REQ-001 reqs 12-28, STD-001, STD-003
+#  Dispatch — Rondo-REQ-100 reqs 12-28, Rondo-STD-108, Rondo-STD-110
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -374,7 +374,7 @@ def dispatch_task(
     """
     timestamp = datetime.now(UTC).isoformat()
 
-    # -- Pre-dispatch validation (STD-001 defensive check)
+    # -- Pre-dispatch validation (Rondo-STD-108 defensive check)
     task_errors = validate_task(task)
     if task_errors:
         msg = "; ".join(task_errors)
@@ -395,7 +395,7 @@ def dispatch_task(
 
     model = resolve_model(cli_model, task, config)
 
-    # -- Case 1: Dry run (REQ-001 req 16)
+    # -- Case 1: Dry run (Rondo-REQ-100 req 16)
     if config.dry_run:
         prompt = build_prompt(task) if not task.is_auto else f"[AUTO] {task.name}"
         return (
@@ -411,11 +411,11 @@ def dispatch_task(
             DispatchUsage(task_name=task.name, model=model),
         )
 
-    # -- Case 2: Auto task (REQ-001 req 4)
+    # -- Case 2: Auto task (Rondo-REQ-100 req 4)
     if task.is_auto:
         return _dispatch_auto(task, config, model, timestamp)
 
-    # -- Case 3: Interactive task (REQ-001 reqs 12-28)
+    # -- Case 3: Interactive task (Rondo-REQ-100 reqs 12-28)
     return _dispatch_interactive(task, config, model, timestamp)
 
 
@@ -508,9 +508,9 @@ def _dispatch_interactive(
 ) -> tuple[TaskResult, DispatchUsage]:
     """Execute an interactive task via claude -p subprocess.
 
-    STD-003 S1: command as list, never shell=True.
-    STD-003 R1: SIGTERM-first kill sequence.
-    STD-001: all exceptions caught and converted to error results.
+    Rondo-STD-110 S1: command as list, never shell=True.
+    Rondo-STD-110 R1: SIGTERM-first kill sequence.
+    Rondo-STD-108: all exceptions caught and converted to error results.
     """
     prompt = build_prompt(task)
     env = prepare_env(config)
@@ -536,7 +536,7 @@ def _dispatch_interactive(
                 timestamp=timestamp,
             )
 
-        # -- Handle non-zero exit (REQ-001 req 27)
+        # -- Handle non-zero exit (Rondo-REQ-100 req 27)
         if returncode != 0:
             return _make_error_result(
                 task.name,
@@ -552,7 +552,7 @@ def _dispatch_interactive(
                 timestamp=timestamp,
             )
 
-        # -- Handle empty stdout (STD-001: ERR_EMPTY_OUTPUT)
+        # -- Handle empty stdout (Rondo-STD-108: ERR_EMPTY_OUTPUT)
         if not stdout or not stdout.strip():
             return _make_error_result(
                 task.name,
@@ -571,7 +571,7 @@ def _dispatch_interactive(
         return _parse_and_build_result(task, config, model, timestamp, prompt, stdout, stderr, returncode, duration)
 
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
-        # -- STD-001 rule 9: subprocess + I/O failures caught
+        # -- Rondo-STD-108 rule 9: subprocess + I/O failures caught
         logger.warning("Interactive dispatch failed for task %s: %s", task.name, exc)
         return _make_error_result(
             task.name,
@@ -592,7 +592,7 @@ def _build_subprocess_cmd(
     *,
     task: Task | None = None,
 ) -> list[str]:
-    """Build the claude -p command as a list (STD-003 S1: never shell=True).
+    """Build the claude -p command as a list (Rondo-STD-110 S1: never shell=True).
 
     REQ-100 reqs 022-024: tool_mode controls --tools/--dangerously-skip-permissions.
     REQ-100 reqs 047-049: --permission-mode from config.
@@ -647,7 +647,7 @@ def _run_subprocess(
     """Launch subprocess with SIGTERM-first kill timer.
 
     Returns (stdout, stderr, returncode, timed_out).
-    STD-003 R1: Popen for SIGTERM-first kill sequence.
+    Rondo-STD-110 R1: Popen for SIGTERM-first kill sequence.
     """
     proc = subprocess.Popen(  # pylint: disable=consider-using-with
         cmd,

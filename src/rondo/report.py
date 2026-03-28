@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo report — morning report generator.
 
-REQ-002 reqs 29-36.
+Rondo-REQ-101 reqs 29-36.
 Consumes OvernightResult, produces markdown report.
 
 Import direction:
@@ -21,7 +21,7 @@ from rondo.config import RondoConfig
 from rondo.overnight import OvernightResult
 
 # ──────────────────────────────────────────────────────────────────
-#  Health indicator — REQ-002 req 32
+#  Health indicator — Rondo-REQ-101 req 32
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -60,20 +60,20 @@ def _format_duration(seconds: float) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  generate_report() — REQ-002 reqs 29-36
+#  generate_report() — Rondo-REQ-101 reqs 29-36
 # ──────────────────────────────────────────────────────────────────
 
 
 def generate_report(result: OvernightResult) -> str:
     """Generate morning report markdown from OvernightResult.
 
-    REQ-002 req 29: aggregate results from all phases.
-    REQ-002 req 30: group by round type.
-    REQ-002 req 31: round stats (done, failed, duration).
-    REQ-002 req 32: health indicators.
-    REQ-002 req 33: action items (failed/blocked tasks).
-    REQ-002 req 35: totals (duration, tasks, errors, timestamp).
-    REQ-002 req 36: usage summary (cost, tokens, watchdog).
+    Rondo-REQ-101 req 29: aggregate results from all phases.
+    Rondo-REQ-101 req 30: group by round type.
+    Rondo-REQ-101 req 31: round stats (done, failed, duration).
+    Rondo-REQ-101 req 32: health indicators.
+    Rondo-REQ-101 req 33: action items (failed/blocked tasks).
+    Rondo-REQ-101 req 35: totals (duration, tasks, errors, timestamp).
+    Rondo-REQ-101 req 36: usage summary (cost, tokens, watchdog).
     """
     lines: list[str] = []
     _emit_header(result, lines)
@@ -102,7 +102,7 @@ def _emit_header(result: OvernightResult, lines: list[str]) -> None:
 
 
 def _emit_summary(result: OvernightResult, lines: list[str]) -> None:
-    """Emit totals section (REQ-002 req 35)."""
+    """Emit totals section (Rondo-REQ-101 req 35)."""
     total_tasks = sum(len(pr.task_results) for pr in result.phase_results)
     total_done = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done")
     total_errors = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "error")
@@ -122,7 +122,7 @@ def _emit_summary(result: OvernightResult, lines: list[str]) -> None:
 
 
 def _emit_usage(result: OvernightResult, lines: list[str]) -> None:
-    """Emit usage summary section (REQ-002 req 36)."""
+    """Emit usage summary section (Rondo-REQ-101 req 36)."""
     total_input_tokens = sum(u.input_tokens for pr in result.phase_results for u in pr.usage)
     total_output_tokens = sum(u.output_tokens for pr in result.phase_results for u in pr.usage)
     total_tokens = total_input_tokens + total_output_tokens
@@ -141,7 +141,7 @@ def _emit_usage(result: OvernightResult, lines: list[str]) -> None:
 
 
 def _emit_phases(result: OvernightResult, lines: list[str]) -> None:
-    """Emit per-phase sections (REQ-002 reqs 30-31)."""
+    """Emit per-phase sections (Rondo-REQ-101 reqs 30-31)."""
     lines.append("## Phases")
     lines.append("")
 
@@ -163,7 +163,7 @@ def _emit_phases(result: OvernightResult, lines: list[str]) -> None:
 
 
 def _emit_action_items(result: OvernightResult, lines: list[str]) -> None:
-    """Emit action items section (REQ-002 req 33)."""
+    """Emit action items section (Rondo-REQ-101 req 33)."""
     action_items: list[str] = []
     for pr in result.phase_results:
         for tr in pr.task_results:
@@ -183,7 +183,7 @@ def _emit_action_items(result: OvernightResult, lines: list[str]) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  save_report() — REQ-002 req 34
+#  save_report() — Rondo-REQ-101 req 34
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -193,7 +193,7 @@ def save_report(
 ) -> str:
     """Save morning report to dated markdown file.
 
-    REQ-002 req 34: rondo-morning-YYYYMMDD.md.
+    Rondo-REQ-101 req 34: rondo-morning-YYYYMMDD.md.
     """
     report = generate_report(result)
 

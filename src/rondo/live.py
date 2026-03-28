@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo live mode — execute round tasks in current conversation.
 
-REQ-001 reqs 47-56.
+Rondo-REQ-100 reqs 47-56.
 Presents one task at a time. Claude reads instruction, executes, proves done_when.
 Mark reviews. Same round definition as batch mode.
 
@@ -24,7 +24,7 @@ from rondo.engine import Round, Task
 def present_task(task: Task, index: int, total: int) -> dict:
     """Present one task for live execution. Returns task summary dict.
 
-    REQ-001 req 48: presents ONE task at a time.
+    Rondo-REQ-100 req 48: presents ONE task at a time.
     """
     print(f"\n{'═' * 70}")
     print(f"  TASK {index + 1} of {total}: {task.name}")
@@ -74,7 +74,7 @@ def run_live(
 ) -> list[dict]:
     """Execute a round in live mode — present tasks step by step.
 
-    REQ-001 reqs 47-56.
+    Rondo-REQ-100 reqs 47-56.
 
     Args:
         round_def: The round to execute.
@@ -149,7 +149,7 @@ def run_live(
 def load_progress(progress_file: Path) -> dict:
     """Load saved progress for --resume.
 
-    REQ-001 req 56: resume from last completed task.
+    Rondo-REQ-100 req 56: resume from last completed task.
     """
     if progress_file.exists():
         return json.loads(progress_file.read_text())

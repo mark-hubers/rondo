@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo CLI — command-line entry point.
 
-REQ-001 reqs 36-41.
+Rondo-REQ-100 reqs 36-41.
 Thin adapter: parses args → constructs config → calls library functions.
 
 Import direction:
@@ -28,16 +28,16 @@ EXIT_USAGE = 2
 EXIT_INTERRUPTED = 130  # -- standard Unix: 128 + SIGINT(2)
 
 # ──────────────────────────────────────────────────────────────────
-#  Argument parser — REQ-001 reqs 36-37, 41
+#  Argument parser — Rondo-REQ-100 reqs 36-37, 41
 # ──────────────────────────────────────────────────────────────────
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser.
 
-    REQ-001 req 36: CLI entry point.
-    REQ-001 req 37: subcommands (run, overnight, report).
-    REQ-001 req 41: all STD-002 flags.
+    Rondo-REQ-100 req 36: CLI entry point.
+    Rondo-REQ-100 req 37: subcommands (run, overnight, report).
+    Rondo-REQ-100 req 41: all Rondo-STD-109 flags.
     """
     parser = argparse.ArgumentParser(
         prog="rondo",
@@ -45,12 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # -- run subcommand (REQ-001 req 38)
+    # -- run subcommand (Rondo-REQ-100 req 38)
     run_parser = subparsers.add_parser("run", help="Execute a round definition file")
     run_parser.add_argument("file", help="Path to Python file with build_round()")
     _add_common_flags(run_parser)
 
-    # -- live subcommand (REQ-001 reqs 47-56)
+    # -- live subcommand (Rondo-REQ-100 reqs 47-56)
     live_parser = subparsers.add_parser("live", help="Execute round in live mode (human reviews)")
     live_parser.add_argument("file", help="Path to Python file with build_round()")
     live_parser.add_argument("--from", type=int, default=0, dest="from_task", help="Resume from task N")
@@ -90,14 +90,14 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dynamic loading — REQ-001 req 39
+#  Dynamic loading — Rondo-REQ-100 req 39
 # ──────────────────────────────────────────────────────────────────
 
 
 def load_round_file(filepath: str) -> Round:
     """Dynamically import a round definition file and call build_round().
 
-    REQ-001 req 39: importlib.util.spec_from_file_location().
+    Rondo-REQ-100 req 39: importlib.util.spec_from_file_location().
     """
     path = Path(filepath)
     if not path.exists():
@@ -183,7 +183,7 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  main() — REQ-001 req 36
+#  main() — Rondo-REQ-100 req 36
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -195,8 +195,8 @@ def main(argv: list[str] | None = None) -> int:
     EXIT_USAGE (2):       Bad arguments or missing subcommand.
     EXIT_INTERRUPTED (130): User pressed Ctrl+C.
 
-    REQ-001 req 36: CLI entry point.
-    REQ-001 req 40: auto-detect sequential vs parallel (via run_round).
+    Rondo-REQ-100 req 36: CLI entry point.
+    Rondo-REQ-100 req 40: auto-detect sequential vs parallel (via run_round).
     """
     try:
         parser = build_parser()
@@ -278,7 +278,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
 def _cmd_live(args: argparse.Namespace) -> int:
     """Execute 'rondo live <file>' subcommand — live mode with human review.
 
-    REQ-001 reqs 47-56.
+    Rondo-REQ-100 reqs 47-56.
     """
     from rondo.live import run_live  # pylint: disable=import-outside-toplevel
 

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.overnight — REQ-002 reqs 10-28.
+"""Tests for rondo.overnight — Rondo-REQ-101 reqs 10-28.
 
 VER-001 verification matrix: phase scheduler + watchdog + usage gating.
 TDD: tests written BEFORE overnight.py exists.
@@ -81,13 +81,13 @@ def _make_run_round_mock(status_map=None):
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Phase list acceptance — REQ-002 req 10
+#  Phase list acceptance — Rondo-REQ-101 req 10
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestPhaseList:
     def test_accepts_phase_list(self):
-        """REQ-002 req 10: accepts list of round definitions."""
+        """Rondo-REQ-101 req 10: accepts list of round definitions."""
         phases = [_make_round("phase-1"), _make_round("phase-2")]
         config = RondoConfig(workers=1)
         with patch("rondo.overnight.run_round", side_effect=_make_run_round_mock()):
@@ -113,13 +113,13 @@ class TestPhaseList:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Phase sequencing — REQ-002 req 11
+#  Phase sequencing — Rondo-REQ-101 req 11
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestPhaseSequencing:
     def test_phases_execute_in_order(self):
-        """REQ-002 req 11: phases execute sequentially."""
+        """Rondo-REQ-101 req 11: phases execute sequentially."""
         execution_order = []
 
         def _ordered_mock(round_def, config=None):
@@ -134,13 +134,13 @@ class TestPhaseSequencing:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Phase failure isolation — REQ-002 req 12
+#  Phase failure isolation — Rondo-REQ-101 req 12
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestPhaseIsolation:
     def test_phase_failure_doesnt_block_next(self):
-        """REQ-002 req 12: phase failure continues to next phase."""
+        """Rondo-REQ-101 req 12: phase failure continues to next phase."""
         phases = [_make_round("fail-phase"), _make_round("ok-phase")]
         config = RondoConfig(workers=1)
         status_map = {"fail-phase": "error", "ok-phase": "done"}
@@ -188,13 +188,13 @@ class TestPhaseIsolation:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Mode configuration — REQ-002 reqs 13-15
+#  Mode configuration — Rondo-REQ-101 reqs 13-15
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestModeConfig:
     def test_mode_selects_phases(self):
-        """REQ-002 req 13: mode selects which phases run."""
+        """Rondo-REQ-101 req 13: mode selects which phases run."""
         all_phases = [_make_round("lint"), _make_round("test"), _make_round("build")]
         modes = {
             "minimal": ["lint"],
@@ -233,7 +233,7 @@ class TestModeConfig:
             assert len(result.phase_results) == 3
 
     def test_no_mode_runs_all_phases(self):
-        """REQ-002 req 15: no mode specified → run all phases."""
+        """Rondo-REQ-101 req 15: no mode specified → run all phases."""
         phases = [_make_round("a"), _make_round("b")]
         config = RondoConfig(workers=1)
         with patch("rondo.overnight.run_round", side_effect=_make_run_round_mock()):
@@ -250,13 +250,13 @@ class TestModeConfig:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Event logging — REQ-002 reqs 17-18
+#  Event logging — Rondo-REQ-101 reqs 17-18
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestEventLogging:
     def test_start_event_logged(self):
-        """REQ-002 req 17: start event logged."""
+        """Rondo-REQ-101 req 17: start event logged."""
         phases = [_make_round("a")]
         config = RondoConfig(workers=1)
         with patch("rondo.overnight.run_round", side_effect=_make_run_round_mock()):
@@ -266,7 +266,7 @@ class TestEventLogging:
             assert "timestamp" in start_events[0]
 
     def test_end_event_logged(self):
-        """REQ-002 req 17: end event logged."""
+        """Rondo-REQ-101 req 17: end event logged."""
         phases = [_make_round("a")]
         config = RondoConfig(workers=1)
         with patch("rondo.overnight.run_round", side_effect=_make_run_round_mock()):
@@ -286,7 +286,7 @@ class TestEventLogging:
             assert len(phase_ends) == 2
 
     def test_rolling_log_max_100(self, tmp_path):
-        """REQ-002 req 18: event log keeps max 100 entries."""
+        """Rondo-REQ-101 req 18: event log keeps max 100 entries."""
         log = EventLog(log_path=str(tmp_path / "events.json"))
         # -- Add 110 entries
         for i in range(110):
@@ -312,13 +312,13 @@ class TestEventLogging:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Usage gating — REQ-002 reqs 24-28
+#  Usage gating — Rondo-REQ-101 reqs 24-28
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestUsageGating:
     def test_no_overage_continues(self):
-        """REQ-002 req 25: no overage → continue."""
+        """Rondo-REQ-101 req 25: no overage → continue."""
         usage = DispatchUsage(
             task_name="t1",
             model="sonnet",
@@ -329,7 +329,7 @@ class TestUsageGating:
         assert action == "continue"
 
     def test_overage_continue_action(self):
-        """REQ-002 req 25: overage + on_overage=continue → continue."""
+        """Rondo-REQ-101 req 25: overage + on_overage=continue → continue."""
         usage = DispatchUsage(
             task_name="t1",
             model="sonnet",
@@ -340,7 +340,7 @@ class TestUsageGating:
         assert action == "continue"
 
     def test_overage_stop_action(self):
-        """REQ-002 req 25: overage + on_overage=stop → stop."""
+        """Rondo-REQ-101 req 25: overage + on_overage=stop → stop."""
         usage = DispatchUsage(
             task_name="t1",
             model="sonnet",
@@ -351,7 +351,7 @@ class TestUsageGating:
         assert action == "stop"
 
     def test_overage_pause_action(self):
-        """REQ-002 req 25: overage + on_overage=pause → pause."""
+        """Rondo-REQ-101 req 25: overage + on_overage=pause → pause."""
         usage = DispatchUsage(
             task_name="t1",
             model="sonnet",
@@ -362,7 +362,7 @@ class TestUsageGating:
         assert action == "pause"
 
     def test_blocked_status_returns_blocked(self):
-        """REQ-002 req 26: rate_limit_status=blocked → blocked action."""
+        """Rondo-REQ-101 req 26: rate_limit_status=blocked → blocked action."""
         usage = DispatchUsage(
             task_name="t1",
             model="sonnet",
@@ -374,7 +374,7 @@ class TestUsageGating:
         assert action == "blocked"
 
     def test_stop_action_ends_overnight(self):
-        """REQ-002 req 25: stop action ends overnight run early."""
+        """Rondo-REQ-101 req 25: stop action ends overnight run early."""
         phases = [_make_round("phase-1"), _make_round("phase-2"), _make_round("phase-3")]
         config = RondoConfig(workers=1, on_overage="stop")
 
@@ -403,7 +403,7 @@ class TestUsageGating:
             assert result.status == "stopped"
 
     def test_usage_gate_logged(self):
-        """REQ-002 req 28: usage gate decisions logged."""
+        """Rondo-REQ-101 req 28: usage gate decisions logged."""
         phases = [_make_round("phase-1"), _make_round("phase-2")]
         config = RondoConfig(workers=1, on_overage="stop")
 
@@ -427,13 +427,13 @@ class TestUsageGating:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Rate limit backoff — REQ-002 req 22
+#  Rate limit backoff — Rondo-REQ-101 req 22
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestRateLimitBackoff:
     def test_rate_limit_error_triggers_backoff(self):
-        """REQ-002 req 22: ERR_RATE_LIMIT triggers backoff pause."""
+        """Rondo-REQ-101 req 22: ERR_RATE_LIMIT triggers backoff pause."""
         phases = [_make_round("a"), _make_round("b")]
         config = RondoConfig(workers=1, rate_limit_backoff_sec=0.1)
 
@@ -456,13 +456,13 @@ class TestRateLimitBackoff:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Watchdog response — REQ-002 reqs 19-23
+#  Watchdog response — Rondo-REQ-101 reqs 19-23
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestWatchdogResponse:
     def test_watchdog_error_continues_to_next_phase(self):
-        """REQ-002 req 21: after watchdog kill, continue to next phase."""
+        """Rondo-REQ-101 req 21: after watchdog kill, continue to next phase."""
         phases = [_make_round("hung"), _make_round("ok")]
         config = RondoConfig(workers=1)
 
@@ -482,7 +482,7 @@ class TestWatchdogResponse:
             assert result.phase_results[1].status == "done"
 
     def test_watchdog_event_logged(self):
-        """REQ-002 req 23: watchdog interventions logged."""
+        """Rondo-REQ-101 req 23: watchdog interventions logged."""
         phases = [_make_round("hung")]
         config = RondoConfig(workers=1)
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Tests for rondo.live — live mode execution.
 
-REQ-001 reqs 47-56.
+Rondo-REQ-100 reqs 47-56.
 VER-001 verification matrix: live mode execution.
 """
 

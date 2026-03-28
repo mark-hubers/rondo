@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.config — STD-002 rules 1-10, STD-001 rule 4.
+"""Tests for rondo.config — Rondo-STD-109 rules 1-10, Rondo-STD-108 rule 4.
 
 VER-001 verification matrix: every test maps to a numbered rule.
 TDD: these tests are written BEFORE config.py exists.
@@ -24,7 +24,7 @@ from rondo.config import (
 )
 
 
-# -- STD-002 Rule 1: Works with zero config
+# -- Rondo-STD-109 Rule 1: Works with zero config
 class TestZeroConfig:
     def test_default_config_all_fields_populated(self):
         """RondoConfig() with no args produces a valid config."""
@@ -54,7 +54,7 @@ class TestZeroConfig:
         assert config.workers == 4
 
 
-# -- STD-002 Rule 2: TOML format
+# -- Rondo-STD-109 Rule 2: TOML format
 class TestTomlLoading:
     def test_load_from_toml_file(self, tmp_path):
         """Config loaded from TOML file populates fields."""
@@ -75,7 +75,7 @@ class TestTomlLoading:
         assert config.default_model == "sonnet"  # -- default
 
 
-# -- STD-002 Rule 3: Config discovery (--config or CWD)
+# -- Rondo-STD-109 Rule 3: Config discovery (--config or CWD)
 class TestConfigDiscovery:
     def test_explicit_config_path(self, tmp_path):
         """--config flag path is used directly."""
@@ -104,7 +104,7 @@ class TestConfigDiscovery:
         assert config.workers == 4  # -- default, not 99
 
 
-# -- STD-002 Rule 4: CLI overrides config
+# -- Rondo-STD-109 Rule 4: CLI overrides config
 class TestCliOverride:
     def test_cli_overrides_config_file(self, tmp_path):
         """CLI flag value wins over config file value."""
@@ -128,7 +128,7 @@ class TestCliOverride:
         assert config.default_model == "haiku"
 
 
-# -- STD-002 Rule 5: Config overrides defaults
+# -- Rondo-STD-109 Rule 5: Config overrides defaults
 class TestConfigOverride:
     def test_config_file_overrides_defaults(self, tmp_path):
         """Config file value wins over hardcoded default."""
@@ -138,7 +138,7 @@ class TestConfigOverride:
         assert config.throttle_sec == 5.0  # -- not the default 2.0
 
 
-# -- STD-002 Rule 6: COALESCE resolution
+# -- Rondo-STD-109 Rule 6: COALESCE resolution
 class TestCoalesce:
     def test_resolve_cli_wins(self):
         """CLI value wins when all three provided."""
@@ -169,7 +169,7 @@ class TestCoalesce:
         assert config.auth == "max"  # -- default won (no CLI, no config)
 
 
-# -- STD-002 Rule 7: Unknown keys ignored with warning
+# -- Rondo-STD-109 Rule 7: Unknown keys ignored with warning
 class TestUnknownKeys:
     def test_unknown_toml_keys_ignored(self, tmp_path):
         """Unknown keys in TOML are ignored — config still loads."""
@@ -191,7 +191,7 @@ class TestUnknownKeys:
             assert len(unknown_warnings) >= 1
 
 
-# -- STD-002 Rule 8: Invalid values error at startup
+# -- Rondo-STD-109 Rule 8: Invalid values error at startup
 class TestValidationErrors:
     def test_invalid_auth(self):
         config = RondoConfig(auth="bad")
@@ -290,7 +290,7 @@ class TestValidationErrors:
         assert errors == []
 
 
-# -- STD-002 Rule 9: Config loaded once, immutable (frozen dataclass)
+# -- Rondo-STD-109 Rule 9: Config loaded once, immutable (frozen dataclass)
 class TestConfigImmutable:
     def test_frozen_cannot_set_field(self):
         """Frozen dataclass raises on attribute assignment."""
@@ -305,7 +305,7 @@ class TestConfigImmutable:
             del config.workers
 
 
-# -- STD-002 Rule 10: Config is a dataclass
+# -- Rondo-STD-109 Rule 10: Config is a dataclass
 class TestConfigIsDataclass:
     def test_is_dataclass(self):
         from dataclasses import fields
@@ -318,7 +318,7 @@ class TestConfigIsDataclass:
         assert "default_model" in field_names
 
 
-# -- STD-001 Rule 4: Configurable timeout, default 5 min
+# -- Rondo-STD-108 Rule 4: Configurable timeout, default 5 min
 class TestTimeoutConfig:
     def test_timeout_default_300(self):
         config = RondoConfig()
@@ -335,7 +335,7 @@ class TestTimeoutConfig:
         assert config.task_timeout_sec == 120
 
 
-# -- Additional config fields (STD-002 settings table)
+# -- Additional config fields (Rondo-STD-109 settings table)
 class TestAllConfigFields:
     def test_effort_default(self):
         assert RondoConfig().effort == "high"
@@ -384,25 +384,25 @@ class TestAllConfigFields:
             assert errors == [], f"Action '{action}' should be valid"
 
     def test_permission_mode_default(self):
-        """REQ-001 req 48: default permission_mode is 'auto'."""
+        """Rondo-REQ-100 req 48: default permission_mode is 'auto'."""
         config = RondoConfig()
         assert config.permission_mode == "auto"
 
     def test_all_valid_permission_modes(self):
-        """REQ-001 req 49: all documented permission modes are accepted."""
+        """Rondo-REQ-100 req 49: all documented permission modes are accepted."""
         for mode in ("default", "acceptEdits", "plan", "auto", "bypassPermissions"):
             config = RondoConfig(permission_mode=mode)
             errors = validate_config(config)
             assert errors == [], f"Permission mode '{mode}' should be valid"
 
     def test_invalid_permission_mode(self):
-        """REQ-001 req 49: invalid permission mode rejected."""
+        """Rondo-REQ-100 req 49: invalid permission mode rejected."""
         config = RondoConfig(permission_mode="yolo")
         errors = validate_config(config)
         assert any("permission_mode" in e for e in errors)
 
     def test_permission_mode_coalesce(self, tmp_path):
-        """REQ-001 req 48: COALESCE — CLI → config → default 'auto'."""
+        """Rondo-REQ-100 req 48: COALESCE — CLI → config → default 'auto'."""
         # -- Config file sets bypassPermissions
         toml_file = tmp_path / "rondo.toml"
         toml_file.write_text('permission_mode = "bypassPermissions"\n')

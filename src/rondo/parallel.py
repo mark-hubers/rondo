@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo parallel — concurrent task dispatch via ThreadPoolExecutor.
 
-REQ-002 reqs 1-9, STD-003 C1-C7.
+Rondo-REQ-101 reqs 1-9, Rondo-STD-110 C1-C7.
 This is an L2 layer: orchestrates dispatch (L1) using engine types (L0).
 
 Import direction:
@@ -35,12 +35,12 @@ from rondo.engine import (
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────
-#  Conflict detection — REQ-002 reqs 5-6, STD-003 C4-C5
+#  Conflict detection — Rondo-REQ-101 reqs 5-6, Rondo-STD-110 C4-C5
 # ──────────────────────────────────────────────────────────────────
 
 
 def detect_conflicts(results: list[TaskResult]) -> list[str]:
-    """Find files touched by multiple tasks (STD-003 C4).
+    """Find files touched by multiple tasks (Rondo-STD-110 C4).
 
     Returns list of conflict strings, one per conflicted file.
     Conflicts are ADVISORY (C5) — warnings, not blockers.
@@ -54,7 +54,7 @@ def detect_conflicts(results: list[TaskResult]) -> list[str]:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  run_parallel() — REQ-002 reqs 1-9
+#  run_parallel() — Rondo-REQ-101 reqs 1-9
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -64,12 +64,12 @@ def run_parallel(
 ) -> RoundResult:
     """Execute a round with parallel task dispatch.
 
-    REQ-002 req 1: ThreadPoolExecutor for I/O-bound subprocess work.
-    REQ-002 req 2: Configurable worker count from config.workers.
-    REQ-002 req 3: Throttle delay between submissions.
-    REQ-002 req 4: Collect results as futures complete.
-    REQ-002 req 8: Single task failure doesn't crash others.
-    REQ-002 req 9: Returns same RoundResult format as sequential.
+    Rondo-REQ-101 req 1: ThreadPoolExecutor for I/O-bound subprocess work.
+    Rondo-REQ-101 req 2: Configurable worker count from config.workers.
+    Rondo-REQ-101 req 3: Throttle delay between submissions.
+    Rondo-REQ-101 req 4: Collect results as futures complete.
+    Rondo-REQ-101 req 8: Single task failure doesn't crash others.
+    Rondo-REQ-101 req 9: Returns same RoundResult format as sequential.
     """
     started_at = datetime.now(UTC).isoformat()
     start_time = time.monotonic()
@@ -100,22 +100,22 @@ def run_parallel(
             result.duration_sec = time.monotonic() - start_time
             return result
 
-    # -- Phase 2: Parallel dispatch (REQ-002 reqs 1-4, 8)
+    # -- Phase 2: Parallel dispatch (Rondo-REQ-101 reqs 1-4, 8)
     task_results, usage_list = _execute_parallel(round_def.tasks, config)
     result.task_results = task_results
     result.usage = usage_list
 
-    # -- Phase 2b: Conflict detection (REQ-002 reqs 5-6, STD-003 C4-C5)
+    # -- Phase 2b: Conflict detection (Rondo-REQ-101 reqs 5-6, Rondo-STD-110 C4-C5)
     result.conflicts = detect_conflicts(task_results)
 
     # -- Phase 3: Post-gates (same contract as sequential)
     if round_def.post_gates:
         result.post_gate_results = run_gates(round_def.post_gates)
 
-    # -- Calculate round status (REQ-001 req 46 — DRY: reuse engine function)
+    # -- Calculate round status (Rondo-REQ-100 req 46 — DRY: reuse engine function)
     result.status = calculate_round_status(result.task_results)
 
-    # -- Summary (REQ-002 req 7)
+    # -- Summary (Rondo-REQ-101 req 7)
     done_count = sum(1 for tr in result.task_results if tr.status == "done")
     total = len(result.task_results)
     result.summary = f"{done_count}/{total} tasks done"
@@ -138,15 +138,15 @@ def _execute_parallel(
 ) -> tuple[list[TaskResult], list[DispatchUsage]]:
     """Submit tasks to ThreadPoolExecutor and collect results.
 
-    STD-003 C3: Throttle delay between submissions.
-    STD-003 C7: Exception in thread → error result, not crash.
+    Rondo-STD-110 C3: Throttle delay between submissions.
+    Rondo-STD-110 C7: Exception in thread → error result, not crash.
     """
     task_results: list[TaskResult] = []
     usage_list: list[DispatchUsage] = []
     task_map = {t.name: t for t in tasks}
 
     with ThreadPoolExecutor(max_workers=config.workers) as pool:
-        # -- Submit tasks with throttle delay (REQ-002 req 3, STD-003 C3)
+        # -- Submit tasks with throttle delay (Rondo-REQ-101 req 3, Rondo-STD-110 C3)
         futures: dict[Future[tuple[TaskResult, DispatchUsage]], str] = {}
         for i, task in enumerate(tasks):
             task.status = "in_progress"
@@ -155,7 +155,7 @@ def _execute_parallel(
             future = pool.submit(_dispatch_worker, task, config)
             futures[future] = task.name
 
-        # -- Collect results as they complete (REQ-002 req 4)
+        # -- Collect results as they complete (Rondo-REQ-101 req 4)
         for future in as_completed(futures):
             task_name = futures[future]
             task_result, task_usage = _collect_future(future, task_name, config)
@@ -181,7 +181,7 @@ def _collect_future(
     try:
         return future.result()
     except (OSError, ValueError, RuntimeError) as exc:
-        # -- STD-003 C7: exception in thread → error result, not crash
+        # -- Rondo-STD-110 C7: exception in thread → error result, not crash
         logger.warning("Thread exception for task %s: %s", task_name, exc)
         return (
             TaskResult(
@@ -213,7 +213,7 @@ def _save_result_safe(
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Worker function — STD-003 C2 (no shared state)
+#  Worker function — Rondo-STD-110 C2 (no shared state)
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -223,7 +223,7 @@ def _dispatch_worker(
 ) -> tuple[TaskResult, DispatchUsage]:
     """Worker function for ThreadPoolExecutor.
 
-    STD-003 C2: Each thread calls dispatch_task independently,
+    Rondo-STD-110 C2: Each thread calls dispatch_task independently,
     returns its own (TaskResult, DispatchUsage) tuple.
     No shared mutable state.
     """

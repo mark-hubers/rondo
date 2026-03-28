@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo — Define AI tasks in Python, send them to Claude, get structured results back.
 
-Public API (REQ-001 req 35):
+Public API (Rondo-REQ-100 req 35):
     Round, Task, Gate, GateResult, TaskResult, RoundResult, DispatchUsage
     RondoConfig, load_config, validate_config
     dispatch_task, run_round, run_parallel, detect_conflicts

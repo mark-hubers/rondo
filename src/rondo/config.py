@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo config — TOML loading, COALESCE resolution, validation.
 
-STD-002 rules 1-10.
+Rondo-STD-109 rules 1-10.
 Every setting resolved via COALESCE(cli_flag, config_file, default).
 Config is frozen (immutable) after creation — thread-safe by design.
 """
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 # ──────────────────────────────────────────────────────────────────
-#  COALESCE — STD-002 rule 6
+#  COALESCE — Rondo-STD-109 rule 6
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -30,13 +30,13 @@ def resolve(cli_value: Any, config_value: Any, default_value: Any) -> Any:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Config dataclass — STD-002 rules 9-10
+#  Config dataclass — Rondo-STD-109 rules 9-10
 # ──────────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
 class RondoConfig:  # pylint: disable=too-many-instance-attributes
-    """Immutable configuration — loaded once at startup (STD-002 rule 9)."""
+    """Immutable configuration — loaded once at startup (Rondo-STD-109 rule 9)."""
 
     # -- dispatch
     auth: str = "max"
@@ -53,7 +53,7 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     # -- permissions
     permission_mode: str = "auto"
 
-    # -- self-healing (REQ-002 watchdog + usage gating)
+    # -- self-healing (Rondo-REQ-101 watchdog + usage gating)
     watchdog_timeout_sec: int = 60
     rate_limit_backoff_sec: int = 60
     on_overage: str = "continue"
@@ -75,7 +75,7 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Validation — STD-002 rule 8
+#  Validation — Rondo-STD-109 rule 8
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -157,7 +157,7 @@ def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Config loading — STD-002 rules 1-5, 7
+#  Config loading — Rondo-STD-109 rules 1-5, 7
 # ──────────────────────────────────────────────────────────────────
 
 # -- Fields in RondoConfig that are valid TOML keys
@@ -186,7 +186,7 @@ def load_config(
     cli_overrides = cli_overrides or {}
     toml_data = _load_toml(config_path, search_dir)
 
-    # -- Warn about unknown TOML keys (STD-002 rule 7)
+    # -- Warn about unknown TOML keys (Rondo-STD-109 rule 7)
     toml_keys = set(toml_data.keys()) - _CONFIG_FIELDS
     for key in sorted(toml_keys):
         warnings.warn(
@@ -212,7 +212,7 @@ def _load_toml(
 ) -> dict[str, Any]:
     """Find and parse TOML config file. Returns empty dict if not found.
 
-    Discovery (STD-002 rule 3):
+    Discovery (Rondo-STD-109 rule 3):
         1. If config_path provided → use that path exactly
         2. Else: look for rondo.toml in search_dir (default CWD)
         3. If not found → empty dict (zero-config mode)

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.report — REQ-002 reqs 29-36.
+"""Tests for rondo.report — Rondo-REQ-101 reqs 29-36.
 
 VER-001 verification matrix: morning report generation.
 TDD: tests written BEFORE report.py exists.
@@ -112,13 +112,13 @@ def _make_overnight_result(
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Aggregation — REQ-002 req 29
+#  Aggregation — Rondo-REQ-101 req 29
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestAggregation:
     def test_report_aggregates_all_phases(self):
-        """REQ-002 req 29: aggregate results from all phases."""
+        """Rondo-REQ-101 req 29: aggregate results from all phases."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "lint", "n_done": 3, "n_error": 0, "cost": 0.01, "duration": 30.0},
@@ -138,13 +138,13 @@ class TestAggregation:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Grouping by round — REQ-002 req 30
+#  Grouping by round — Rondo-REQ-101 req 30
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestGrouping:
     def test_each_phase_has_section(self):
-        """REQ-002 req 30: results grouped by round type."""
+        """Rondo-REQ-101 req 30: results grouped by round type."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "phase-alpha", "n_done": 1, "n_error": 0, "cost": 0.01},
@@ -158,13 +158,13 @@ class TestGrouping:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Round stats — REQ-002 req 31
+#  Round stats — Rondo-REQ-101 req 31
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestRoundStats:
     def test_tasks_done_count(self):
-        """REQ-002 req 31: show tasks done."""
+        """Rondo-REQ-101 req 31: show tasks done."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "work", "n_done": 3, "n_error": 1, "cost": 0.01},
@@ -174,7 +174,7 @@ class TestRoundStats:
         assert "3" in report  # -- 3 done
 
     def test_tasks_failed_count(self):
-        """REQ-002 req 31: show tasks failed."""
+        """Rondo-REQ-101 req 31: show tasks failed."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "work", "n_done": 2, "n_error": 2, "cost": 0.01},
@@ -184,7 +184,7 @@ class TestRoundStats:
         assert "2" in report  # -- 2 failed
 
     def test_duration_shown(self):
-        """REQ-002 req 31: show total duration."""
+        """Rondo-REQ-101 req 31: show total duration."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "work", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 90.5},
@@ -196,13 +196,13 @@ class TestRoundStats:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Health indicators — REQ-002 req 32
+#  Health indicators — Rondo-REQ-101 req 32
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestHealthIndicators:
     def test_all_pass_health(self):
-        """REQ-002 req 32: all succeeded → PASS."""
+        """Rondo-REQ-101 req 32: all succeeded → PASS."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "clean", "n_done": 5, "n_error": 0, "cost": 0.01},
@@ -212,7 +212,7 @@ class TestHealthIndicators:
         assert "PASS" in report
 
     def test_partial_health(self):
-        """REQ-002 req 32: some failed → PARTIAL."""
+        """Rondo-REQ-101 req 32: some failed → PARTIAL."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "mixed", "n_done": 3, "n_error": 1, "cost": 0.01},
@@ -222,7 +222,7 @@ class TestHealthIndicators:
         assert "PARTIAL" in report
 
     def test_fail_health(self):
-        """REQ-002 req 32: majority failed → FAIL."""
+        """Rondo-REQ-101 req 32: majority failed → FAIL."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "bad", "n_done": 0, "n_error": 5, "cost": 0.01},
@@ -233,13 +233,13 @@ class TestHealthIndicators:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Action items — REQ-002 req 33
+#  Action items — Rondo-REQ-101 req 33
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestActionItems:
     def test_failed_tasks_listed(self):
-        """REQ-002 req 33: failed tasks appear in action items."""
+        """Rondo-REQ-101 req 33: failed tasks appear in action items."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "run", "n_done": 1, "n_error": 1, "cost": 0.01},
@@ -249,7 +249,7 @@ class TestActionItems:
         assert "err1" in report  # -- error task name
 
     def test_blocked_tasks_listed(self):
-        """REQ-002 req 33: blocked tasks appear in action items."""
+        """Rondo-REQ-101 req 33: blocked tasks appear in action items."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "run", "n_done": 1, "n_error": 0, "n_blocked": 1, "cost": 0.01},
@@ -270,13 +270,13 @@ class TestActionItems:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Dated filename — REQ-002 req 34
+#  Dated filename — Rondo-REQ-101 req 34
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestDatedFilename:
     def test_save_to_dated_file(self, tmp_path):
-        """REQ-002 req 34: report saved with dated filename."""
+        """Rondo-REQ-101 req 34: report saved with dated filename."""
         result = _make_overnight_result()
         config = RondoConfig(report_dir=str(tmp_path))
         from rondo.report import save_report
@@ -298,13 +298,13 @@ class TestDatedFilename:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Report totals — REQ-002 req 35
+#  Report totals — Rondo-REQ-101 req 35
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestReportTotals:
     def test_total_duration(self):
-        """REQ-002 req 35: total duration in report."""
+        """Rondo-REQ-101 req 35: total duration in report."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "a", "n_done": 1, "n_error": 0, "cost": 0.01, "duration": 60.0},
@@ -316,7 +316,7 @@ class TestReportTotals:
         assert "180" in report or "3m" in report or "3:00" in report
 
     def test_total_tasks(self):
-        """REQ-002 req 35: total tasks run."""
+        """Rondo-REQ-101 req 35: total tasks run."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "a", "n_done": 3, "n_error": 0, "cost": 0.01},
@@ -327,7 +327,7 @@ class TestReportTotals:
         assert "6" in report  # -- 3 + 2 + 1 = 6 total tasks
 
     def test_total_errors(self):
-        """REQ-002 req 35: total errors."""
+        """Rondo-REQ-101 req 35: total errors."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "a", "n_done": 1, "n_error": 2, "cost": 0.01},
@@ -340,13 +340,13 @@ class TestReportTotals:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Usage summary — REQ-002 req 36
+#  Usage summary — Rondo-REQ-101 req 36
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestUsageSummary:
     def test_total_cost_in_report(self):
-        """REQ-002 req 36: total cost in report."""
+        """Rondo-REQ-101 req 36: total cost in report."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "a", "n_done": 1, "n_error": 0, "cost": 0.05},
@@ -357,7 +357,7 @@ class TestUsageSummary:
         assert "$0.15" in report or "0.15" in report
 
     def test_total_tokens_in_report(self):
-        """REQ-002 req 36: total tokens in report."""
+        """Rondo-REQ-101 req 36: total tokens in report."""
         result = _make_overnight_result(
             phase_configs=[
                 {"name": "a", "n_done": 2, "n_error": 0, "cost": 0.01},
@@ -368,7 +368,7 @@ class TestUsageSummary:
         assert "300" in report or "token" in report.lower()
 
     def test_watchdog_count_in_report(self):
-        """REQ-002 req 36: watchdog intervention count."""
+        """Rondo-REQ-101 req 36: watchdog intervention count."""
         result = _make_overnight_result(
             phase_configs=[{"name": "a", "n_done": 1, "n_error": 0, "cost": 0.01}],
             event_log=[

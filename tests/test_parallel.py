@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.parallel — REQ-002 reqs 1-9, STD-003 C1-C7.
+"""Tests for rondo.parallel — Rondo-REQ-101 reqs 1-9, Rondo-STD-110 C1-C7.
 
 VER-001 verification matrix: parallel dispatch + conflict detection.
 TDD: these tests are written BEFORE parallel.py exists.
@@ -115,13 +115,13 @@ def _make_tasks(n):
 
 
 # ──────────────────────────────────────────────────────────────────
-#  ThreadPoolExecutor usage — REQ-002 req 1, STD-003 C1
+#  ThreadPoolExecutor usage — Rondo-REQ-101 req 1, Rondo-STD-110 C1
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestThreadPoolUsage:
     def test_uses_thread_pool_executor(self):
-        """REQ-002 req 1: parallel dispatch uses ThreadPoolExecutor.
+        """Rondo-REQ-101 req 1: parallel dispatch uses ThreadPoolExecutor.
 
         Verified indirectly: parallelism in result matches config.workers,
         and multiple tasks execute concurrently (wall time < sum of task times).
@@ -135,13 +135,13 @@ class TestThreadPoolUsage:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Worker count — REQ-002 req 2
+#  Worker count — Rondo-REQ-101 req 2
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestWorkerConfig:
     def test_workers_from_config(self):
-        """REQ-002 req 2: worker count from config."""
+        """Rondo-REQ-101 req 2: worker count from config."""
         r = Round(name="workers", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.0)
         with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
@@ -159,13 +159,13 @@ class TestWorkerConfig:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Throttle — REQ-002 req 3, STD-003 C3
+#  Throttle — Rondo-REQ-101 req 3, Rondo-STD-110 C3
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestThrottle:
     def test_throttle_delay_between_submissions(self):
-        """REQ-002 req 3: configurable delay between submit() calls."""
+        """Rondo-REQ-101 req 3: configurable delay between submit() calls."""
         r = Round(name="throttle", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.1)
 
@@ -198,13 +198,13 @@ class TestThrottle:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Result collection — REQ-002 req 4
+#  Result collection — Rondo-REQ-101 req 4
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestResultCollection:
     def test_all_results_collected(self):
-        """REQ-002 req 4: results collected as futures complete."""
+        """Rondo-REQ-101 req 4: results collected as futures complete."""
         r = Round(name="collect", tasks=_make_tasks(4))
         config = RondoConfig(workers=4, throttle_sec=0.0)
         with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
@@ -226,13 +226,13 @@ class TestResultCollection:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Conflict detection — REQ-002 reqs 5-6, STD-003 C4-C5
+#  Conflict detection — Rondo-REQ-101 reqs 5-6, Rondo-STD-110 C4-C5
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestConflictDetection:
     def test_no_conflicts_when_no_overlapping_files(self):
-        """REQ-002 req 5: no conflicts when tasks touch different files."""
+        """Rondo-REQ-101 req 5: no conflicts when tasks touch different files."""
         results = [
             TaskResult(task_name="t1", status="done", files_modified=["a.py", "b.py"]),
             TaskResult(task_name="t2", status="done", files_modified=["c.py", "d.py"]),
@@ -241,7 +241,7 @@ class TestConflictDetection:
         assert conflicts == []
 
     def test_detect_single_conflict(self):
-        """REQ-002 req 5: one file modified by two tasks → conflict."""
+        """Rondo-REQ-101 req 5: one file modified by two tasks → conflict."""
         results = [
             TaskResult(task_name="t1", status="done", files_modified=["shared.py", "a.py"]),
             TaskResult(task_name="t2", status="done", files_modified=["shared.py", "b.py"]),
@@ -285,7 +285,7 @@ class TestConflictDetection:
         assert conflicts == []
 
     def test_conflicts_in_round_result(self):
-        """REQ-002 req 6: conflicts appear in RoundResult."""
+        """Rondo-REQ-101 req 6: conflicts appear in RoundResult."""
         file_map = {
             "t1": ["shared.py", "a.py"],
             "t2": ["shared.py", "b.py"],
@@ -298,7 +298,7 @@ class TestConflictDetection:
             assert "shared.py" in result.conflicts[0]
 
     def test_conflicts_advisory_not_blocking(self):
-        """STD-003 C5: conflicts are warnings, don't fail the round."""
+        """Rondo-STD-110 C5: conflicts are warnings, don't fail the round."""
         file_map = {
             "t1": ["shared.py"],
             "t2": ["shared.py"],
@@ -313,13 +313,13 @@ class TestConflictDetection:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Summary stats — REQ-002 req 7
+#  Summary stats — Rondo-REQ-101 req 7
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestSummaryStats:
     def test_done_and_error_counts_in_summary(self):
-        """REQ-002 req 7: summary includes done/error counts."""
+        """Rondo-REQ-101 req 7: summary includes done/error counts."""
         call_count = [0]
 
         def _mixed(task, config, **kw):
@@ -336,7 +336,7 @@ class TestSummaryStats:
             assert result.status == "partial"
 
     def test_timing_fields_populated(self):
-        """REQ-002 req 7: wall time and timing fields present."""
+        """Rondo-REQ-101 req 7: wall time and timing fields present."""
         r = Round(name="timing", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
         with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
@@ -364,13 +364,13 @@ class TestSummaryStats:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Task isolation — REQ-002 req 8, STD-003 C2, C7
+#  Task isolation — Rondo-REQ-101 req 8, Rondo-STD-110 C2, C7
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestTaskIsolation:
     def test_one_failure_doesnt_crash_others(self):
-        """REQ-002 req 8: single task failure doesn't block others."""
+        """Rondo-REQ-101 req 8: single task failure doesn't block others."""
         call_count = [0]
 
         def _first_fails(task, config, **kw):
@@ -390,7 +390,7 @@ class TestTaskIsolation:
             assert "error" in statuses
 
     def test_exception_in_dispatch_caught(self):
-        """STD-003 C7: exception in one thread produces error result, not crash."""
+        """Rondo-STD-110 C7: exception in one thread produces error result, not crash."""
         call_count = [0]
 
         def _raises(task, config, **kw):
@@ -409,7 +409,7 @@ class TestTaskIsolation:
             assert "ERR_INTERNAL" in (error_results[0].error_code or "")
 
     def test_no_shared_state_mutation(self):
-        """STD-003 C2: each thread returns own result, no shared list mutation."""
+        """Rondo-STD-110 C2: each thread returns own result, no shared list mutation."""
         # -- This test verifies correctness by checking result integrity
         r = Round(name="no-share", tasks=_make_tasks(4))
         config = RondoConfig(workers=4, throttle_sec=0.0)
@@ -421,13 +421,13 @@ class TestTaskIsolation:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Result format compatibility — REQ-002 req 9
+#  Result format compatibility — Rondo-REQ-101 req 9
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestResultFormat:
     def test_returns_round_result(self):
-        """REQ-002 req 9: parallel returns same RoundResult as sequential."""
+        """Rondo-REQ-101 req 9: parallel returns same RoundResult as sequential."""
         r = Round(name="format", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
         with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):

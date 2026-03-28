@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for Rondo living examples — REQ-001 reqs 42-44.
+"""Tests for Rondo living examples — Rondo-REQ-100 reqs 42-44.
 
 VER-001 verification matrix: example rounds as test fixtures.
 Examples serve dual purpose: user documentation AND automated test fixtures.
@@ -50,13 +50,13 @@ def _load_example(name: str):
 
 
 # ──────────────────────────────────────────────────────────────────
-#  REQ-001 req 44 — at least 3 examples ship
+#  Rondo-REQ-100 req 44 — at least 3 examples ship
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestExampleCount:
     def test_at_least_three_examples(self):
-        """REQ-001 req 44: at minimum 3 examples ship."""
+        """Rondo-REQ-100 req 44: at minimum 3 examples ship."""
         assert len(ALL_ROUND_FILES) >= 3, f"Expected 3+ examples, found {len(ALL_ROUND_FILES)}"
 
     def test_expected_spec_files_present(self):
@@ -77,28 +77,28 @@ class TestExampleCount:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  REQ-001 req 42 — build_round() function exists on all round files
+#  Rondo-REQ-100 req 42 — build_round() function exists on all round files
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestExampleBuildRound:
     @pytest.mark.parametrize("example_file", ALL_ROUND_FILES, ids=lambda p: p.name)
     def test_has_build_round(self, example_file):
-        """REQ-001 req 42: every round example has build_round()."""
+        """Rondo-REQ-100 req 42: every round example has build_round()."""
         module = _load_example(example_file.name)
         assert hasattr(module, "build_round"), f"{example_file.name} missing build_round()"
         assert callable(module.build_round)
 
     @pytest.mark.parametrize("example_file", ALL_ROUND_FILES, ids=lambda p: p.name)
     def test_build_round_returns_round(self, example_file):
-        """REQ-001 req 42: build_round() returns a Round."""
+        """Rondo-REQ-100 req 42: build_round() returns a Round."""
         module = _load_example(example_file.name)
         result = module.build_round()
         assert isinstance(result, Round), f"build_round() returned {type(result).__name__}, not Round"
 
 
 # ──────────────────────────────────────────────────────────────────
-#  REQ-001 req 43 — spec examples used as test fixtures
+#  Rondo-REQ-100 req 43 — spec examples used as test fixtures
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -264,7 +264,7 @@ class TestOvernightExample:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  REQ-001 req 32 — examples only import engine module
+#  Rondo-REQ-100 req 32 — examples only import engine module
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -275,7 +275,7 @@ class TestExampleImports:
         ids=lambda p: p.name,
     )
     def test_only_imports_engine(self, example_file):
-        """REQ-001 req 32: round files only import rondo.engine (+ stdlib)."""
+        """Rondo-REQ-100 req 32: round files only import rondo.engine (+ stdlib)."""
         content = example_file.read_text()
         rondo_imports = [
             line.strip() for line in content.splitlines() if "from rondo" in line or "import rondo" in line
@@ -285,7 +285,7 @@ class TestExampleImports:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  REQ-001 req 33 — SPEC examples under 50 lines (practical exempt)
+#  Rondo-REQ-100 req 33 — SPEC examples under 50 lines (practical exempt)
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -296,7 +296,7 @@ class TestExampleSize:
         ids=lambda p: p.name,
     )
     def test_spec_examples_under_50_lines(self, example_file):
-        """REQ-001 req 33: spec-mandated examples under 50 lines."""
+        """Rondo-REQ-100 req 33: spec-mandated examples under 50 lines."""
         lines = example_file.read_text().splitlines()
         assert len(lines) <= 50, f"{example_file.name} is {len(lines)} lines (max 50)"
 

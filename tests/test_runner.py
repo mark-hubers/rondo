@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Tests for rondo.runner — REQ-001 reqs 6, 7, 40, 45, 46.
+"""Tests for rondo.runner — Rondo-REQ-100 reqs 6, 7, 40, 45, 46.
 
 VER-001 verification matrix: run_round() contract + orchestration.
 TDD: these tests are written BEFORE runner.py exists.
@@ -67,7 +67,7 @@ SEQ_CONFIG = RondoConfig(workers=1)
 
 
 # ──────────────────────────────────────────────────────────────────
-#  run_round() contract — REQ-001 req 45
+#  run_round() contract — Rondo-REQ-100 req 45
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -104,7 +104,7 @@ class TestRunRoundContract:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Pre-gates — REQ-001 req 6
+#  Pre-gates — Rondo-REQ-100 req 6
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -163,7 +163,7 @@ class TestPreGates:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Post-gates — REQ-001 req 7
+#  Post-gates — Rondo-REQ-100 req 7
 # ──────────────────────────────────────────────────────────────────
 
 
@@ -305,7 +305,7 @@ class TestTaskOrchestration:
         assert result.status == "skipped"
 
     def test_task_failure_doesnt_crash_others(self):
-        """STD-001 rule 6: one failure doesn't block remaining tasks."""
+        """Rondo-STD-108 rule 6: one failure doesn't block remaining tasks."""
         call_count = [0]
 
         def _first_fails(task, config, **kw):
@@ -328,7 +328,7 @@ class TestTaskOrchestration:
 
 
 # ──────────────────────────────────────────────────────────────────
-#  Auto-detect sequential vs parallel — REQ-001 req 40
+#  Auto-detect sequential vs parallel — Rondo-REQ-100 req 40
 # ──────────────────────────────────────────────────────────────────
 
 

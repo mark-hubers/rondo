@@ -101,7 +101,7 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | 022 | For code generation tasks (output to stdout): dispatch MUST pass `--tools ""` to disable file tools. Without this, Claude tries to write files and hangs on permission prompts | MUST |
-| 023 | For code fixing tasks (needs file access in sandbox): dispatch MUST pass `--dangerously-skip-permissions` (only in containers with no internet) | MUST |
+| 023 | For code fixing tasks (needs file access in sandbox): dispatch MUST pass `--dangerously-skip-permissions` (only in containers with no internet). **Safer variant:** `--allow-dangerously-skip-permissions` enables bypass as an option without it being the default — prefer this for sandbox environments where some permission control is desired. | MUST |
 | 024 | Task definition MUST include `tool_mode: "none" | "sandbox" | "default"` to control which flag is used | MUST |
 
 ### Dispatch — Bare Flag (Headless Execution)
@@ -161,7 +161,21 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 |----|-------------|----------|
 | 047 | Dispatch MUST pass `--permission-mode` to the subprocess from the config's `permission_mode` field | MUST |
 | 048 | Permission mode MUST follow the COALESCE pattern: CLI flag → config file → default `"auto"` | MUST |
-| 049 | Valid permission modes MUST be: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` (matches Claude Code CLI) | MUST |
+| 049 | Valid permission modes MUST be: `default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions` (matches Claude Code CLI v2.1.86+). `dontAsk` silently skips permission prompts without full bypass — safer than `bypassPermissions` for automated dispatch. | MUST |
+
+### Dispatch — Cost & Output Control (Session 91 — CC v2.1.86 flags)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 078 | Dispatch SHOULD pass `--max-budget-usd` to cap per-task API cost. Value follows COALESCE: task field → config `max_budget_usd` → default `null` (no cap). When set, CC kills the subprocess if budget exceeded. | SHOULD |
+| 079 | Dispatch SHOULD pass `--json-schema` with Rondo's result contract schema to enforce structured output at CC level. This eliminates the malformed-JSON fallback path. Schema: `{"type":"object","properties":{"status":{"enum":["done","error","partial","blocked"]},"confidence":{"type":"number"},"result":{"type":"string"},"question":{"type":"string"}},"required":["status","result"]}` | SHOULD |
+| 080 | Dispatch MAY pass `--system-prompt` to set persistent dispatch context (e.g., "You are executing a Rondo automated task. Return JSON matching the result contract."). This improves result parsing reliability. Value from config `dispatch_system_prompt` field. | MAY |
+| 081 | Dispatch MAY pass `--no-session-persistence` to prevent ephemeral dispatch sessions from cluttering CC's session store. Default: enabled for all automated dispatch. | MAY |
+
+### Dispatch — Granular Tool Control (Session 91)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 082 | Dispatch MAY pass `--allowed-tools` and/or `--disallowed-tools` for per-tool control when `tool_mode` is `default`. These provide finer granularity than `tool_mode` (which is all-or-nothing). Example: `--allowed-tools "Read,Grep"` for review-only tasks. | MAY |
+| 083 | `--allowed-tools`/`--disallowed-tools` MUST NOT be combined with `tool_mode: none` (redundant — no tools to filter). If `tool_mode` is `none`, these flags are ignored. | MUST |
 
 ### Package Layout
 ```
@@ -441,7 +455,7 @@ These two settings control different aspects of Claude's tool access:
 | Setting | Controls | Values | When to Use |
 |---------|----------|--------|-------------|
 | `tool_mode` (reqs 022-024) | Which file tools Claude has | `none` (--tools ""), `sandbox` (--dangerously-skip-permissions), `default` | Code generation (none), code fixing (sandbox), general (default) |
-| `permission_mode` (reqs 047-049) | How Claude asks for permission | `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | Controls interactive prompts in subprocess |
+| `permission_mode` (reqs 047-049) | How Claude asks for permission | `default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions` | Controls interactive prompts in subprocess. `dontAsk` is preferred for automated dispatch (skips prompts without full bypass). |
 
 **Precedence:** `tool_mode` is applied first (determines available tools). `permission_mode` is applied second (determines permission prompts for available tools). If `tool_mode` is `none`, `permission_mode` is irrelevant (no tools to prompt for). Both follow the COALESCE pattern independently: CLI → config → default.
 
@@ -701,10 +715,10 @@ calls within the current session; batch = out-of-process subprocess dispatch.
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 057 | Every dispatched task MUST have a `task_timeout_sec` with default 300 seconds. This is the hard wall-clock limit. When Rondo-REQ-101's watchdog is active, `task_timeout_sec` is the upper bound — the watchdog fires on output silence, but the task timeout is the absolute maximum regardless of output | MUST |
-| 058 | Every batch round MUST have a `round_timeout_sec` with default 3600 seconds | MUST |
-| 059 | `subprocess.Popen` MUST be wrapped in strict timeout enforcement | MUST |
-| 060 | On timeout, task status MUST become `error` with error_code `ERR_TIMEOUT` and reason `timeout_exceeded`. Round continues to next task | MUST |
+| 074 | Every dispatched task MUST have a `task_timeout_sec` with default 300 seconds. This is the hard wall-clock limit. When Rondo-REQ-101's watchdog is active, `task_timeout_sec` is the upper bound — the watchdog fires on output silence, but the task timeout is the absolute maximum regardless of output | MUST |
+| 075 | Every batch round MUST have a `round_timeout_sec` with default 3600 seconds | MUST |
+| 076 | `subprocess.Popen` MUST be wrapped in strict timeout enforcement | MUST |
+| 077 | On timeout, task status MUST become `error` with error_code `ERR_TIMEOUT` and reason `timeout_exceeded`. Round continues to next task | MUST |
 
 ---
 
@@ -1227,6 +1241,6 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.6 | 2026-03-14 | Deep review v2 fixes: added reqs 45-46 (run_round contract, RoundResult.status calculation), gate calling convention documented, DispatchUsage defaults for rate limit fields, dry-run changed from subcommand to --dry-run flag on run, test_cli.py + test_examples.py added to package layout |
 | 0.7 | 2026-03-14 | Added reqs 47-49: `--permission-mode` dispatch flag — controls Claude Code tool access prompts in non-interactive subprocess dispatch |
 | 0.8 | 2026-03-14 | Defense in depth: validate_task() + validate_round() pre-flight in engine.py, VALID_MODELS fail-fast in dispatch, CLI exit code contract (0/1/2/130), validate_config() at CLI boundary, KeyboardInterrupt + catch-all exception handling. Cross-ref CORE-IFS-001 reqs 53-54 (status vocabulary). |
-| 0.9 | 2026-03-23 | Gemini R7 findings: +4 reqs (057-060) Task Safety — task_timeout_sec, round_timeout_sec, Popen timeout enforcement, timeout_exceeded error status. Total: 60 reqs. |
+| 0.9 | 2026-03-23 | Gemini R7 findings: +4 reqs (074-077, renumbered from 057-060) Task Safety — task_timeout_sec, round_timeout_sec, Popen timeout enforcement, timeout_exceeded error status. Total: 60 reqs. |
 | 1.0 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Replaced `running` with `in_progress` throughout (CORE-STD-001 alignment). Filled §4 Architecture/Design (layer diagram, component interactions, dispatch detail, tool_mode vs permission_mode). Filled §5 Data Model (dataclass inventory). Filled §6 Data Boundary (canonical data path, config file locations, clarified Rondo-has-no-DB vs CORE-STD-022 indirect relationship). Filled §13 Integration Points. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Renumbered Live Mode reqs 47-56 to 061-070 in proper table format. Clarified timeout coordination with Rondo-REQ-101 watchdog (req 057). Added CORE-STD-001 to dependencies. Annotated parallel.py/overnight.py/report.py as Rondo-REQ-101 scope in package layout. Clarified "zero external dependencies" applies to core engine, not consumer scripts. Total: 70 reqs. |
 | 1.1 | 2026-03-25 | Grok cross-review fixes: (C1) Task state machine diagram now shows `pending` as explicit initial state with forward-only transition restrictions. Added D9 (7-state vocabulary DEC). (C2) Added reqs 071-073: --bare flag detection, flag precedence (stream-json mandatory, --bare additive), Caliber bypass warning. (M4) §6 Data Boundary clarified two distinct storage paths (results_dir vs spool) with owner/purpose/lifecycle table. (M7) Added D10 (dataclass timestamp domain semantics DEC). (M8) Live mode clarified: no subprocess dispatch, no ThreadPoolExecutor, no spool — in-process tool calls only. Total: 73 reqs. |

@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.4
+**Version:** 0.5
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -50,16 +50,45 @@ claude -p <prompt> [--model <model>] [--effort <effort>] [--output-format <forma
 | `--model` | `opus`, `sonnet`, `haiku`, `opus[1m]`, `sonnet[1m]` | NO | sonnet |
 | `--effort` | `low`, `medium`, `high`, `max` | NO | high |
 | `--output-format` | `text`, `json`, `stream-json` | NO | text |
-| `--permission-mode` | `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | NO | auto |
+| `--permission-mode` | `default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions` | NO | auto |
+| `--bare` | Flag (no value) | NO | off | Skip hooks, LSP, plugins, CLAUDE.md discovery. For automated/read-only tasks. |
+| `--tools` | `""` (disable all), `"default"`, or tool names (e.g., `"Bash,Edit,Read"`) | NO | default | Controls which tools Claude has access to |
+| `--dangerously-skip-permissions` | Flag (no value) | NO | off | Bypass all permission checks. Sandboxes only. |
+| `--allow-dangerously-skip-permissions` | Flag (no value) | NO | off | Enable bypass as option without making it default. Safer variant for sandbox. |
+| `--allowed-tools` | Tool names (e.g., `"Bash(git:*) Edit"`) | NO | all | Granular per-tool allow list |
+| `--disallowed-tools` | Tool names (e.g., `"Bash(git:*) Edit"`) | NO | none | Granular per-tool deny list |
+| `--system-prompt` | Prompt text | NO | none | Custom system prompt for dispatch context |
+| `--append-system-prompt` | Prompt text | NO | none | Additive system prompt (layers on CC default) |
+| `--max-budget-usd` | Decimal amount (e.g., `0.50`) | NO | none | Hard cost cap per dispatch. Kills subprocess if exceeded. |
+| `--json-schema` | JSON schema string | NO | none | Enforce structured output format at CC level |
+| `--no-session-persistence` | Flag (no value) | NO | off | Don't save dispatch session to CC session store |
 
 **Permission mode:** Controls how Claude Code handles tool permission prompts during dispatch.
 Since `claude -p` runs non-interactively (stdin disconnected), a permission prompt would hang
-the subprocess until timeout kills it. `auto` lets Claude Code decide; `bypassPermissions`
-skips all prompts (safest for unattended/overnight runs); `acceptEdits` auto-approves file
-edits but still asks for other tools.
+the subprocess until timeout kills it. `auto` lets Claude Code decide; `dontAsk` silently
+skips prompts without full bypass (good for automated dispatch); `bypassPermissions`
+skips all prompts AND security checks (strongest — only for sandboxes); `acceptEdits`
+auto-approves file edits but still asks for other tools.
 
 **Model variants:** The `[1m]` suffix enables the 1M token context window (vs 200K default).
 Both Opus and Sonnet support `[1m]`. Available on Max plan at no extra cost.
+
+### Dispatch-Critical Flags (Session 91 additions)
+
+Three flags with the highest impact on Rondo dispatch quality:
+
+- **`--max-budget-usd`** — Hard cost cap per dispatch. CC kills the subprocess if the
+  budget is exceeded mid-run. Prevents runaway token usage from a stuck or looping agent.
+  Rondo should set this on every dispatch based on task complexity tier.
+
+- **`--json-schema`** — Enforces a structured output format at the CC level. When set,
+  CC validates the AI's response against the schema before returning. Eliminates the
+  malformed-JSON fallback path in Rondo's result parser — if CC returns success, the
+  JSON is guaranteed valid.
+
+- **`--system-prompt`** — Sets Rondo dispatch context (e.g., "You are a Rondo automated
+  task. Return results as JSON matching the schema."). Improves result parsing reliability
+  by giving the child session explicit instructions about its role and output format.
 
 ### Environment Variables
 
@@ -540,3 +569,4 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.2 | 2026-03-14 | Added stream-json output format, rate_limit_event, result metadata, 1M context, 4 new assumptions |
 | 0.3 | 2026-03-14 | Deep review fixes: added 10 numbered requirements, stream-json-to-dataclass mapping tables (rate_limit_event→DispatchUsage, result→DispatchUsage, assistant→TaskResult) |
 | 0.4 | 2026-03-14 | Added `--permission-mode` to invocation table — controls tool access prompts in non-interactive dispatch |
+| 0.5 | 2026-03-28 | Added `dontAsk` to permission modes (CC v2.1.86+). Clarified `--allow-dangerously-skip-permissions` as safer sandbox variant. Session 91 spike verified all flags exist. |

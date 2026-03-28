@@ -20,6 +20,7 @@ import shutil
 from dataclasses import dataclass, field
 
 from rondo.config import RondoConfig
+from rondo.dispatch import detect_cc_version
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,9 @@ def run_preflight(
 
     # -- REQ-103 req 005: API key / auth
     _check_auth(result, config)
+
+    # -- REQ-103 reqs 004, 017: CC version
+    _check_cc_version(result, config)
 
     # -- REQ-103 req 008: disk space
     _check_disk_space(result)
@@ -124,6 +128,28 @@ def _check_auth(result: PreflightResult, config: RondoConfig) -> None:
         result.warnings.append(
             f"Unknown auth mode '{config.auth}' — expected 'max' or 'api'"
         )
+
+
+_BARE_MIN_VERSION = (2, 1, 81)
+
+
+def _check_cc_version(result: PreflightResult, config: RondoConfig) -> None:
+    """REQ-103 reqs 004, 017: detect CC version, warn if too old."""
+    version = detect_cc_version(config.claude_binary)
+    if version is None:
+        result.warnings.append(
+            "Could not detect Claude Code version — "
+            "some features (--bare) may not work"
+        )
+    elif version < _BARE_MIN_VERSION:
+        v_str = ".".join(str(x) for x in version)
+        result.warnings.append(
+            f"Claude Code {v_str} is old — "
+            f"need >= 2.1.81 for --bare flag"
+        )
+    else:
+        v_str = ".".join(str(x) for x in version)
+        result.checks.append(f"Claude Code version: {v_str}")
 
 
 _MIN_DISK_MB = 500

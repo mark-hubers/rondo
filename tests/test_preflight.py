@@ -167,6 +167,43 @@ class TestGitCheck:
         assert any("git" in w.lower() for w in result.warnings)
 
 
+class TestCCVersionCheck:
+    """REQ-103 reqs 004, 017: CC version detection in preflight."""
+
+    def test_version_in_checks_when_available(self):
+        """CC version reported in checks list."""
+        import rondo.dispatch
+        rondo.dispatch._cc_version_cache = None
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 86)),
+        ):
+            result = run_preflight()
+        assert any("2.1.86" in c for c in result.checks)
+
+    def test_old_version_warns(self):
+        """CC < 2.1.81 = YELLOW warning (--bare won't work)."""
+        import rondo.dispatch
+        rondo.dispatch._cc_version_cache = None
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=(2, 0, 50)),
+        ):
+            result = run_preflight()
+        assert any("old" in w.lower() or "2.1.81" in w for w in result.warnings)
+
+    def test_version_unavailable_warns(self):
+        """Can't detect version = YELLOW warning."""
+        import rondo.dispatch
+        rondo.dispatch._cc_version_cache = None
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=None),
+        ):
+            result = run_preflight()
+        assert any("version" in w.lower() for w in result.warnings)
+
+
 class TestPreflightPerformance:
     """REQ-103 req 002: preflight < 3 seconds."""
 

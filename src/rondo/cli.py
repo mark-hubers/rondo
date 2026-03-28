@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rondo",
         description="Rondo — AI task automation for Claude Code",
     )
+    parser.add_argument("--version", action="version", version="rondo 0.1.0")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- run subcommand (Rondo-REQ-100 req 38)

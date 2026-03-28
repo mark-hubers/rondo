@@ -737,4 +737,35 @@ class TestPreflightSubcommand:
         assert exit_code == EXIT_SUCCESS
 
 
+class TestHistorySubcommand:
+    def test_history_empty(self, capsys):
+        """rondo history with no data shows message."""
+        exit_code = main(["history", "--results-dir", "/tmp/nonexistent-rondo"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        assert "no dispatch" in captured.out.lower() or "No dispatch" in captured.out
+
+    def test_history_json_empty(self, capsys):
+        """rondo history --json with no data returns empty array."""
+        import json
+
+        exit_code = main(["history", "--json", "--results-dir", "/tmp/nonexistent-rondo"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data == []
+
+
+class TestVersionFlag:
+    def test_version_output(self, capsys):
+        """rondo --version shows version string."""
+        from rondo.cli import build_parser
+
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--version"])
+        captured = capsys.readouterr()
+        assert "0.1.0" in captured.out
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

@@ -64,6 +64,7 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     report_dir: str = "reports"
 
     # -- flags
+    bare: bool = False  # -- REQ-100 req 071: add --bare for automated dispatch
     dry_run: bool = False
     verbose: bool = False
 

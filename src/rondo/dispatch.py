@@ -574,8 +574,19 @@ def _dispatch_interactive(
         )
 
 
-def _build_subprocess_cmd(config: RondoConfig, prompt: str, model: str) -> list[str]:
-    """Build the claude -p command as a list (STD-003 S1: never shell=True)."""
+def _build_subprocess_cmd(
+    config: RondoConfig,
+    prompt: str,
+    model: str,
+    *,
+    task: Task | None = None,
+) -> list[str]:
+    """Build the claude -p command as a list (STD-003 S1: never shell=True).
+
+    REQ-100 reqs 022-024: tool_mode controls --tools/--dangerously-skip-permissions.
+    REQ-100 reqs 047-049: --permission-mode from config.
+    REQ-100 reqs 071-073: --bare for automated dispatch.
+    """
     cmd = [
         config.claude_binary,
         "-p",
@@ -589,6 +600,23 @@ def _build_subprocess_cmd(config: RondoConfig, prompt: str, model: str) -> list[
         cmd.extend(["--effort", config.effort])
     if config.permission_mode:
         cmd.extend(["--permission-mode", config.permission_mode])
+
+    # -- REQ-100 req 071-073: --bare for automated dispatch
+    # -- Task can opt out with bare=False (req 073: Caliber enforcement needed)
+    use_bare = config.bare
+    if task and task.bare is not None:
+        use_bare = task.bare
+    if use_bare:
+        cmd.append("--bare")
+
+    # -- REQ-100 reqs 022-024: tool_mode controls tool access
+    if task:
+        if task.tool_mode == "none":
+            cmd.extend(["--tools", ""])
+        elif task.tool_mode == "sandbox":
+            cmd.append("--dangerously-skip-permissions")
+        # -- "default" adds no flags
+
     return cmd
 
 

@@ -20,6 +20,7 @@ import pytest
 from rondo.config import RondoConfig
 from rondo.dispatch import (
     VALID_MODELS,
+    _build_subprocess_cmd,
     build_prompt,
     classify_error,
     dispatch_task,
@@ -949,6 +950,62 @@ class TestDispatchValidation:
         config = RondoConfig(dry_run=True)
         result, _ = dispatch_task(task, config)
         assert result.status == "skipped"  # -- dry-run status, not error
+
+
+# -- REQ-100 reqs 022-024, 047-049, 071-073: tool_mode, permission_mode, --bare
+class TestBuildSubprocessCmd:
+    """Tests for _build_subprocess_cmd — flag generation from config + task."""
+
+    def test_default_cmd_has_base_flags(self):
+        """Default config produces minimal command."""
+        config = RondoConfig()
+        cmd = _build_subprocess_cmd(config, "test prompt", "sonnet")
+        assert cmd[0] == "claude"
+        assert "-p" in cmd
+        assert "--model" in cmd
+        assert "--output-format" in cmd
+
+    def test_bare_flag_added_when_enabled(self):
+        """REQ-100 req 071: --bare added when config.bare=True."""
+        config = RondoConfig(bare=True)
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--bare" in cmd
+
+    def test_bare_flag_absent_by_default(self):
+        """--bare not added when config.bare=False (default)."""
+        config = RondoConfig()
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--bare" not in cmd
+
+    def test_tool_mode_none_adds_tools_empty(self):
+        """REQ-100 req 022: tool_mode=none passes --tools ''."""
+        config = RondoConfig()
+        task = Task(name="t", instruction="do", done_when="done", tool_mode="none")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet", task=task)
+        idx = cmd.index("--tools")
+        assert cmd[idx + 1] == ""
+
+    def test_tool_mode_sandbox_adds_dangerously_skip(self):
+        """REQ-100 req 023: tool_mode=sandbox passes --dangerously-skip-permissions."""
+        config = RondoConfig()
+        task = Task(name="t", instruction="do", done_when="done", tool_mode="sandbox")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet", task=task)
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_tool_mode_default_no_extra_flags(self):
+        """REQ-100 req 024: tool_mode=default adds no tool flags."""
+        config = RondoConfig()
+        task = Task(name="t", instruction="do", done_when="done", tool_mode="default")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet", task=task)
+        assert "--tools" not in cmd
+        assert "--dangerously-skip-permissions" not in cmd
+
+    def test_permission_mode_in_cmd(self):
+        """REQ-100 req 047: --permission-mode passed from config."""
+        config = RondoConfig(permission_mode="dontAsk")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        idx = cmd.index("--permission-mode")
+        assert cmd[idx + 1] == "dontAsk"
 
 
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

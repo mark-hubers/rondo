@@ -49,6 +49,8 @@ class Task:  # pylint: disable=too-many-instance-attributes
     # -- dispatch hints
     model: str | None = None  # -- recommended model (COALESCE — REQ-001 req 23)
     mode: str = "interactive"  # -- "interactive" or "auto"
+    tool_mode: str = "default"  # -- "none" | "sandbox" | "default" (REQ-100 reqs 022-024)
+    bare: bool | None = None  # -- task-level --bare override (REQ-100 req 073: false to opt out)
 
     # -- state (REQ-001 req 8)
     status: str = "pending"  # -- pending → in_progress → terminal

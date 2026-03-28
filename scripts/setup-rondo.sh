@@ -194,6 +194,27 @@ if [[ "$MODE" != "--verify" ]]; then
 fi
 
 ## ─────────────────────────────────────────────
+## Step: Install rondo CLI via uv (Session 91)
+## ─────────────────────────────────────────────
+UV_BIN="/opt/homebrew/bin/uv"
+if [[ -x "$UV_BIN" ]]; then
+   if "$UV_BIN" tool list 2>/dev/null | grep -q "rondo"; then
+      pass_msg "rondo CLI installed (uv tool)"
+   else
+      echo "  Installing rondo CLI via uv..."
+      "$UV_BIN" tool install --editable "$RONDO_ROOT" 2>/dev/null
+      if command -v rondo &>/dev/null; then
+         pass_msg "rondo CLI installed → $(which rondo)"
+      else
+         warn_msg "rondo CLI install failed — run manually: $UV_BIN tool install --editable $RONDO_ROOT"
+      fi
+   fi
+else
+   warn_msg "uv not found at $UV_BIN — install with: brew install uv"
+   warn_msg "Without uv, use: cd $RONDO_ROOT && .venv/bin/rondo"
+fi
+
+## ─────────────────────────────────────────────
 ## Summary
 ## ─────────────────────────────────────────────
 echo ""

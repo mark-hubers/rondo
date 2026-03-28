@@ -69,7 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--config", default=None, help="Path to rondo.toml config")
 
     # -- preflight subcommand (Rondo-REQ-103 req 015)
-    subparsers.add_parser("preflight", help="Check dispatch environment without running")
+    pf_parser = subparsers.add_parser("preflight", help="Check dispatch environment without running")
+    pf_parser.add_argument("--json", action="store_true", help="JSON output (REQ-103 req 016)")
 
     # -- history subcommand (Rondo-REQ-104 req 005)
     hist_parser = subparsers.add_parser("history", help="Show dispatch history")
@@ -225,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "report":
             return _cmd_report(args)
         if args.command == "preflight":
-            return _cmd_preflight()
+            return _cmd_preflight(args)
         if args.command == "history":
             return _cmd_history(args)
 
@@ -389,16 +390,29 @@ def _cmd_history(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
-def _cmd_preflight() -> int:
+def _cmd_preflight(args: argparse.Namespace) -> int:
     """Execute 'rondo preflight' — check environment without dispatching.
 
-    Rondo-REQ-103 req 015: standalone preflight command.
+    Rondo-REQ-103 reqs 015-016: standalone preflight + JSON output.
     """
     from rondo.preflight import run_preflight  # pylint: disable=import-outside-toplevel
 
     result = run_preflight()
 
-    # -- Show checks
+    # -- REQ-103 req 016: JSON output
+    if getattr(args, "json", False):
+        import json as _json  # pylint: disable=import-outside-toplevel
+
+        print(_json.dumps({
+            "status": result.status,
+            "can_proceed": result.can_proceed,
+            "checks": result.checks,
+            "warnings": result.warnings,
+            "errors": result.errors,
+        }, indent=2))
+        return EXIT_SUCCESS if result.can_proceed else EXIT_FAILURE
+
+    # -- Human-readable output
     for check in result.checks:
         print(f"  -PASS- {check}")
     for warn in result.warnings:
@@ -406,7 +420,6 @@ def _cmd_preflight() -> int:
     for err in result.errors:
         print(f"  -ERROR- {err}", file=sys.stderr)
 
-    # -- Status line
     if result.status == "GREEN":
         print(f"\n  Preflight: {result.status} — ready to dispatch")
     elif result.status == "YELLOW":

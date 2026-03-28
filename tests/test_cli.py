@@ -723,4 +723,18 @@ class TestPreflightSubcommand:
         assert "claude" in captured.out.lower()
 
 
+    def test_preflight_json_output(self, capsys):
+        """rondo preflight --json returns valid JSON."""
+        import json
+
+        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+            exit_code = main(["preflight", "--json"])
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["status"] == "GREEN"
+        assert "checks" in data
+        assert "errors" in data
+        assert exit_code == EXIT_SUCCESS
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

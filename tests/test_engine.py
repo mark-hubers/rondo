@@ -848,4 +848,166 @@ class TestParallelConflictDetection:
         assert detect_conflicts(results) == []
 
 
+class TestTaskResultFields:
+    """REQ-100: TaskResult has all required fields for ALWAYS-ON infrastructure."""
+
+    def test_dispatch_id_field(self):
+        """STD-113: dispatch_id available for audit cross-reference."""
+        tr = TaskResult(task_name="t", dispatch_id="dsp_abc123")
+        assert tr.dispatch_id == "dsp_abc123"
+
+    def test_command_sent_field(self):
+        """req 015: command_sent shows what CLI was invoked."""
+        tr = TaskResult(task_name="t", command_sent=["claude", "-p", "hello"])
+        assert tr.command_sent == ["claude", "-p", "hello"]
+
+    def test_context_data_field(self):
+        """REQ-106 req 002: context_data for structured input."""
+        tr = TaskResult(task_name="t", context_data={"findings": [1, 2]})
+        assert tr.context_data["findings"] == [1, 2]
+
+    def test_files_modified_field(self):
+        """STD-110: files_modified for conflict detection."""
+        tr = TaskResult(task_name="t", files_modified=["src/main.py"])
+        assert "src/main.py" in tr.files_modified
+
+    def test_cost_field(self):
+        """IFS-100: cost_usd from dispatch usage."""
+        tr = TaskResult(task_name="t", cost_usd=0.042)
+        assert tr.cost_usd == 0.042
+
+    def test_all_status_values_valid(self):
+        """req 008: all task statuses are valid."""
+        for status in ["done", "blocked", "partial", "error", "skipped", "pending"]:
+            tr = TaskResult(task_name="t", status=status)
+            assert tr.status == status
+
+    def test_json_serializable(self):
+        """TaskResult should be JSON-serializable via dataclasses.asdict."""
+        from dataclasses import asdict
+        tr = TaskResult(
+            task_name="t", status="done", cost_usd=0.01,
+            dispatch_id="dsp_123", files_modified=["a.py"],
+        )
+        data = asdict(tr)
+        json_str = json.dumps(data)
+        assert "dsp_123" in json_str
+
+
+class TestRoundValidation:
+    """REQ-100: Round validation catches errors before dispatch."""
+
+    def test_empty_name_invalid(self):
+        """Round with empty name is invalid."""
+        errors = validate_round(Round(name="", tasks=[
+            Task(name="t", instruction="do", done_when="done"),
+        ]))
+        assert len(errors) > 0
+
+    def test_duplicate_task_names_invalid(self):
+        """Round with duplicate task names is invalid."""
+        round_def = Round(name="dupes", tasks=[
+            Task(name="same", instruction="a", done_when="done"),
+            Task(name="same", instruction="b", done_when="done"),
+        ])
+        errors = validate_round(round_def)
+        assert any("duplicate" in e.lower() or "same" in e.lower() for e in errors)
+
+    def test_valid_round_no_errors(self):
+        """Valid round produces no errors."""
+        round_def = Round(name="good", tasks=[
+            Task(name="t1", instruction="do it", done_when="done"),
+        ])
+        errors = validate_round(round_def)
+        assert len(errors) == 0
+
+
+class TestTaskValidation:
+    """REQ-100: Task validation catches missing fields."""
+
+    def test_no_instruction_and_no_auto_fn(self):
+        """Task with neither instruction nor auto_fn is invalid."""
+        errors = validate_task(Task(name="broken"))
+        assert len(errors) > 0
+
+    def test_both_instruction_and_auto_fn(self):
+        """Task with both instruction AND auto_fn is invalid."""
+        errors = validate_task(Task(
+            name="ambiguous",
+            instruction="do it",
+            done_when="done",
+            auto_fn=lambda: (True, "ok"),
+        ))
+        assert len(errors) > 0
+
+    def test_auto_fn_only_valid(self):
+        """Task with only auto_fn is valid."""
+        errors = validate_task(Task(name="auto", auto_fn=lambda: (True, "ok")))
+        assert len(errors) == 0
+
+
+class TestGateExecution:
+    """REQ-100: Gate checks run correctly."""
+
+    def test_passing_gate(self):
+        """Gate with passing check returns pass."""
+        gate = Gate(name="check", check_fn=lambda: (True, "all good"))
+        result = run_gate(gate)
+        assert result.passed is True
+        assert result.detail == "all good"
+
+    def test_failing_gate(self):
+        """Gate with failing check returns fail."""
+        gate = Gate(name="check", check_fn=lambda: (False, "not ready"))
+        result = run_gate(gate)
+        assert result.passed is False
+
+    def test_gate_exception_caught(self):
+        """Gate that raises exception is caught."""
+        def bad_check():
+            raise RuntimeError("crashed")
+        gate = Gate(name="bad", check_fn=bad_check)
+        result = run_gate(gate)
+        assert result.passed is False
+        assert "crashed" in result.detail
+
+    def test_blocking_gate_stops_round(self):
+        """Blocking gate failure prevents should_proceed."""
+        results = [GateResult(gate_name="blocker", passed=False, detail="fail", blocking=True)]
+        assert should_proceed(results) is False
+
+    def test_non_blocking_gate_continues(self):
+        """Non-blocking gate failure allows should_proceed."""
+        results = [GateResult(gate_name="warning", passed=False, detail="warn", blocking=False)]
+        assert should_proceed(results) is True
+
+
+class TestRoundStateManagement:
+    """REQ-100: Round state serialization for resume."""
+
+    def test_state_roundtrip(self):
+        """Round state survives JSON round-trip."""
+        tasks = [
+            Task(name="t1", instruction="a", done_when="done"),
+            Task(name="t2", instruction="b", done_when="done"),
+        ]
+        gates = [GateResult(gate_name="check", passed=True, detail="ok")]
+        serialized = round_state_to_dict(tasks, gates)
+        assert "task_statuses" in serialized
+        assert "gate_results" in serialized
+        assert serialized["gate_results"][0]["passed"] is True
+
+    def test_terminal_states_complete(self):
+        """All terminal states are defined."""
+        assert "done" in TERMINAL_STATES
+        assert "error" in TERMINAL_STATES
+        assert "blocked" in TERMINAL_STATES
+
+    def test_is_terminal(self):
+        """is_terminal correctly identifies terminal states."""
+        assert is_terminal("done") is True
+        assert is_terminal("error") is True
+        assert is_terminal("pending") is False
+
+
 # -- sig: mgh-6201.cd.bd955f.39ed.655d8b

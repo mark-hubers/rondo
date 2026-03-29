@@ -151,18 +151,35 @@ Entry:         cli.py, __init__.py, __main__.py
 - Test files reference VER-001
 - MgH signature on every .py file (5-segment hex format)
 
+## Build Order (Session 92 Learning)
+
+Build in this order for maximum impact:
+
+```
+FOUNDATION → WIRE → HARDEN → AUTOMATE
+```
+
+| Phase | What | Why |
+|-------|------|-----|
+| FOUNDATION | TDD new modules in isolation | Can parallelize, clean tests |
+| WIRE | Connect to existing pipeline | Makes code live, reveals integration bugs |
+| HARDEN | Fix findings, run multi-AI review | Catches drift before it compounds |
+| AUTOMATE | Add process checks from learnings | Prevents same problems next session |
+
 ## What's Left to Build (to hit 75% spec coverage)
 
-| Spec | Reqs | Priority | What |
-|------|------|----------|------|
-| REQ-100 deeper | ~12 | HIGH | Remaining MUST reqs |
-| REQ-101 deeper | ~20 | MEDIUM | Spool system, watchdog |
-| REQ-107 Flakiness | 19 | MEDIUM | New module — needs history |
-| REQ-108 Templates | 17 | MEDIUM | New module — task reuse tracking |
-| STD-112 Golden Numbers | 16 | LOW | Drift detection |
-| STD-113 Audit Trail | 22 | MEDIUM | Deepen history |
-| STD-114 Output Sanitization | 21 | MEDIUM | Secret detection in AI output |
-| dispatch.py Phase 2 | — | HIGH | Remove duplicates, use new modules |
+| Spec | Reqs | Priority | Status | What |
+|------|------|----------|--------|------|
+| REQ-100 deeper | ~12 | HIGH | Partial | Remaining MUST reqs |
+| REQ-101 deeper | ~20 | MEDIUM | Partial | Spool system, watchdog |
+| STD-113 CLI | 5 | HIGH | **Module done, CLI needed** | `rondo audit` query command |
+| REQ-107 CLI | 3 | HIGH | **Module done, CLI needed** | `rondo flaky` display command |
+| REQ-108 Templates | 17 | MEDIUM | Not started | New module — task reuse tracking |
+| STD-112 Golden Numbers | 16 | LOW | Not started | Drift detection |
+| ~~STD-113 Audit Trail~~ | 22 | ~~MEDIUM~~ | **Done** (Session 92) | ~~Deepen history~~ |
+| ~~STD-114 Sanitization~~ | 21 | ~~MEDIUM~~ | **Done** (Session 92) | ~~Secret detection~~ |
+| ~~REQ-107 Flakiness~~ | 19 | ~~MEDIUM~~ | **Done** (Session 92) | ~~Flip detection~~ |
+| ~~dispatch.py wiring~~ | — | ~~HIGH~~ | **Done** (Session 92) | ~~sanitize + audit in pipeline~~ |
 
 ## Quick Commands
 

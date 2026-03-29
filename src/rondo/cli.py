@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Rondo — AI task automation for Claude Code",
     )
     parser.add_argument("--version", action="version", version="rondo 0.1.0")
+    parser.add_argument("--ai-help", action="store_true", default=False, help="JSON capability description for AI agents")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- run subcommand (Rondo-REQ-100 req 38)
@@ -226,6 +227,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         parser = build_parser()
         args = parser.parse_args(argv)
+
+        # -- CORE-STD-023: --ai-help outputs JSON capability description
+        if getattr(args, "ai_help", False):
+            import json as _json  # pylint: disable=import-outside-toplevel
+            from rondo.ai_help import get_ai_help  # pylint: disable=import-outside-toplevel
+
+            print(_json.dumps(get_ai_help(), indent=2))
+            return EXIT_SUCCESS
 
         if not args.command:
             parser.print_help()

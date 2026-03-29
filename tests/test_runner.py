@@ -517,6 +517,56 @@ class TestCircuitBreaker:
         assert len(skipped) == 0
 
 
+class TestCircuitBreakerDeep:
+    """REQ-100 reqs 057-059: circuit breaker deep coverage."""
+
+    def test_trips_after_3_consecutive_same_error(self):
+        """3 consecutive same-error trips breaker, remaining skipped."""
+        round_def = Round(name="breaker", tasks=[
+            Task(name=f"t{i}", instruction="fail", done_when="done")
+            for i in range(5)
+        ])
+        config = RondoConfig()
+
+        with patch("rondo.runner._dispatch_with_safety_net") as mock:
+            mock.return_value = (
+                TaskResult(task_name="t", status="error", error_code="ERR_RATE_LIMIT"),
+                DispatchUsage(task_name="t"),
+            )
+            result = run_sequential(round_def, config)
+
+        statuses = [tr.status for tr in result.task_results]
+        assert statuses.count("error") == 3
+        assert statuses.count("skipped") == 2
+
+    def test_resets_on_success(self):
+        """Success between errors resets breaker counter."""
+        round_def = Round(name="reset", tasks=[
+            Task(name="fail1", instruction="a", done_when="done"),
+            Task(name="fail2", instruction="b", done_when="done"),
+            Task(name="ok", instruction="c", done_when="done"),
+            Task(name="fail3", instruction="d", done_when="done"),
+            Task(name="fail4", instruction="e", done_when="done"),
+        ])
+        config = RondoConfig()
+
+        def mock_dispatch(task, cfg):
+            if task.name == "ok":
+                return (TaskResult(task_name=task.name, status="done"), DispatchUsage())
+            return (
+                TaskResult(task_name=task.name, status="error", error_code="ERR_TIMEOUT"),
+                DispatchUsage(),
+            )
+
+        with patch("rondo.runner._dispatch_with_safety_net", side_effect=mock_dispatch):
+            result = run_sequential(round_def, config)
+
+        errors = [tr for tr in result.task_results if tr.status == "error"]
+        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
+        assert len(errors) == 4
+        assert len(skipped) == 0
+
+
 class TestRoundTimeout:
     """REQ-100 req 075: round_timeout_sec enforcement."""
 

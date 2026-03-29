@@ -1834,4 +1834,79 @@ class TestDispatchAlwaysOn:
         assert result.auth_mode == "max"
 
 
+class TestSubprocessCommand:
+    """REQ-100: _build_subprocess_cmd produces correct CLI command."""
+
+    def test_basic_command_structure(self):
+        """Basic command has claude -p <prompt> --model --output-format."""
+        config = RondoConfig()
+        cmd = _build_subprocess_cmd(config, "hello", "sonnet")
+        assert cmd[0] == "claude"
+        assert "-p" in cmd
+        assert "hello" in cmd
+        assert "--model" in cmd
+        assert "sonnet" in cmd
+        assert "--output-format" in cmd
+        assert "stream-json" in cmd
+
+    def test_effort_flag_added(self):
+        """--effort added when configured."""
+        config = RondoConfig(effort="high")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--effort" in cmd
+        assert "high" in cmd
+
+    def test_permission_mode_flag(self):
+        """--permission-mode added when configured."""
+        config = RondoConfig(permission_mode="auto")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--permission-mode" in cmd
+
+    def test_max_budget_flag(self):
+        """--max-budget-usd added when configured (req 078)."""
+        config = RondoConfig(max_budget_usd=0.50)
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--max-budget-usd" in cmd
+        assert "0.5" in cmd
+
+    def test_tool_mode_none(self):
+        """tool_mode=none adds --tools '' (req 022)."""
+        config = RondoConfig()
+        task = Task(name="t", instruction="do", done_when="done", tool_mode="none")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet", task=task)
+        idx = cmd.index("--tools")
+        assert cmd[idx + 1] == ""
+
+
+class TestEnvironmentPrep:
+    """REQ-100: prepare_env sets up subprocess environment."""
+
+    def test_env_strips_claudecode(self):
+        """CLAUDECODE stripped to prevent nested sessions."""
+        config = RondoConfig()
+        env = prepare_env(config)
+        assert "CLAUDECODE" not in env
+
+    def test_env_has_path(self):
+        """Environment preserves PATH."""
+        config = RondoConfig()
+        env = prepare_env(config)
+        assert "PATH" in env
+
+
+class TestHistoryIntegration:
+    """REQ-104: dispatch results logged to history."""
+
+    def test_history_logged_after_interactive_dispatch(self):
+        """After interactive dispatch, _log_to_history is called."""
+        task = Task(name="logged", instruction="check", done_when="checked")
+        config = RondoConfig()
+
+        with patch("rondo.dispatch._run_subprocess") as mock_run, \
+             patch("rondo.dispatch._log_to_history") as mock_log:
+            mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
+            dispatch_task(task, config)
+            mock_log.assert_called_once()
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

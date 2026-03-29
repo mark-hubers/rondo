@@ -629,6 +629,19 @@ def _parse_and_build_result(
     except (TypeError, AttributeError) as exc:
         logger.debug("Sanitize failed (non-fatal): %s", exc)
 
+    # -- REQ-101: write result to spool (ALWAYS-ON, non-fatal)
+    try:
+        from rondo.spool import spool_result
+        from dataclasses import asdict
+
+        spool_result(
+            task_name=result.task_name,
+            result=asdict(result),
+            spool_dir=os.path.expanduser("~/.rondo/spool"),
+        )
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("Spool write failed (non-fatal): %s", exc)
+
     # -- Rondo-REQ-104: log dispatch to history
     _log_to_history(result, usage, config)
 

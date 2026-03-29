@@ -156,7 +156,7 @@ class TestImportLayering:
         "audit.py": {"sanitize"},
         "flaky.py": set(),
         "spool.py": set(),
-        "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit"},
+        "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit", "spool"},
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner", "preflight"},

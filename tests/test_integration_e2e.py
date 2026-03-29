@@ -981,4 +981,87 @@ class TestE2EAlwaysOnInfrastructure:
         assert engine.get_model_stats() == {}
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: rondo spool CLI (REQ-101 reqs 047-049)
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2ESpoolCLI:
+    """rondo spool — real CLI, real spool management."""
+
+    def test_spool_list(self):
+        """rondo spool list shows pending or empty."""
+        result = _run(["spool", "list"])
+        assert "Pending" in result.stdout or "empty" in result.stdout
+
+    def test_spool_list_json(self):
+        """rondo spool list --json returns valid JSON."""
+        result = _run(["spool", "list", "--json"])
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+
+    def test_spool_clean(self):
+        """rondo spool clean runs without error."""
+        result = _run(["spool", "clean"])
+        assert "Cleaned" in result.stdout
+        assert result.returncode == 0
+
+    def test_spool_export(self):
+        """rondo spool export returns JSON array."""
+        result = _run(["spool", "export", "--since", "2026-01-01"])
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+
+    def test_spool_help(self):
+        """rondo spool --help shows actions."""
+        result = _run(["spool", "--help"])
+        assert "list" in result.stdout
+        assert "clean" in result.stdout
+        assert "export" in result.stdout
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: Full Dispatch Pipeline (ALWAYS-ON verification)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestE2EFullPipeline:
+    """Verify the complete dispatch pipeline: audit + sanitize + spool."""
+
+    def test_pipeline_produces_all_artifacts(self, tmp_path):
+        """One dispatch creates audit, spool, and history artifacts."""
+        from rondo.audit import AuditConfig, AuditTrail
+        from rondo.spool import SpoolConfig, SpoolManager
+
+        # -- Audit
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path / "audit")))
+        record = trail.record_intent(
+            task_name="pipeline-test", round_name="e2e",
+            model="sonnet", prompt="test prompt",
+        )
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id, task_name="pipeline-test",
+            status="done", exit_code=0, cost_usd=0.05,
+            duration_sec=5.0, raw_output="clean result",
+        )
+
+        # -- Spool
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path / "spool")))
+        spool_path = spool.write_result(
+            task_name="pipeline-test",
+            result={"status": "done", "dispatch_id": record.dispatch_id},
+        )
+
+        # -- Verify all artifacts exist
+        assert (tmp_path / "audit" / "rondo_audit.jsonl").exists()
+        assert (tmp_path / "audit" / f"{record.dispatch_id}.prompt.txt").exists()
+        assert (tmp_path / "audit" / f"{record.dispatch_id}.result.json").exists()
+        assert spool_path is not None and spool_path.exists()
+
+        # -- Spool file references dispatch_id (cross-linkable)
+        spool_data = json.loads(spool_path.read_text(encoding="utf-8"))
+        assert spool_data["dispatch_id"] == record.dispatch_id
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

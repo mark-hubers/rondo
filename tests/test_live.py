@@ -132,4 +132,31 @@ class TestRunLive:
         assert progress["total_tasks"] == 3
 
 
+class TestHumanInputInLive:
+    """Finding #151: human_input shows in live mode."""
+
+    def test_human_input_displayed(self, capsys):
+        """Task with human_input shows it before instruction."""
+        task = Task(name="review", instruction="check code", done_when="checked",
+                    human_input="Please review the PR first")
+        present_task(task, 0, 1)
+        captured = capsys.readouterr()
+        assert "review the PR" in captured.out
+
+    def test_no_human_input_no_display(self, capsys):
+        """Task without human_input doesn't show extra section."""
+        task = Task(name="auto", instruction="deploy", done_when="deployed")
+        present_task(task, 0, 1)
+        captured = capsys.readouterr()
+        assert "HUMAN INPUT" not in captured.out
+
+    def test_context_data_in_live(self, capsys):
+        """Task with context_data shows it in live mode."""
+        task = Task(name="review", instruction="analyze", done_when="done",
+                    context_data={"findings": [1, 2, 3]})
+        present_task(task, 0, 1)
+        captured = capsys.readouterr()
+        assert "context_data" in captured.out.lower() or "findings" in captured.out
+
+
 # -- sig: mgh-6201.cd.bd955f.b2c3.d4e5f6

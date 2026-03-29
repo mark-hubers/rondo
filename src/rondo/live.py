@@ -52,6 +52,19 @@ def present_task(task: Task, index: int, total: int) -> dict:
                 print(f"  → {cf}")
             print()
 
+    # -- REQ-100 req 063: human_input shown before dispatch
+    if task.human_input:
+        print("HUMAN INPUT REQUIRED:")
+        print(f"  {task.human_input}")
+        print()
+
+    # -- REQ-106: context_data shown in live mode
+    if task.context_data:
+        print(f"CONTEXT DATA ({len(task.context_data)} keys):")
+        for key in task.context_data:
+            print(f"  → {key}")
+        print()
+
     if task.model:
         print(f"MODEL: {task.model}")
 

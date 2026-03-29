@@ -142,6 +142,42 @@ class SpoolManager:
             removed += 1
         return removed
 
+    def consume_all(self) -> list[dict[str, Any]]:
+        """Read and delete all spool files — REQ-101 req 044 mailbox pattern.
+
+        Consumer reads the data, file is deleted. Once consumed, it's gone.
+        Returns list of result dicts sorted oldest first.
+        """
+        if not self.spool_dir.exists():
+            return []
+
+        results: list[dict[str, Any]] = []
+        for filepath in sorted(self.spool_dir.glob("*.json")):
+            try:
+                data = json.loads(filepath.read_text(encoding="utf-8"))
+                results.append(data)
+                filepath.unlink()
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning("Spool consume failed for %s: %s", filepath.name, exc)
+                continue
+        return results
+
+    def consume_file(self, filename: str) -> dict[str, Any] | None:
+        """Read and delete one spool file by name — REQ-101 req 044.
+
+        Returns result dict or None if file not found.
+        """
+        filepath = self.spool_dir / filename
+        if not filepath.exists():
+            return None
+        try:
+            data = json.loads(filepath.read_text(encoding="utf-8"))
+            filepath.unlink()
+            return data
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Spool consume failed for %s: %s", filename, exc)
+            return None
+
     def export_since(self, since_date: str) -> list[dict[str, Any]]:
         """Export spool files since date — REQ-101 req 049.
 

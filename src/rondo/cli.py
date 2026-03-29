@@ -100,7 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # -- spool subcommand (Rondo-REQ-101 reqs 047-049)
     spool_parser = subparsers.add_parser("spool", help="Manage result spool (mailbox)")
-    spool_parser.add_argument("action", nargs="?", default="list", choices=["list", "clean", "export"],
+    spool_parser.add_argument("action", nargs="?", default="list", choices=["list", "clean", "export", "consume"],
                               help="Spool action (default: list)")
     spool_parser.add_argument("--all", action="store_true", help="Clean all files (not just expired)")
     spool_parser.add_argument("--since", default="", help="Export since date (YYYY-MM-DD)")
@@ -716,6 +716,20 @@ def _cmd_spool(args: argparse.Namespace) -> int:
         since = args.since or "2000-01-01"
         exported = spool.export_since(since)
         print(_json.dumps(exported, indent=2))
+        return EXIT_SUCCESS
+
+    if args.action == "consume":
+        consumed = spool.consume_all()
+        if args.json:
+            print(_json.dumps(consumed, indent=2))
+        elif not consumed:
+            print("  No results to consume.")
+        else:
+            print(f"  Consumed {len(consumed)} result(s):")
+            for c in consumed:
+                status = c.get("status", "?")
+                name = c.get("task_name", c.get("_spool_file", "?"))
+                print(f"    {status:8s} | {name}")
         return EXIT_SUCCESS
 
     return EXIT_SUCCESS

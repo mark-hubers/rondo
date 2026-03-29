@@ -204,4 +204,88 @@ class TestSpoolResultFunction:
         assert path.exists()
 
 
+class TestSpoolConsume:
+    """REQ-101 req 044: consumers read and delete spool files (mailbox)."""
+
+    def test_consume_returns_results(self, tmp_path):
+        """Consume reads all pending results."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        spool.write_result(task_name="t1", result={"status": "done", "output": "ok"})
+        spool.write_result(task_name="t2", result={"status": "error", "output": "fail"})
+        consumed = spool.consume_all()
+        assert len(consumed) == 2
+        assert all(isinstance(c, dict) for c in consumed)
+
+    def test_consume_deletes_files(self, tmp_path):
+        """After consume, spool is empty."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        spool.write_result(task_name="t1", result={"status": "done"})
+        spool.write_result(task_name="t2", result={"status": "done"})
+        spool.consume_all()
+        remaining = list(tmp_path.glob("*.json"))
+        assert len(remaining) == 0
+
+    def test_consume_empty_spool(self, tmp_path):
+        """Empty spool returns empty list."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        consumed = spool.consume_all()
+        assert consumed == []
+
+    def test_consume_preserves_data(self, tmp_path):
+        """Consumed data matches what was written."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        spool.write_result(task_name="review", result={"status": "done", "score": 0.95})
+        consumed = spool.consume_all()
+        assert consumed[0]["status"] == "done"
+        assert consumed[0]["score"] == 0.95
+
+    def test_consume_one_by_filename(self, tmp_path):
+        """Consume a specific file by name."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        path = spool.write_result(task_name="target", result={"status": "done"})
+        spool.write_result(task_name="other", result={"status": "done"})
+        consumed = spool.consume_file(path.name)
+        assert consumed is not None
+        assert consumed["status"] == "done"
+        # -- Only target consumed, other remains
+        remaining = list(tmp_path.glob("*.json"))
+        assert len(remaining) == 1
+
+
+class TestSpoolMorningReport:
+    """REQ-101: spool feeds into morning report."""
+
+    def test_overnight_results_consumable(self, tmp_path):
+        """Overnight results written to spool can be consumed next morning."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        # -- Simulate overnight writing results
+        spool.write_result(
+            task_name="overnight-done",
+            result={
+                "status": "done",
+                "total_cost_usd": 0.42,
+                "duration_sec": 3600,
+                "phase_count": 3,
+            },
+        )
+        # -- Morning: consume and check
+        consumed = spool.consume_all()
+        assert len(consumed) == 1
+        assert consumed[0]["total_cost_usd"] == 0.42
+        assert consumed[0]["phase_count"] == 3
+
+    def test_multiple_overnight_runs(self, tmp_path):
+        """Multiple overnight runs accumulate in spool."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        for i in range(3):
+            spool.write_result(
+                task_name=f"overnight-run-{i}",
+                result={"status": "done", "run": i, "cost": 0.1 * (i + 1)},
+            )
+        consumed = spool.consume_all()
+        assert len(consumed) == 3
+        total_cost = sum(c["cost"] for c in consumed)
+        assert total_cost == pytest.approx(0.6)
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a4.95a4b5

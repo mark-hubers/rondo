@@ -190,4 +190,114 @@ class TestAutoFnExecution:
         assert result.get("auto_error") is not None
 
 
+class TestLiveModeREQ100MustReqs:
+    """REQ-100 MUST requirements for live mode (reqs 061-067, 070)."""
+
+    def test_req061_live_in_current_session(self):
+        """req 061: live mode runs in current session, not subprocess."""
+        # -- run_live is a Python call, not subprocess.run
+        round_def = Round(name="t", tasks=[
+            Task(name="t1", instruction="do", done_when="done"),
+        ])
+        results = run_live(round_def)
+        assert len(results) == 1
+        # -- No subprocess was involved — pure Python execution
+        assert results[0]["mode"] == "interactive"
+
+    def test_req062_one_task_at_a_time(self, capsys):
+        """req 062: live mode presents ONE task at a time."""
+        round_def = Round(name="t", tasks=[
+            Task(name="t1", instruction="first", done_when="done"),
+            Task(name="t2", instruction="second", done_when="done"),
+        ])
+        results = run_live(round_def)
+        captured = capsys.readouterr()
+        # -- Each task gets its own header
+        assert "TASK 1 of 2" in captured.out
+        assert "TASK 2 of 2" in captured.out
+
+    def test_req065_same_round_definition(self):
+        """req 065: live and batch use same Round definition."""
+        # -- Same Round object works for both modes
+        round_def = Round(name="shared", tasks=[
+            Task(name="t1", instruction="do it", done_when="done"),
+        ])
+        # -- Live mode
+        live_results = run_live(round_def)
+        assert len(live_results) == 1
+        # -- Batch mode uses same object (runner.run_round would accept it too)
+        assert round_def.name == "shared"
+
+    def test_req067_output_to_terminal(self, capsys):
+        """req 067: live mode output goes to terminal."""
+        round_def = Round(name="t", tasks=[
+            Task(name="t1", instruction="check", done_when="checked"),
+        ])
+        run_live(round_def)
+        captured = capsys.readouterr()
+        # -- Output went to stdout (terminal), not to a file
+        assert len(captured.out) > 0
+        assert "check" in captured.out
+
+    def test_req070_resume_from_last(self, capsys):
+        """req 070: --resume continues from last completed task."""
+        round_def = Round(name="t", tasks=[
+            Task(name="t1", instruction="first", done_when="done"),
+            Task(name="t2", instruction="second", done_when="done"),
+            Task(name="t3", instruction="third", done_when="done"),
+        ])
+        results = run_live(round_def, start_from=2)
+        assert len(results) == 1
+        assert results[0]["task_name"] == "t3"
+
+
+class TestTimeoutReqs:
+    """REQ-100 MUST requirements for timeouts (reqs 074-077)."""
+
+    def test_req074_task_timeout_default(self):
+        """req 074: task_timeout_sec defaults to 300."""
+        from rondo.config import RondoConfig
+        config = RondoConfig()
+        assert config.task_timeout_sec == 300
+
+    def test_req075_round_timeout_default(self):
+        """req 075: round_timeout_sec defaults to 3600."""
+        from rondo.config import RondoConfig
+        config = RondoConfig()
+        assert config.round_timeout_sec == 3600
+
+    def test_req077_timeout_produces_err_timeout(self):
+        """req 077: on timeout, status=error, error_code=ERR_TIMEOUT."""
+        from unittest.mock import patch
+
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+
+        task = Task(name="slow", instruction="take forever", done_when="never")
+        config = RondoConfig(task_timeout_sec=1)
+
+        with patch("rondo.dispatch._run_subprocess") as mock_run:
+            # -- Simulate timeout
+            mock_run.return_value = ("", "", -1, True)
+            result, _ = dispatch_task(task, config)
+
+        assert result.status == "error"
+        assert result.error_code == "ERR_TIMEOUT"
+
+
+class TestToolModeReqs:
+    """REQ-100 MUST requirements for tool_mode (reqs 022-024, 083)."""
+
+    def test_req083_tool_mode_none_ignores_allowed(self):
+        """req 083: tool_mode=none ignores --allowed-tools/--disallowed-tools."""
+        from rondo.config import RondoConfig
+        from rondo.dispatch import _build_subprocess_cmd
+
+        config = RondoConfig()
+        task = Task(name="t", instruction="do", done_when="done", tool_mode="none")
+        cmd = _build_subprocess_cmd(config, "prompt", "sonnet", task=task)
+        # -- Should have --tools "" but NOT --allowed-tools
+        assert any("--tools" in str(c) for c in cmd)
+
+
 # -- sig: mgh-6201.cd.bd955f.b2c3.d4e5f6

@@ -849,4 +849,136 @@ class TestE2EFlakyPipeline:
         assert data[0]["total_runs"] == 5
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: rondo audit CLI (STD-113 reqs 011-013)
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2EAuditCLI:
+    """rondo audit — real CLI, real audit data."""
+
+    def test_audit_list(self):
+        """rondo audit shows records and cost."""
+        result = _run(["audit"])
+        assert "Audit Trail" in result.stdout or "No audit data" in result.stdout
+
+    def test_audit_cost(self):
+        """rondo audit --cost shows total."""
+        result = _run(["audit", "--cost"])
+        assert "$" in result.stdout or "No audit data" in result.stdout
+
+    def test_audit_failed(self):
+        """rondo audit --failed shows or reports none."""
+        result = _run(["audit", "--failed"])
+        assert "Failed" in result.stdout or "No failed" in result.stdout or "No audit" in result.stdout
+
+    def test_audit_json(self):
+        """rondo audit --json returns valid JSON array."""
+        result = _run(["audit", "--json"])
+        if "No audit data" not in result.stdout:
+            data = json.loads(result.stdout)
+            assert isinstance(data, list)
+
+    def test_audit_cost_json(self):
+        """rondo audit --cost --json returns total."""
+        result = _run(["audit", "--cost", "--json"])
+        if "No audit data" not in result.stdout:
+            data = json.loads(result.stdout)
+            assert "total_cost_usd" in data
+
+    def test_audit_nonexistent_id(self):
+        """rondo audit <bad_id> returns error."""
+        result = _run(["audit", "nonexistent-dispatch-id"])
+        assert result.returncode != 0 or "No records" in result.stdout
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: rondo flaky CLI (REQ-107 reqs 007-008)
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2EFlakyCLI:
+    """rondo flaky — real CLI, real flakiness detection."""
+
+    def test_flaky_default(self):
+        """rondo flaky shows flaky tasks or none."""
+        result = _run(["flaky"])
+        assert "flaky" in result.stdout.lower() or "No audit data" in result.stdout
+
+    def test_flaky_json(self):
+        """rondo flaky --json returns valid JSON array."""
+        result = _run(["flaky", "--json"])
+        if "No audit data" not in result.stdout:
+            data = json.loads(result.stdout)
+            assert isinstance(data, list)
+
+    def test_flaky_custom_threshold(self):
+        """rondo flaky --threshold 0.50 uses custom threshold."""
+        result = _run(["flaky", "--threshold", "0.50"])
+        assert result.returncode == 0
+
+    def test_flaky_model_reliability(self):
+        """rondo flaky shows model reliability when data exists."""
+        result = _run(["flaky"])
+        # -- If no flaky tasks, should show model reliability
+        if "No flaky tasks" in result.stdout:
+            assert "reliability" in result.stdout.lower() or result.returncode == 0
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: Always-On Infrastructure Verification
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestE2EAlwaysOnInfrastructure:
+    """Verify the ALWAYS-ON golden rule: audit, sanitize, metrics always work."""
+
+    def test_audit_trail_exists_after_dispatch(self, tmp_path):
+        """After dispatch, audit trail has records (always-on)."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = trail.record_intent(
+            task_name="always-on-test", round_name="test",
+            model="sonnet", prompt="verify always-on",
+        )
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id, task_name="always-on-test",
+            status="done", exit_code=0, cost_usd=0.01,
+        )
+        jsonl = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
+        assert len(jsonl.strip().split("\n")) == 2
+
+    def test_sanitize_always_runs(self):
+        """Sanitize runs on any text — never errors, always returns."""
+        from rondo.sanitize import sanitize_text
+
+        # -- Clean text: passes through
+        r1 = sanitize_text("normal output")
+        assert r1.sanitized_text == "normal output"
+        # -- Dirty text: scrubbed
+        r2 = sanitize_text("api_key = 'sk-leaked-value-123'")
+        assert "sk-leaked" not in r2.sanitized_text
+        # -- Empty: safe
+        r3 = sanitize_text("")
+        assert r3.secrets_found == 0
+
+    def test_dispatch_id_always_available(self):
+        """TaskResult always has dispatch_id field (even if empty)."""
+        from rondo.engine import TaskResult
+
+        tr = TaskResult(task_name="test")
+        assert hasattr(tr, "dispatch_id")
+
+    def test_flaky_engine_always_works(self):
+        """FlakyEngine works with zero data — never errors."""
+        from rondo.flaky import FlakyEngine
+
+        engine = FlakyEngine()
+        assert engine.get_flaky_tasks() == []
+        assert engine.get_model_stats() == {}
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

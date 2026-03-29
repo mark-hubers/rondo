@@ -44,7 +44,8 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     effort: str = "high"
     output_format: str = "stream-json"
     claude_binary: str = "claude"
-    task_timeout_sec: int = 300
+    task_timeout_sec: int = 300  # -- REQ-100 req 074: per-task hard limit
+    round_timeout_sec: int = 3600  # -- REQ-100 req 075: per-round hard limit
 
     # -- parallel
     workers: int = 4

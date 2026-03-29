@@ -231,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         # -- CORE-STD-023: --ai-help outputs JSON capability description
         if getattr(args, "ai_help", False):
             import json as _json  # pylint: disable=import-outside-toplevel
+
             from rondo.ai_help import get_ai_help  # pylint: disable=import-outside-toplevel
 
             print(_json.dumps(get_ai_help(), indent=2))

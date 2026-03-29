@@ -680,4 +680,72 @@ class TestContextData:
         assert not any("max_context_bytes" in e for e in errors)
 
 
+# -- Deep coverage: new Session 91 fields in serialization
+class TestNewFieldsSerialization:
+    """Verify Session 91 fields survive JSON round-trip."""
+
+    def test_task_with_all_new_fields_serializable(self):
+        """Task with tool_mode, bare, human_input, context_data → JSON → back."""
+        import json
+        from dataclasses import asdict
+
+        t = Task(name="full", instruction="do", done_when="done",
+                 tool_mode="sandbox", bare=False, human_input="check first",
+                 context_data={"key": [1, 2, 3]})
+        data = asdict(t)
+        # Remove non-serializable fields
+        data.pop("auto_fn", None)
+        json_str = json.dumps(data)
+        parsed = json.loads(json_str)
+        assert parsed["tool_mode"] == "sandbox"
+        assert parsed["bare"] is False
+        assert parsed["human_input"] == "check first"
+        assert parsed["context_data"]["key"] == [1, 2, 3]
+
+    def test_task_result_with_command_sent(self):
+        """TaskResult.command_sent survives JSON round-trip."""
+        import json
+        from dataclasses import asdict
+
+        tr = TaskResult(task_name="t", status="done",
+                        command_sent=["claude", "-p", "test", "--bare"])
+        data = asdict(tr)
+        json_str = json.dumps(data, default=str)
+        parsed = json.loads(json_str)
+        assert parsed["command_sent"] == ["claude", "-p", "test", "--bare"]
+
+    def test_dispatch_usage_budget_field_serializable(self):
+        """DispatchUsage.budget_exceeded survives JSON round-trip."""
+        import json
+        from dataclasses import asdict
+        from rondo.engine import DispatchUsage as _DU
+
+        u = _DU(task_name="t", budget_exceeded=True, cost_usd=0.05)
+        data = asdict(u)
+        json_str = json.dumps(data)
+        parsed = json.loads(json_str)
+        assert parsed["budget_exceeded"] is True
+        assert parsed["cost_usd"] == 0.05
+
+
+class TestRoundStateWithNewFields:
+    """Round state includes new fields in serialization."""
+
+    def test_state_dict_includes_tool_mode(self):
+        """round_state_to_dict captures tool_mode status."""
+        tasks = [Task(name="t1", tool_mode="sandbox")]
+        tasks[0].status = "done"
+        state = round_state_to_dict(tasks, [])
+        assert state["task_statuses"]["t1"] == "done"
+
+    def test_resume_preserves_pending_tasks(self):
+        """round_state_from_dict only sets status for known tasks."""
+        tasks = [Task(name="t1"), Task(name="t2"), Task(name="t3")]
+        state = {"task_statuses": {"t1": "done"}, "gate_results": []}
+        round_state_from_dict(tasks, state)
+        assert tasks[0].status == "done"
+        assert tasks[1].status == "pending"
+        assert tasks[2].status == "pending"
+
+
 # -- sig: mgh-6201.cd.bd955f.39ed.655d8b

@@ -40,7 +40,9 @@ from rondo.dispatch_prompt import (
     RONDO_RESULT_SCHEMA,
     build_prompt,
 )
+from rondo.audit import AuditConfig, AuditTrail
 from rondo.engine import DispatchUsage, Task, TaskResult, validate_task
+from rondo.sanitize import sanitize_task_result
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,17 @@ _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
 # -- Rondo-REQ-100 req 071: CC version detection (cached per process)
 _cc_version_cache: tuple[int, int, int] | None = None
 _BARE_MIN_VERSION = (2, 1, 81)
+
+
+def _get_audit_trail(config: RondoConfig) -> AuditTrail | None:
+    """Create AuditTrail if audit_dir is configured — STD-113."""
+    if not config.audit_dir:
+        return None
+    try:
+        return AuditTrail(config=AuditConfig(audit_dir=config.audit_dir))
+    except (OSError, TypeError) as exc:
+        logger.debug("Audit trail init failed (non-fatal): %s", exc)
+        return None
 
 
 def detect_cc_version(binary: str = "claude") -> tuple[int, int, int] | None:
@@ -331,6 +344,17 @@ def _dispatch_interactive(
     start = time.monotonic()
     cmd = _build_subprocess_cmd(config, prompt, model)
 
+    # -- STD-113: record INTENT before dispatch (crash-safe)
+    audit_trail = _get_audit_trail(config)
+    audit_record = None
+    if audit_trail:
+        audit_record = audit_trail.record_intent(
+            task_name=task.name,
+            round_name="",
+            model=model,
+            prompt=prompt,
+        )
+
     try:
         stdout, stderr, returncode, timed_out = _run_subprocess(cmd, env, config.task_timeout_sec)
         duration = time.monotonic() - start
@@ -382,7 +406,10 @@ def _dispatch_interactive(
             )
 
         # -- Parse and build success result
-        return _parse_and_build_result(task, config, model, timestamp, prompt, stdout, stderr, returncode, duration)
+        return _parse_and_build_result(
+            task, config, model, timestamp, prompt, stdout, stderr, returncode, duration,
+            audit_trail=audit_trail, audit_record=audit_record,
+        )
 
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         # -- Rondo-STD-108 rule 9: subprocess + I/O failures caught
@@ -516,10 +543,14 @@ def _parse_and_build_result(
     stderr: str,
     returncode: int,
     duration: float,
+    *,
+    audit_trail: AuditTrail | None = None,
+    audit_record: object | None = None,
 ) -> tuple[TaskResult, DispatchUsage]:
     """Parse stream-json output and build success/partial TaskResult.
 
     Extracted from _dispatch_interactive() for complexity reduction.
+    STD-113: records audit outcome. STD-114: sanitizes stored result.
     """
     events, usage = parse_stream_json_events(stdout.split("\n"), task_name=task.name)
     usage = DispatchUsage(
@@ -568,6 +599,31 @@ def _parse_and_build_result(
         cost_usd=usage.cost_usd,
         files_modified=extract_modified_files(assistant_text),
     )
+
+    # -- STD-113: record audit OUTCOME
+    if audit_trail and audit_record:
+        try:
+            audit_trail.record_outcome(
+                dispatch_id=audit_record.dispatch_id,
+                task_name=task.name,
+                model=model,
+                status=result.status,
+                exit_code=returncode,
+                cost_usd=usage.cost_usd,
+                duration_sec=duration,
+                raw_output=result.raw_output,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                files_modified=result.files_modified,
+            )
+        except (OSError, TypeError) as exc:
+            logger.debug("Audit outcome recording failed (non-fatal): %s", exc)
+
+    # -- STD-114: sanitize result before storage (scrub secrets)
+    try:
+        result, _sr = sanitize_task_result(result, config=None)
+    except (TypeError, AttributeError) as exc:
+        logger.debug("Sanitize failed (non-fatal): %s", exc)
 
     # -- Rondo-REQ-104: log dispatch to history
     _log_to_history(result, usage, config)

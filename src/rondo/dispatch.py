@@ -600,6 +600,10 @@ def _parse_and_build_result(
         files_modified=extract_modified_files(assistant_text),
     )
 
+    # -- STD-113: set dispatch_id on result so callers can reference it
+    if audit_record:
+        result.dispatch_id = audit_record.dispatch_id
+
     # -- STD-113: record audit OUTCOME
     if audit_trail and audit_record:
         try:

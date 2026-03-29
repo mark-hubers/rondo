@@ -95,6 +95,8 @@ def _get_commands() -> list[dict[str, str]]:
         {"name": "preflight", "description": "Check dispatch environment without running", "usage": "rondo preflight [--json]"},
         {"name": "history", "description": "Show dispatch history with cost tracking", "usage": "rondo history [--model M] [--status S] [--expensive] [--json]"},
         {"name": "report", "description": "Generate morning report from results", "usage": "rondo report <results_dir>"},
+        {"name": "audit", "description": "Query dispatch audit trail (always-on, every dispatch recorded)", "usage": "rondo audit [dispatch_id] [--cost] [--failed] [--json]"},
+        {"name": "flaky", "description": "Show flaky task templates with flip rates", "usage": "rondo flaky [--json] [--threshold 0.20]"},
     ]
 
 

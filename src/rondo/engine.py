@@ -125,6 +125,9 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     # -- structured input audit (REQ-106 req 002)
     context_data: dict[str, Any] = field(default_factory=dict)
 
+    # -- audit trail (STD-113: callers can reference this dispatch)
+    dispatch_id: str = ""
+
 
 @dataclass
 class DispatchUsage:  # pylint: disable=too-many-instance-attributes

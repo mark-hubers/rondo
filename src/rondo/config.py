@@ -62,7 +62,7 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     # -- paths
     results_dir: str = "reports/rondo-results"
     report_dir: str = "reports"
-    audit_dir: str = ""  # -- STD-113: dispatch audit trail dir (empty = disabled)
+    audit_dir: str = "~/.rondo/audit"  # -- STD-113: always on, default path
 
     # -- cost & output control (REQ-100 reqs 078-080)
     max_budget_usd: float | None = None  # -- req 078: hard cost cap per task

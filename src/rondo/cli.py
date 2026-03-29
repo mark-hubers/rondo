@@ -82,6 +82,20 @@ def build_parser() -> argparse.ArgumentParser:
     hist_parser.add_argument("--expensive", action="store_true", help="Sort by cost (highest first)")
     hist_parser.add_argument("--results-dir", default="reports", help="Results directory")
 
+    # -- audit subcommand (Rondo-STD-113 reqs 011-013)
+    audit_parser = subparsers.add_parser("audit", help="Query dispatch audit trail")
+    audit_parser.add_argument("dispatch_id", nargs="?", default="", help="Show detail for one dispatch")
+    audit_parser.add_argument("--cost", action="store_true", help="Show total cost summary")
+    audit_parser.add_argument("--failed", action="store_true", help="Show only failed dispatches")
+    audit_parser.add_argument("--json", action="store_true", help="JSON output")
+    audit_parser.add_argument("--audit-dir", default="~/.rondo/audit", help="Audit directory")
+
+    # -- flaky subcommand (Rondo-REQ-107 reqs 007-008)
+    flaky_parser = subparsers.add_parser("flaky", help="Show flaky task templates")
+    flaky_parser.add_argument("--json", action="store_true", help="JSON output")
+    flaky_parser.add_argument("--threshold", type=float, default=0.20, help="Flakiness threshold (default 0.20)")
+    flaky_parser.add_argument("--audit-dir", default="~/.rondo/audit", help="Audit directory")
+
     return parser
 
 
@@ -253,6 +267,10 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_preflight(args)
         if args.command == "history":
             return _cmd_history(args)
+        if args.command == "audit":
+            return _cmd_audit(args)
+        if args.command == "flaky":
+            return _cmd_flaky(args)
 
         return EXIT_SUCCESS
 
@@ -475,6 +493,190 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
 # ──────────────────────────────────────────────────────────────────
 #  Entry point for `python -m rondo`
 # ──────────────────────────────────────────────────────────────────
+
+def _load_audit_records(audit_dir: str) -> list[dict]:
+    """Load all records from audit JSONL — STD-113."""
+    import json as _json
+    from pathlib import Path
+
+    jsonl_file = Path(audit_dir).expanduser() / "rondo_audit.jsonl"
+    if not jsonl_file.exists():
+        return []
+    records = []
+    for line in jsonl_file.read_text(encoding="utf-8").strip().split("\n"):
+        if line.strip():
+            try:
+                records.append(_json.loads(line))
+            except _json.JSONDecodeError:
+                continue
+    return records
+
+
+def _cmd_audit(args: argparse.Namespace) -> int:
+    """Query dispatch audit trail — STD-113 reqs 011-013.
+
+    Always-on: every dispatch records audit data. This command reads it.
+    Callers (ACE, OB, Caliber) get dispatch_id in TaskResult automatically.
+    """
+    import json as _json
+    from pathlib import Path
+
+    records = _load_audit_records(args.audit_dir)
+    if not records:
+        print("No audit data yet. Run a dispatch first.")
+        return EXIT_SUCCESS
+
+    # -- Detail view: rondo audit <dispatch_id>
+    if args.dispatch_id:
+        return _cmd_audit_detail(args, records)
+    # -- Cost summary: rondo audit --cost
+    if args.cost:
+        return _cmd_audit_cost(args, records)
+    # -- Failed only: rondo audit --failed
+    if args.failed:
+        return _cmd_audit_failed(args, records)
+    # -- Default: list all
+    return _cmd_audit_list(args, records)
+
+
+def _cmd_audit_detail(args: argparse.Namespace, records: list[dict]) -> int:
+    """Show detail for one dispatch_id."""
+    import json as _json
+    from pathlib import Path
+
+    matches = [r for r in records if r.get("dispatch_id") == args.dispatch_id]
+    if not matches:
+        print(f"No records for dispatch_id: {args.dispatch_id}")
+        return EXIT_ERROR
+    if args.json:
+        print(_json.dumps(matches, indent=2))
+    else:
+        for r in matches:
+            print(f"  {r.get('status', '?'):8s} | {r.get('task_name', '?')} | {r.get('dispatched_at', r.get('completed_at', ''))}")
+            if r.get("cost_usd"):
+                print(f"           cost: ${r['cost_usd']:.4f} | duration: {r.get('duration_sec', 0):.1f}s")
+    audit_dir = Path(args.audit_dir).expanduser()
+    for ext in [".prompt.txt", ".result.json"]:
+        fpath = audit_dir / f"{args.dispatch_id}{ext}"
+        if fpath.exists():
+            print(f"  {'Prompt' if 'prompt' in ext else 'Result'}: {fpath}")
+    return EXIT_SUCCESS
+
+
+def _cmd_audit_cost(args: argparse.Namespace, records: list[dict]) -> int:
+    """Show total cost summary."""
+    import json as _json
+
+    outcomes = [r for r in records if r.get("cost_usd")]
+    total_cost = sum(r.get("cost_usd", 0) for r in outcomes)
+    if args.json:
+        print(_json.dumps({"total_cost_usd": total_cost, "dispatch_count": len(outcomes)}))
+    else:
+        print(f"  Total cost: ${total_cost:.4f}")
+        print(f"  Dispatches: {len(outcomes)}")
+        if outcomes:
+            print(f"  Average:    ${total_cost / len(outcomes):.4f}/dispatch")
+    return EXIT_SUCCESS
+
+
+def _cmd_audit_failed(args: argparse.Namespace, records: list[dict]) -> int:
+    """Show only failed dispatches."""
+    import json as _json
+
+    failed = [r for r in records if r.get("status") in ("error", "blocked", "timeout")]
+    if args.json:
+        print(_json.dumps(failed, indent=2))
+    elif not failed:
+        print("  No failed dispatches.")
+    else:
+        print(f"  Failed Dispatches ({len(failed)}):")
+        for r in failed:
+            print(f"    {r.get('dispatch_id', '?')[:12]} | {r.get('task_name', '?')} | {r.get('status', '?')}")
+    return EXIT_SUCCESS
+
+
+def _cmd_audit_list(args: argparse.Namespace, records: list[dict]) -> int:
+    """Default: list all audit records with summary."""
+    import json as _json
+
+    if args.json:
+        print(_json.dumps(records, indent=2))
+        return EXIT_SUCCESS
+    intents = [r for r in records if r.get("status") == "INTENT"]
+    outcomes = [r for r in records if r.get("status") != "INTENT"]
+    total_cost = sum(r.get("cost_usd", 0) for r in outcomes)
+    print(f"  Audit Trail: {len(records)} records ({len(intents)} intents, {len(outcomes)} outcomes)")
+    print(f"  Total cost:  ${total_cost:.4f}")
+    print()
+    recent = sorted(outcomes, key=lambda r: r.get("completed_at", ""))[-10:]
+    if recent:
+        print("  Recent dispatches:")
+        for r in recent:
+            did = r.get("dispatch_id", "?")[:12]
+            print(f"    {did} | {r.get('status', '?'):8s} | ${r.get('cost_usd', 0):.4f} | {r.get('task_name', '?')}")
+    return EXIT_SUCCESS
+
+
+def _cmd_flaky(args: argparse.Namespace) -> int:
+    """Show flaky task templates — REQ-107 reqs 007-008.
+
+    Reads audit trail, feeds into FlakyEngine, reports flip rates.
+    """
+    import json as _json
+    from pathlib import Path
+
+    from rondo.flaky import DispatchOutcome, FlakyEngine
+
+    audit_dir = Path(args.audit_dir).expanduser()
+    jsonl_file = audit_dir / "rondo_audit.jsonl"
+
+    if not jsonl_file.exists():
+        print("No audit data yet. Run dispatches first to build history.")
+        return EXIT_SUCCESS
+
+    # -- Load outcomes from audit trail
+    engine = FlakyEngine()
+    for line in jsonl_file.read_text(encoding="utf-8").strip().split("\n"):
+        if not line.strip():
+            continue
+        try:
+            r = _json.loads(line)
+        except _json.JSONDecodeError:
+            continue
+        # -- Only outcomes (not INTENTs)
+        if r.get("status") == "INTENT":
+            continue
+        if not r.get("task_name"):
+            continue
+        engine.add_outcome(DispatchOutcome(
+            task_name=r.get("task_name", ""),
+            prompt_hash=r.get("prompt_hash", "unknown"),
+            model=r.get("model", "unknown"),
+            status=r.get("status", "unknown"),
+            confidence=0.0,
+            run_at=r.get("completed_at", r.get("dispatched_at", "")),
+        ))
+
+    flaky_tasks = engine.get_flaky_tasks(threshold=args.threshold)
+
+    if args.json:
+        print(_json.dumps([f.to_dict() for f in flaky_tasks], indent=2))
+        return EXIT_SUCCESS
+
+    if not flaky_tasks:
+        print(f"  No flaky tasks (threshold: {args.threshold:.0%})")
+        stats = engine.get_model_stats()
+        if stats:
+            print("\n  Model reliability:")
+            for model, data in sorted(stats.items()):
+                print(f"    {model}: {data['total_runs']} runs, {data['flakiness']:.0%} flip rate")
+        return EXIT_SUCCESS
+
+    print(f"  Flaky Tasks ({len(flaky_tasks)}, threshold: {args.threshold:.0%}):")
+    for f in flaky_tasks:
+        print(f"    {f.task_name}: {f.flakiness_score:.0%} flaky ({f.flip_count} flips / {f.total_runs} runs)")
+    return EXIT_SUCCESS
+
 
 if __name__ == "__main__":
     sys.exit(main())

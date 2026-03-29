@@ -152,6 +152,7 @@ class TestImportLayering:
     ALLOWED_IMPORTS: dict[str, set[str]] = {
         "engine.py": set(),
         "config.py": set(),
+        "sanitize.py": set(),
         "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse"},
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},

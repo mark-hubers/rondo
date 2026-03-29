@@ -2,7 +2,7 @@
 
 **For:** Any Claude session building Rondo from ~/.claude/ or ace2
 **System:** OB1 (manual build process, until OB2 replaces it)
-**Status:** 727 tests, 93% coverage, 58% spec coverage, 60 E2E tests
+**Status:** 766 tests, 93% coverage, 58% spec coverage, 60 E2E tests
 
 ---
 
@@ -26,6 +26,10 @@
 ## Before Starting
 
 ```bash
+## Enable Caliber build mode (unlocks protected source paths)
+## Mark must type this in the CC prompt — it's a keyword, not a command
+caliber build
+
 ## Health check
 ace-preflight
 
@@ -194,6 +198,7 @@ rondo --version
 6. **No agents for code** — agents bypass Caliber, do inline only
 7. **Read the spec** — before coding anything
 8. **Fix findings** — don't ship with known bugs from AI review
+9. **`caliber build`** — say this at session start to unlock protected source paths
 
 ---
 

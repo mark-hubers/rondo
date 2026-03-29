@@ -115,6 +115,9 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     timestamp: str = ""
     cost_usd: float | None = None
 
+    # -- command audit (Rondo-REQ-100 req 015: know what was sent)
+    command_sent: list[str] = field(default_factory=list)
+
     # -- file tracking (Rondo-STD-110 conflict detection)
     files_modified: list[str] = field(default_factory=list)
 

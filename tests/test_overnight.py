@@ -585,4 +585,138 @@ class TestOvernightEventLog:
             assert "timestamp" in event
 
 
+class TestEventLogDeep:
+    """REQ-101 req 018: rolling event log keeps last 100 entries."""
+
+    def test_max_entries_enforced(self):
+        """Log trims to 100 entries."""
+        log = EventLog()
+        for i in range(150):
+            log.append({"type": f"event_{i}"})
+        assert len(log.entries) == 100
+        assert log.entries[0]["type"] == "event_50"
+
+    def test_persist_and_reload(self, tmp_path):
+        """Log saves to disk and reloads."""
+        log_path = str(tmp_path / "events.json")
+        log1 = EventLog(log_path=log_path)
+        log1.append({"type": "test", "value": 42})
+        log1.save()
+
+        log2 = EventLog(log_path=log_path)
+        assert len(log2.entries) == 1
+        assert log2.entries[0]["value"] == 42
+
+    def test_corrupt_file_recovers(self, tmp_path):
+        """Corrupt JSON file doesn't crash — starts empty."""
+        log_path = tmp_path / "events.json"
+        log_path.write_text("not json {{{{", encoding="utf-8")
+        log = EventLog(log_path=str(log_path))
+        assert log.entries == []
+
+    def test_no_path_no_save(self):
+        """Log with no path doesn't crash on save."""
+        log = EventLog()
+        log.append({"type": "test"})
+        log.save()  # -- should not raise
+
+
+class TestUsageGatingDeep:
+    """REQ-101 reqs 024-028: usage gating for overnight safety."""
+
+    def test_normal_status_continues(self):
+        """Normal rate limit → continue."""
+        usage = DispatchUsage(rate_limit_status="ok")
+        assert check_usage_gate(usage) == "continue"
+
+    def test_blocked_always_blocks(self):
+        """Blocked status → always blocks regardless of config."""
+        usage = DispatchUsage(rate_limit_status="blocked")
+        assert check_usage_gate(usage, on_overage="continue") == "blocked"
+
+    def test_overage_respects_config_continue(self):
+        """Overage + on_overage=continue → continue."""
+        usage = DispatchUsage(is_using_overage=True)
+        assert check_usage_gate(usage, on_overage="continue") == "continue"
+
+    def test_overage_respects_config_stop(self):
+        """Overage + on_overage=stop → stop."""
+        usage = DispatchUsage(is_using_overage=True)
+        assert check_usage_gate(usage, on_overage="stop") == "stop"
+
+    def test_overage_respects_config_pause(self):
+        """Overage + on_overage=pause → pause."""
+        usage = DispatchUsage(is_using_overage=True)
+        assert check_usage_gate(usage, on_overage="pause") == "pause"
+
+    def test_no_overage_no_block_continues(self):
+        """No overage + not blocked → continue."""
+        usage = DispatchUsage(is_using_overage=False, rate_limit_status="ok")
+        assert check_usage_gate(usage) == "continue"
+
+
+class TestOvernightPhaseOrdering:
+    """REQ-101 req 011: phases execute sequentially."""
+
+    def test_phases_run_in_order(self):
+        """Phase results are in submission order."""
+        phases = [
+            Round(name=f"phase-{i}", tasks=[
+                Task(name=f"t{i}", auto_fn=lambda: (True, "ok")),
+            ])
+            for i in range(3)
+        ]
+        config = RondoConfig(dry_run=True)
+        result = run_overnight(phases=phases, config=config)
+        names = [pr.round_name for pr in result.phase_results]
+        assert names == ["phase-0", "phase-1", "phase-2"]
+
+    def test_req012_phase_failure_continues(self):
+        """REQ-101 req 012: phase failure doesn't block next phase."""
+        call_count = 0
+
+        def failing_fn():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("phase 1 crashed")
+            return (True, "ok")
+
+        phases = [
+            Round(name="fail-phase", tasks=[
+                Task(name="fail", auto_fn=failing_fn),
+            ]),
+            Round(name="ok-phase", tasks=[
+                Task(name="ok", auto_fn=lambda: (True, "ok")),
+            ]),
+        ]
+        config = RondoConfig(dry_run=True)
+        result = run_overnight(phases=phases, config=config)
+        assert len(result.phase_results) == 2
+
+
+class TestOvernightResults:
+    """REQ-101: overnight result has required fields."""
+
+    def test_result_has_timing(self):
+        """OvernightResult has started_at, completed_at, duration_sec."""
+        phases = [Round(name="t", tasks=[
+            Task(name="t", auto_fn=lambda: (True, "ok")),
+        ])]
+        config = RondoConfig(dry_run=True)
+        result = run_overnight(phases=phases, config=config)
+        assert result.started_at != ""
+        assert result.completed_at != ""
+        assert result.duration_sec >= 0
+
+    def test_result_has_cost(self):
+        """OvernightResult has total_cost_usd."""
+        phases = [Round(name="t", tasks=[
+            Task(name="t", auto_fn=lambda: (True, "ok")),
+        ])]
+        config = RondoConfig(dry_run=True)
+        result = run_overnight(phases=phases, config=config)
+        assert result.total_cost_usd >= 0
+
+
 # -- sig: mgh-6201.cd.bd955f.1c5d.a91c4a

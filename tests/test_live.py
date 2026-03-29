@@ -159,4 +159,35 @@ class TestHumanInputInLive:
         assert "context_data" in captured.out.lower() or "findings" in captured.out
 
 
+class TestAutoFnExecution:
+    """Finding #153: auto_fn should execute in live mode."""
+
+    def test_auto_fn_runs_and_shows_result(self, capsys):
+        """Auto task runs auto_fn and shows (pass, message)."""
+        task = Task(name="auto-lint", auto_fn=lambda: (True, "All 12 files pass lint"))
+        result = present_task(task, 0, 1)
+        captured = capsys.readouterr()
+        assert "All 12 files pass lint" in captured.out
+        assert result.get("auto_result") == (True, "All 12 files pass lint")
+
+    def test_auto_fn_failure_shown(self, capsys):
+        """Auto task failure shown clearly."""
+        task = Task(name="auto-test", auto_fn=lambda: (False, "3 tests failed"))
+        result = present_task(task, 0, 1)
+        captured = capsys.readouterr()
+        assert "3 tests failed" in captured.out
+        assert result.get("auto_result") == (False, "3 tests failed")
+
+    def test_auto_fn_exception_caught(self, capsys):
+        """Auto task exception doesn't crash live mode."""
+        def bad_fn():
+            raise RuntimeError("disk full")
+
+        task = Task(name="auto-bad", auto_fn=bad_fn)
+        result = present_task(task, 0, 1)
+        captured = capsys.readouterr()
+        assert "ERROR" in captured.out or "disk full" in captured.out
+        assert result.get("auto_error") is not None
+
+
 # -- sig: mgh-6201.cd.bd955f.b2c3.d4e5f6

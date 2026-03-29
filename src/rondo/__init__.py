@@ -6,6 +6,11 @@ Public API (Rondo-REQ-100 req 35):
     Round, Task, Gate, GateResult, TaskResult, RoundResult, DispatchUsage
     RondoConfig, load_config, validate_config
     dispatch_task, run_round, run_parallel, detect_conflicts
+
+Advanced modules (stable but specialized):
+    sanitize — STD-114 output sanitization (secret detection + scrubbing)
+    audit — STD-113 dispatch audit trail (two-phase JSONL recording)
+    flaky — REQ-107 task flakiness detection (flip rate scoring)
 """
 
 from rondo.config import (

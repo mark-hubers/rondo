@@ -31,13 +31,30 @@ def present_task(task: Task, index: int, total: int) -> dict:
     print(f"{'═' * 70}")
     print()
 
+    # -- Build summary dict (populated incrementally)
+    summary: dict = {
+        "task_index": index + 1,
+        "task_name": task.name,
+        "presented_at": datetime.now(UTC).isoformat(),
+        "mode": "auto" if task.is_auto else "interactive",
+    }
+
     if task.description:
         print(f"  {task.description}")
         print()
 
     if task.is_auto:
         print("  MODE: auto (Python callable)")
-        print("  This task runs automatically.")
+        # -- Finding #153: execute auto_fn in live mode
+        try:
+            auto_result = task.auto_fn()  # type: ignore[misc]
+            passed, message = auto_result
+            status_label = "PASS" if passed else "FAIL"
+            print(f"  RESULT: {status_label} — {message}")
+            summary["auto_result"] = auto_result
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ERROR: auto_fn raised {type(exc).__name__}: {exc}")
+            summary["auto_error"] = str(exc)
     else:
         print("INSTRUCTION:")
         instruction = task.instruction.strip()
@@ -71,12 +88,7 @@ def present_task(task: Task, index: int, total: int) -> dict:
     print(f"{'─' * 70}")
     print()
 
-    return {
-        "task_index": index + 1,
-        "task_name": task.name,
-        "presented_at": datetime.now(UTC).isoformat(),
-        "mode": "auto" if task.is_auto else "interactive",
-    }
+    return summary
 
 
 def run_live(
@@ -139,6 +151,9 @@ def run_live(
             presentations.append(record)
 
             # -- Save progress for --resume
+            # -- Note (Finding #154): progress tracks PRESENTATION, not
+            # -- verification. "completed_task" = presented to Claude,
+            # -- not confirmed done by human review.
             if progress_file:
                 progress = {
                     "round": round_def.name,

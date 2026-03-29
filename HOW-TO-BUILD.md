@@ -30,6 +30,9 @@
 ## Mark must type this in the CC prompt — it's a keyword, not a command
 caliber build
 
+## If importing rondo from ace2 scripts fails (ModuleNotFoundError):
+/opt/homebrew/bin/uv tool install --editable --force ~/git/mhubers/ace2/rondo
+
 ## Health check
 ace-preflight
 

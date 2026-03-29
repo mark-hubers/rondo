@@ -26,6 +26,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+from rondo.audit import AuditConfig, AuditTrail
 from rondo.config import RondoConfig
 from rondo.dispatch_parse import (
     _collect_assistant_text,
@@ -40,7 +41,6 @@ from rondo.dispatch_prompt import (
     RONDO_RESULT_SCHEMA,
     build_prompt,
 )
-from rondo.audit import AuditConfig, AuditTrail
 from rondo.engine import DispatchUsage, Task, TaskResult, validate_task
 from rondo.sanitize import sanitize_task_result
 
@@ -631,8 +631,9 @@ def _parse_and_build_result(
 
     # -- REQ-101: write result to spool (ALWAYS-ON, non-fatal)
     try:
-        from rondo.spool import spool_result
         from dataclasses import asdict
+
+        from rondo.spool import spool_result
 
         spool_result(
             task_name=result.task_name,

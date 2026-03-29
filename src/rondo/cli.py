@@ -13,10 +13,10 @@ Import direction:
 from __future__ import annotations
 
 import argparse
-from typing import Any
 import importlib.util
 import sys
 from pathlib import Path
+from typing import Any
 
 from rondo.config import RondoConfig, load_config, validate_config
 from rondo.engine import Round
@@ -525,9 +525,6 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     Always-on: every dispatch records audit data. This command reads it.
     Callers (ACE, OB, Caliber) get dispatch_id in TaskResult automatically.
     """
-    import json as _json
-    from pathlib import Path
-
     records = _load_audit_records(args.audit_dir)
     if not records:
         print("No audit data yet. Run a dispatch first.")
@@ -554,7 +551,7 @@ def _cmd_audit_detail(args: argparse.Namespace, records: list[dict]) -> int:
     matches = [r for r in records if r.get("dispatch_id") == args.dispatch_id]
     if not matches:
         print(f"No records for dispatch_id: {args.dispatch_id}")
-        return EXIT_ERROR
+        return EXIT_FAILURE
     if args.json:
         print(_json.dumps(matches, indent=2))
     else:

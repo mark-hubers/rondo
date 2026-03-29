@@ -522,4 +522,103 @@ class TestConfigPermissionModes:
             assert not any("permission" in e for e in errors), f"{mode} should be valid"
 
 
+class TestConfigDefaults:
+    """STD-109: all config fields have sensible defaults."""
+
+    def test_default_model_is_sonnet(self):
+        """Default model is sonnet (safest for automated dispatch)."""
+        config = RondoConfig()
+        assert config.default_model == "sonnet"
+
+    def test_default_auth_is_max(self):
+        """Default auth is max (subscription, no API key needed)."""
+        config = RondoConfig()
+        assert config.auth == "max"
+
+    def test_default_output_format_stream_json(self):
+        """Default output format is stream-json (REQ-100 req 015)."""
+        config = RondoConfig()
+        assert config.output_format == "stream-json"
+
+    def test_default_audit_dir_always_on(self):
+        """Audit dir defaults to ~/.rondo/audit (ALWAYS-ON pattern)."""
+        config = RondoConfig()
+        assert config.audit_dir == "~/.rondo/audit"
+
+    def test_default_task_timeout(self):
+        """Task timeout defaults to 300s (5 min)."""
+        config = RondoConfig()
+        assert config.task_timeout_sec == 300
+
+    def test_default_round_timeout(self):
+        """Round timeout defaults to 3600s (1 hour)."""
+        config = RondoConfig()
+        assert config.round_timeout_sec == 3600
+
+    def test_default_workers(self):
+        """Default workers is 4."""
+        config = RondoConfig()
+        assert config.workers == 4
+
+    def test_default_bare_is_false(self):
+        """Bare is off by default (safety — preserves Caliber guards)."""
+        config = RondoConfig()
+        assert config.bare is False
+
+    def test_default_dry_run_is_false(self):
+        """Dry run is off by default."""
+        config = RondoConfig()
+        assert config.dry_run is False
+
+
+class TestConfigValidation:
+    """STD-109: config validation catches bad values."""
+
+    def test_invalid_auth_rejected(self):
+        """Auth must be 'max' or 'api'."""
+        errors = validate_config(RondoConfig(auth="invalid"))
+        assert any("auth" in e.lower() for e in errors)
+
+    def test_invalid_model_rejected(self):
+        """Model must be in VALID_MODELS."""
+        errors = validate_config(RondoConfig(default_model="gpt-4"))
+        assert any("model" in e.lower() for e in errors)
+
+    def test_valid_config_no_errors(self):
+        """Default config passes validation."""
+        errors = validate_config(RondoConfig())
+        assert len(errors) == 0
+
+
+class TestModelResolution:
+    """REQ-100: model resolution follows COALESCE chain."""
+
+    def test_cli_model_overrides_task(self):
+        """CLI --model overrides task.model."""
+        from rondo.dispatch import resolve_model
+        from rondo.engine import Task
+
+        task = Task(name="t", instruction="do", done_when="done", model="haiku")
+        result = resolve_model("opus", task, RondoConfig(default_model="sonnet"))
+        assert result == "opus"
+
+    def test_task_model_overrides_config(self):
+        """task.model overrides config.default_model."""
+        from rondo.dispatch import resolve_model
+        from rondo.engine import Task
+
+        task = Task(name="t", instruction="do", done_when="done", model="haiku")
+        result = resolve_model(None, task, RondoConfig(default_model="sonnet"))
+        assert result == "haiku"
+
+    def test_config_default_used_last(self):
+        """config.default_model used when no CLI or task model."""
+        from rondo.dispatch import resolve_model
+        from rondo.engine import Task
+
+        task = Task(name="t", instruction="do", done_when="done")
+        result = resolve_model(None, task, RondoConfig(default_model="opus"))
+        assert result == "opus"
+
+
 # -- sig: mgh-6201.cd.bd955f.e6d7.bf1b3b

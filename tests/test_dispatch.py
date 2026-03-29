@@ -1755,4 +1755,83 @@ class TestAuditWiring:
             assert len(lines) >= 1, "At least INTENT record should exist"
 
 
+class TestDispatchErrorPaths:
+    """STD-108: all error paths return structured TaskResult."""
+
+    def test_validation_error_returns_result(self):
+        """Invalid task returns error TaskResult, not exception."""
+        task = Task(name="broken")  # -- no instruction or auto_fn
+        config = RondoConfig()
+        result, usage = dispatch_task(task, config)
+        assert result.status == "error"
+        assert result.error_code == "ERR_INTERNAL"
+        assert "Validation" in (result.error_message or "")
+
+    def test_dry_run_returns_skipped(self):
+        """Dry run returns status=skipped with prompt."""
+        task = Task(name="t", instruction="do it", done_when="done")
+        config = RondoConfig(dry_run=True)
+        result, usage = dispatch_task(task, config)
+        assert result.status == "skipped"
+        assert result.prompt_sent != ""
+
+    def test_auto_task_success(self):
+        """Auto task returns done on success."""
+        task = Task(name="auto", auto_fn=lambda: (True, "all good"))
+        config = RondoConfig()
+        result, _ = dispatch_task(task, config)
+        assert result.status == "done"
+        assert "all good" in result.raw_output
+
+    def test_auto_task_failure(self):
+        """Auto task returns error on failure."""
+        task = Task(name="auto", auto_fn=lambda: (False, "broke"))
+        config = RondoConfig()
+        result, _ = dispatch_task(task, config)
+        assert result.status == "error"
+
+    def test_auto_task_exception(self):
+        """Auto task exception caught, returns ERR_INTERNAL."""
+        def bad_fn():
+            raise RuntimeError("crash")
+
+        task = Task(name="auto", auto_fn=bad_fn)
+        config = RondoConfig()
+        result, _ = dispatch_task(task, config)
+        assert result.status == "error"
+        assert result.error_code == "ERR_INTERNAL"
+
+
+class TestDispatchAlwaysOn:
+    """ALWAYS-ON: every dispatch path sets required fields."""
+
+    def test_dry_run_has_timestamp(self):
+        """Even dry-run has timestamp."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig(dry_run=True)
+        result, _ = dispatch_task(task, config)
+        assert result.timestamp != ""
+
+    def test_dry_run_has_model(self):
+        """Dry-run records which model would be used."""
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig(dry_run=True, default_model="opus")
+        result, _ = dispatch_task(task, config)
+        assert result.model == "opus"
+
+    def test_auto_task_has_duration(self):
+        """Auto task records duration_sec."""
+        task = Task(name="auto", auto_fn=lambda: (True, "ok"))
+        config = RondoConfig()
+        result, _ = dispatch_task(task, config)
+        assert result.duration_sec >= 0
+
+    def test_error_result_has_auth_mode(self):
+        """Error results still have auth_mode set."""
+        task = Task(name="broken")
+        config = RondoConfig(auth="max")
+        result, _ = dispatch_task(task, config)
+        assert result.auth_mode == "max"
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

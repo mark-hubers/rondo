@@ -16,8 +16,12 @@ Import direction:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import os
+import re
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,6 +29,44 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+_MAX_TASK_SLUG_LEN = 120
+
+
+def _safe_task_slug(task_name: str) -> str:
+    """Reduce task_name to a single safe path segment (no traversal, no separators).
+
+    Malicious or odd inputs become a stable slug; never empty.
+    """
+    s = (task_name or "").strip()
+    if not s:
+        return "unnamed"
+    s = s.replace("\x00", "").replace("/", "_").replace("\\", "_")
+    s = re.sub(r"\.\.+", "_", s)
+    s = re.sub(r"[^a-zA-Z0-9._-]+", "_", s)
+    s = s.strip("._-")
+    if not s:
+        digest = hashlib.sha256(task_name.encode("utf-8", errors="replace")).hexdigest()[:12]
+        return f"task_{digest}"
+    return s[:_MAX_TASK_SLUG_LEN]
+
+
+def _validated_spool_path(spool_dir: Path, filename: str) -> Path | None:
+    """Resolve a spool file path; return None if filename escapes spool_dir."""
+    if not filename or os.path.basename(filename) != filename:
+        logger.warning("Spool path rejected (not a bare filename): %r", filename)
+        return None
+    if ".." in filename:
+        logger.warning("Spool path rejected (parent segments): %r", filename)
+        return None
+    try:
+        root = spool_dir.resolve()
+        candidate = (spool_dir / filename).resolve()
+        candidate.relative_to(root)
+    except ValueError:
+        logger.warning("Spool path rejected (outside spool dir): %r", filename)
+        return None
+    return candidate if candidate.is_file() else None
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -80,15 +122,27 @@ class SpoolManager:
 
         # -- Filename: {ISO-timestamp}-{task_name}.json (req 043)
         ts = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%S")
-        safe_name = task_name.replace("/", "_").replace(" ", "_")
+        safe_name = _safe_task_slug(task_name)
         filename = f"{ts}-{safe_name}.json"
         filepath = self.spool_dir / filename
 
         try:
-            filepath.write_text(
-                json.dumps(result, indent=2, default=str),
-                encoding="utf-8",
+            # -- Atomic replace: readers never see a half-written JSON file
+            fd, tmp_path = tempfile.mkstemp(
+                dir=self.spool_dir,
+                prefix=".spool-",
+                suffix=".tmp",
             )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
+                    tmp_f.write(json.dumps(result, indent=2, default=str))
+                os.replace(tmp_path, filepath)
+            finally:
+                if os.path.exists(tmp_path):
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
             logger.debug("Spool write: %s", filepath)
             return filepath
         except OSError as exc:
@@ -167,8 +221,8 @@ class SpoolManager:
 
         Returns result dict or None if file not found.
         """
-        filepath = self.spool_dir / filename
-        if not filepath.exists():
+        filepath = _validated_spool_path(self.spool_dir, filename)
+        if filepath is None:
             return None
         try:
             data = json.loads(filepath.read_text(encoding="utf-8"))

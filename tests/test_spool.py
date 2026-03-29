@@ -251,6 +251,28 @@ class TestSpoolConsume:
         remaining = list(tmp_path.glob("*.json"))
         assert len(remaining) == 1
 
+    def test_consume_file_rejects_path_traversal(self, tmp_path):
+        """Malicious filename must not escape spool dir (finding #161)."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        spool.write_result(task_name="safe", result={"status": "done"})
+        assert spool.consume_file("../../../etc/passwd") is None
+        assert spool.consume_file("subdir/file.json") is None
+        # -- Legitimate basename still works
+        names = [p.name for p in tmp_path.glob("*.json")]
+        assert len(names) == 1
+        assert spool.consume_file(names[0]) is not None
+
+    def test_write_sanitizes_task_name(self, tmp_path):
+        """Backslashes, .., and separators do not create paths outside spool."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        path = spool.write_result(
+            task_name=r"..\..\windows\evil",
+            result={"status": "done"},
+        )
+        assert path is not None
+        assert path.parent.resolve() == tmp_path.resolve()
+        assert ".." not in path.name
+
 
 class TestSpoolMorningReport:
     """REQ-101: spool feeds into morning report."""

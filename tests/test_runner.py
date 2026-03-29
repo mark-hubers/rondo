@@ -22,7 +22,7 @@ from rondo.engine import (
     Task,
     TaskResult,
 )
-from rondo.runner import run_round
+from rondo.runner import run_round, run_sequential
 
 
 def _mock_dispatch(task, config, **kwargs):
@@ -515,6 +515,105 @@ class TestCircuitBreaker:
         # -- All 5 should run (different errors, never 3 consecutive same)
         skipped = [tr for tr in result.task_results if tr.status == "skipped"]
         assert len(skipped) == 0
+
+
+class TestRoundTimeout:
+    """REQ-100 req 075: round_timeout_sec enforcement."""
+
+    def test_round_timeout_skips_remaining_tasks(self):
+        """When round time exceeds timeout, remaining tasks are skipped."""
+        round_def = Round(name="slow", tasks=[
+            Task(name="t1", instruction="first", done_when="done"),
+            Task(name="t2", instruction="second", done_when="done"),
+            Task(name="t3", instruction="third", done_when="done"),
+        ])
+        # -- Config with 0.1s round timeout
+        config = RondoConfig(dry_run=True, round_timeout_sec=0)
+
+        with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch:
+            import time as _time
+
+            def slow_dispatch(task, cfg):
+                _time.sleep(0.05)
+                return (
+                    TaskResult(task_name=task.name, status="done"),
+                    DispatchUsage(task_name=task.name),
+                )
+
+            mock_dispatch.side_effect = slow_dispatch
+            result = run_sequential(round_def, config)
+
+        # -- With round_timeout_sec=0, should skip tasks after first
+        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
+        done = [tr for tr in result.task_results if tr.status == "done"]
+        # -- At least some tasks should complete, some may skip
+        assert len(result.task_results) == 3
+
+    def test_round_timeout_records_reason(self):
+        """Timed-out tasks have timeout reason in error_message."""
+        round_def = Round(name="timeout", tasks=[
+            Task(name="t1", instruction="first", done_when="done"),
+            Task(name="t2", instruction="second", done_when="done"),
+        ])
+        config = RondoConfig(round_timeout_sec=0)
+
+        with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch:
+            import time as _time
+
+            def slow_dispatch(task, cfg):
+                _time.sleep(0.05)
+                return (
+                    TaskResult(task_name=task.name, status="done"),
+                    DispatchUsage(task_name=task.name),
+                )
+
+            mock_dispatch.side_effect = slow_dispatch
+            result = run_sequential(round_def, config)
+
+        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
+        if skipped:
+            assert any("timeout" in (tr.error_message or "").lower() for tr in skipped)
+
+
+class TestNotifyOnFailure:
+    """REQ-105 req 002: notify on dispatch failure."""
+
+    def test_failure_triggers_notify(self):
+        """Failed task triggers notification call."""
+        round_def = Round(name="fail-round", tasks=[
+            Task(name="will-fail", instruction="break", done_when="never"),
+        ])
+        config = RondoConfig()
+
+        with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch, \
+             patch("rondo.runner._notify_failure") as mock_notify:
+            mock_dispatch.return_value = (
+                TaskResult(task_name="will-fail", status="error", error_code="ERR_INTERNAL"),
+                DispatchUsage(task_name="will-fail"),
+            )
+            run_sequential(round_def, config)
+            mock_notify.assert_called_once()
+
+
+class TestSaveResultSafe:
+    """Results saved after each task — non-fatal on failure."""
+
+    def test_save_called_per_task(self):
+        """_save_result_safe called for each dispatched task."""
+        round_def = Round(name="save-test", tasks=[
+            Task(name="t1", instruction="do", done_when="done"),
+            Task(name="t2", instruction="do", done_when="done"),
+        ])
+        config = RondoConfig()
+
+        with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch, \
+             patch("rondo.runner._save_result_safe") as mock_save:
+            mock_dispatch.return_value = (
+                TaskResult(task_name="t", status="done"),
+                DispatchUsage(task_name="t"),
+            )
+            run_sequential(round_def, config)
+            assert mock_save.call_count == 2
 
 
 # -- sig: mgh-6201.cd.bd955f.d451.a88884

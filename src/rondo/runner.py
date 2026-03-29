@@ -126,6 +126,23 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
     breaker_tripped = False
 
     for task in round_def.tasks:
+        # -- REQ-100 req 075: round timeout enforcement
+        elapsed = time.monotonic() - start_time
+        if elapsed > config.round_timeout_sec:
+            task.status = "skipped"
+            result.task_results.append(
+                TaskResult(
+                    task_name=task.name,
+                    status="skipped",
+                    error_message=f"round_timeout: {elapsed:.1f}s > {config.round_timeout_sec}s limit",
+                    model=config.default_model,
+                    auth_mode=config.auth,
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
+            result.usage.append(DispatchUsage(task_name=task.name))
+            continue
+
         # -- Circuit breaker: skip remaining tasks after 3 consecutive same-error
         if breaker_tripped:
             task.status = "skipped"

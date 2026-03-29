@@ -148,6 +148,10 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         result.usage.append(usage)
         _save_result_safe(task_result, usage, config.results_dir)
 
+        # -- REQ-105 req 002: notify on dispatch failure
+        if task_result.error_code:
+            _notify_failure(task_result)
+
         # -- Circuit breaker tracking (REQ-100 req 057-058)
         if task_result.error_code and task_result.error_code == last_error_code:
             consecutive_errors += 1
@@ -234,6 +238,20 @@ def _save_result_safe(
         save_result(task_result, usage, results_dir)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Failed to save result for %s: %s", task_result.task_name, exc)
+
+
+def _notify_failure(task_result: TaskResult) -> None:
+    """Send notification on dispatch failure — Rondo-REQ-105 req 002."""
+    try:
+        from rondo.notify import notify_failure
+
+        notify_failure(
+            task_name=task_result.task_name,
+            error_code=task_result.error_code,
+            error_message=task_result.error_message,
+        )
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("Failure notification failed (non-fatal): %s", exc)
 
 
 def _notify_round(result: RoundResult) -> None:

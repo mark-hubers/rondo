@@ -78,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     hist_parser.add_argument("--model", default="", help="Filter by model")
     hist_parser.add_argument("--status", default="", help="Filter by status")
     hist_parser.add_argument("--json", action="store_true", help="JSON output")
+    hist_parser.add_argument("--expensive", action="store_true", help="Sort by cost (highest first)")
     hist_parser.add_argument("--results-dir", default="reports", help="Results directory")
 
     return parser
@@ -290,15 +291,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
     result = run_round(round_def, config=config)
 
     # -- Print summary
+    total_cost = sum(u.cost_usd for u in result.usage)
     if config.verbose:
         print(f"Round: {result.round_name}")
         print(f"Status: {result.status}")
         print(f"Summary: {result.summary}")
         print(f"Duration: {result.duration_sec:.1f}s")
+        print(f"Cost: ${total_cost:.4f}")
         for tr in result.task_results:
             print(f"  {tr.task_name}: {tr.status}")
     else:
-        print(f"{result.status}: {result.summary}")
+        cost_str = f" (${total_cost:.4f})" if total_cost > 0 else ""
+        print(f"{result.status}: {result.summary}{cost_str}")
 
     return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
@@ -395,7 +399,12 @@ def _cmd_history(args: argparse.Namespace) -> int:
         total_cost = sum(r.get("cost_usd", 0) for r in filtered)
         print(f"  Dispatches: {len(filtered)} | Total cost: ${total_cost:.4f}")
         print()
-        for r in filtered[-10:]:  # -- last 10
+        # -- REQ-104 req 007: --expensive sorts by cost (top 10)
+        is_expensive = getattr(args, "expensive", False)
+        if is_expensive:
+            filtered = sorted(filtered, key=lambda r: r.get("cost_usd", 0), reverse=True)
+        display = filtered[:10] if is_expensive else filtered[-10:]
+        for r in display:
             cost = r.get("cost_usd", 0)
             print(f"  {r.get('status', '?'):8s} {r.get('task_name', '?'):30s} "
                   f"{r.get('model', '?'):8s} ${cost:.4f} {r.get('duration_sec', 0):.1f}s")

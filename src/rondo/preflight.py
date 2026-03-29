@@ -20,7 +20,7 @@ import shutil
 from dataclasses import dataclass, field
 
 from rondo.config import RondoConfig
-from rondo.dispatch import detect_cc_version
+from rondo.dispatch import _BARE_MIN_VERSION, detect_cc_version
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +128,6 @@ def _check_auth(result: PreflightResult, config: RondoConfig) -> None:
         result.warnings.append(
             f"Unknown auth mode '{config.auth}' — expected 'max' or 'api'"
         )
-
-
-_BARE_MIN_VERSION = (2, 1, 81)
 
 
 def _check_cc_version(result: PreflightResult, config: RondoConfig) -> None:

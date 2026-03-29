@@ -13,6 +13,7 @@ Status vocabulary (shared with Rondo-STD-108):
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -320,8 +321,6 @@ def validate_task(
 
     # -- REQ-106 req 009: context_data must be JSON-serializable
     if task.context_data:
-        import json
-
         try:
             json.dumps(task.context_data)
         except (TypeError, ValueError) as e:

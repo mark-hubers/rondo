@@ -398,6 +398,16 @@ def _cmd_history(args: argparse.Namespace) -> int:
     else:
         total_cost = sum(r.get("cost_usd", 0) for r in filtered)
         print(f"  Dispatches: {len(filtered)} | Total cost: ${total_cost:.4f}")
+
+        # -- REQ-104 req 003: per-model summary
+        from rondo.history import aggregate_by_model  # pylint: disable=import-outside-toplevel
+
+        agg = aggregate_by_model(filtered)
+        if len(agg) > 1:
+            print("  Models:", " | ".join(
+                f"{m}: {d['count']} dispatches, ${d['total_cost']:.4f}"
+                for m, d in sorted(agg.items())
+            ))
         print()
         # -- REQ-104 req 007: --expensive sorts by cost (top 10)
         is_expensive = getattr(args, "expensive", False)

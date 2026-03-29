@@ -161,4 +161,23 @@ class TestHistoryRoundName:
         assert len(filtered) == 2
 
 
+class TestToolModeValidation:
+    """REQ-100 req 024: tool_mode must be none/sandbox/default."""
+
+    def test_valid_tool_modes(self):
+        from rondo.engine import Task, validate_task
+
+        for mode in ["none", "sandbox", "default"]:
+            t = Task(name="t", instruction="do", done_when="done", tool_mode=mode)
+            errors = validate_task(t)
+            assert not any("tool_mode" in e for e in errors)
+
+    def test_invalid_tool_mode(self):
+        from rondo.engine import Task, validate_task
+
+        t = Task(name="t", instruction="do", done_when="done", tool_mode="invalid")
+        errors = validate_task(t)
+        assert any("tool_mode" in e for e in errors)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.a1b2c3

@@ -310,6 +310,11 @@ def validate_task(
         if not task.done_when.strip():
             errors.append(f"Task '{task.name}' Done field (done_when) is empty")
 
+    # -- REQ-100 req 024: tool_mode validation
+    valid_tool_modes = {"none", "sandbox", "default"}
+    if task.tool_mode not in valid_tool_modes:
+        errors.append(f"Task '{task.name}' tool_mode '{task.tool_mode}' invalid — must be one of {sorted(valid_tool_modes)}")
+
     # -- REQ-106 req 009: context_data must be JSON-serializable
     if task.context_data:
         import json

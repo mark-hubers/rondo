@@ -748,4 +748,104 @@ class TestRoundStateWithNewFields:
         assert tasks[2].status == "pending"
 
 
+# -- Deepen core spec coverage
+class TestRoundStatusAllTypes:
+    """REQ-100 req 051: round status calculation with all status combinations."""
+
+    def test_all_blocked_is_error(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="blocked"), TaskResult(task_name="t2", status="blocked")]
+        assert calculate_round_status(results) == "error"
+
+    def test_mixed_done_blocked_is_partial(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="blocked")]
+        assert calculate_round_status(results) == "partial"
+
+    def test_skipped_only_is_skipped(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="skipped")]
+        assert calculate_round_status(results) == "skipped"
+
+    def test_done_plus_skipped_is_partial(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="skipped")]
+        status = calculate_round_status(results)
+        assert status in ("done", "partial")  # either valid
+
+
+class TestIsTerminal:
+    """REQ-100 req 008: terminal state detection."""
+
+    def test_all_terminal_states(self):
+        from rondo.engine import is_terminal, TERMINAL_STATES
+        for s in TERMINAL_STATES:
+            assert is_terminal(s), f"{s} should be terminal"
+
+    def test_non_terminal_states(self):
+        from rondo.engine import is_terminal
+        assert not is_terminal("pending")
+        assert not is_terminal("in_progress")
+
+    def test_invalid_state_not_terminal(self):
+        from rondo.engine import is_terminal
+        assert not is_terminal("unknown")
+        assert not is_terminal("")
+
+
+class TestTaskValidationEdgeCases:
+    """Deeper validation testing."""
+
+    def test_both_auto_and_interactive_rejected(self):
+        t = Task(name="t", instruction="do", done_when="done", auto_fn=lambda: (True, "ok"))
+        errors = validate_task(t)
+        assert any("both" in e.lower() for e in errors)
+
+    def test_empty_name_rejected(self):
+        t = Task(name="", instruction="do", done_when="done")
+        errors = validate_task(t)
+        assert any("name" in e.lower() for e in errors)
+
+    def test_auto_task_with_no_fn_rejected(self):
+        t = Task(name="t")  # neither auto nor interactive
+        errors = validate_task(t)
+        assert len(errors) > 0
+
+    def test_context_data_non_serializable_rejected(self):
+        t = Task(name="t", instruction="do", done_when="done",
+                 context_data={"bad": lambda: None})
+        errors = validate_task(t)
+        assert any("serializable" in e.lower() for e in errors)
+
+
+class TestParallelConflictDetection:
+    """REQ-101 reqs 005-006: file conflict detection in parallel dispatch."""
+
+    def test_no_conflicts(self):
+        from rondo.parallel import detect_conflicts
+        results = [
+            TaskResult(task_name="t1", status="done", files_modified=["a.py"]),
+            TaskResult(task_name="t2", status="done", files_modified=["b.py"]),
+        ]
+        assert detect_conflicts(results) == []
+
+    def test_conflict_detected(self):
+        from rondo.parallel import detect_conflicts
+        results = [
+            TaskResult(task_name="t1", status="done", files_modified=["shared.py"]),
+            TaskResult(task_name="t2", status="done", files_modified=["shared.py"]),
+        ]
+        conflicts = detect_conflicts(results)
+        assert len(conflicts) == 1
+        assert "shared.py" in conflicts[0]
+
+    def test_empty_files_no_conflicts(self):
+        from rondo.parallel import detect_conflicts
+        results = [
+            TaskResult(task_name="t1", status="done"),
+            TaskResult(task_name="t2", status="done"),
+        ]
+        assert detect_conflicts(results) == []
+
+
 # -- sig: mgh-6201.cd.bd955f.39ed.655d8b

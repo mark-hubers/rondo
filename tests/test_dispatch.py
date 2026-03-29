@@ -1573,4 +1573,134 @@ class TestConfigValidationDeep:
         assert errors == []
 
 
+# -- Final batch: harden existing modules
+class TestAutoTask:
+    """REQ-100 req 004: auto tasks with Python callables."""
+
+    def test_auto_task_success(self):
+        config = RondoConfig()
+        task = Task(name="auto-pass", auto_fn=lambda: (True, "all good"))
+        result, usage = dispatch_task(task, config)
+        assert result.status == "done"
+
+    def test_auto_task_failure(self):
+        config = RondoConfig()
+        task = Task(name="auto-fail", auto_fn=lambda: (False, "nope"))
+        result, usage = dispatch_task(task, config)
+        assert result.status == "error"
+
+    def test_auto_task_exception(self):
+        def _boom():
+            msg = "kaboom"
+            raise RuntimeError(msg)
+        config = RondoConfig()
+        task = Task(name="auto-boom", auto_fn=_boom)
+        result, usage = dispatch_task(task, config)
+        assert result.status == "error"
+        assert "kaboom" in result.error_message
+
+
+class TestConfigCoalesce:
+    """STD-109: COALESCE resolution — CLI → config file → default."""
+
+    def test_cli_overrides_toml(self, tmp_path):
+        from rondo.config import load_config
+
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text('default_model = "opus"\nworkers = 8\n')
+        config = load_config(config_path=str(toml_file), cli_overrides={"default_model": "haiku"})
+        assert config.default_model == "haiku"
+        assert config.workers == 8
+
+    def test_toml_overrides_default(self, tmp_path):
+        from rondo.config import load_config
+
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text('effort = "low"\n')
+        config = load_config(config_path=str(toml_file))
+        assert config.effort == "low"
+
+    def test_default_when_no_toml(self):
+        from rondo.config import load_config
+
+        config = load_config(config_path="/nonexistent/rondo.toml")
+        assert config.default_model == "sonnet"
+        assert config.workers == 4
+
+
+class TestGateExecution:
+    """REQ-100 reqs 005-007: gate execution."""
+
+    def test_passing_gate(self):
+        from rondo.engine import Gate, run_gate
+
+        g = Gate(name="check", check_fn=lambda: (True, "ok"))
+        result = run_gate(g)
+        assert result.passed is True
+
+    def test_failing_gate(self):
+        from rondo.engine import Gate, run_gate
+
+        g = Gate(name="check", check_fn=lambda: (False, "bad"))
+        result = run_gate(g)
+        assert result.passed is False
+        assert result.detail == "bad"
+
+    def test_blocking_gate_prevents_proceed(self):
+        from rondo.engine import Gate, run_gates, should_proceed
+
+        gates = [Gate(name="blocker", check_fn=lambda: (False, "stop"), blocking=True)]
+        results = run_gates(gates)
+        assert should_proceed(results) is False
+
+    def test_non_blocking_gate_allows_proceed(self):
+        from rondo.engine import Gate, run_gates, should_proceed
+
+        gates = [Gate(name="warn", check_fn=lambda: (False, "meh"), blocking=False)]
+        results = run_gates(gates)
+        assert should_proceed(results) is True
+
+
+class TestRoundValidation:
+    """REQ-100: round validation before execution."""
+
+    def test_duplicate_task_names_rejected(self):
+        from rondo.engine import Round as _Round, validate_round
+
+        r = _Round(name="dup", tasks=[
+            Task(name="t1", instruction="do", done_when="done"),
+            Task(name="t1", instruction="also", done_when="also done"),
+        ])
+        errors = validate_round(r)
+        assert any("duplicate" in e.lower() for e in errors)
+
+    def test_valid_round_no_errors(self):
+        from rondo.engine import Round as _Round, validate_round
+
+        r = _Round(name="good", tasks=[
+            Task(name="t1", instruction="do", done_when="done"),
+            Task(name="t2", instruction="also", done_when="also done"),
+        ])
+        errors = validate_round(r)
+        assert errors == []
+
+
+class TestFileExtraction:
+    """STD-108: file path extraction from output."""
+
+    def test_extracts_python_files(self):
+        text = "I modified src/main.py and tests/test_main.py"
+        files = extract_modified_files(text)
+        assert "src/main.py" in files
+        assert "tests/test_main.py" in files
+
+    def test_no_duplicates(self):
+        text = "Changed config.py then changed config.py again"
+        files = extract_modified_files(text)
+        assert files.count("config.py") == 1
+
+    def test_empty_output(self):
+        assert extract_modified_files("") == []
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

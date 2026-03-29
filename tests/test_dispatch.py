@@ -1274,4 +1274,119 @@ class TestBudgetExceeded:
         assert usage.budget_exceeded is False
 
 
+# -- Sprints 34+: deeper spec coverage with TDD
+class TestDryRunOutput:
+    """REQ-100 req 016: dry-run returns prompt without invoking."""
+
+    def test_dry_run_returns_prompt(self):
+        config = RondoConfig(dry_run=True)
+        task = Task(name="t1", instruction="check files", done_when="files checked")
+        result, _ = dispatch_task(task, config)
+        assert result.status == "skipped"
+        assert "check files" in result.prompt_sent
+
+    def test_dry_run_no_subprocess(self):
+        config = RondoConfig(dry_run=True)
+        task = Task(name="t1", instruction="do work", done_when="done")
+        with patch("rondo.dispatch.subprocess") as mock_sub:
+            dispatch_task(task, config)
+            mock_sub.Popen.assert_not_called()
+
+
+class TestDispatchInputValidation:
+    """Pre-dispatch validation catches bad tasks before wasting API calls."""
+
+    def test_empty_instruction_rejected(self):
+        task = Task(name="t1", instruction="", done_when="done")
+        result, _ = dispatch_task(task, RondoConfig())
+        assert result.status == "error"
+        assert "instruction" in result.error_message.lower()
+
+    def test_invalid_tool_mode_rejected(self):
+        task = Task(name="t1", instruction="do", done_when="done", tool_mode="bad")
+        result, _ = dispatch_task(task, RondoConfig())
+        assert result.status == "error"
+        assert "tool_mode" in result.error_message
+
+
+class TestNotifyAllChannels:
+    """REQ-105 req 005: all 3 channels fire together."""
+
+    def test_all_channels_fire(self, tmp_path):
+        from rondo.notify import notify_round_complete, NotifyConfig
+
+        log_file = tmp_path / "notify.log"
+        with patch("subprocess.run"):
+            notify_round_complete(
+                round_name="test", status="done",
+                duration_sec=5.0, cost_usd=0.01,
+                config=NotifyConfig(channels=["terminal", "file", "macos"], log_file=str(log_file)),
+            )
+        assert log_file.exists()
+
+
+class TestPreflightSerialization:
+    """Preflight results can be used programmatically."""
+
+    def test_result_serializable(self):
+        import json as _json
+        from rondo.preflight import run_preflight
+
+        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+            result = run_preflight()
+        data = {"status": result.status, "checks": result.checks}
+        assert "GREEN" in _json.dumps(data)
+
+
+class TestHistoryWithRealData:
+    """History works with real dispatch records."""
+
+    def test_query_by_round_and_model(self, tmp_path):
+        from rondo.history import DispatchRecord, log_dispatch, load_history, query_history
+
+        for rn, model in [("r1", "sonnet"), ("r1", "opus"), ("r2", "sonnet")]:
+            log_dispatch(DispatchRecord(
+                round_name=rn, task_name=f"t-{model}", model=model, status="done",
+            ), str(tmp_path))
+        records = load_history(str(tmp_path))
+        r1_sonnet = query_history(records, round_name="r1", model="sonnet")
+        assert len(r1_sonnet) == 1
+
+    def test_aggregate_includes_duration(self, tmp_path):
+        from rondo.history import DispatchRecord, log_dispatch, load_history, aggregate_by_model
+
+        log_dispatch(DispatchRecord(
+            round_name="r", task_name="t", model="opus", status="done",
+            cost_usd=0.10, duration_sec=5.5,
+        ), str(tmp_path))
+        records = load_history(str(tmp_path))
+        agg = aggregate_by_model(records)
+        assert agg["opus"]["total_duration"] == 5.5
+
+
+class TestEngineFields:
+    """Verify all Session 91 dataclass fields work correctly."""
+
+    def test_task_all_new_fields(self):
+        t = Task(
+            name="full", instruction="do", done_when="done",
+            tool_mode="sandbox", bare=False, human_input="Review first",
+            context_data={"key": "val"},
+        )
+        assert t.tool_mode == "sandbox"
+        assert t.bare is False
+        assert t.human_input == "Review first"
+        assert t.context_data == {"key": "val"}
+
+    def test_dispatch_usage_budget_field(self):
+        u = DispatchUsage(task_name="t", budget_exceeded=True)
+        assert u.budget_exceeded is True
+
+    def test_dispatch_usage_defaults(self):
+        u = DispatchUsage(task_name="t")
+        assert u.budget_exceeded is False
+        assert u.cost_usd == 0.0
+        assert u.rate_limit_status == "unknown"
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

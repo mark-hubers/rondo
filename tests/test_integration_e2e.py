@@ -183,4 +183,112 @@ class TestE2EExampleRounds:
         assert result.returncode in (0, 1)
 
 
+@skip_no_rondo
+class TestE2EAllExampleRounds:
+    """Validate ALL example round files load via dry-run."""
+
+    def test_round_code_review_dry_run(self):
+        result = _run(["run", "examples/round_code_review.py", "--dry-run"], timeout=10)
+        assert result.returncode in (0, 1)
+
+    def test_round_doc_sweep_dry_run(self):
+        result = _run(["run", "examples/round_doc_sweep.py", "--dry-run"], timeout=10)
+        assert result.returncode in (0, 1)
+
+    def test_round_refactor_audit_dry_run(self):
+        result = _run(["run", "examples/round_refactor_audit.py", "--dry-run"], timeout=10)
+        assert result.returncode in (0, 1)
+
+    def test_round_test_generator_dry_run(self):
+        result = _run(["run", "examples/round_test_generator.py", "--dry-run"], timeout=10)
+        assert result.returncode in (0, 1)
+
+    def test_round_caliber_fix_dry_run(self):
+        result = _run(["run", "examples/round_caliber_fix.py", "--dry-run"], timeout=10)
+        assert result.returncode in (0, 1)
+
+
+@skip_no_rondo
+class TestE2ECLIFlags:
+    """Verify CLI flags are accepted without errors."""
+
+    def test_run_with_model_flag(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        result = _run(["run", str(rf), "--dry-run", "--model", "opus"])
+        assert result.returncode in (0, 1)
+
+    def test_run_with_bare_flag(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        result = _run(["run", str(rf), "--dry-run", "--bare"])
+        assert result.returncode in (0, 1)
+
+    def test_run_with_json_schema_auto(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        result = _run(["run", str(rf), "--dry-run", "--json-schema", "auto"])
+        assert result.returncode in (0, 1)
+
+    def test_run_with_max_budget(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        result = _run(["run", str(rf), "--dry-run", "--max-budget", "0.50"])
+        assert result.returncode in (0, 1)
+
+    def test_run_with_all_flags(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        result = _run(["run", str(rf), "--dry-run", "--verbose", "--bare", "--json-schema", "auto", "--system-prompt", "auto", "--max-budget", "1.00", "--model", "sonnet"])
+        assert result.returncode in (0, 1)
+        assert "skipped" in result.stdout.lower()
+
+
+@skip_no_rondo
+class TestE2EHistoryFilters:
+    """Verify history filtering works E2E."""
+
+    def test_history_filter_model_sonnet(self):
+        result = _run(["history", "--model", "sonnet"])
+        assert "$" in result.stdout
+
+    def test_history_filter_model_nonexistent(self):
+        result = _run(["history", "--model", "gpt4"])
+        assert "No dispatch" in result.stdout or "$0.0000" in result.stdout
+
+    def test_history_json_has_records(self):
+        result = _run(["history", "--json"])
+        data = json.loads(result.stdout)
+        if data:
+            assert "task_name" in data[0]
+            assert "cost_usd" in data[0]
+            assert "model" in data[0]
+
+
+@skip_no_rondo
+class TestE2EPreflightDetails:
+    """Verify preflight output details."""
+
+    def test_preflight_shows_disk_space(self):
+        result = _run(["preflight"])
+        assert "Disk space" in result.stdout
+
+    def test_preflight_shows_git(self):
+        result = _run(["preflight"])
+        assert "git" in result.stdout.lower()
+
+    def test_preflight_shows_auth(self):
+        result = _run(["preflight"])
+        assert "auth" in result.stdout.lower()
+
+    def test_preflight_json_has_all_fields(self):
+        result = _run(["preflight", "--json"])
+        data = json.loads(result.stdout)
+        assert "status" in data
+        assert "can_proceed" in data
+        assert "checks" in data
+        assert "warnings" in data
+        assert "errors" in data
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

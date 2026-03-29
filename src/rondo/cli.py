@@ -44,7 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rondo",
         description="Rondo — AI task automation for Claude Code",
     )
-    parser.add_argument("--version", action="version", version="rondo 0.2.0")
+    from rondo._version import get_version
+    parser.add_argument("--version", action="version", version=f"rondo {get_version()}")
     parser.add_argument("--ai-help", action="store_true", default=False, help="JSON capability description for AI agents")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

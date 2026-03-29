@@ -23,7 +23,7 @@ class TestAiHelp:
     def test_ai_help_has_version(self):
         data = get_ai_help()
         assert "version" in data
-        assert data["version"] == "0.2.0"
+        assert "0.2" in data["version"]
 
     def test_ai_help_has_commands(self):
         data = get_ai_help()

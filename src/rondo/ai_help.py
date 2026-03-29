@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from rondo._version import get_version as _get_rondo_version
+
 
 def get_ai_help() -> dict[str, Any]:
     """Return complete AI-readable help as a dict.
@@ -22,7 +24,7 @@ def get_ai_help() -> dict[str, Any]:
     """
     return {
         "name": "rondo",
-        "version": "0.2.0",
+        "version": _get_rondo_version(),
         "description": "AI task automation for Claude Code. Define tasks in Python, dispatch to Claude, get structured results.",
         "install": "uv tool install --editable ~/git/mhubers/ace2/rondo",
         "commands": _get_commands(),

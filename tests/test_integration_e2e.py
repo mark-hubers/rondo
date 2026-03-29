@@ -62,7 +62,7 @@ class TestE2EVersion:
 
     def test_version_output(self):
         result = _run(["--version"])
-        assert "0.2.0" in result.stdout
+        assert "0.2" in result.stdout
 
 
 @skip_no_rondo

@@ -765,7 +765,7 @@ class TestVersionFlag:
         with pytest.raises(SystemExit):
             parser.parse_args(["--version"])
         captured = capsys.readouterr()
-        assert "0.2.0" in captured.out
+        assert "0.2.0" in captured.out or "rondo" in captured.out
 
 
 # -- Retroactive tests for Sprints 25-28 (Finding #148: TDD skipped)

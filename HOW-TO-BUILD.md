@@ -141,6 +141,31 @@ Output:        report.py, live.py
 Entry:         cli.py, __init__.py, __main__.py
 ```
 
+## Versioning (CalVer+Build)
+
+```
+Format: MAJOR.MINOR.PATCH+YYYYMMDD.BUILD
+Example: 0.2.0+20260329.17
+
+MAJOR = 0 (pre-release), 1 (OB2 production)
+MINOR = milestone bumps (Mark decides)
+PATCH = 0 (we use build counter instead)
++YYYYMMDD = date of build
+.BUILD = auto-incrementing counter per day
+```
+
+**Single source of truth:** `pyproject.toml` has base version. `_version.py` reads it + adds build metadata.
+
+**To bump build counter:**
+```python
+from rondo._version import bump_build
+print(bump_build())  # → 0.2.0+20260329.18
+```
+
+**To bump minor version:** Edit `pyproject.toml` version field (one place only).
+
+**Never hardcode version strings** — always `from rondo._version import get_version`.
+
 ## Convention Rules
 
 - Every module has SPDX header + docstring with spec refs

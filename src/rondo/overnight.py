@@ -134,6 +134,23 @@ def check_usage_gate(
 # ──────────────────────────────────────────────────────────────────
 
 
+def _overnight_preflight(config: RondoConfig) -> bool:
+    """Run preflight before overnight batch — Rondo-REQ-103 req 014."""
+    try:
+        from rondo.preflight import run_preflight
+
+        preflight = run_preflight(config=config)
+        if not preflight.can_proceed:
+            logger.error("Overnight preflight FAILED: %s", preflight.errors)
+            return False
+        if preflight.warnings:
+            logger.warning("Overnight preflight warnings: %s", preflight.warnings)
+        return True
+    except (ImportError, OSError) as exc:
+        logger.warning("Preflight check failed (continuing): %s", exc)
+        return True
+
+
 def run_overnight(
     phases: list[Round],
     config: RondoConfig,
@@ -167,6 +184,12 @@ def run_overnight(
             "mode": result.mode,
         }
     )
+
+    # -- REQ-103 req 014: preflight ONCE at batch start (not per-task)
+    if not _overnight_preflight(config):
+        result.completed_at = datetime.now(UTC).isoformat()
+        result.duration_sec = time.monotonic() - start_time
+        return result
 
     # -- Filter phases by mode (Rondo-REQ-101 reqs 13-15)
     active_phases = _filter_phases(phases, mode, modes)

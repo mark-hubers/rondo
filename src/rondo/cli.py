@@ -97,8 +97,12 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--permission-mode",
         default=None,
-        help="Claude permission mode (default/acceptEdits/plan/auto/bypassPermissions)",
+        help="Claude permission mode (default/acceptEdits/plan/auto/dontAsk/bypassPermissions)",
     )
+    parser.add_argument("--bare", action="store_true", default=False, help="Use --bare flag for fast dispatch")
+    parser.add_argument("--json-schema", default=None, help="JSON schema for structured output ('auto' for Rondo default)")
+    parser.add_argument("--system-prompt", default=None, dest="system_prompt", help="System prompt for dispatch ('auto' for Rondo default)")
+    parser.add_argument("--max-budget", type=float, default=None, dest="max_budget", help="Max cost per task in USD")
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -185,6 +189,14 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
         overrides["dry_run"] = True
     if getattr(args, "verbose", False):
         overrides["verbose"] = True
+    if getattr(args, "bare", False):
+        overrides["bare"] = True
+    if getattr(args, "json_schema", None):
+        overrides["json_schema"] = args.json_schema
+    if getattr(args, "system_prompt", None):
+        overrides["dispatch_system_prompt"] = args.system_prompt
+    if getattr(args, "max_budget", None) is not None:
+        overrides["max_budget_usd"] = args.max_budget
 
     config_path = getattr(args, "config", None)
 

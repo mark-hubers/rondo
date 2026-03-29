@@ -1389,4 +1389,188 @@ class TestEngineFields:
         assert u.rate_limit_status == "unknown"
 
 
+# -- Sprints 40-54: Batch deep coverage
+class TestPromptBuildingDeep:
+    """REQ-100 reqs 12, 24: prompt building edge cases."""
+
+    def test_prompt_with_context_data_and_files(self):
+        """Both context_files and context_data in one prompt."""
+        task = Task(name="t", instruction="review", done_when="reviewed",
+                    context_files=["src/main.py"], context_data={"findings": [1, 2, 3]})
+        prompt = build_prompt(task)
+        assert "src/main.py" in prompt
+        assert "Structured Input Data" in prompt
+        assert "findings" in prompt
+
+    def test_prompt_with_description(self):
+        """Description included when present."""
+        task = Task(name="t", instruction="do", done_when="done", description="A detailed task")
+        prompt = build_prompt(task)
+        assert "A detailed task" in prompt
+
+    def test_prompt_always_has_output_format(self):
+        """Every prompt tells Claude to return JSON."""
+        task = Task(name="t", instruction="do", done_when="done")
+        prompt = build_prompt(task)
+        assert "status" in prompt.lower()
+        assert "json" in prompt.lower()
+
+
+class TestModelResolutionDeep:
+    """REQ-100 reqs 20-23: COALESCE model resolution."""
+
+    def test_cli_overrides_task(self):
+        task = Task(name="t", instruction="do", done_when="done", model="haiku")
+        model = resolve_model("opus", task, RondoConfig())
+        assert model == "opus"
+
+    def test_task_overrides_config(self):
+        task = Task(name="t", instruction="do", done_when="done", model="haiku")
+        model = resolve_model(None, task, RondoConfig(default_model="sonnet"))
+        assert model == "haiku"
+
+    def test_config_default_used(self):
+        task = Task(name="t", instruction="do", done_when="done")
+        model = resolve_model(None, task, RondoConfig(default_model="sonnet"))
+        assert model == "sonnet"
+
+    def test_invalid_model_raises(self):
+        task = Task(name="t", instruction="do", done_when="done")
+        with pytest.raises(ValueError, match="Invalid model"):
+            resolve_model("gpt4", task, RondoConfig())
+
+
+class TestErrorClassificationDeep:
+    """REQ-STD-108: error classification from stderr."""
+
+    def test_auth_error(self):
+        assert classify_error("credit balance is too low") == "ERR_AUTH"
+
+    def test_rate_limit_error(self):
+        assert classify_error("rate limit exceeded") == "ERR_RATE_LIMIT"
+
+    def test_nested_session_error(self):
+        assert classify_error("cannot be launched inside another") == "ERR_NESTED_SESSION"
+
+    def test_empty_stderr(self):
+        assert classify_error("") == "ERR_SUBPROCESS"
+
+    def test_unknown_error(self):
+        assert classify_error("something went wrong") == "ERR_SUBPROCESS"
+
+
+class TestStreamJsonParsingDeep:
+    """REQ-IFS-100: stream-json event parsing."""
+
+    def test_empty_lines_skipped(self):
+        events, _ = parse_stream_json_events(["", "  ", "\n"], task_name="t")
+        assert events == []
+
+    def test_invalid_json_skipped(self):
+        events, _ = parse_stream_json_events(["not json", '{"valid": true}'], task_name="t")
+        assert len(events) == 1
+
+    def test_rate_limit_populates_usage(self):
+        lines = ['{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","isUsingOverage":false}}']
+        _, usage = parse_stream_json_events(lines, task_name="t")
+        assert usage.rate_limit_status == "allowed"
+        assert usage.is_using_overage is False
+
+    def test_result_populates_cost(self):
+        lines = ['{"type":"result","subtype":"success","total_cost_usd":0.05,"duration_ms":1000,"usage":{"input_tokens":100,"output_tokens":50},"modelUsage":{}}']
+        _, usage = parse_stream_json_events(lines, task_name="t")
+        assert usage.cost_usd == 0.05
+        assert usage.input_tokens == 100
+        assert usage.duration_ms == 1000
+
+
+class TestEnvPrepDeep:
+    """REQ-100 reqs 13, 17, 18: environment preparation."""
+
+    def test_claudecode_always_stripped(self):
+        with patch.dict("os.environ", {"CLAUDECODE": "1", "PATH": "/bin"}):
+            env = prepare_env(RondoConfig())
+        assert "CLAUDECODE" not in env
+
+    def test_api_key_stripped_for_max(self):
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test"}):
+            env = prepare_env(RondoConfig(auth="max"))
+        assert "ANTHROPIC_API_KEY" not in env
+
+    def test_api_key_kept_for_api(self):
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test"}):
+            env = prepare_env(RondoConfig(auth="api"))
+        assert env.get("ANTHROPIC_API_KEY") == "sk-test"
+
+
+class TestResultSavingDeep:
+    """REQ-100 req 15, STD-110: result saving."""
+
+    def test_save_creates_file(self, tmp_path):
+        result = TaskResult(task_name="save-test", status="done", model="sonnet", auth_mode="max")
+        usage = DispatchUsage(task_name="save-test", model="sonnet", cost_usd=0.01)
+        filepath = save_result(result, usage, str(tmp_path))
+        assert Path(filepath).exists()
+
+    def test_save_file_permissions(self, tmp_path):
+        result = TaskResult(task_name="perm-test", status="done", model="sonnet", auth_mode="max")
+        usage = DispatchUsage(task_name="perm-test")
+        filepath = save_result(result, usage, str(tmp_path))
+        import stat
+        mode = Path(filepath).stat().st_mode
+        assert mode & 0o777 == 0o600
+
+    def test_save_contains_usage(self, tmp_path):
+        result = TaskResult(task_name="usage-test", status="done", model="sonnet", auth_mode="max")
+        usage = DispatchUsage(task_name="usage-test", cost_usd=0.05)
+        filepath = save_result(result, usage, str(tmp_path))
+        data = json.loads(Path(filepath).read_text())
+        assert data["usage"]["cost_usd"] == 0.05
+
+
+class TestRoundResultCalculation:
+    """REQ-100 req 046: round status from task results."""
+
+    def test_all_done_is_done(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="done")]
+        assert calculate_round_status(results) == "done"
+
+    def test_mix_is_partial(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="error")]
+        assert calculate_round_status(results) == "partial"
+
+    def test_all_error(self):
+        from rondo.engine import calculate_round_status
+        results = [TaskResult(task_name="t1", status="error"), TaskResult(task_name="t2", status="error")]
+        assert calculate_round_status(results) == "error"
+
+    def test_empty_is_skipped(self):
+        from rondo.engine import calculate_round_status
+        assert calculate_round_status([]) == "skipped"
+
+
+class TestConfigValidationDeep:
+    """STD-109: config validation edge cases."""
+
+    def test_zero_workers_rejected(self):
+        from rondo.config import validate_config
+        config = RondoConfig(workers=0)
+        errors = validate_config(config)
+        assert any("workers" in e for e in errors)
+
+    def test_negative_timeout_rejected(self):
+        from rondo.config import validate_config
+        config = RondoConfig(task_timeout_sec=-1)
+        errors = validate_config(config)
+        assert any("timeout" in e.lower() for e in errors)
+
+    def test_valid_config_no_errors(self):
+        from rondo.config import validate_config
+        config = RondoConfig()
+        errors = validate_config(config)
+        assert errors == []
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

@@ -789,6 +789,46 @@ class TestCostDisplay:
         assert "$" in captured.out or "Cost" in captured.out
 
 
+class TestNewCLIFlags:
+    """Sprint 24: --bare, --json-schema, --system-prompt, --max-budget passed to config."""
+
+    def test_bare_flag_in_config(self):
+        """--bare sets config.bare=True."""
+        from rondo.cli import _build_config, build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["run", "/tmp/test-round-e2e.py", "--bare"])
+        config = _build_config(args)
+        assert config.bare is True
+
+    def test_json_schema_auto_in_config(self):
+        """--json-schema auto sets config.json_schema='auto'."""
+        from rondo.cli import _build_config, build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["run", "/tmp/test-round-e2e.py", "--json-schema", "auto"])
+        config = _build_config(args)
+        assert config.json_schema == "auto"
+
+    def test_system_prompt_in_config(self):
+        """--system-prompt sets config.dispatch_system_prompt."""
+        from rondo.cli import _build_config, build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["run", "/tmp/test-round-e2e.py", "--system-prompt", "auto"])
+        config = _build_config(args)
+        assert config.dispatch_system_prompt == "auto"
+
+    def test_max_budget_in_config(self):
+        """--max-budget sets config.max_budget_usd."""
+        from rondo.cli import _build_config, build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["run", "/tmp/test-round-e2e.py", "--max-budget", "0.50"])
+        config = _build_config(args)
+        assert config.max_budget_usd == 0.50
+
+
 class TestHumanInputField:
     """Sprint 26: human_input field on Task."""
 

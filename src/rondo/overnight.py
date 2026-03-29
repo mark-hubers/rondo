@@ -310,6 +310,19 @@ def run_overnight(
     # -- Attach event log to result
     result.event_log = event_log.entries
 
+    # -- REQ-101 spool: write overnight result for consumer pickup (ALWAYS-ON)
+    try:
+        from dataclasses import asdict
+
+        from rondo.spool import spool_result
+
+        spool_result(
+            task_name=f"overnight-{result.status}",
+            result=asdict(result),
+        )
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("Overnight spool write failed (non-fatal): %s", exc)
+
     return result
 
 

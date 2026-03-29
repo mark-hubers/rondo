@@ -537,4 +537,52 @@ class TestOvernightResult:
             assert result.status == "done"
 
 
+class TestOvernightSpoolIntegration:
+    """REQ-101: overnight results written to spool (ALWAYS-ON)."""
+
+    def test_overnight_writes_spool(self):
+        """Overnight result triggers spool write."""
+        phases = [
+            Round(name="phase1", tasks=[
+                Task(name="auto", auto_fn=lambda: (True, "done")),
+            ]),
+        ]
+        config = RondoConfig(dry_run=True)
+
+        with patch("rondo.spool.spool_result") as mock_spool:
+            run_overnight(phases=phases, config=config)
+            mock_spool.assert_called_once()
+            call_kwargs = mock_spool.call_args[1]
+            assert "overnight" in call_kwargs["task_name"]
+
+
+class TestOvernightEventLog:
+    """REQ-101 req 017: events logged with timestamps."""
+
+    def test_event_log_has_start_and_end(self):
+        """Event log contains start and end entries."""
+        phases = [
+            Round(name="phase1", tasks=[
+                Task(name="auto", auto_fn=lambda: (True, "ok")),
+            ]),
+        ]
+        config = RondoConfig(dry_run=True)
+        result = run_overnight(phases=phases, config=config)
+        types = [e.get("type") for e in result.event_log]
+        assert "start_overnight" in types
+        assert "end_overnight" in types
+
+    def test_event_log_has_timestamps(self):
+        """Every event has a timestamp."""
+        phases = [
+            Round(name="phase1", tasks=[
+                Task(name="auto", auto_fn=lambda: (True, "ok")),
+            ]),
+        ]
+        config = RondoConfig(dry_run=True)
+        result = run_overnight(phases=phases, config=config)
+        for event in result.event_log:
+            assert "timestamp" in event
+
+
 # -- sig: mgh-6201.cd.bd955f.1c5d.a91c4a

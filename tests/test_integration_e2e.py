@@ -549,4 +549,59 @@ class TestE2EConfigOverrides:
         assert result.returncode in (0, 1)
 
 
+@skip_no_rondo
+class TestE2ETraceability:
+    """Validate traceability script works."""
+
+    def test_traceability_runs(self):
+        result = subprocess.run(
+            ["python3", "scripts/traceability.py"],
+            capture_output=True, text=True, check=False,
+            timeout=10, cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
+        )
+        assert "TRACEABILITY MATRIX" in result.stdout
+        assert "TRACED" in result.stdout
+
+    def test_traceability_json(self):
+        result = subprocess.run(
+            ["python3", "scripts/traceability.py", "--json"],
+            capture_output=True, text=True, check=False,
+            timeout=10, cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
+        )
+        data = json.loads(result.stdout)
+        assert len(data) >= 5  # at least 5 specs traced
+
+
+@skip_no_rondo
+class TestE2ECompleteWorkflow:
+    """The complete Rondo workflow as a living example."""
+
+    def test_workflow_preflight_then_dry_run(self, tmp_path):
+        """Step 1: preflight, Step 2: dry-run — like a real user would."""
+        # 1. Preflight
+        pf = _run(["preflight", "--json"])
+        pf_data = json.loads(pf.stdout)
+        assert pf_data["can_proceed"]
+
+        # 2. Dry-run
+        rf = tmp_path / "workflow.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='workflow', tasks=[\n"
+            "    Task(name='step1', instruction='analyze', done_when='analyzed'),\n"
+            "    Task(name='step2', instruction='fix', done_when='fixed'),\n"
+            "])\n"
+        )
+        dr = _run(["run", str(rf), "--dry-run", "--verbose"])
+        assert "0/2" in dr.stdout  # both skipped
+
+    def test_workflow_history_json_to_analysis(self):
+        """Step 3: Query history for cost analysis."""
+        hist = _run(["history", "--json"])
+        records = json.loads(hist.stdout)
+        if records:
+            total = sum(r.get("cost_usd", 0) for r in records)
+            assert total >= 0  # valid number
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

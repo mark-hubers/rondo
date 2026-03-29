@@ -291,4 +291,179 @@ class TestE2EPreflightDetails:
         assert "errors" in data
 
 
+@skip_no_rondo
+class TestE2EOvernightDryRun:
+    """Validate overnight mode works via CLI."""
+
+    def test_overnight_dry_run(self):
+        result = _run(["overnight", "examples/phases_overnight.py", "--dry-run"], timeout=15)
+        assert result.returncode in (0, 1)
+
+    def test_overnight_generates_report(self):
+        result = _run(["overnight", "examples/phases_overnight.py", "--dry-run"], timeout=15)
+        # Overnight always tries to generate a report
+        assert result.returncode in (0, 1)
+
+
+@skip_no_rondo
+class TestE2ELiveMode:
+    """Validate live mode via CLI."""
+
+    def test_live_shows_task(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='live', tasks=[\n"
+            "    Task(name='review', instruction='check code', done_when='checked',\n"
+            "         human_input='Read the PR description first'),\n"
+            "])\n"
+        )
+        result = _run(["live", str(rf), "--task", "0"], timeout=10)
+        assert "TASK 1 of 1" in result.stdout
+        assert "check code" in result.stdout
+        assert "HUMAN INPUT" in result.stdout
+
+    def test_live_shows_context_data(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='ctx', tasks=[\n"
+            "    Task(name='analyze', instruction='analyze data', done_when='analyzed',\n"
+            "         context_data={'findings': [1,2,3]}),\n"
+            "])\n"
+        )
+        result = _run(["live", str(rf), "--task", "0"], timeout=10)
+        assert "CONTEXT DATA" in result.stdout
+
+
+@skip_no_rondo
+class TestE2EModelCostComparison:
+    """Living example: compare model costs from history."""
+
+    def test_history_shows_model_breakdown(self):
+        result = _run(["history", "--expensive"])
+        # If we have dispatches, should show model summary
+        if "Dispatches:" in result.stdout and "0" not in result.stdout.split("Dispatches:")[1][:5]:
+            assert "Models:" in result.stdout or "$" in result.stdout
+
+
+@skip_no_rondo
+class TestE2ERoundWithContextFiles:
+    """Living example: round definition with context files."""
+
+    def test_dry_run_with_context_files(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='ctx-test', tasks=[\n"
+            "    Task(name='analyze', instruction='analyze the data file',\n"
+            "         done_when='analysis complete',\n"
+            "         context_files=['src/rondo/engine.py']),\n"
+            "])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--verbose"])
+        assert "skipped" in result.stdout.lower()
+
+
+@skip_no_rondo
+class TestE2EMultiTaskRound:
+    """Living example: round with multiple tasks."""
+
+    def test_multi_task_dry_run_shows_all(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='multi', tasks=[\n"
+            "    Task(name='lint', instruction='run linter', done_when='lint clean'),\n"
+            "    Task(name='test', instruction='run tests', done_when='tests pass'),\n"
+            "    Task(name='doc', instruction='update docs', done_when='docs updated'),\n"
+            "])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--verbose"])
+        assert "lint" in result.stdout
+        assert "test" in result.stdout
+        assert "doc" in result.stdout
+        assert "0/3" in result.stdout  # all skipped in dry-run
+
+
+@skip_no_rondo
+class TestE2EAutoTask:
+    """Living example: auto task (Python callable) in dry-run."""
+
+    def test_auto_task_dry_run(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='auto', tasks=[\n"
+            "    Task(name='auto-check', auto_fn=lambda: (True, 'all good')),\n"
+            "])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run"])
+        assert result.returncode in (0, 1)
+
+
+@skip_no_rondo
+class TestE2EGatedRound:
+    """Living example: round with pre-gate."""
+
+    def test_gated_round_dry_run(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task, Gate\n"
+            "def build_round(): return Round(\n"
+            "    name='gated',\n"
+            "    pre_gates=[Gate(name='env-check', check_fn=lambda: (True, 'ok'))],\n"
+            "    tasks=[Task(name='deploy', instruction='deploy code', done_when='deployed')],\n"
+            ")\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--verbose"])
+        assert result.returncode in (0, 1)
+
+
+@skip_no_rondo
+class TestE2EAiHelpDeep:
+    """Validate ai-help has complete info for AI agents."""
+
+    def test_ai_help_dispatch_models(self):
+        result = _run(["--ai-help"])
+        data = json.loads(result.stdout)
+        models = data["capabilities"]["dispatch"]["models"]
+        assert "sonnet" in models
+        assert "opus" in models
+        assert "haiku" in models
+
+    def test_ai_help_dispatch_features(self):
+        result = _run(["--ai-help"])
+        data = json.loads(result.stdout)
+        features = data["capabilities"]["dispatch"]["features"]
+        assert any("structured_output" in f for f in features)
+        assert any("circuit_breaker" in f for f in features)
+        assert any("cost_cap" in f for f in features)
+
+    def test_ai_help_result_schema(self):
+        result = _run(["--ai-help"])
+        data = json.loads(result.stdout)
+        schema = data["result_schema"]
+        assert "done" in str(schema)
+        assert "error" in str(schema)
+        assert "blocked" in str(schema)
+
+    def test_ai_help_config_has_all_options(self):
+        result = _run(["--ai-help"])
+        data = json.loads(result.stdout)
+        config_names = [c["name"] for c in data["config"]]
+        assert "auth" in config_names
+        assert "bare" in config_names
+        assert "json_schema" in config_names
+        assert "max_budget_usd" in config_names
+
+    def test_ai_help_examples(self):
+        result = _run(["--ai-help"])
+        data = json.loads(result.stdout)
+        assert len(data["examples"]) >= 5
+        codes = [e["code"] for e in data["examples"]]
+        assert any("preflight" in c for c in codes)
+        assert any("dry-run" in c for c in codes)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

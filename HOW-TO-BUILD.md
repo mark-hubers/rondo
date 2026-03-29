@@ -2,7 +2,8 @@
 
 **For:** Any Claude session building Rondo from ~/.claude/ or ace2
 **System:** OB1 (manual build process, until OB2 replaces it)
-**Status:** 766 tests, 93% coverage, 58% spec coverage, 60 E2E tests
+**Status:** 947 tests, 93% coverage, 12/12 specs traced, 21 modules, 9 CLI commands
+**Version:** 0.2.0+CalVer (Session 92: +220 tests, +5 modules, ALWAYS-ON pipeline)
 
 ---
 

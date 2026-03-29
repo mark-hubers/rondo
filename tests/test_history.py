@@ -105,4 +105,60 @@ class TestQueryHistory:
         assert len(query_history(records)) == 3
 
 
+class TestModelAggregate:
+    """Rondo-REQ-104 req 003: per-model aggregate stats."""
+
+    def test_aggregate_by_model(self, tmp_path):
+        """Aggregate returns cost/count per model."""
+        from rondo.history import aggregate_by_model
+
+        for model, cost in [("sonnet", 0.05), ("opus", 0.20), ("sonnet", 0.03)]:
+            log_dispatch(DispatchRecord(
+                round_name="r", task_name=f"t-{model}", model=model,
+                status="done", cost_usd=cost,
+            ), str(tmp_path))
+        records = load_history(str(tmp_path))
+        agg = aggregate_by_model(records)
+        assert agg["sonnet"]["count"] == 2
+        assert abs(agg["sonnet"]["total_cost"] - 0.08) < 0.001
+        assert agg["opus"]["count"] == 1
+
+    def test_aggregate_empty(self):
+        """Aggregate with no records returns empty dict."""
+        from rondo.history import aggregate_by_model
+
+        assert aggregate_by_model([]) == {}
+
+    def test_aggregate_success_rate(self, tmp_path):
+        """Success rate calculated correctly."""
+        from rondo.history import aggregate_by_model
+
+        for status in ["done", "done", "error"]:
+            log_dispatch(DispatchRecord(
+                round_name="r", task_name="t", model="sonnet",
+                status=status, cost_usd=0.01,
+            ), str(tmp_path))
+        records = load_history(str(tmp_path))
+        agg = aggregate_by_model(records)
+        assert agg["sonnet"]["success"] == 2
+        assert agg["sonnet"]["error"] == 1
+
+
+class TestHistoryRoundName:
+    """Round name should be in history records."""
+
+    def test_record_with_round_name(self, tmp_path):
+        r = DispatchRecord(round_name="my-round", task_name="t", model="sonnet", status="done")
+        log_dispatch(r, str(tmp_path))
+        records = load_history(str(tmp_path))
+        assert records[0]["round_name"] == "my-round"
+
+    def test_query_by_round_name(self, tmp_path):
+        for rn in ["round-a", "round-b", "round-a"]:
+            log_dispatch(DispatchRecord(round_name=rn, task_name="t", model="sonnet", status="done"), str(tmp_path))
+        records = load_history(str(tmp_path))
+        filtered = query_history(records, round_name="round-a")
+        assert len(filtered) == 2
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.a1b2c3

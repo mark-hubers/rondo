@@ -95,4 +95,21 @@ def query_history(
     return result
 
 
+def aggregate_by_model(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per-model cost/count/duration aggregates — Rondo-REQ-104 req 003."""
+    agg: dict[str, dict[str, Any]] = {}
+    for r in records:
+        model = r.get("model", "unknown")
+        if model not in agg:
+            agg[model] = {"count": 0, "total_cost": 0.0, "total_duration": 0.0, "success": 0, "error": 0}
+        agg[model]["count"] += 1
+        agg[model]["total_cost"] += r.get("cost_usd", 0)
+        agg[model]["total_duration"] += r.get("duration_sec", 0)
+        if r.get("status") == "done":
+            agg[model]["success"] += 1
+        elif r.get("status") == "error":
+            agg[model]["error"] += 1
+    return agg
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.d3e4f5

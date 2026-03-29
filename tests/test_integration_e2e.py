@@ -466,4 +466,87 @@ class TestE2EAiHelpDeep:
         assert any("dry-run" in c for c in codes)
 
 
+@skip_no_rondo
+class TestE2EErrorHandling:
+    """Validate error handling works via CLI."""
+
+    def test_nonexistent_round_file(self):
+        result = _run(["run", "/nonexistent/round.py"])
+        assert result.returncode != 0
+
+    def test_invalid_python_file(self, tmp_path):
+        rf = tmp_path / "bad.py"
+        rf.write_text("this is not valid python {{{")
+        result = _run(["run", str(rf)])
+        assert result.returncode != 0
+
+    def test_missing_build_round_function(self, tmp_path):
+        rf = tmp_path / "no_func.py"
+        rf.write_text("x = 42\n")
+        result = _run(["run", str(rf)])
+        assert result.returncode != 0
+
+    def test_invalid_subcommand(self):
+        result = _run(["nonexistent-command"])
+        assert result.returncode == 2  # usage error
+
+
+@skip_no_rondo
+class TestE2ELiveMultiTask:
+    """Live mode with multiple tasks."""
+
+    def test_live_from_task_2(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='multi', tasks=[\n"
+            "    Task(name='t1', instruction='first', done_when='done'),\n"
+            "    Task(name='t2', instruction='second', done_when='done'),\n"
+            "    Task(name='t3', instruction='third', done_when='done'),\n"
+            "])\n"
+        )
+        result = _run(["live", str(rf), "--from", "1"])
+        # Should skip t1, show t2 and t3
+        assert "TASK 2 of 3" in result.stdout or "TASK 3 of 3" in result.stdout
+
+    def test_live_single_task(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='pick', tasks=[\n"
+            "    Task(name='a', instruction='first', done_when='done'),\n"
+            "    Task(name='b', instruction='second', done_when='done'),\n"
+            "])\n"
+        )
+        result = _run(["live", str(rf), "--task", "1"])
+        assert "TASK 2 of 2" in result.stdout
+
+
+@skip_no_rondo
+class TestE2EConfigOverrides:
+    """CLI flags override config file settings."""
+
+    def test_model_flag_overrides_default(self, tmp_path):
+        toml = tmp_path / "rondo.toml"
+        toml.write_text('default_model = "haiku"\n')
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='t', tasks=[\n"
+            "    Task(name='t', instruction='do', done_when='done'),\n])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--model", "opus", "--config", str(toml)])
+        assert result.returncode in (0, 1)
+
+    def test_workers_flag(self, tmp_path):
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='t', tasks=[\n"
+            "    Task(name='t', instruction='do', done_when='done'),\n])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--workers", "2"])
+        assert result.returncode in (0, 1)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

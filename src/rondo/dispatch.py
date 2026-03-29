@@ -361,7 +361,7 @@ def _dispatch_interactive(
 
         # -- Handle timeout
         if timed_out:
-            return _make_error_result(
+            result, usage = _make_error_result(
                 task.name,
                 error_code="ERR_TIMEOUT",
                 error_message=f"Task timed out after {config.task_timeout_sec}s",
@@ -373,10 +373,11 @@ def _dispatch_interactive(
                 auth=config.auth,
                 timestamp=timestamp,
             )
+            return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
 
         # -- Handle non-zero exit (Rondo-REQ-100 req 27)
         if returncode != 0:
-            return _make_error_result(
+            result, usage = _make_error_result(
                 task.name,
                 error_code=classify_error(stderr),
                 error_message=stderr[:500] if stderr else "Non-zero exit code",
@@ -389,10 +390,11 @@ def _dispatch_interactive(
                 auth=config.auth,
                 timestamp=timestamp,
             )
+            return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
 
         # -- Handle empty stdout (Rondo-STD-108: ERR_EMPTY_OUTPUT)
         if not stdout or not stdout.strip():
-            return _make_error_result(
+            result, usage = _make_error_result(
                 task.name,
                 error_code="ERR_EMPTY_OUTPUT",
                 error_message="Empty stdout — possible auth failure",
@@ -404,6 +406,7 @@ def _dispatch_interactive(
                 auth=config.auth,
                 timestamp=timestamp,
             )
+            return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
 
         # -- Parse and build success result
         return _parse_and_build_result(
@@ -414,7 +417,7 @@ def _dispatch_interactive(
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         # -- Rondo-STD-108 rule 9: subprocess + I/O failures caught
         logger.warning("Interactive dispatch failed for task %s: %s", task.name, exc)
-        return _make_error_result(
+        result, usage = _make_error_result(
             task.name,
             error_code="ERR_INTERNAL",
             error_message=str(exc),
@@ -424,6 +427,68 @@ def _dispatch_interactive(
             auth=config.auth,
             timestamp=timestamp,
         )
+        return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
+
+
+def _finalize_dispatch(
+    result: TaskResult,
+    usage: DispatchUsage,
+    config: RondoConfig,
+    audit_trail: AuditTrail | None,
+    audit_record: object | None,
+) -> tuple[TaskResult, DispatchUsage]:
+    """Shared ALWAYS-ON pipeline for ALL dispatch paths (success + error).
+
+    Cursor review (Session 92): error paths were skipping audit OUTCOME,
+    sanitize, spool, and history. This function runs on every path.
+    """
+    # -- STD-113: set dispatch_id on result
+    if audit_record:
+        result.dispatch_id = getattr(audit_record, "dispatch_id", "")
+
+    # -- STD-113: record audit OUTCOME
+    if audit_trail and audit_record:
+        try:
+            audit_trail.record_outcome(
+                dispatch_id=audit_record.dispatch_id,
+                task_name=result.task_name,
+                model=result.model,
+                status=result.status,
+                exit_code=result.exit_code or 0,
+                cost_usd=usage.cost_usd,
+                duration_sec=result.duration_sec,
+                raw_output=result.raw_output,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                files_modified=result.files_modified,
+            )
+        except (OSError, TypeError) as exc:
+            logger.debug("Audit outcome failed (non-fatal): %s", exc)
+
+    # -- STD-114: sanitize result
+    try:
+        result, _sr = sanitize_task_result(result, config=None)
+    except (TypeError, AttributeError) as exc:
+        logger.debug("Sanitize failed (non-fatal): %s", exc)
+
+    # -- REQ-101: write to spool
+    try:
+        from dataclasses import asdict
+
+        from rondo.spool import spool_result
+
+        spool_result(
+            task_name=result.task_name,
+            result=asdict(result),
+            spool_dir=os.path.expanduser("~/.rondo/spool"),
+        )
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("Spool write failed (non-fatal): %s", exc)
+
+    # -- REQ-104: log to history
+    _log_to_history(result, usage, config)
+
+    return result, usage
 
 
 def _build_subprocess_cmd(
@@ -600,53 +665,8 @@ def _parse_and_build_result(
         files_modified=extract_modified_files(assistant_text),
     )
 
-    # -- STD-113: set dispatch_id on result so callers can reference it
-    if audit_record:
-        result.dispatch_id = audit_record.dispatch_id
-
-    # -- STD-113: record audit OUTCOME
-    if audit_trail and audit_record:
-        try:
-            audit_trail.record_outcome(
-                dispatch_id=audit_record.dispatch_id,
-                task_name=task.name,
-                model=model,
-                status=result.status,
-                exit_code=returncode,
-                cost_usd=usage.cost_usd,
-                duration_sec=duration,
-                raw_output=result.raw_output,
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-                files_modified=result.files_modified,
-            )
-        except (OSError, TypeError) as exc:
-            logger.debug("Audit outcome recording failed (non-fatal): %s", exc)
-
-    # -- STD-114: sanitize result before storage (scrub secrets)
-    try:
-        result, _sr = sanitize_task_result(result, config=None)
-    except (TypeError, AttributeError) as exc:
-        logger.debug("Sanitize failed (non-fatal): %s", exc)
-
-    # -- REQ-101: write result to spool (ALWAYS-ON, non-fatal)
-    try:
-        from dataclasses import asdict
-
-        from rondo.spool import spool_result
-
-        spool_result(
-            task_name=result.task_name,
-            result=asdict(result),
-            spool_dir=os.path.expanduser("~/.rondo/spool"),
-        )
-    except (ImportError, OSError, TypeError) as exc:
-        logger.debug("Spool write failed (non-fatal): %s", exc)
-
-    # -- Rondo-REQ-104: log dispatch to history
-    _log_to_history(result, usage, config)
-
-    return result, usage
+    # -- ALWAYS-ON: shared finalizer for all paths (Cursor Session 92 review)
+    return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
 
 
 def _log_to_history(

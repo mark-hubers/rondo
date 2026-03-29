@@ -29,7 +29,6 @@ def build_round() -> Round:
     """Security audit: scan code for secrets, review error handling."""
     return Round(
         name="security-audit",
-        description="Scan codebase for security issues — secrets, injection, error handling",
         pre_gates=[
             Gate(name="git-clean", check_fn=_check_git_clean),
         ],

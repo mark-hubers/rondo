@@ -12,7 +12,7 @@ from pathlib import Path
 from rondo.engine import Gate, Round, Task
 
 CALIBER_CLI = str(Path(__file__).resolve().parent.parent.parent / "caliber" / "spikes" / "cli-spike.py")
-TARGET = "/Users/markhubers/tmp/caliber-demo/buggy.py"
+TARGET = str(Path.home() / "tmp" / "caliber-demo" / "buggy.py")
 
 
 def _run_caliber() -> tuple[bool, str]:

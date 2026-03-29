@@ -3,10 +3,20 @@
 """Rondo dispatch audit trail — permanent record of every dispatch.
 
 Rondo-STD-113: Dispatch Audit Trail.
-Two-phase recording: phase 1 records INTENT before dispatch (task, model,
-prompt hash), phase 2 updates OUTCOME after dispatch (status, cost, duration).
-If subprocess crashes, phase 1 still exists — intent is never lost.
-JSONL storage, prompt/result files alongside.
+
+Event model (append-only, event-sourcing pattern):
+    Each dispatch produces TWO JSONL records, correlated by dispatch_id:
+    1. INTENT record — written BEFORE subprocess launches (phase 1)
+    2. OUTCOME record — appended AFTER subprocess completes (phase 2)
+
+    Records are NEVER modified or deleted (STD-113 req 010). The two
+    records form a pair: if only INTENT exists with no OUTCOME, the
+    dispatch crashed or timed out — detectable in post-mortem.
+
+    This is intentional append-only design, NOT a split-brain bug.
+    Consumers correlate by dispatch_id to reconstruct the full picture.
+
+Prompt/result files stored alongside JSONL, scrubbed via STD-114.
 
 Import direction:
     audit.py → imports sanitize (STD-114 scrubbing before storage)

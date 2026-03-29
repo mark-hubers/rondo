@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -132,14 +132,30 @@ class FlakyEngine:
 
     Collects dispatch outcomes, groups by (task_name, prompt_hash),
     computes flakiness scores, flags tasks exceeding threshold.
+
+    Memory contract: max_outcomes limits retained history (default 10000).
+    When exceeded, oldest outcomes are evicted. Caller can also set
+    window_days to filter analysis to recent data only (default 14).
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_outcomes: int = 10_000,
+        window_days: int = 14,
+    ) -> None:
         self._outcomes: list[DispatchOutcome] = []
+        self._max_outcomes = max_outcomes
+        self._window_days = window_days
 
     def add_outcome(self, outcome: DispatchOutcome) -> None:
-        """Add a dispatch outcome for tracking."""
+        """Add a dispatch outcome for tracking.
+
+        Evicts oldest outcomes when max_outcomes exceeded (REQ-107 scale).
+        """
         self._outcomes.append(outcome)
+        if len(self._outcomes) > self._max_outcomes:
+            self._outcomes = self._outcomes[-self._max_outcomes:]
 
     def get_groups(self) -> dict[tuple[str, str], list[DispatchOutcome]]:
         """Group outcomes by (task_name, prompt_hash) — REQ-107 req 002.

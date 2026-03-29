@@ -768,4 +768,76 @@ class TestVersionFlag:
         assert "0.1.0" in captured.out
 
 
+# -- Retroactive tests for Sprints 25-28 (Finding #148: TDD skipped)
+class TestCostDisplay:
+    """Sprint 25: cost appears in CLI output."""
+
+    def test_verbose_shows_cost(self, capsys):
+        """Verbose run output includes cost line."""
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.runner.dispatch_task") as mock_disp,
+        ):
+            from rondo.engine import Round, Task, TaskResult, DispatchUsage
+
+            mock_disp.return_value = (
+                TaskResult(task_name="t1", status="done", model="sonnet", auth_mode="max"),
+                DispatchUsage(task_name="t1", model="sonnet", cost_usd=0.05),
+            )
+            exit_code = main(["run", "/tmp/test-round-e2e.py", "--verbose"])
+        captured = capsys.readouterr()
+        assert "$" in captured.out or "Cost" in captured.out
+
+
+class TestHumanInputField:
+    """Sprint 26: human_input field on Task."""
+
+    def test_task_has_human_input_default(self):
+        """human_input defaults to empty string."""
+        from rondo.engine import Task
+
+        t = Task(name="t")
+        assert t.human_input == ""
+
+    def test_task_accepts_human_input(self):
+        """human_input can be set."""
+        from rondo.engine import Task
+
+        t = Task(name="t", human_input="Please review this first")
+        assert t.human_input == "Please review this first"
+
+
+class TestExpensiveSort:
+    """Sprint 27: --expensive sorts by cost."""
+
+    def test_expensive_flag_accepted(self):
+        """rondo history --expensive doesn't error."""
+        exit_code = main(["history", "--expensive", "--results-dir", "/tmp/nonexistent-rondo"])
+        assert exit_code == EXIT_SUCCESS
+
+
+class TestFailureNotification:
+    """Sprint 28: failure notifications wired into runner."""
+
+    def test_failure_notify_called_on_error(self):
+        """notify_failure called when task has error_code."""
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.runner.dispatch_task") as mock_disp,
+            patch("rondo.runner._notify_failure") as mock_notify,
+        ):
+            from rondo.engine import Round, Task, TaskResult, DispatchUsage
+            from rondo.runner import run_round
+            from rondo.config import RondoConfig
+
+            mock_disp.return_value = (
+                TaskResult(task_name="t1", status="error", error_code="ERR_AUTH",
+                           error_message="bad key", model="sonnet", auth_mode="max"),
+                DispatchUsage(task_name="t1", model="sonnet"),
+            )
+            r = Round(name="fail-test", tasks=[Task(name="t1", instruction="do", done_when="done")])
+            run_round(r, config=RondoConfig(workers=1))
+            mock_notify.assert_called_once()
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

@@ -111,7 +111,7 @@ def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
     if config.default_model not in valid_models:
         errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
 
-    valid_perms = ("default", "acceptEdits", "plan", "auto", "bypassPermissions")
+    valid_perms = ("default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions")
     if config.permission_mode not in valid_perms:
         errors.append(f"permission_mode must be one of {valid_perms}, got '{config.permission_mode}'")
 

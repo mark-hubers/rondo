@@ -451,4 +451,75 @@ class TestRelationshipValidation:
         assert len(errors) == 0
 
 
+# -- Session 91: deepen config coverage
+class TestNewConfigFields:
+    """Session 91 fields in RondoConfig."""
+
+    def test_bare_default_false(self):
+        config = RondoConfig()
+        assert config.bare is False
+
+    def test_json_schema_default_empty(self):
+        config = RondoConfig()
+        assert config.json_schema == ""
+
+    def test_dispatch_system_prompt_default_empty(self):
+        config = RondoConfig()
+        assert config.dispatch_system_prompt == ""
+
+    def test_max_budget_default_none(self):
+        config = RondoConfig()
+        assert config.max_budget_usd is None
+
+    def test_all_new_fields_set(self):
+        config = RondoConfig(
+            bare=True, json_schema="auto",
+            dispatch_system_prompt="auto", max_budget_usd=0.50,
+        )
+        assert config.bare is True
+        assert config.json_schema == "auto"
+        assert config.dispatch_system_prompt == "auto"
+        assert config.max_budget_usd == 0.50
+
+    def test_config_frozen_cannot_modify(self):
+        config = RondoConfig()
+        with pytest.raises(FrozenInstanceError):
+            config.bare = True
+
+
+class TestConfigFromToml:
+    """TOML loading for new fields."""
+
+    def test_toml_with_new_fields(self, tmp_path):
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text(
+            'bare = true\n'
+            'json_schema = "auto"\n'
+            'dispatch_system_prompt = "auto"\n'
+            'max_budget_usd = 0.25\n'
+        )
+        config = load_config(config_path=str(toml_file))
+        assert config.bare is True
+        assert config.json_schema == "auto"
+        assert config.dispatch_system_prompt == "auto"
+        assert config.max_budget_usd == 0.25
+
+    def test_toml_partial_new_fields(self, tmp_path):
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text('json_schema = "auto"\n')
+        config = load_config(config_path=str(toml_file))
+        assert config.json_schema == "auto"
+        assert config.bare is False  # default preserved
+
+
+class TestConfigPermissionModes:
+    """All permission modes are valid."""
+
+    def test_all_permission_modes_valid(self):
+        for mode in ["default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"]:
+            config = RondoConfig(permission_mode=mode)
+            errors = validate_config(config)
+            assert not any("permission" in e for e in errors), f"{mode} should be valid"
+
+
 # -- sig: mgh-6201.cd.bd955f.e6d7.bf1b3b

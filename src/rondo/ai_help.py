@@ -22,7 +22,7 @@ def get_ai_help() -> dict[str, Any]:
     """
     return {
         "name": "rondo",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "description": "AI task automation for Claude Code. Define tasks in Python, dispatch to Claude, get structured results.",
         "install": "uv tool install --editable ~/git/mhubers/ace2/rondo",
         "commands": _get_commands(),

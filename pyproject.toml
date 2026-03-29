@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rondo"
-version = "0.1.0"
+version = "0.2.0"
 description = "Define AI tasks in Python, send them to Claude, get structured results back."
 requires-python = ">=3.12"
 license = "MIT"

@@ -604,4 +604,249 @@ class TestE2ECompleteWorkflow:
             assert total >= 0  # valid number
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: STD-114 Sanitization Pipeline
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestE2ESanitizePipeline:
+    """Full sanitization pipeline — real data, real scrubbing."""
+
+    def test_sanitize_realistic_ai_output(self):
+        """Real-world AI output with leaked secrets gets fully scrubbed."""
+        from rondo.sanitize import sanitize_text
+
+        ai_output = (
+            "I found the config file. Here's what I see:\n"
+            "api_key = 'sk-proj-abc123def456ghi789'\n"
+            "password = 'hunter2longpassword'\n"
+            "The deployment uses Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature\n"
+            "AWS key: AKIAIOSFODNN7EXAMPLE\n"
+        )
+        result = sanitize_text(ai_output)
+        assert result.secrets_found >= 4
+        assert "sk-proj-abc123def456ghi789" not in result.sanitized_text
+        assert "hunter2longpassword" not in result.sanitized_text
+        assert "AKIAIOSFODNN7EXAMPLE" not in result.sanitized_text
+        assert "[REDACTED:" in result.sanitized_text
+
+    def test_sanitize_task_result_pipeline(self):
+        """Full TaskResult → sanitized copy pipeline."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        tr = TaskResult(
+            task_name="code_review",
+            raw_output="Found password = 'db_admin_secret_99' in config.py",
+            parsed_result={
+                "findings": [
+                    {"file": "config.py", "issue": "api_key = 'sk-leaked-key-12345' exposed"}
+                ]
+            },
+        )
+        sanitized_tr, sr = sanitize_task_result(tr)
+        # -- Original untouched
+        assert "db_admin_secret_99" in tr.raw_output
+        # -- Sanitized copy clean
+        assert "db_admin_secret_99" not in sanitized_tr.raw_output
+        assert "sk-leaked-key-12345" not in json.dumps(sanitized_tr.parsed_result)
+        assert sr.secrets_found >= 2
+
+    def test_clean_output_passes_through(self):
+        """Output with no secrets passes through unchanged."""
+        from rondo.sanitize import sanitize_text
+
+        clean = "The function looks correct. No issues found. Return code 0."
+        result = sanitize_text(clean)
+        assert result.sanitized_text == clean
+        assert result.secrets_found == 0
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: STD-113 Audit Trail Pipeline
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestE2EAuditPipeline:
+    """Full audit trail pipeline — intent, dispatch, outcome."""
+
+    def test_complete_audit_lifecycle(self, tmp_path):
+        """Intent → outcome → query full lifecycle."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+
+        # -- Phase 1: record intent
+        record = trail.record_intent(
+            task_name="code_review",
+            round_name="sprint_review",
+            model="claude-sonnet-4-6",
+            prompt="Review src/main.py for security issues",
+        )
+        assert record.status == "INTENT"
+        assert record.dispatch_id.startswith("dsp_")
+
+        # -- Phase 2: record outcome
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id,
+            task_name="code_review",
+            status="done",
+            exit_code=0,
+            cost_usd=0.042,
+            duration_sec=18.5,
+            raw_output="Found 2 potential SQL injection points in query builder.",
+            input_tokens=5000,
+            output_tokens=1200,
+            files_modified=["src/main.py"],
+        )
+
+        # -- Verify JSONL has both records
+        jsonl = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
+        lines = [json.loads(l) for l in jsonl.strip().split("\n")]
+        assert len(lines) == 2
+        assert lines[0]["status"] == "INTENT"
+        assert lines[1]["status"] == "done"
+        assert lines[1]["cost_usd"] == 0.042
+
+        # -- Verify prompt file exists and is scrubbed
+        prompt_file = tmp_path / f"{record.dispatch_id}.prompt.txt"
+        assert prompt_file.exists()
+
+        # -- Verify result file exists
+        result_file = tmp_path / f"{record.dispatch_id}.result.json"
+        assert result_file.exists()
+        result_data = json.loads(result_file.read_text(encoding="utf-8"))
+        assert "SQL injection" in result_data["raw_output"]
+
+    def test_audit_scrubs_secrets_in_prompt(self, tmp_path):
+        """Audit trail scrubs secrets from prompt before storage."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = trail.record_intent(
+            task_name="deploy",
+            round_name="release",
+            model="claude-opus-4-6",
+            prompt="Deploy with api_key = 'sk-production-key-abc123' to staging",
+        )
+        prompt_content = (tmp_path / f"{record.dispatch_id}.prompt.txt").read_text(encoding="utf-8")
+        assert "sk-production-key-abc123" not in prompt_content
+        assert "[REDACTED:" in prompt_content
+
+    def test_crash_recovery(self, tmp_path):
+        """Simulate crash: intent exists but no outcome."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        trail.record_intent(
+            task_name="crashed_task",
+            round_name="overnight",
+            model="claude-sonnet-4-6",
+            prompt="Run full test suite",
+        )
+        # -- No outcome (simulating crash)
+        # -- Morning report should find no failed dispatches
+        # -- but INTENT record proves the dispatch was attempted
+        jsonl = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
+        data = json.loads(jsonl.strip())
+        assert data["status"] == "INTENT"
+        assert data["task_name"] == "crashed_task"
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: REQ-107 Flakiness Detection Pipeline
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestE2EFlakyPipeline:
+    """Full flakiness detection — simulated overnight dispatch history."""
+
+    def test_detect_flaky_task_from_history(self):
+        """Simulated 2-week dispatch history reveals flaky task."""
+        from rondo.flaky import DispatchOutcome, FlakyEngine
+
+        engine = FlakyEngine()
+
+        # -- Stable task: always succeeds
+        for day in range(14):
+            engine.add_outcome(DispatchOutcome(
+                task_name="lint_check", prompt_hash="sha256:stable",
+                model="claude-sonnet-4-6", status="done",
+                confidence=0.95, run_at=f"2026-03-{10+day:02d}T03:00:00Z",
+            ))
+
+        # -- Flaky task: alternates done/error
+        for day in range(14):
+            status = "done" if day % 3 != 0 else "error"
+            engine.add_outcome(DispatchOutcome(
+                task_name="deploy_check", prompt_hash="sha256:flaky",
+                model="claude-sonnet-4-6", status=status,
+                confidence=0.5 if status == "error" else 0.85,
+                run_at=f"2026-03-{10+day:02d}T03:00:00Z",
+            ))
+
+        flaky_tasks = engine.get_flaky_tasks()
+        flaky_names = [f.task_name for f in flaky_tasks]
+        assert "deploy_check" in flaky_names
+        assert "lint_check" not in flaky_names
+
+    def test_model_comparison(self):
+        """Compare model reliability from dispatch outcomes."""
+        from rondo.flaky import DispatchOutcome, FlakyEngine
+
+        engine = FlakyEngine()
+        # -- Sonnet: mostly reliable
+        for i in range(10):
+            engine.add_outcome(DispatchOutcome(
+                task_name="review", prompt_hash="sha256:same",
+                model="claude-sonnet-4-6", status="done",
+                confidence=0.9, run_at=f"2026-03-{10+i}T01:00:00Z",
+            ))
+        # -- Haiku: more errors
+        for i in range(10):
+            engine.add_outcome(DispatchOutcome(
+                task_name="review", prompt_hash="sha256:same",
+                model="claude-haiku-4-5",
+                status="done" if i % 2 == 0 else "error",
+                confidence=0.6, run_at=f"2026-03-{10+i}T02:00:00Z",
+            ))
+        stats = engine.get_model_stats()
+        assert stats["claude-haiku-4-5"]["flakiness"] > stats["claude-sonnet-4-6"]["flakiness"]
+
+    def test_confidence_variance_unstable_prompt(self):
+        """High confidence variance = poorly defined task."""
+        from rondo.flaky import DispatchOutcome, FlakyEngine
+
+        engine = FlakyEngine()
+        # -- Wild confidence swings: 0.2 to 0.95
+        for conf in [0.2, 0.95, 0.3, 0.88, 0.15, 0.92]:
+            engine.add_outcome(DispatchOutcome(
+                task_name="vague_task", prompt_hash="sha256:vague",
+                model="m", status="done", confidence=conf,
+                run_at="2026-03-20T01:00:00Z",
+            ))
+        summary = engine.get_summary("vague_task", "sha256:vague")
+        assert summary.confidence_variance > 0.05
+
+    def test_full_json_report(self):
+        """Flakiness summary serializes to complete JSON."""
+        from rondo.flaky import DispatchOutcome, FlakyEngine
+
+        engine = FlakyEngine()
+        for i, s in enumerate(["done", "error", "done", "error", "done"]):
+            engine.add_outcome(DispatchOutcome(
+                task_name="unstable", prompt_hash="sha256:test",
+                model="m", status=s, confidence=0.5,
+                run_at=f"2026-03-{20+i}T01:00:00Z",
+            ))
+        flaky_tasks = engine.get_flaky_tasks()
+        report = [f.to_dict() for f in flaky_tasks]
+        json_str = json.dumps(report, indent=2)
+        data = json.loads(json_str)
+        assert len(data) == 1
+        assert data[0]["flakiness_score"] > 0.2
+        assert data[0]["root_cause"] == "UNKNOWN"
+        assert data[0]["total_runs"] == 5
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

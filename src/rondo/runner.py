@@ -185,6 +185,9 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
     # -- Save round summary
     _save_round_summary(result, config.results_dir)
 
+    # -- Rondo-REQ-105 req 001: notify on round completion
+    _notify_round(result)
+
     return result
 
 
@@ -231,6 +234,22 @@ def _save_result_safe(
         save_result(task_result, usage, results_dir)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Failed to save result for %s: %s", task_result.task_name, exc)
+
+
+def _notify_round(result: RoundResult) -> None:
+    """Send notification on round completion — Rondo-REQ-105 req 001."""
+    try:
+        from rondo.notify import notify_round_complete
+
+        total_cost = sum(u.cost_usd for u in result.usage)
+        notify_round_complete(
+            round_name=result.round_name,
+            status=result.status,
+            duration_sec=result.duration_sec,
+            cost_usd=total_cost,
+        )
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("Notification failed (non-fatal): %s", exc)
 
 
 def _save_round_summary(result: RoundResult, results_dir: str) -> None:

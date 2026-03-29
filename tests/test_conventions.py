@@ -153,7 +153,7 @@ class TestImportLayering:
         "engine.py": set(),
         "config.py": set(),
         "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse"},
-        "runner.py": {"engine", "config", "dispatch", "parallel"},
+        "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner"},
         "live.py": {"engine"},

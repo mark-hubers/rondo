@@ -85,7 +85,7 @@ def _send_file(msg: str, log_file: str) -> None:
 
 
 def _send_macos(msg: str, title: str) -> None:
-    """MacOS notification center via osascript — Rondo-REQ-105 req 005."""
+    """Send a macOS notification via osascript — Rondo-REQ-105 req 005."""
     try:
         script = f'display notification "{msg}" with title "{title}"'
         subprocess.run(

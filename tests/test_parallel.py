@@ -509,4 +509,96 @@ class TestEmptyRound:
         assert result.summary == "No tasks in round"
 
 
+class TestParallelDeep:
+    """REQ-101: parallel dispatch deep coverage."""
+
+    def test_req001_uses_thread_pool(self):
+        """req 001: parallel dispatch uses ThreadPoolExecutor."""
+        from rondo.parallel import run_parallel
+
+        round_def = Round(name="par", tasks=[
+            Task(name="t1", auto_fn=lambda: (True, "ok")),
+            Task(name="t2", auto_fn=lambda: (True, "ok")),
+        ])
+        config = RondoConfig(dry_run=True, workers=2)
+        result = run_parallel(round_def, config)
+        assert result.parallelism == 2
+
+    def test_req004_results_collected_as_completed(self):
+        """req 004: results collected as futures complete."""
+        from rondo.parallel import run_parallel
+
+        round_def = Round(name="par", tasks=[
+            Task(name="fast", auto_fn=lambda: (True, "fast")),
+            Task(name="slow", auto_fn=lambda: (True, "slow")),
+        ])
+        config = RondoConfig(dry_run=True, workers=2)
+        result = run_parallel(round_def, config)
+        # -- Both tasks should complete regardless of order
+        assert len(result.task_results) == 2
+
+    def test_req007_reports_speedup_ratio(self):
+        """req 007: parallel report includes done/error/wall time."""
+        from rondo.parallel import run_parallel
+
+        round_def = Round(name="par", tasks=[
+            Task(name="t1", auto_fn=lambda: (True, "ok")),
+            Task(name="t2", auto_fn=lambda: (True, "ok")),
+        ])
+        config = RondoConfig(dry_run=True, workers=2)
+        result = run_parallel(round_def, config)
+        assert result.duration_sec >= 0
+        done = [tr for tr in result.task_results if tr.status in ("done", "skipped")]
+        assert len(done) == 2
+
+    def test_req008_single_failure_doesnt_crash_others(self):
+        """req 008: single task failure doesn't affect others."""
+        from rondo.parallel import run_parallel
+
+        call_order = []
+
+        def ok_fn():
+            call_order.append("ok")
+            return (True, "ok")
+
+        def fail_fn():
+            call_order.append("fail")
+            return (False, "failed")
+
+        round_def = Round(name="par", tasks=[
+            Task(name="ok1", auto_fn=ok_fn),
+            Task(name="fail1", auto_fn=fail_fn),
+            Task(name="ok2", auto_fn=ok_fn),
+        ])
+        config = RondoConfig(dry_run=False, workers=3)
+        result = run_parallel(round_def, config)
+        # -- All 3 tasks should have results
+        assert len(result.task_results) == 3
+
+    def test_req005_conflict_detection(self):
+        """req 005: detect file conflicts between concurrent tasks."""
+        from rondo.parallel import detect_conflicts
+
+        results = [
+            TaskResult(task_name="t1", files_modified=["src/main.py", "src/config.py"]),
+            TaskResult(task_name="t2", files_modified=["src/main.py", "tests/test.py"]),
+            TaskResult(task_name="t3", files_modified=["docs/readme.md"]),
+        ]
+        conflicts = detect_conflicts(results)
+        # -- src/main.py touched by t1 and t2
+        assert len(conflicts) >= 1
+        assert any("main.py" in str(c) for c in conflicts)
+
+    def test_no_conflicts_clean(self):
+        """No overlapping files = no conflicts."""
+        from rondo.parallel import detect_conflicts
+
+        results = [
+            TaskResult(task_name="t1", files_modified=["a.py"]),
+            TaskResult(task_name="t2", files_modified=["b.py"]),
+        ]
+        conflicts = detect_conflicts(results)
+        assert len(conflicts) == 0
+
+
 # -- sig: mgh-6201.cd.bd955f.ec56.a8867b

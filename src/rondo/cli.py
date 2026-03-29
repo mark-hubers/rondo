@@ -13,6 +13,7 @@ Import direction:
 from __future__ import annotations
 
 import argparse
+from typing import Any
 import importlib.util
 import sys
 from pathlib import Path
@@ -95,6 +96,15 @@ def build_parser() -> argparse.ArgumentParser:
     flaky_parser.add_argument("--json", action="store_true", help="JSON output")
     flaky_parser.add_argument("--threshold", type=float, default=0.20, help="Flakiness threshold (default 0.20)")
     flaky_parser.add_argument("--audit-dir", default="~/.rondo/audit", help="Audit directory")
+
+    # -- spool subcommand (Rondo-REQ-101 reqs 047-049)
+    spool_parser = subparsers.add_parser("spool", help="Manage result spool (mailbox)")
+    spool_parser.add_argument("action", nargs="?", default="list", choices=["list", "clean", "export"],
+                              help="Spool action (default: list)")
+    spool_parser.add_argument("--all", action="store_true", help="Clean all files (not just expired)")
+    spool_parser.add_argument("--since", default="", help="Export since date (YYYY-MM-DD)")
+    spool_parser.add_argument("--json", action="store_true", help="JSON output")
+    spool_parser.add_argument("--spool-dir", default="~/.rondo/spool", help="Spool directory")
 
     return parser
 
@@ -227,6 +237,18 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
 # ──────────────────────────────────────────────────────────────────
 
 
+# -- Command dispatch table (extracted for complexity — max 15 per function)
+_COMMANDS: dict[str, Any] = {}  # -- populated after function defs
+
+
+def _dispatch_command(args: argparse.Namespace) -> int:
+    """Route to the appropriate command handler."""
+    handler = _COMMANDS.get(args.command)
+    if handler:
+        return handler(args)
+    return EXIT_SUCCESS
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point, returns exit code per contract.
 
@@ -255,24 +277,9 @@ def main(argv: list[str] | None = None) -> int:
             parser.print_help()
             return EXIT_USAGE
 
-        if args.command == "run":
-            return _cmd_run(args)
-        if args.command == "live":
-            return _cmd_live(args)
-        if args.command == "overnight":
-            return _cmd_overnight(args)
-        if args.command == "report":
-            return _cmd_report(args)
-        if args.command == "preflight":
-            return _cmd_preflight(args)
-        if args.command == "history":
-            return _cmd_history(args)
-        if args.command == "audit":
-            return _cmd_audit(args)
-        if args.command == "flaky":
-            return _cmd_flaky(args)
+        return _dispatch_command(args)
 
-        return EXIT_SUCCESS
+
 
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
@@ -676,6 +683,58 @@ def _cmd_flaky(args: argparse.Namespace) -> int:
     for f in flaky_tasks:
         print(f"    {f.task_name}: {f.flakiness_score:.0%} flaky ({f.flip_count} flips / {f.total_runs} runs)")
     return EXIT_SUCCESS
+
+
+def _cmd_spool(args: argparse.Namespace) -> int:
+    """Manage result spool — REQ-101 reqs 047-049."""
+    import json as _json
+
+    from rondo.spool import SpoolConfig, SpoolManager
+
+    spool = SpoolManager(config=SpoolConfig(spool_dir=args.spool_dir))
+
+    if args.action == "list":
+        entries = spool.list_pending()
+        if args.json:
+            print(_json.dumps(entries, indent=2))
+        elif not entries:
+            print("  Spool empty.")
+        else:
+            print(f"  Pending Results ({len(entries)}):")
+            for e in entries:
+                age_h = e["age_sec"] / 3600
+                print(f"    {e['filename']:50s} {e['size_bytes']:6d}B  {age_h:.1f}h old")
+        return EXIT_SUCCESS
+
+    if args.action == "clean":
+        if getattr(args, "all", False):
+            removed = spool.clean_all()
+        else:
+            removed = spool.clean_expired()
+        print(f"  Cleaned {removed} file(s).")
+        return EXIT_SUCCESS
+
+    if args.action == "export":
+        since = args.since or "2000-01-01"
+        exported = spool.export_since(since)
+        print(_json.dumps(exported, indent=2))
+        return EXIT_SUCCESS
+
+    return EXIT_SUCCESS
+
+
+# -- Populate command dispatch table
+_COMMANDS.update({
+    "run": _cmd_run,
+    "live": _cmd_live,
+    "overnight": _cmd_overnight,
+    "report": _cmd_report,
+    "preflight": _cmd_preflight,
+    "history": _cmd_history,
+    "audit": _cmd_audit,
+    "flaky": _cmd_flaky,
+    "spool": _cmd_spool,
+})
 
 
 if __name__ == "__main__":

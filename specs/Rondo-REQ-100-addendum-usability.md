@@ -128,6 +128,8 @@ file can't use Rondo at all.
 | U-47 | Background dispatch SHOULD use MCP `report_progress` to push per-task completion to client without polling — capture Context.session before tool returns, use in background thread | SHOULD |
 | U-48 | When progress notifications are available, final status SHOULD be pushed as a completion notification so client never needs to poll | SHOULD |
 | U-49 | Progress notifications MUST be best-effort — if push fails, polling via `rondo_run_status` remains the fallback (MCP spec: notifications can be dropped) | MUST |
+| U-50 | `rondo_run_status(heartbeat=True)` MUST return ultra-compact response: single-letter keys `{"s":"w","d":2,"e":0,"p":1}` (~10 tokens). Status codes: `w`=working, `d`=done, `e`=error. For tight polling loops. | SHOULD |
+| U-51 | `rondo://help` resource MUST document the 3 polling tiers: heartbeat (~10 tokens), brief (~40 tokens), full (~300+ tokens) with guidance on when to use each | MUST |
 
 ---
 

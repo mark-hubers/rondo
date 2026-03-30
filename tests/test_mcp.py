@@ -277,6 +277,34 @@ class TestRondoRunStatus:
         assert "dispatch_id" not in result
         assert "total_cost_usd" not in result
 
+    def test_heartbeat_ultra_compact(self):
+        """U-50: heartbeat=True returns single-letter keys (~10 tokens)."""
+        from rondo.mcp_server import _background_results
+        _background_results["test-hb"] = {
+            "status": "running",
+            "done_count": 2,
+            "error_count": 0,
+            "pending_count": 1,
+        }
+        result = json.loads(rondo_run_status("test-hb", heartbeat=True))
+        assert set(result.keys()) == {"s", "d", "e", "p"}
+        assert result["s"] == "w"
+        assert result["d"] == 2
+        assert result["e"] == 0
+        assert result["p"] == 1
+
+    def test_heartbeat_done_status(self):
+        """U-50: heartbeat shows 'd' for done status."""
+        from rondo.mcp_server import _background_results
+        _background_results["test-hb-done"] = {
+            "status": "done",
+            "done_count": 3,
+            "error_count": 0,
+            "pending_count": 0,
+        }
+        result = json.loads(rondo_run_status("test-hb-done", heartbeat=True))
+        assert result["s"] == "d"
+
     def test_background_status_has_task_progress(self, tmp_path):
         """U-31: background dispatch status shows per-task progress."""
         import time

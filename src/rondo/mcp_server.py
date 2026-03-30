@@ -339,13 +339,16 @@ def rondo_run_file(
     return json.dumps(_dispatch(), indent=2)
 
 
-def rondo_run_status(dispatch_id: str = "", brief: bool = False) -> str:
+_STATUS_SHORT = {"running": "w", "done": "d", "error": "e", "dispatched": "w"}
+
+
+def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool = False) -> str:
     """Check status of a background MCP dispatch.
 
-    Args:
-        dispatch_id: Get status of specific dispatch. Empty = list all.
-        brief: If True, return only status + counts (minimal tokens for polling).
-               If False, return full result with task details and output.
+    Three tiers (U-45, U-50):
+        heartbeat=True  → ~10 tokens: {"s":"w","d":2,"e":0,"p":1}
+        brief=True      → ~40 tokens: {status, done_count, error_count, pending_count}
+        (default)       → ~300+ tokens: full results with task output
     """
     if not dispatch_id:
         return json.dumps(
@@ -360,6 +363,17 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False) -> str:
     result = _background_results.get(dispatch_id)
     if not result:
         return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
+
+    # -- U-50: heartbeat mode — ultra-compact (~10 tokens)
+    if heartbeat:
+        return json.dumps(
+            {
+                "s": _STATUS_SHORT.get(result.get("status", ""), "?"),
+                "d": result.get("done_count", 0),
+                "e": result.get("error_count", 0),
+                "p": result.get("pending_count", 0),
+            }
+        )
 
     # -- U-45: brief mode — minimal tokens for polling (~40 tokens)
     if brief:
@@ -466,10 +480,10 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_run_status",
-        description="Check background dispatch. brief=True for cheap polling (status+counts only). brief=False for full results when done.",
+        description="Check background dispatch. 3 tiers: heartbeat=True (~10 tokens), brief=True (~40 tokens), default (~300+ tokens for full results).",
     )
-    def _run_status(dispatch_id: str = "", brief: bool = False) -> str:
-        return rondo_run_status(dispatch_id=dispatch_id, brief=brief)
+    def _run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool = False) -> str:
+        return rondo_run_status(dispatch_id=dispatch_id, brief=brief, heartbeat=heartbeat)
 
     @mcp.tool(
         name="rondo_spool_consume",

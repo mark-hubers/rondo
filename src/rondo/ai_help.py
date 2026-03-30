@@ -35,6 +35,7 @@ def get_ai_help() -> dict[str, Any]:
         "task_schema": _get_task_schema(),
         "gate_schema": _get_gate_schema(),
         "result_schema": _get_result_schema(),
+        "polling_tiers": _get_polling_tiers(),
         "capabilities": get_capabilities(),
         "examples": _get_examples(),
         "example_round_file": _get_example_round_file(),
@@ -63,6 +64,37 @@ def _get_how_it_works() -> dict[str, Any]:
                 "name": "RESULT",
                 "what": "Get back TaskResult with status, raw_output, cost, duration",
                 "example": "result.extract_json() → dict  |  result.extract_code_blocks() → [(lang, code)]",
+            },
+        ],
+    }
+
+
+def _get_polling_tiers() -> dict[str, Any]:
+    """U-51: document the 3 polling tiers for background dispatch."""
+    return {
+        "description": "Three tiers for checking background dispatch status. Use the cheapest that gives you what you need.",
+        "tiers": [
+            {
+                "name": "heartbeat",
+                "flag": "heartbeat=True",
+                "tokens": "~10",
+                "response": '{"s":"w","d":2,"e":0,"p":1}',
+                "use_when": "Tight polling loop — just checking 'still running?'",
+                "status_codes": {"w": "working", "d": "done", "e": "error"},
+            },
+            {
+                "name": "brief",
+                "flag": "brief=True",
+                "tokens": "~40",
+                "response": '{"status":"running","done_count":2,"error_count":0,"pending_count":1}',
+                "use_when": "Normal polling — want readable status + counts",
+            },
+            {
+                "name": "full",
+                "flag": "(default)",
+                "tokens": "~300+",
+                "response": "Full JSON with task results, raw_output, cost, duration",
+                "use_when": "Task is done — get the actual results",
             },
         ],
     }

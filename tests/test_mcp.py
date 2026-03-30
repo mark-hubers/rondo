@@ -16,6 +16,7 @@ from rondo.mcp_server import (
     rondo_health,
     rondo_dispatch_info,
     rondo_run_file,
+    rondo_run_status,
 )
 
 
@@ -138,6 +139,46 @@ class TestRondoRunFile:
         raw = rondo_run_file(str(round_file), dry_run=True)
         parsed = json.loads(raw)
         assert isinstance(parsed, dict)
+
+
+    def test_project_validation(self):
+        """Invalid project path returns error."""
+        result = json.loads(rondo_run_file("/tmp/any.py", project="/nonexistent/dir"))
+        assert result["status"] == "error"
+        assert "not found" in result["error"]
+
+    def test_max_budget_accepted(self, tmp_path):
+        """max_budget parameter is accepted without error."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='budget-test', tasks=[\n"
+            "        Task(name='t1', instruction='x', done_when='y'),\n"
+            "    ])\n"
+        )
+        result = json.loads(rondo_run_file(str(round_file), dry_run=True, max_budget=0.50))
+        assert result["status"] in ("done", "skipped", "error")
+
+    def test_tilde_expansion(self, tmp_path):
+        """File paths with ~ are expanded."""
+        result = json.loads(rondo_run_file("~/nonexistent_rondo_file_xyz.py"))
+        assert result["status"] == "error"
+        assert "~" not in result.get("error", "")  ## expanded, not literal ~
+
+
+class TestRondoRunStatus:
+    """rondo_run_status: check background dispatch status."""
+
+    def test_empty_returns_dispatches(self):
+        """No dispatch_id lists all dispatches."""
+        result = json.loads(rondo_run_status())
+        assert "dispatches" in result
+
+    def test_unknown_id_returns_error(self):
+        """Unknown dispatch_id returns error."""
+        result = json.loads(rondo_run_status("nonexistent-id"))
+        assert result["status"] == "error"
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

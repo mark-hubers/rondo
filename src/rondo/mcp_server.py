@@ -142,37 +142,77 @@ def rondo_dispatch_info() -> str:
     )
 
 
-def rondo_run_file(file_path: str, dry_run: bool = True, model: str = "sonnet") -> str:
+## -- Background dispatch tracking (RONDO-39)
+_background_results: dict[str, dict] = {}
+
+
+def rondo_run_file(
+    file_path: str,
+    dry_run: bool = True,
+    model: str = "sonnet",
+    project: str = "",
+    max_budget: float = 0.0,
+    timeout_sec: int = 300,
+    background: bool = False,
+) -> str:
     """Run a round file and return results — MCP dispatch tool.
 
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
     Strips CLAUDECODE env var to avoid nested session errors.
+
+    Args:
+        file_path: Path to Python file with build_round().
+        dry_run: Preview only, no dispatch (default True).
+        model: AI model to use (sonnet/opus/haiku).
+        project: Working directory for tasks (empty = CWD).
+        max_budget: Cost cap per task in USD (0 = unlimited).
+        timeout_sec: Per-task timeout in seconds (default 300).
+        background: If True, dispatch in background thread, return dispatch_id immediately.
     """
     import os
+    import threading
+    import uuid
     from pathlib import Path
 
     # -- Validate file path
+    file_path = str(Path(file_path).expanduser())
     if not file_path or not Path(file_path).exists():
         return json.dumps({"status": "error", "error": f"File not found: {file_path}"})
 
-    try:
-        from rondo.cli import load_round_file
-        from rondo.config import RondoConfig
-        from rondo.runner import run_round
+    # -- Validate project path if set
+    if project:
+        project = str(Path(project).expanduser())
+        if not Path(project).is_dir():
+            return json.dumps({"status": "error", "error": f"Project dir not found: {project}"})
 
-        round_def = load_round_file(file_path)
-        config = RondoConfig(default_model=model, dry_run=dry_run)
-
-        # -- Strip CLAUDECODE to prevent nested session errors
-        old_cc = os.environ.pop("CLAUDECODE", None)
+    def _dispatch() -> dict:
+        """Run the dispatch (called directly or in background thread)."""
         try:
-            result = run_round(round_def, config=config)
-        finally:
-            if old_cc is not None:
-                os.environ["CLAUDECODE"] = old_cc
+            from rondo.cli import load_round_file
+            from rondo.config import RondoConfig
+            from rondo.runner import run_round
 
-        return json.dumps(
-            {
+            round_def = load_round_file(file_path)
+            config_kwargs: dict = {
+                "default_model": model,
+                "dry_run": dry_run,
+                "task_timeout_sec": timeout_sec,
+            }
+            if project:
+                config_kwargs["project"] = project
+            if max_budget > 0:
+                config_kwargs["max_budget_usd"] = max_budget
+            config = RondoConfig(**config_kwargs)
+
+            # -- Strip CLAUDECODE to prevent nested session errors
+            old_cc = os.environ.pop("CLAUDECODE", None)
+            try:
+                result = run_round(round_def, config=config)
+            finally:
+                if old_cc is not None:
+                    os.environ["CLAUDECODE"] = old_cc
+
+            return {
                 "status": result.status,
                 "round_name": result.round_name,
                 "tasks": [
@@ -190,12 +230,51 @@ def rondo_run_file(file_path: str, dry_run: bool = True, model: str = "sonnet") 
                 "total_cost_usd": sum(u.cost_usd for u in result.usage),
                 "duration_sec": result.duration_sec,
                 "dry_run": dry_run,
+            }
+        except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
+            return {"status": "error", "error": str(exc)}
+
+    # -- Background dispatch: return dispatch_id immediately
+    if background and not dry_run:
+        dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
+        _background_results[dispatch_id] = {"status": "running", "dispatch_id": dispatch_id}
+
+        def _bg_worker() -> None:
+            result = _dispatch()
+            result["dispatch_id"] = dispatch_id
+            _background_results[dispatch_id] = result
+
+        thread = threading.Thread(target=_bg_worker, daemon=True)
+        thread.start()
+        return json.dumps(
+            {"status": "dispatched", "dispatch_id": dispatch_id, "message": "Use rondo_run_status to check progress."},
+            indent=2,
+        )
+
+    # -- Synchronous dispatch (dry-run or foreground)
+    return json.dumps(_dispatch(), indent=2)
+
+
+def rondo_run_status(dispatch_id: str = "") -> str:
+    """Check status of a background MCP dispatch.
+
+    Returns the result if complete, or running status if still in progress.
+    With no dispatch_id, lists all background dispatches.
+    """
+    if not dispatch_id:
+        return json.dumps(
+            {
+                "dispatches": [
+                    {"dispatch_id": did, "status": r.get("status", "unknown")} for did, r in _background_results.items()
+                ]
             },
             indent=2,
         )
 
-    except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
-        return json.dumps({"status": "error", "error": str(exc)})
+    result = _background_results.get(dispatch_id)
+    if not result:
+        return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
+    return json.dumps(result, indent=2)
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -242,10 +321,33 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_run",
-        description="Run a Rondo round file. Default dry_run=True (preview). Set dry_run=False for real dispatch. Returns task results as JSON.",
+        description="Run a Rondo round file. dry_run=True previews (default). dry_run=False dispatches. background=True for async. project= for cross-repo. max_budget= for cost cap.",
     )
-    def _run(file_path: str, dry_run: bool = True, model: str = "sonnet") -> str:
-        return rondo_run_file(file_path, dry_run=dry_run, model=model)
+    def _run(
+        file_path: str,
+        dry_run: bool = True,
+        model: str = "sonnet",
+        project: str = "",
+        max_budget: float = 0.0,
+        timeout_sec: int = 300,
+        background: bool = False,
+    ) -> str:
+        return rondo_run_file(
+            file_path,
+            dry_run=dry_run,
+            model=model,
+            project=project,
+            max_budget=max_budget,
+            timeout_sec=timeout_sec,
+            background=background,
+        )
+
+    @mcp.tool(
+        name="rondo_run_status",
+        description="Check status of background MCP dispatch. No args = list all. dispatch_id = get result.",
+    )
+    def _run_status(dispatch_id: str = "") -> str:
+        return rondo_run_status(dispatch_id=dispatch_id)
 
     return mcp
 

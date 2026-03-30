@@ -353,3 +353,34 @@ Spec review cost tracked in `reports/ai-reviews/`. ~$0.10/review/body.
 | rev-0001 | 2026-03-21 | 84 | Stub — planned tools only |
 | rev-0002 | 2026-03-22 | 84 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |
 | rev-0003 | 2026-03-22 | 84 | Added context_cost annotations to all 9 tools + Context Budget Summary table. |
+| rev-0004 | 2026-03-30 | 93 | MCP dispatch: rondo_run (dry-run + real + background), rondo_run_status, project/budget/timeout params. 7 new reqs (009-015). |
+
+---
+
+## Addendum: MCP Dispatch (Session 93, RONDO-38/39)
+
+**Problem:** MCP server was monitoring-only. AI sessions couldn't dispatch tasks.
+The whole point of Rondo is "tell AI to do X, get back Y." MCP must support this.
+
+### Additional Requirements
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| 009 | `rondo_run` MCP tool MUST accept `file_path` (round file) and return JSON task results | MUST |
+| 010 | `rondo_run` MUST default to `dry_run=True` — real dispatch requires explicit `dry_run=False` | MUST |
+| 011 | `rondo_run` MUST accept `project`, `model`, `max_budget`, `timeout_sec` parameters | MUST |
+| 012 | `rondo_run` MUST strip CLAUDECODE env before dispatch to prevent nested session errors | MUST |
+| 013 | `rondo_run` with `background=True` MUST return immediately with a `dispatch_id`, dispatch in thread | MUST |
+| 014 | `rondo_run_status` MCP tool MUST return result of background dispatch by `dispatch_id` | MUST |
+| 015 | File paths with `~` MUST be expanded before validation | MUST |
+
+### MCP Tool Inventory (Updated)
+
+| Tool | Type | What |
+|------|------|------|
+| `rondo_health` | Monitor | GREEN/YELLOW/RED status |
+| `rondo_metrics` | Monitor | Cost, reliability, latency |
+| `rondo_audit_summary` | Monitor | Recent dispatch records |
+| `rondo_dispatch_info` | Discovery | Version, commands, capabilities |
+| `rondo_run` | **Dispatch** | Run a round file (dry-run or real) |
+| `rondo_run_status` | **Dispatch** | Check background dispatch status |

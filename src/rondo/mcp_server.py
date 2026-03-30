@@ -146,53 +146,72 @@ def rondo_dispatch_info() -> str:
 _background_results: dict[str, dict] = {}
 
 
+def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str, str, str | None]:
+    """Validate and resolve file_path + project. Returns (file_path, project, error_json)."""
+    from pathlib import Path
+
+    if prompt:
+        file_path = ""
+    elif file_path:
+        file_path = str(Path(file_path).expanduser())
+        if not Path(file_path).exists():
+            return file_path, project, json.dumps({"status": "error", "error": f"File not found: {file_path}"})
+    else:
+        return file_path, project, json.dumps({"status": "error", "error": "Provide file_path or prompt"})
+
+    if project:
+        project = str(Path(project).expanduser())
+        if not Path(project).is_dir():
+            return file_path, project, json.dumps({"status": "error", "error": f"Project dir not found: {project}"})
+
+    return file_path, project, None
+
+
 def rondo_run_file(
-    file_path: str,
+    file_path: str = "",
     dry_run: bool = True,
     model: str = "sonnet",
     project: str = "",
     max_budget: float = 0.0,
     timeout_sec: int = 300,
     background: bool = False,
+    prompt: str = "",
+    done_when: str = "Task completed. Return results.",
 ) -> str:
-    """Run a round file and return results — MCP dispatch tool.
+    """Run a round file or inline prompt — MCP dispatch tool.
+
+    Two modes:
+        1. File: file_path="my_round.py" — loads build_round() from file
+        2. Inline: prompt="Search for X" — creates one-task round in memory (U-33)
 
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
     Strips CLAUDECODE env var to avoid nested session errors.
-
-    Args:
-        file_path: Path to Python file with build_round().
-        dry_run: Preview only, no dispatch (default True).
-        model: AI model to use (sonnet/opus/haiku).
-        project: Working directory for tasks (empty = CWD).
-        max_budget: Cost cap per task in USD (0 = unlimited).
-        timeout_sec: Per-task timeout in seconds (default 300).
-        background: If True, dispatch in background thread, return dispatch_id immediately.
     """
     import os
     import threading
     import uuid
-    from pathlib import Path
 
-    # -- Validate file path
-    file_path = str(Path(file_path).expanduser())
-    if not file_path or not Path(file_path).exists():
-        return json.dumps({"status": "error", "error": f"File not found: {file_path}"})
-
-    # -- Validate project path if set
-    if project:
-        project = str(Path(project).expanduser())
-        if not Path(project).is_dir():
-            return json.dumps({"status": "error", "error": f"Project dir not found: {project}"})
+    file_path, project, err = _validate_run_inputs(file_path, project, prompt)
+    if err:
+        return err
 
     def _dispatch() -> dict:
         """Run the dispatch (called directly or in background thread)."""
         try:
-            from rondo.cli import load_round_file
             from rondo.config import RondoConfig
+            from rondo.engine import Round, Task
             from rondo.runner import run_round
 
-            round_def = load_round_file(file_path)
+            # -- U-33: inline prompt → in-memory round
+            if prompt:
+                round_def = Round(
+                    name="inline",
+                    tasks=[Task(name="inline-task", instruction=prompt, done_when=done_when)],
+                )
+            else:
+                from rondo.cli import load_round_file
+
+                round_def = load_round_file(file_path)
             config_kwargs: dict = {
                 "default_model": model,
                 "dry_run": dry_run,
@@ -352,25 +371,29 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_run",
-        description="Run a Rondo round file. dry_run=True previews (default). dry_run=False dispatches. background=True for async. project= for cross-repo. max_budget= for cost cap.",
+        description="Run AI tasks. Two modes: file_path= for round files, OR prompt= for one-off tasks. dry_run=True previews. background=True for async.",
     )
     def _run(
-        file_path: str,
+        file_path: str = "",
         dry_run: bool = True,
         model: str = "sonnet",
         project: str = "",
         max_budget: float = 0.0,
         timeout_sec: int = 300,
         background: bool = False,
+        prompt: str = "",
+        done_when: str = "Task completed. Return results.",
     ) -> str:
         return rondo_run_file(
-            file_path,
+            file_path=file_path,
             dry_run=dry_run,
             model=model,
             project=project,
             max_budget=max_budget,
             timeout_sec=timeout_sec,
             background=background,
+            prompt=prompt,
+            done_when=done_when,
         )
 
     @mcp.tool(

@@ -268,4 +268,52 @@ class TestRondoRunStatus:
                 assert "tasks" in status
 
 
+class TestInlineDispatch:
+    """U-33 to U-35: rondo_run with prompt= for one-off tasks."""
+
+    def test_inline_dry_run(self):
+        """U-33: prompt= creates in-memory task and dispatches."""
+        result = json.loads(rondo_run_file(
+            file_path="",
+            prompt="List all Python files in the current directory",
+            dry_run=True,
+        ))
+        assert result["status"] in ("done", "skipped")
+        assert len(result["tasks"]) == 1
+        assert "Python files" in result["tasks"][0].get("prompt_sent", "")
+
+    def test_inline_with_done_when(self):
+        """U-34: done_when parameter accepted."""
+        result = json.loads(rondo_run_file(
+            file_path="",
+            prompt="Check disk space",
+            done_when="Disk usage reported",
+            dry_run=True,
+        ))
+        assert result["status"] in ("done", "skipped")
+        assert "Disk usage" in str(result)
+
+    def test_inline_same_json_as_file(self, tmp_path):
+        """U-35: inline returns same structure as file-based."""
+        ## -- File-based
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='cmp', tasks=[\n"
+            "        Task(name='t1', instruction='hello', done_when='done'),\n"
+            "    ])\n"
+        )
+        file_result = json.loads(rondo_run_file(str(round_file), dry_run=True))
+        ## -- Inline
+        inline_result = json.loads(rondo_run_file("", prompt="hello", dry_run=True))
+        ## -- Same top-level keys
+        assert set(file_result.keys()) == set(inline_result.keys())
+
+    def test_inline_no_prompt_no_file_errors(self):
+        """No file and no prompt = error."""
+        result = json.loads(rondo_run_file(""))
+        assert result["status"] == "error"
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

@@ -150,8 +150,45 @@ file can't use Rondo at all.
 
 ---
 
+---
+
+## USH Production Feedback (Session 93 — First Real Use)
+
+**Source:** USH Claude session, 4-task parallel dispatch via MCP, 2026-03-30.
+
+### What Worked (Validated)
+- MCP dispatch from inside CC (no separate terminal)
+- dry_run=true default (safe first)
+- background=true with polling
+- 4 parallel workers (5 min vs 20+ min sequential)
+- Structured JSON results
+- Auto audit trail
+- Results persisted to files
+
+### Feature Requests (New Requirements)
+
+| # | Request | Finding | Sprint |
+|---|---------|---------|--------|
+| U-31 | Per-task progress in `rondo_run_status` (not just "running") | #165 | RONDO-42 |
+| U-32 | Task results returned IN the status response (no file reading needed) | #166 | RONDO-42 |
+| U-33 | Inline task dispatch: `rondo_run(prompt="...")` without round file | #167 | RONDO-43 |
+| U-34 | Running cost shown during background dispatch | — | Future |
+| U-35 | Completion notification (push result vs polling) | — | Future (needs MCP notification spec) |
+| U-36 | `--project` inherits target project's MCP servers | — | Future (CC architecture limitation) |
+
+### Bugs Found
+
+| # | Bug | Finding | Severity |
+|---|-----|---------|----------|
+| B-1 | `dispatched_at` empty in audit OUTCOME | #162 | Medium |
+| B-2 | `round_name` not flowing to audit | #163 | Low |
+| B-3 | `max_budget` misleading on Max plan (no-op) | #164 | Medium |
+
+---
+
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2026-03-30 | Initial — 30 requirements across 6 features. Resolves REQ-103 Q3. Implements REQ-100-052/053/054. |
+| 0.2 | 2026-03-30 | USH production feedback: +6 requirements (U-31 to U-36), 3 bugs, 6 findings logged. |

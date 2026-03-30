@@ -87,6 +87,44 @@ class TestAiHelpCLI:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestHowItWorks:
+    """The 3-step pattern is front and center in ai-help."""
+
+    def test_how_it_works_present(self):
+        data = get_ai_help()
+        assert "how_it_works" in data
+
+    def test_three_steps(self):
+        data = get_ai_help()
+        steps = data["how_it_works"]["three_steps"]
+        assert len(steps) == 3
+        assert steps[0]["name"] == "DEFINE"
+        assert steps[1]["name"] == "DISPATCH"
+        assert steps[2]["name"] == "RESULT"
+
+    def test_each_step_has_example(self):
+        data = get_ai_help()
+        for step in data["how_it_works"]["three_steps"]:
+            assert "example" in step
+            assert len(step["example"]) > 0
+
+
+class TestQuickExamples:
+    """Simple 'do this, get that' examples."""
+
+    def test_quick_examples_present(self):
+        data = get_ai_help()
+        assert "quick_examples" in data
+        assert len(data["quick_examples"]) >= 3
+
+    def test_each_has_task_and_run(self):
+        data = get_ai_help()
+        for ex in data["quick_examples"]:
+            assert "task" in ex
+            assert "run" in ex
+            assert "Task(" in ex["task"]
+
+
 class TestAiHelpRoundSchema:
     """U-05: --ai-help includes Round dataclass schema."""
 

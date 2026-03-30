@@ -26,6 +26,8 @@ def get_ai_help() -> dict[str, Any]:
         "name": "rondo",
         "version": _get_rondo_version(),
         "description": "AI task automation for Claude Code. Define tasks in Python, dispatch to Claude, get structured results.",
+        "how_it_works": _get_how_it_works(),
+        "quick_examples": _get_quick_examples(),
         "install": "uv tool install --editable ~/git/mhubers/ace2/rondo",
         "commands": _get_commands(),
         "config": _get_config_options(),
@@ -37,6 +39,59 @@ def get_ai_help() -> dict[str, Any]:
         "examples": _get_examples(),
         "example_round_file": _get_example_round_file(),
     }
+
+
+def _get_how_it_works() -> dict[str, Any]:
+    """The 3-step heart of Rondo — REQ-100 three-field contract."""
+    return {
+        "summary": "Tell AI what to do. Rondo dispatches it. Get the result back.",
+        "three_steps": [
+            {
+                "step": 1,
+                "name": "DEFINE",
+                "what": "Write a Task with instruction (Do), context_files (Read), done_when (Done)",
+                "example": 'Task(name="scan", instruction="Search for new trials", done_when="Results returned as JSON")',
+            },
+            {
+                "step": 2,
+                "name": "DISPATCH",
+                "what": "Rondo sends it to Claude via subprocess (or MCP via rondo_run)",
+                "example": "rondo run my_round.py  OR  rondo_run(file_path='my_round.py')",
+            },
+            {
+                "step": 3,
+                "name": "RESULT",
+                "what": "Get back TaskResult with status, raw_output, cost, duration",
+                "example": "result.extract_json() → dict  |  result.extract_code_blocks() → [(lang, code)]",
+            },
+        ],
+    }
+
+
+def _get_quick_examples() -> list[dict[str, str]]:
+    """Simple 'do this, get that' examples — the 99% use case."""
+    return [
+        {
+            "name": "Search for data",
+            "task": 'Task(name="find-trials", instruction="Search BioMCP for Usher Syndrome trials. Return as JSON array.", done_when="All results returned as JSON.")',
+            "run": "rondo_run(file_path='search_round.py', model='haiku')",
+        },
+        {
+            "name": "Review code",
+            "task": 'Task(name="review", instruction="Review src/main.py for bugs and security issues.", context_files=["src/main.py"], done_when="Findings listed.")',
+            "run": "rondo_run(file_path='review_round.py')",
+        },
+        {
+            "name": "Generate a report",
+            "task": 'Task(name="report", instruction="Read the test results and write a summary report.", context_files=["reports/test-results.json"], done_when="Report written to reports/summary.md")',
+            "run": "rondo_run(file_path='report_round.py', model='haiku')",
+        },
+        {
+            "name": "Scan and update DB",
+            "task": 'Task(name="db-update", instruction="Query the API for new records. Add any new ones to the SQLite database.", done_when="New records added. Count reported.")',
+            "run": "rondo_run(file_path='scan_round.py', project='~/my-project')",
+        },
+    ]
 
 
 def get_capabilities() -> dict[str, Any]:

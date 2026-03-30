@@ -22,8 +22,9 @@ RONDO_BIN = os.path.expanduser("~/.local/bin/rondo")
 SKIP_E2E = not shutil.which("rondo")
 skip_no_rondo = pytest.mark.skipif(SKIP_E2E, reason="rondo CLI not installed")
 
-# -- Strip CLAUDECODE for all E2E tests (we're inside CC)
-E2E_ENV = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+def _e2e_env() -> dict[str, str]:
+    """Build E2E env: strip CLAUDECODE, propagate RONDO_TEST_DIR (RONDO-28)."""
+    return {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
 
 def _run(args: list[str], timeout: int = 30) -> subprocess.CompletedProcess:
@@ -31,7 +32,7 @@ def _run(args: list[str], timeout: int = 30) -> subprocess.CompletedProcess:
     return subprocess.run(
         [RONDO_BIN] + args,
         capture_output=True, text=True, check=False,
-        timeout=timeout, env=E2E_ENV,
+        timeout=timeout, env=_e2e_env(),
     )
 
 
@@ -888,9 +889,9 @@ class TestE2EAuditCLI:
             assert "total_cost_usd" in data
 
     def test_audit_nonexistent_id(self):
-        """rondo audit <bad_id> returns error."""
+        """rondo audit <bad_id> returns error or 'no data' message."""
         result = _run(["audit", "nonexistent-dispatch-id"])
-        assert result.returncode != 0 or "No records" in result.stdout
+        assert result.returncode != 0 or "No records" in result.stdout or "No audit data" in result.stdout
 
 
 # -- ──────────────────────────────────────────────────────────────

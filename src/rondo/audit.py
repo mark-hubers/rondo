@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -43,15 +44,28 @@ logger = logging.getLogger(__name__)
 # -- ──────────────────────────────────────────────────────────────
 
 
+def _default_audit_dir() -> str:
+    """Resolve audit dir: RONDO_TEST_DIR (test isolation) → ~/.rondo/audit."""
+    test_dir = os.environ.get("RONDO_TEST_DIR")
+    if test_dir:
+        return str(Path(test_dir) / "audit")
+    return "~/.rondo/audit"
+
+
 @dataclass
 class AuditConfig:
     """Audit trail configuration — STD-113 req 008."""
 
-    audit_dir: str = "~/.rondo/audit"
+    audit_dir: str = ""  # -- resolved in __post_init__
     enabled: bool = True
     prompt_storage: bool = True
     result_storage: bool = True
     audit_retention_days: int = 0  # -- 0 = keep forever
+
+    def __post_init__(self) -> None:
+        """COALESCE: explicit dir → RONDO_TEST_DIR → ~/.rondo/audit."""
+        if not self.audit_dir:
+            object.__setattr__(self, "audit_dir", _default_audit_dir())
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -247,7 +261,9 @@ class AuditTrail:
 
         logger.info(
             "Audit OUTCOME: %s status=%s cost=$%.4f",
-            dispatch_id, status, cost_usd,
+            dispatch_id,
+            status,
+            cost_usd,
         )
 
     def get_failed_dispatches(self) -> list[dict[str, Any]]:

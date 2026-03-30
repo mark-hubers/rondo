@@ -540,8 +540,9 @@ class TestConfigDefaults:
         config = RondoConfig()
         assert config.output_format == "stream-json"
 
-    def test_default_audit_dir_always_on(self):
+    def test_default_audit_dir_always_on(self, monkeypatch):
         """Audit dir defaults to ~/.rondo/audit (ALWAYS-ON pattern)."""
+        monkeypatch.delenv("RONDO_TEST_DIR", raising=False)
         config = RondoConfig()
         assert config.audit_dir == "~/.rondo/audit"
 

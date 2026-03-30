@@ -78,6 +78,14 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     dry_run: bool = False
     verbose: bool = False
 
+    def __post_init__(self) -> None:
+        """RONDO_TEST_DIR: redirect audit+spool to tmp in tests (RONDO-28)."""
+        import os
+
+        test_dir = os.environ.get("RONDO_TEST_DIR")
+        if test_dir and self.audit_dir == "~/.rondo/audit":
+            object.__setattr__(self, "audit_dir", os.path.join(test_dir, "audit"))
+
 
 # ──────────────────────────────────────────────────────────────────
 #  Validation — Rondo-STD-109 rule 8

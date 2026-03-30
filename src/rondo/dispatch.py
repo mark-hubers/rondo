@@ -89,7 +89,10 @@ def detect_cc_version(binary: str = "claude") -> tuple[int, int, int] | None:
     try:
         result = subprocess.run(
             [binary, "--version"],
-            capture_output=True, text=True, check=False, timeout=5,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
         )
         if result.returncode == 0:
             version_str = result.stdout.strip().split()[0]
@@ -422,8 +425,17 @@ def _dispatch_interactive(
 
         # -- Parse and build success result
         return _parse_and_build_result(
-            task, config, model, timestamp, prompt, stdout, stderr, returncode, duration,
-            audit_trail=audit_trail, audit_record=audit_record,
+            task,
+            config,
+            model,
+            timestamp,
+            prompt,
+            stdout,
+            stderr,
+            returncode,
+            duration,
+            audit_trail=audit_trail,
+            audit_record=audit_record,
         )
 
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
@@ -486,10 +498,12 @@ def _finalize_dispatch(
     # -- REQ-101 req 045: spool only for async/overnight callers
     if config.spool_enabled:
         try:
+            test_dir = os.environ.get("RONDO_TEST_DIR")
+            _spool_dir = os.path.join(test_dir, "spool") if test_dir else os.path.expanduser("~/.rondo/spool")
             spool_result(
                 task_name=result.task_name,
                 result=asdict(result),
-                spool_dir=os.path.expanduser("~/.rondo/spool"),
+                spool_dir=_spool_dir,
             )
         except (OSError, TypeError) as exc:
             logger.debug("Spool write failed (non-fatal): %s", exc)
@@ -682,7 +696,9 @@ def _parse_and_build_result(
 
 
 def _log_to_history(
-    result: TaskResult, usage: DispatchUsage, config: RondoConfig,
+    result: TaskResult,
+    usage: DispatchUsage,
+    config: RondoConfig,
 ) -> None:
     """Log dispatch result to JSONL history — Rondo-REQ-104 req 001."""
     try:

@@ -99,7 +99,8 @@ def _get_commands() -> list[dict[str, str]]:
         {"name": "report", "description": "Generate morning report from results", "usage": "rondo report <results_dir>"},
         {"name": "audit", "description": "Query dispatch audit trail (always-on, every dispatch recorded)", "usage": "rondo audit [dispatch_id] [--cost] [--failed] [--json]"},
         {"name": "flaky", "description": "Show flaky task templates with flip rates", "usage": "rondo flaky [--json] [--threshold 0.20]"},
-        {"name": "spool", "description": "Manage result spool (list/clean/export pending results)", "usage": "rondo spool [list|clean|export] [--all] [--since YYYY-MM-DD] [--json]"},
+        {"name": "spool", "description": "Manage result spool (list/clean/export pending results)", "usage": "rondo spool [list|clean|export|consume] [--all] [--since YYYY-MM-DD] [--json]"},
+        {"name": "metrics", "description": "Dispatch metrics for dashboards and health (cost, reliability, latency, tokens)", "usage": "rondo metrics [--json]"},
     ]
 
 

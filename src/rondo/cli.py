@@ -107,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
     spool_parser.add_argument("--json", action="store_true", help="JSON output")
     spool_parser.add_argument("--spool-dir", default="~/.rondo/spool", help="Spool directory")
 
+    # -- metrics subcommand (OB dashboard + health + MCP-ready)
+    metrics_parser = subparsers.add_parser("metrics", help="Dispatch metrics for dashboards and health")
+    metrics_parser.add_argument("--json", action="store_true", help="JSON output for OB/ACE/MCP")
+    metrics_parser.add_argument("--audit-dir", default="~/.rondo/audit", help="Audit directory")
+
     return parser
 
 
@@ -735,6 +740,45 @@ def _cmd_spool(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_metrics(args: argparse.Namespace) -> int:
+    """Dispatch metrics for OB dashboards — one call, everything.
+
+    ALWAYS-ON: reads existing audit data, no new capture needed.
+    Designed for OB dashboard, ACE health, and future MCP (IFS-104).
+    """
+    import json as _json
+
+    from rondo.metrics import compute_metrics
+
+    report = compute_metrics(audit_dir=args.audit_dir)
+
+    if args.json:
+        print(_json.dumps(report.to_dict(), indent=2))
+        return EXIT_SUCCESS
+
+    print("  Rondo Metrics")
+    print(f"  {'─' * 45}")
+    print(f"  Health:       {report.health}")
+    print(f"  Dispatches:   {report.total_dispatches}")
+    print(f"  Success rate: {report.success_rate:.0%}")
+    print(f"  Total cost:   ${report.total_cost_usd:.4f}")
+    print(f"  Avg cost:     ${report.avg_cost_usd:.4f}")
+    print(f"  Avg duration: {report.avg_duration_sec:.1f}s")
+    print(f"  Max duration: {report.max_duration_sec:.1f}s")
+    print(f"  Tokens:       {report.total_input_tokens:,} in / {report.total_output_tokens:,} out")
+    print(f"  Spool:        {report.spool_pending} pending")
+    if report.dispatches_by_model:
+        print("\n  Models:")
+        for model, count in sorted(report.dispatches_by_model.items()):
+            cost = report.cost_by_model.get(model, 0)
+            print(f"    {model:12s}  {count:3d} dispatches  ${cost:.4f}")
+    if report.error_breakdown:
+        print("\n  Errors:")
+        for code, count in sorted(report.error_breakdown.items(), key=lambda x: -x[1]):
+            print(f"    {code:20s}  {count}")
+    return EXIT_SUCCESS
+
+
 # -- Populate command dispatch table
 _COMMANDS.update({
     "run": _cmd_run,
@@ -746,6 +790,7 @@ _COMMANDS.update({
     "audit": _cmd_audit,
     "flaky": _cmd_flaky,
     "spool": _cmd_spool,
+    "metrics": _cmd_metrics,
 })
 
 

@@ -354,6 +354,7 @@ Spec review cost tracked in `reports/ai-reviews/`. ~$0.10/review/body.
 | rev-0002 | 2026-03-22 | 84 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |
 | rev-0003 | 2026-03-22 | 84 | Added context_cost annotations to all 9 tools + Context Budget Summary table. |
 | rev-0004 | 2026-03-30 | 93 | MCP dispatch: rondo_run (dry-run + real + background), rondo_run_status, project/budget/timeout params. 7 new reqs (009-015). |
+| rev-0005 | 2026-03-30 | 93 | MCP resource: rondo://help for AI self-discovery. 3 new reqs (016-018). |
 
 ---
 
@@ -384,3 +385,17 @@ The whole point of Rondo is "tell AI to do X, get back Y." MCP must support this
 | `rondo_dispatch_info` | Discovery | Version, commands, capabilities |
 | `rondo_run` | **Dispatch** | Run a round file (dry-run or real) |
 | `rondo_run_status` | **Dispatch** | Check background dispatch status |
+
+### MCP Resources
+
+| URI | What |
+|-----|------|
+| `rondo://help` | Full API docs: Round/Task/Gate schemas, example round file, commands, config |
+
+### Resource Requirements
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| 016 | `rondo://help` resource MUST return the same data as `rondo --ai-help` (JSON with schemas + examples) | MUST |
+| 017 | Resource MUST be discoverable via `ListMcpResourcesTool(server="rondo")` | MUST |
+| 018 | Resource MUST include a complete, compilable example round file that AI can copy and modify | MUST |

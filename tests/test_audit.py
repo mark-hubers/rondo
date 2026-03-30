@@ -423,4 +423,71 @@ class TestAuditEdgeCases:
         assert len(data["raw_output"]) == 50_000
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Audit rotation and reset (RONDO-29)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAuditRotate:
+    """Audit rotation: archive by month, clean current."""
+
+    def test_rotate_moves_to_archive(self, tmp_path):
+        """Rotate moves current JSONL to archive/YYYY-MM.jsonl."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        trail.record_intent(task_name="t1", round_name="r", model="m", prompt="p")
+        trail.record_intent(task_name="t2", round_name="r", model="m", prompt="p")
+        assert (tmp_path / "rondo_audit.jsonl").exists()
+        count = trail.rotate()
+        assert count > 0
+        assert not (tmp_path / "rondo_audit.jsonl").exists()
+        archives = list((tmp_path / "archive").glob("*.jsonl"))
+        assert len(archives) == 1
+
+    def test_rotate_empty_is_noop(self, tmp_path):
+        """Rotate with no audit file returns 0."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        count = trail.rotate()
+        assert count == 0
+
+    def test_rotate_preserves_data(self, tmp_path):
+        """Archived file has same content as original."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        trail.record_intent(task_name="check", round_name="r", model="m", prompt="p")
+        original = (tmp_path / "rondo_audit.jsonl").read_text()
+        trail.rotate()
+        archives = list((tmp_path / "archive").glob("*.jsonl"))
+        assert archives[0].read_text() == original
+
+
+class TestAuditReset:
+    """Audit reset: clear all data."""
+
+    def test_reset_clears_jsonl(self, tmp_path):
+        """Reset removes audit JSONL."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        assert (tmp_path / "rondo_audit.jsonl").exists()
+        count = trail.reset()
+        assert count > 0
+        assert not (tmp_path / "rondo_audit.jsonl").exists()
+
+    def test_reset_clears_prompt_result_files(self, tmp_path):
+        """Reset removes .prompt.txt and .result.json files."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id,
+            status="done", exit_code=0, raw_output="ok",
+        )
+        trail.reset()
+        assert len(list(tmp_path.glob("*.prompt.txt"))) == 0
+        assert len(list(tmp_path.glob("*.result.json"))) == 0
+
+    def test_reset_empty_is_zero(self, tmp_path):
+        """Reset with no data returns 0."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        count = trail.reset()
+        assert count == 0
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b3

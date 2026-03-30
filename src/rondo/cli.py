@@ -45,8 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Rondo — AI task automation for Claude Code",
     )
     from rondo._version import get_version
+
     parser.add_argument("--version", action="version", version=f"rondo {get_version()}")
-    parser.add_argument("--ai-help", action="store_true", default=False, help="JSON capability description for AI agents")
+    parser.add_argument(
+        "--ai-help", action="store_true", default=False, help="JSON capability description for AI agents"
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- run subcommand (Rondo-REQ-100 req 38)
@@ -89,6 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("dispatch_id", nargs="?", default="", help="Show detail for one dispatch")
     audit_parser.add_argument("--cost", action="store_true", help="Show total cost summary")
     audit_parser.add_argument("--failed", action="store_true", help="Show only failed dispatches")
+    audit_parser.add_argument("--rotate", action="store_true", help="Archive current audit to monthly file")
+    audit_parser.add_argument("--reset", action="store_true", help="Clear all audit data")
     audit_parser.add_argument("--json", action="store_true", help="JSON output")
     audit_parser.add_argument("--audit-dir", default="~/.rondo/audit", help="Audit directory")
 
@@ -100,8 +105,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     # -- spool subcommand (Rondo-REQ-101 reqs 047-049)
     spool_parser = subparsers.add_parser("spool", help="Manage result spool (mailbox)")
-    spool_parser.add_argument("action", nargs="?", default="list", choices=["list", "clean", "export", "consume"],
-                              help="Spool action (default: list)")
+    spool_parser.add_argument(
+        "action",
+        nargs="?",
+        default="list",
+        choices=["list", "clean", "export", "consume"],
+        help="Spool action (default: list)",
+    )
     spool_parser.add_argument("--all", action="store_true", help="Clean all files (not just expired)")
     spool_parser.add_argument("--since", default="", help="Export since date (YYYY-MM-DD)")
     spool_parser.add_argument("--json", action="store_true", help="JSON output")
@@ -135,8 +145,15 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
         help="Claude permission mode (default/acceptEdits/plan/auto/dontAsk/bypassPermissions)",
     )
     parser.add_argument("--bare", action="store_true", default=False, help="Use --bare flag for fast dispatch")
-    parser.add_argument("--json-schema", default=None, help="JSON schema for structured output ('auto' for Rondo default)")
-    parser.add_argument("--system-prompt", default=None, dest="system_prompt", help="System prompt for dispatch ('auto' for Rondo default)")
+    parser.add_argument(
+        "--json-schema", default=None, help="JSON schema for structured output ('auto' for Rondo default)"
+    )
+    parser.add_argument(
+        "--system-prompt",
+        default=None,
+        dest="system_prompt",
+        help="System prompt for dispatch ('auto' for Rondo default)",
+    )
     parser.add_argument("--max-budget", type=float, default=None, dest="max_budget", help="Max cost per task in USD")
 
 
@@ -287,8 +304,6 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_USAGE
 
         return _dispatch_command(args)
-
-
 
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
@@ -450,10 +465,10 @@ def _cmd_history(args: argparse.Namespace) -> int:
 
         agg = aggregate_by_model(filtered)
         if len(agg) > 1:
-            print("  Models:", " | ".join(
-                f"{m}: {d['count']} dispatches, ${d['total_cost']:.4f}"
-                for m, d in sorted(agg.items())
-            ))
+            print(
+                "  Models:",
+                " | ".join(f"{m}: {d['count']} dispatches, ${d['total_cost']:.4f}" for m, d in sorted(agg.items())),
+            )
         print()
         # -- REQ-104 req 007: --expensive sorts by cost (top 10)
         is_expensive = getattr(args, "expensive", False)
@@ -462,8 +477,10 @@ def _cmd_history(args: argparse.Namespace) -> int:
         display = filtered[:10] if is_expensive else filtered[-10:]
         for r in display:
             cost = r.get("cost_usd", 0)
-            print(f"  {r.get('status', '?'):8s} {r.get('task_name', '?'):30s} "
-                  f"{r.get('model', '?'):8s} ${cost:.4f} {r.get('duration_sec', 0):.1f}s")
+            print(
+                f"  {r.get('status', '?'):8s} {r.get('task_name', '?'):30s} "
+                f"{r.get('model', '?'):8s} ${cost:.4f} {r.get('duration_sec', 0):.1f}s"
+            )
 
     return EXIT_SUCCESS
 
@@ -481,13 +498,18 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         import json as _json  # pylint: disable=import-outside-toplevel
 
-        print(_json.dumps({
-            "status": result.status,
-            "can_proceed": result.can_proceed,
-            "checks": result.checks,
-            "warnings": result.warnings,
-            "errors": result.errors,
-        }, indent=2))
+        print(
+            _json.dumps(
+                {
+                    "status": result.status,
+                    "can_proceed": result.can_proceed,
+                    "checks": result.checks,
+                    "warnings": result.warnings,
+                    "errors": result.errors,
+                },
+                indent=2,
+            )
+        )
         return EXIT_SUCCESS if result.can_proceed else EXIT_FAILURE
 
     # -- Human-readable output
@@ -511,6 +533,7 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
 # ──────────────────────────────────────────────────────────────────
 #  Entry point for `python -m rondo`
 # ──────────────────────────────────────────────────────────────────
+
 
 def _load_audit_records(audit_dir: str) -> list[dict]:
     """Load all records from audit JSONL — STD-113."""
@@ -536,6 +559,28 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     Always-on: every dispatch records audit data. This command reads it.
     Callers (ACE, OB, Caliber) get dispatch_id in TaskResult automatically.
     """
+    from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
+
+    # -- Rotate: rondo audit --rotate (RONDO-29)
+    if getattr(args, "rotate", False):
+        trail = AuditTrail(config=AuditConfig(audit_dir=args.audit_dir))
+        count = trail.rotate()
+        if count:
+            print(f"Rotated {count} audit records to archive/")
+        else:
+            print("Nothing to rotate.")
+        return EXIT_SUCCESS
+
+    # -- Reset: rondo audit --reset (RONDO-29)
+    if getattr(args, "reset", False):
+        trail = AuditTrail(config=AuditConfig(audit_dir=args.audit_dir))
+        count = trail.reset()
+        if count:
+            print(f"Cleared {count} audit files.")
+        else:
+            print("Nothing to clear.")
+        return EXIT_SUCCESS
+
     records = _load_audit_records(args.audit_dir)
     if not records:
         print("No audit data yet. Run a dispatch first.")
@@ -567,7 +612,9 @@ def _cmd_audit_detail(args: argparse.Namespace, records: list[dict]) -> int:
         print(_json.dumps(matches, indent=2))
     else:
         for r in matches:
-            print(f"  {r.get('status', '?'):8s} | {r.get('task_name', '?')} | {r.get('dispatched_at', r.get('completed_at', ''))}")
+            print(
+                f"  {r.get('status', '?'):8s} | {r.get('task_name', '?')} | {r.get('dispatched_at', r.get('completed_at', ''))}"
+            )
             if r.get("cost_usd"):
                 print(f"           cost: ${r['cost_usd']:.4f} | duration: {r.get('duration_sec', 0):.1f}s")
     audit_dir = Path(args.audit_dir).expanduser()
@@ -663,14 +710,16 @@ def _cmd_flaky(args: argparse.Namespace) -> int:
             continue
         if not r.get("task_name"):
             continue
-        engine.add_outcome(DispatchOutcome(
-            task_name=r.get("task_name", ""),
-            prompt_hash=r.get("prompt_hash", "unknown"),
-            model=r.get("model", "unknown"),
-            status=r.get("status", "unknown"),
-            confidence=0.0,
-            run_at=r.get("completed_at", r.get("dispatched_at", "")),
-        ))
+        engine.add_outcome(
+            DispatchOutcome(
+                task_name=r.get("task_name", ""),
+                prompt_hash=r.get("prompt_hash", "unknown"),
+                model=r.get("model", "unknown"),
+                status=r.get("status", "unknown"),
+                confidence=0.0,
+                run_at=r.get("completed_at", r.get("dispatched_at", "")),
+            )
+        )
 
     flaky_tasks = engine.get_flaky_tasks(threshold=args.threshold)
 
@@ -797,19 +846,21 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
 
 
 # -- Populate command dispatch table
-_COMMANDS.update({
-    "run": _cmd_run,
-    "live": _cmd_live,
-    "overnight": _cmd_overnight,
-    "report": _cmd_report,
-    "preflight": _cmd_preflight,
-    "history": _cmd_history,
-    "audit": _cmd_audit,
-    "flaky": _cmd_flaky,
-    "spool": _cmd_spool,
-    "metrics": _cmd_metrics,
-    "mcp": _cmd_mcp,
-})
+_COMMANDS.update(
+    {
+        "run": _cmd_run,
+        "live": _cmd_live,
+        "overnight": _cmd_overnight,
+        "report": _cmd_report,
+        "preflight": _cmd_preflight,
+        "history": _cmd_history,
+        "audit": _cmd_audit,
+        "flaky": _cmd_flaky,
+        "spool": _cmd_spool,
+        "metrics": _cmd_metrics,
+        "mcp": _cmd_mcp,
+    }
+)
 
 
 if __name__ == "__main__":

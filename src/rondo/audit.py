@@ -282,6 +282,44 @@ class AuditTrail:
                 failed.append(data)
         return failed
 
+    def rotate(self) -> int:
+        """Archive current JSONL to archive/YYYY-MM.jsonl — RONDO-29.
+
+        Returns number of lines archived (0 if nothing to rotate).
+        """
+        if not self._jsonl_path.exists():
+            return 0
+        content = self._jsonl_path.read_text(encoding="utf-8").strip()
+        if not content:
+            self._jsonl_path.unlink()
+            return 0
+        line_count = len(content.splitlines())
+        archive_dir = self._audit_dir / "archive"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(UTC).strftime("%Y-%m")
+        archive_path = archive_dir / f"{timestamp}.jsonl"
+        ## -- Append if archive already exists (multiple rotations in same month)
+        with archive_path.open("a", encoding="utf-8") as f:
+            f.write(content + "\n")
+        self._jsonl_path.unlink()
+        logger.info("Rotated %d audit records to %s", line_count, archive_path)
+        return line_count
+
+    def reset(self) -> int:
+        """Clear all audit data (JSONL + prompt/result files) — RONDO-29.
+
+        Returns number of files removed.
+        """
+        removed = 0
+        if self._jsonl_path.exists():
+            self._jsonl_path.unlink()
+            removed += 1
+        for pattern in ("*.prompt.txt", "*.result.json"):
+            for f in self._audit_dir.glob(pattern):
+                f.unlink()
+                removed += 1
+        return removed
+
     def _append_jsonl(self, record: AuditRecord) -> None:
         """Append record to JSONL file — STD-113 reqs 007, 010."""
         with self._jsonl_path.open("a", encoding="utf-8") as f:

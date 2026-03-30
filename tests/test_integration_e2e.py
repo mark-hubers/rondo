@@ -1087,6 +1087,40 @@ class TestE2EFullPipeline:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  E2E: rondo spool (RONDO-30)
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2ESpoolCLI:
+    """rondo spool — manage result spool from CLI."""
+
+    def test_spool_list_empty(self):
+        """rondo spool list on empty spool returns clean message."""
+        result = _run(["spool", "list"])
+        assert result.returncode == 0
+        assert "empty" in result.stdout.lower() or "0" in result.stdout
+
+    def test_spool_consume_empty(self):
+        """rondo spool consume on empty spool shows no results."""
+        result = _run(["spool", "consume"])
+        assert result.returncode == 0
+        assert "No results" in result.stdout or "[]" in result.stdout
+
+    def test_spool_clean_empty(self):
+        """rondo spool clean on empty spool is a no-op."""
+        result = _run(["spool", "clean"])
+        assert result.returncode == 0
+
+    def test_spool_list_json(self):
+        """rondo spool list --json returns valid JSON."""
+        result = _run(["spool", "list", "--json"])
+        if result.returncode == 0 and result.stdout.strip():
+            data = json.loads(result.stdout)
+            assert isinstance(data, list)
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  E2E: rondo init (U-10 to U-14, RONDO-34)
 # -- ──────────────────────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ from rondo.mcp_server import (
     rondo_dispatch_info,
     rondo_run_file,
     rondo_run_status,
+    rondo_spool_consume,
 )
 
 
@@ -266,6 +267,16 @@ class TestRondoRunStatus:
             status = json.loads(rondo_run_status(launch["dispatch_id"]))
             if status["status"] != "running":
                 assert "tasks" in status
+
+
+class TestSpoolConsumeMCP:
+    """rondo_spool_consume MCP tool."""
+
+    def test_empty_spool_returns_zero(self):
+        """Empty spool returns count=0."""
+        result = json.loads(rondo_spool_consume())
+        assert result["count"] == 0
+        assert result["consumed"] == []
 
 
 class TestInlineDispatch:

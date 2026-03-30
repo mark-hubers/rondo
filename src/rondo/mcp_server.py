@@ -146,6 +146,22 @@ def rondo_dispatch_info() -> str:
 _background_results: dict[str, dict] = {}
 
 
+def rondo_spool_consume() -> str:
+    """Consume all pending spool results — mailbox drain.
+
+    Reads all spool files, returns their contents, and deletes them.
+    This is how OB/ACE picks up overnight dispatch results.
+    """
+    try:
+        from rondo.spool import SpoolConfig, SpoolManager
+
+        spool = SpoolManager(config=SpoolConfig(spool_dir=_DEFAULT_SPOOL_DIR))
+        consumed = spool.consume_all()
+        return json.dumps({"consumed": consumed, "count": len(consumed)}, indent=2)
+    except (ImportError, OSError, TypeError) as exc:
+        return json.dumps({"consumed": [], "count": 0, "error": str(exc)})
+
+
 def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str, str, str | None]:
     """Validate and resolve file_path + project. Returns (file_path, project, error_json)."""
     from pathlib import Path
@@ -402,6 +418,13 @@ def create_mcp_server() -> Any:
     )
     def _run_status(dispatch_id: str = "") -> str:
         return rondo_run_status(dispatch_id=dispatch_id)
+
+    @mcp.tool(
+        name="rondo_spool_consume",
+        description="Drain spool mailbox: read all pending overnight results and delete files. Returns consumed results as JSON.",
+    )
+    def _spool_consume() -> str:
+        return rondo_spool_consume()
 
     return mcp
 

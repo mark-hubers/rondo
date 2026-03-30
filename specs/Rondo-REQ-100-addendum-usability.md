@@ -114,6 +114,16 @@ file can't use Rondo at all.
 | U-38 | `round_name` MUST flow from Round.name through dispatch to audit records (Finding #163) | MUST |
 | U-39 | `max_budget` documentation MUST note that budget cap only works with `auth: "api"`, not `auth: "max"` (Finding #164) | MUST |
 
+### MCP STATUS ENRICHMENT (RONDO-44)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-40 | `rondo_run_file()` result MUST include `done_count`, `error_count`, `pending_count` integer fields — callers see progress at a glance without parsing task array | MUST |
+| U-41 | Each task in the result `tasks` array MUST include `error_code` and `error_message` fields (empty string if no error) | MUST |
+| U-42 | Background dispatch status (`rondo_run_status`) MUST include `done_count` and `error_count` when tasks complete | SHOULD |
+| U-43 | Python API SHOULD support `on_task_complete` callback on `dispatch_task()` — called after each task finishes with the `TaskResult` | SHOULD |
+| U-44 | Polling `rondo_run_status` MUST be lightweight: no file reads, no DB queries, no AI calls — in-memory dict lookup only | MUST |
+
 ---
 
 ## Gap Check: Cross-Spec Impact
@@ -169,6 +179,9 @@ file can't use Rondo at all.
 | U-35 | Unit | Inline dispatch returns same JSON as file-based |
 | U-37 | Unit | Audit OUTCOME has dispatched_at from INTENT |
 | U-38 | Unit | Audit OUTCOME has round_name from Round.name |
+| U-40 | Unit | Result JSON has done_count, error_count, pending_count integers |
+| U-41 | Unit | Task entries have error_code and error_message fields |
+| U-44 | Unit | rondo_run_status returns from in-memory dict (no I/O) |
 
 ---
 
@@ -187,6 +200,7 @@ file can't use Rondo at all.
 | 9 | U-33–U-35 | Inline task dispatch without round file (RONDO-43) |
 | 10 | U-37, U-38 | Audit bug fixes: dispatched_at + round_name |
 | 11 | U-36, U-39 | Polish: running cost, budget doc |
+| 12 | U-40–U-44 | Status enrichment: counts, error levels, Python callback (RONDO-44) |
 
 ---
 
@@ -231,4 +245,5 @@ file can't use Rondo at all.
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2026-03-30 | Initial — 30 requirements across 6 features. Resolves REQ-103 Q3. Implements REQ-100-052/053/054. |
+| 0.3 | 2026-03-30 | Status enrichment: +5 reqs (U-40 to U-44). Counts, error levels, Python callback. Phase 12. RONDO-44. |
 | 0.2 | 2026-03-30 | USH production feedback: +9 requirements (U-31 to U-39) in proper tables. 3 categories: MCP status (U-31/32), inline dispatch (U-33-35), observability fixes (U-36-39). 6 verification matrix entries. 4 new build phases (8-11). 6 findings (#162-167). Cross-spec updates for IFS-104, STD-113, STD-109. |

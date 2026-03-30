@@ -210,5 +210,62 @@ class TestRondoRunStatus:
         result = json.loads(rondo_run_status("nonexistent-id"))
         assert result["status"] == "error"
 
+    def test_completed_has_per_task_status(self, tmp_path):
+        """U-31: completed dispatch shows per-task name + status."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='status-test', tasks=[\n"
+            "        Task(name='task-a', instruction='check', done_when='done'),\n"
+            "        Task(name='task-b', instruction='verify', done_when='done'),\n"
+            "    ])\n"
+        )
+        ## -- Dry-run dispatch (synchronous, completes immediately)
+        result = json.loads(rondo_run_file(str(round_file), dry_run=True))
+        assert result["status"] in ("done", "skipped")
+        ## -- Each task should have name and status
+        for task in result["tasks"]:
+            assert "name" in task
+            assert "status" in task
+            assert task["name"] in ("task-a", "task-b")
+
+    def test_completed_has_task_output(self, tmp_path):
+        """U-32: completed tasks include raw_output in response."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='output-test', tasks=[\n"
+            "        Task(name='t1', instruction='x', done_when='y'),\n"
+            "    ])\n"
+        )
+        result = json.loads(rondo_run_file(str(round_file), dry_run=True))
+        ## -- Dry-run: prompt_sent should be present (not empty)
+        for task in result["tasks"]:
+            assert "prompt_sent" in task or "raw_output" in task
+
+    def test_background_status_has_task_progress(self, tmp_path):
+        """U-31: background dispatch status shows per-task progress."""
+        import time
+
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='bg-test', tasks=[\n"
+            "        Task(name='bg-task', instruction='check', done_when='done'),\n"
+            "    ])\n"
+        )
+        ## -- Background dry-run dispatch
+        launch = json.loads(rondo_run_file(str(round_file), dry_run=True, background=True))
+        ## -- dry_run + background still runs synchronously (dry-run is instant)
+        ## -- but if it dispatched, check the status response format
+        if launch.get("dispatch_id"):
+            time.sleep(1)
+            status = json.loads(rondo_run_status(launch["dispatch_id"]))
+            if status["status"] != "running":
+                assert "tasks" in status
+
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

@@ -237,7 +237,22 @@ def rondo_run_file(
     # -- Background dispatch: return dispatch_id immediately
     if background and not dry_run:
         dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
-        _background_results[dispatch_id] = {"status": "running", "dispatch_id": dispatch_id}
+
+        # -- U-31: pre-populate task names as "pending" for progress tracking
+        try:
+            from rondo.cli import load_round_file as _load
+
+            rd = _load(file_path)
+            task_names = [t.name for t in rd.tasks]
+        except (FileNotFoundError, AttributeError, TypeError, ImportError):
+            task_names = []
+
+        _background_results[dispatch_id] = {
+            "status": "running",
+            "dispatch_id": dispatch_id,
+            "tasks": [{"name": tn, "status": "pending"} for tn in task_names],
+            "total_cost_usd": 0.0,
+        }
 
         def _bg_worker() -> None:
             result = _dispatch()
@@ -247,7 +262,12 @@ def rondo_run_file(
         thread = threading.Thread(target=_bg_worker, daemon=True)
         thread.start()
         return json.dumps(
-            {"status": "dispatched", "dispatch_id": dispatch_id, "message": "Use rondo_run_status to check progress."},
+            {
+                "status": "dispatched",
+                "dispatch_id": dispatch_id,
+                "tasks": task_names,
+                "message": "Use rondo_run_status to check progress.",
+            },
             indent=2,
         )
 

@@ -335,17 +335,19 @@ def _cmd_run(args: argparse.Namespace) -> int:
             print(f"Config error: {err}", file=sys.stderr)
         return EXIT_FAILURE
 
-    # -- REQ-103 req 001: preflight before dispatch
-    from rondo.preflight import run_preflight
+    # -- U-01/U-02: dry-run skips preflight (no dispatch = no preflight needed)
+    if not config.dry_run:
+        # -- REQ-103 req 001: preflight before dispatch
+        from rondo.preflight import run_preflight  # pylint: disable=import-outside-toplevel
 
-    preflight = run_preflight(config=config)
-    if not preflight.can_proceed:
-        print("Preflight FAILED (RED):", file=sys.stderr)
-        for err in preflight.errors:
-            print(f"  -ERROR- {err}", file=sys.stderr)
-        return EXIT_FAILURE
-    for warn in preflight.warnings:
-        print(f"  -WARNING- {warn}", file=sys.stderr)
+        preflight = run_preflight(config=config)
+        if not preflight.can_proceed:
+            print("Preflight FAILED (RED):", file=sys.stderr)
+            for err in preflight.errors:
+                print(f"  -ERROR- {err}", file=sys.stderr)
+            return EXIT_FAILURE
+        for warn in preflight.warnings:
+            print(f"  -WARNING- {warn}", file=sys.stderr)
 
     result = run_round(round_def, config=config)
 

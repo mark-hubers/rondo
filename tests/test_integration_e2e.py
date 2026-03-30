@@ -148,6 +148,27 @@ class TestE2EDryRun:
         elapsed = time.monotonic() - start
         assert elapsed < 5.0, f"Dry-run took {elapsed:.1f}s — should be instant"
 
+    def test_dry_run_works_inside_claude_code(self, tmp_path):
+        """U-02: dry-run inside CC (CLAUDECODE set) MUST work — no preflight."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='cc-test', tasks=[\n"
+            "        Task(name='t1', instruction='check', done_when='done'),\n"
+            "    ])\n"
+        )
+        ## -- Simulate running inside Claude Code
+        env = _e2e_env()
+        env["CLAUDECODE"] = "1"
+        result = subprocess.run(
+            [RONDO_BIN, "run", str(round_file), "--dry-run"],
+            capture_output=True, text=True, check=False, timeout=10, env=env,
+        )
+        assert result.returncode != 1 or "skipped" in result.stdout.lower(), (
+            f"Dry-run inside CC failed: {result.stderr}"
+        )
+
 
 @skip_no_rondo
 class TestE2EHistory:

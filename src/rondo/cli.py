@@ -112,6 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
     metrics_parser.add_argument("--json", action="store_true", help="JSON output for OB/ACE/MCP")
     metrics_parser.add_argument("--audit-dir", default="~/.rondo/audit", help="Audit directory")
 
+    # -- mcp subcommand (IFS-104 stdio transport)
+    subparsers.add_parser("mcp", help="Start MCP stdio server (for Claude Code integration)")
+
     return parser
 
 
@@ -779,6 +782,18 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_mcp(args: argparse.Namespace) -> int:
+    """Start MCP stdio server — IFS-104.
+
+    Claude Code spawns this, talks via stdin/stdout.
+    No daemon, no port, just stdio.
+    """
+    from rondo.mcp_server import run_mcp
+
+    run_mcp()
+    return EXIT_SUCCESS
+
+
 # -- Populate command dispatch table
 _COMMANDS.update({
     "run": _cmd_run,
@@ -791,6 +806,7 @@ _COMMANDS.update({
     "flaky": _cmd_flaky,
     "spool": _cmd_spool,
     "metrics": _cmd_metrics,
+    "mcp": _cmd_mcp,
 })
 
 

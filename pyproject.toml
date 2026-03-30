@@ -11,6 +11,9 @@ license = "MIT"
 authors = [
     { name = "Mark Hubers" },
 ]
+dependencies = [
+    "mcp>=1.0",
+]
 
 [project.scripts]
 rondo = "rondo.cli:main"

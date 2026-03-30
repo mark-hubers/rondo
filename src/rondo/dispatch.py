@@ -43,6 +43,7 @@ from rondo.dispatch_prompt import (
 )
 from rondo.engine import DispatchUsage, Task, TaskResult, validate_task
 from rondo.sanitize import sanitize_task_result
+from rondo.spool import spool_result
 
 logger = logging.getLogger(__name__)
 
@@ -482,19 +483,16 @@ def _finalize_dispatch(
     except (TypeError, AttributeError) as exc:
         logger.debug("Sanitize failed (non-fatal): %s", exc)
 
-    # -- REQ-101: write to spool
-    try:
-        from dataclasses import asdict
-
-        from rondo.spool import spool_result
-
-        spool_result(
-            task_name=result.task_name,
-            result=asdict(result),
-            spool_dir=os.path.expanduser("~/.rondo/spool"),
-        )
-    except (ImportError, OSError, TypeError) as exc:
-        logger.debug("Spool write failed (non-fatal): %s", exc)
+    # -- REQ-101 req 045: spool only for async/overnight callers
+    if config.spool_enabled:
+        try:
+            spool_result(
+                task_name=result.task_name,
+                result=asdict(result),
+                spool_dir=os.path.expanduser("~/.rondo/spool"),
+            )
+        except (OSError, TypeError) as exc:
+            logger.debug("Spool write failed (non-fatal): %s", exc)
 
     # -- ALWAYS-ON: embed metrics in every result (no second call)
     _attach_metrics(result, config)

@@ -379,6 +379,8 @@ def _cmd_live(args: argparse.Namespace) -> int:
 
 def _cmd_overnight(args: argparse.Namespace) -> int:
     """Execute 'rondo overnight <file>' subcommand."""
+    from dataclasses import replace  # pylint: disable=import-outside-toplevel
+
     from rondo.overnight import run_overnight  # pylint: disable=import-outside-toplevel
     from rondo.report import save_report  # pylint: disable=import-outside-toplevel
 
@@ -388,7 +390,7 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
 
-    config = _build_config(args)
+    config = replace(_build_config(args), spool_enabled=True)  # -- REQ-101 req 045
 
     # -- Validate config before running (fail fast)
     config_errors = validate_config(config)

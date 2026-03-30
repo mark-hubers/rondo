@@ -70,6 +70,9 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     json_schema: str = ""  # -- req 079: enforce structured output at CC level
     dispatch_system_prompt: str = ""  # -- req 080: persistent dispatch context
 
+    # -- spool (REQ-101 req 045: sync callers skip spool)
+    spool_enabled: bool = False  # -- False = sync (no spool), True = async (overnight)
+
     # -- flags
     bare: bool = False  # -- REQ-100 req 071: add --bare for automated dispatch
     dry_run: bool = False

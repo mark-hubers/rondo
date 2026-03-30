@@ -1909,4 +1909,49 @@ class TestHistoryIntegration:
             mock_log.assert_called_once()
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-101 req 045 — Spool gated by sync/async mode
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestSpoolGating:
+    """REQ-101 req 045: sync callers skip spool, async callers spool."""
+
+    def test_sync_dispatch_skips_spool(self):
+        """Default (sync) dispatch does NOT write spool files."""
+        task = Task(name="sync-task", instruction="review", done_when="done")
+        config = RondoConfig()  ## spool_enabled defaults to False
+
+        with patch("rondo.dispatch._run_subprocess") as mock_run, \
+             patch("rondo.dispatch.spool_result") as mock_spool:
+            mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
+            dispatch_task(task, config)
+            mock_spool.assert_not_called()
+
+    def test_async_dispatch_writes_spool(self):
+        """Async dispatch (spool_enabled=True) writes spool files."""
+        task = Task(name="async-task", instruction="review", done_when="done")
+        config = RondoConfig(spool_enabled=True)
+
+        with patch("rondo.dispatch._run_subprocess") as mock_run, \
+             patch("rondo.dispatch.spool_result") as mock_spool:
+            mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
+            dispatch_task(task, config)
+            mock_spool.assert_called_once()
+
+    def test_spool_enabled_false_by_default(self):
+        """RondoConfig.spool_enabled defaults to False (sync = no spool)."""
+        config = RondoConfig()
+        assert config.spool_enabled is False
+
+    def test_dry_run_skips_spool(self):
+        """Dry-run never writes spool regardless of config."""
+        task = Task(name="dry", instruction="review", done_when="done")
+        config = RondoConfig(dry_run=True, spool_enabled=True)
+
+        with patch("rondo.dispatch.spool_result") as mock_spool:
+            dispatch_task(task, config)
+            mock_spool.assert_not_called()
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

@@ -291,6 +291,17 @@ def create_mcp_server() -> Any:
 
     mcp = FastMCP(name="rondo", log_level="WARNING")
 
+    # -- MCP Resources: self-documentation for AI discovery
+    @mcp.resource(
+        uri="rondo://help",
+        name="Rondo Help",
+        description="Full API documentation: Round/Task schema, examples, commands. Read this first.",
+    )
+    def _help_resource() -> str:
+        from rondo.ai_help import get_ai_help
+
+        return json.dumps(get_ai_help(), indent=2)
+
     @mcp.tool(
         name="rondo_metrics",
         description="Full dispatch metrics: cost, reliability, latency, tokens, model comparison, health status. Returns JSON.",

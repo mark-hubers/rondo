@@ -125,6 +125,10 @@ def build_parser() -> argparse.ArgumentParser:
     # -- mcp subcommand (IFS-104 stdio transport)
     subparsers.add_parser("mcp", help="Start MCP stdio server (for Claude Code integration)")
 
+    # -- init subcommand (U-10 to U-14 scaffolding)
+    init_parser = subparsers.add_parser("init", help="Create a starter round file")
+    init_parser.add_argument("--name", default="my-round", help="Round name (default: my-round)")
+
     return parser
 
 
@@ -847,6 +851,63 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_init(args: argparse.Namespace) -> int:
+    """Create a starter round file — U-10 to U-14."""
+    from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+    name = getattr(args, "name", "my-round")
+    output_path = Path.cwd() / "round.py"
+
+    # -- U-14: refuse to overwrite
+    if output_path.exists():
+        print(f"Error: {output_path} already exists. Remove it first.", file=sys.stderr)
+        return EXIT_FAILURE
+
+    # -- U-13: generate with comments explaining each field
+    task_name = name.replace(" ", "-").lower()
+    content = f'''"""Rondo round file: {name}
+
+Usage:
+    rondo run round.py --dry-run      # preview without running
+    rondo run round.py                # execute with default model
+    rondo run round.py --model haiku  # use cheaper model
+"""
+
+from rondo.engine import Round, Task
+
+
+def build_round() -> Round:
+    """Define the tasks for this round.
+
+    Each Task has three fields (the contract):
+        instruction  — what Claude should do (the "Do")
+        context_files — files Claude should read (the "Read")
+        done_when    — how to know it's complete (the "Done")
+    """
+    return Round(
+        name="{name}",
+        tasks=[
+            Task(
+                name="{task_name}-task-1",
+                description="First task — edit this",
+                instruction="""Review the code and report findings.
+
+1. Check for bugs
+2. Check for security issues
+3. Suggest improvements""",
+                context_files=[],  # -- add file paths here
+                done_when="All findings reported as a numbered list.",
+            ),
+        ],
+    )
+'''
+
+    output_path.write_text(content, encoding="utf-8")
+    print(f"Created {output_path}")
+    print("  Next: rondo run round.py --dry-run")
+    return EXIT_SUCCESS
+
+
 # -- Populate command dispatch table
 _COMMANDS.update(
     {
@@ -861,6 +922,7 @@ _COMMANDS.update(
         "spool": _cmd_spool,
         "metrics": _cmd_metrics,
         "mcp": _cmd_mcp,
+        "init": _cmd_init,
     }
 )
 

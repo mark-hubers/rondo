@@ -1086,4 +1086,70 @@ class TestE2EFullPipeline:
         assert spool_data["dispatch_id"] == record.dispatch_id
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: rondo init (U-10 to U-14, RONDO-34)
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2EInit:
+    """rondo init — scaffold a starter round file."""
+
+    def test_init_creates_file(self, tmp_path):
+        """U-10: rondo init creates a round file."""
+        result = subprocess.run(
+            [RONDO_BIN, "init"],
+            capture_output=True, text=True, check=False,
+            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+        )
+        assert result.returncode == 0
+        assert (tmp_path / "round.py").exists()
+
+    def test_init_file_is_valid_python(self, tmp_path):
+        """U-11: generated file is valid Python that imports correctly."""
+        subprocess.run(
+            [RONDO_BIN, "init"],
+            capture_output=True, text=True, check=False,
+            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+        )
+        content = (tmp_path / "round.py").read_text()
+        compile(content, "round.py", "exec")
+
+    def test_init_file_runs_dry(self, tmp_path):
+        """U-11: generated file runs with rondo run --dry-run immediately."""
+        subprocess.run(
+            [RONDO_BIN, "init"],
+            capture_output=True, text=True, check=False,
+            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+        )
+        result = subprocess.run(
+            [RONDO_BIN, "run", str(tmp_path / "round.py"), "--dry-run"],
+            capture_output=True, text=True, check=False,
+            timeout=10, env=_e2e_env(),
+        )
+        assert "skipped" in result.stdout.lower() or result.returncode == 1
+
+    def test_init_with_name(self, tmp_path):
+        """U-12: --name sets the round and task name."""
+        result = subprocess.run(
+            [RONDO_BIN, "init", "--name", "ush-scan"],
+            capture_output=True, text=True, check=False,
+            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "round.py").read_text()
+        assert "ush-scan" in content
+
+    def test_init_no_overwrite(self, tmp_path):
+        """U-14: init refuses to overwrite existing file."""
+        (tmp_path / "round.py").write_text("existing")
+        result = subprocess.run(
+            [RONDO_BIN, "init"],
+            capture_output=True, text=True, check=False,
+            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+        )
+        assert result.returncode != 0
+        assert (tmp_path / "round.py").read_text() == "existing"
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

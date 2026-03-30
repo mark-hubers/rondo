@@ -2,8 +2,9 @@
 
 **For:** Any Claude session building Rondo from ~/.claude/ or ace2
 **System:** OB1 (manual build process, until OB2 replaces it)
-**Status:** 947 tests, 93% coverage, 12/12 specs traced, 21 modules, 9 CLI commands
-**Version:** 0.2.0+CalVer (Session 92: +220 tests, +5 modules, ALWAYS-ON pipeline)
+**Status:** 993 tests, 93% coverage, 12/12 specs traced, 23 modules, 11 CLI commands
+**Version:** 0.2.0+CalVer
+**Interfaces:** Python import + CLI (11 commands) + MCP stdio (4 tools)
 
 ---
 
@@ -130,17 +131,53 @@ git commit -m "Session NN Sprint N (RONDO-FIX-NNN): what was done"
 | Reports | `rondo/reports/` |
 | AI reviews | `reports/ai-reviews/` (Gemini/Grok JSON) |
 
-## Module Architecture
+## Module Architecture (23 modules)
 
 ```
-L0 (data):     engine.py, config.py
-L1 (dispatch): dispatch.py, dispatch_prompt.py, dispatch_parse.py
-L2 (orchestr): runner.py, parallel.py
-L3 (batch):    overnight.py
-Utility:       preflight.py, history.py, notify.py, ai_help.py
-Output:        report.py, live.py
-Entry:         cli.py, __init__.py, __main__.py
+L0 (data):       engine.py, config.py
+L1 (dispatch):   dispatch.py, dispatch_prompt.py, dispatch_parse.py
+L2 (orchestr):   runner.py, parallel.py
+L3 (batch):      overnight.py
+Infrastructure:  sanitize.py, audit.py, spool.py, metrics.py, flaky.py
+Utility:         preflight.py, history.py, notify.py, ai_help.py, _version.py
+Output:          report.py, live.py
+Server:          mcp_server.py
+Entry:           cli.py, __init__.py, __main__.py
 ```
+
+## Three Interfaces
+
+```bash
+## 1. Python import (for OB scripts, overnight automation)
+from rondo import dispatch_task, RondoConfig
+result, usage = dispatch_task(task, config)
+
+## 2. CLI (for humans, shell scripts)
+rondo run round.py --dry-run
+rondo metrics --json
+rondo audit --cost
+
+## 3. MCP stdio (for Claude Code — Claude calls tools mid-conversation)
+## Enable in ~/.claude/settings.json:
+##   "rondo": { "command": "/Users/markhubers/.local/bin/rondo", "args": ["mcp"] }
+## Tools: rondo_metrics, rondo_health, rondo_audit_summary, rondo_dispatch_info
+```
+
+## ALWAYS-ON Dispatch Pipeline
+
+Every dispatch (success or error) automatically produces:
+```
+dispatch_task()
+  → INTENT audit record (crash-safe)
+  → subprocess / auto_fn
+  → OUTCOME audit record
+  → sanitize (scrub secrets)
+  → spool file (mailbox for consumers)
+  → history record
+  → metrics dict (in TaskResult.metrics)
+  → return to caller
+```
+No flags needed. Caller ignores what it doesn't need.
 
 ## Versioning (CalVer+Build)
 

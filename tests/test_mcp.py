@@ -15,6 +15,7 @@ from rondo.mcp_server import (
     rondo_audit_summary,
     rondo_health,
     rondo_dispatch_info,
+    rondo_run_file,
 )
 
 
@@ -94,6 +95,49 @@ class TestDispatchInfoTool:
         data = json.loads(rondo_dispatch_info())
         assert "design_principles" in data
         assert "ALWAYS-ON" in data["design_principles"]
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  MCP dispatch tool (RONDO-38)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestRondoRunFile:
+    """rondo_run_file: MCP dispatch tool."""
+
+    def test_dry_run_returns_json(self, tmp_path):
+        """Dry-run dispatch returns valid JSON with task results."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='mcp-test', tasks=[\n"
+            "        Task(name='t1', instruction='check', done_when='done'),\n"
+            "    ])\n"
+        )
+        result = json.loads(rondo_run_file(str(round_file), dry_run=True))
+        assert result["status"] in ("done", "skipped", "error")
+        assert "tasks" in result
+
+    def test_invalid_file_returns_error(self):
+        """Non-existent file returns error JSON."""
+        result = json.loads(rondo_run_file("/nonexistent/file.py"))
+        assert result["status"] == "error"
+        assert "error" in result
+
+    def test_returns_valid_json(self, tmp_path):
+        """Output is always parseable JSON."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='json-test', tasks=[\n"
+            "        Task(name='t1', instruction='x', done_when='y'),\n"
+            "    ])\n"
+        )
+        raw = rondo_run_file(str(round_file), dry_run=True)
+        parsed = json.loads(raw)
+        assert isinstance(parsed, dict)
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

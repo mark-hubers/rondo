@@ -63,13 +63,15 @@ def rondo_health() -> str:
     from rondo.metrics import compute_metrics
 
     report = compute_metrics(audit_dir=_DEFAULT_AUDIT_DIR, spool_dir=_DEFAULT_SPOOL_DIR)
-    return json.dumps({
-        "health": report.health,
-        "total_dispatches": report.total_dispatches,
-        "success_rate": report.success_rate,
-        "total_cost_usd": report.total_cost_usd,
-        "spool_pending": report.spool_pending,
-    })
+    return json.dumps(
+        {
+            "health": report.health,
+            "total_dispatches": report.total_dispatches,
+            "success_rate": report.success_rate,
+            "total_cost_usd": report.total_cost_usd,
+            "spool_pending": report.spool_pending,
+        }
+    )
 
 
 def rondo_audit_summary(limit: int = 10) -> str:
@@ -93,10 +95,12 @@ def rondo_audit_summary(limit: int = 10) -> str:
             continue
 
     recent = records[-limit:] if records else []
-    return json.dumps({
-        "recent": recent,
-        "total": len(records),
-    })
+    return json.dumps(
+        {
+            "recent": recent,
+            "total": len(records),
+        }
+    )
 
 
 def rondo_dispatch_info() -> str:
@@ -107,21 +111,91 @@ def rondo_dispatch_info() -> str:
     """
     from rondo._version import get_version
 
-    return json.dumps({
-        "name": "rondo",
-        "version": get_version(),
-        "description": "Define AI tasks in Python, send them to Claude, get structured results back.",
-        "commands": [
-            "run", "live", "overnight", "preflight", "history",
-            "report", "audit", "flaky", "spool", "metrics",
-        ],
-        "interfaces": ["python_import", "cli", "mcp_stdio"],
-        "design_principles": ["COALESCE", "ALWAYS-ON", "Dual-Path-With-Alerting"],
-        "always_on_artifacts": [
-            "audit_jsonl", "prompt_file", "result_file",
-            "spool_file", "history_record", "metrics_dict",
-        ],
-    })
+    return json.dumps(
+        {
+            "name": "rondo",
+            "version": get_version(),
+            "description": "Define AI tasks in Python, send them to Claude, get structured results back.",
+            "commands": [
+                "run",
+                "live",
+                "overnight",
+                "preflight",
+                "history",
+                "report",
+                "audit",
+                "flaky",
+                "spool",
+                "metrics",
+            ],
+            "interfaces": ["python_import", "cli", "mcp_stdio"],
+            "design_principles": ["COALESCE", "ALWAYS-ON", "Dual-Path-With-Alerting"],
+            "always_on_artifacts": [
+                "audit_jsonl",
+                "prompt_file",
+                "result_file",
+                "spool_file",
+                "history_record",
+                "metrics_dict",
+            ],
+        }
+    )
+
+
+def rondo_run_file(file_path: str, dry_run: bool = True, model: str = "sonnet") -> str:
+    """Run a round file and return results — MCP dispatch tool.
+
+    Default dry_run=True for safety. Set dry_run=False for real dispatch.
+    Strips CLAUDECODE env var to avoid nested session errors.
+    """
+    import os
+    from pathlib import Path
+
+    # -- Validate file path
+    if not file_path or not Path(file_path).exists():
+        return json.dumps({"status": "error", "error": f"File not found: {file_path}"})
+
+    try:
+        from rondo.cli import load_round_file
+        from rondo.config import RondoConfig
+        from rondo.runner import run_round
+
+        round_def = load_round_file(file_path)
+        config = RondoConfig(default_model=model, dry_run=dry_run)
+
+        # -- Strip CLAUDECODE to prevent nested session errors
+        old_cc = os.environ.pop("CLAUDECODE", None)
+        try:
+            result = run_round(round_def, config=config)
+        finally:
+            if old_cc is not None:
+                os.environ["CLAUDECODE"] = old_cc
+
+        return json.dumps(
+            {
+                "status": result.status,
+                "round_name": result.round_name,
+                "tasks": [
+                    {
+                        "name": tr.task_name,
+                        "status": tr.status,
+                        "duration_sec": tr.duration_sec,
+                        "model": tr.model,
+                        "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
+                        "raw_output": tr.raw_output[:2000] if not dry_run else "",
+                        "cost_usd": tr.cost_usd or 0.0,
+                    }
+                    for tr in result.task_results
+                ],
+                "total_cost_usd": sum(u.cost_usd for u in result.usage),
+                "duration_sec": result.duration_sec,
+                "dry_run": dry_run,
+            },
+            indent=2,
+        )
+
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
+        return json.dumps({"status": "error", "error": str(exc)})
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -165,6 +239,13 @@ def create_mcp_server() -> Any:
     )
     def _info() -> str:
         return rondo_dispatch_info()
+
+    @mcp.tool(
+        name="rondo_run",
+        description="Run a Rondo round file. Default dry_run=True (preview). Set dry_run=False for real dispatch. Returns task results as JSON.",
+    )
+    def _run(file_path: str, dry_run: bool = True, model: str = "sonnet") -> str:
+        return rondo_run_file(file_path, dry_run=dry_run, model=model)
 
     return mcp
 

@@ -371,7 +371,12 @@ def _dispatch_interactive(
         )
 
     try:
-        stdout, stderr, returncode, timed_out = _run_subprocess(cmd, env, config.task_timeout_sec)
+        stdout, stderr, returncode, timed_out = _run_subprocess(
+            cmd,
+            env,
+            config.task_timeout_sec,
+            cwd=config.project,
+        )
         duration = time.monotonic() - start
 
         # -- Handle timeout
@@ -590,11 +595,13 @@ def _run_subprocess(
     cmd: list[str],
     env: dict[str, str],
     timeout_sec: int,
+    cwd: str = "",
 ) -> tuple[str, str, int, bool]:
     """Launch subprocess with SIGTERM-first kill timer.
 
     Returns (stdout, stderr, returncode, timed_out).
     Rondo-STD-110 R1: Popen for SIGTERM-first kill sequence.
+    U-17: cwd sets working directory for cross-repo dispatch.
     """
     proc = subprocess.Popen(  # pylint: disable=consider-using-with
         cmd,
@@ -602,6 +609,7 @@ def _run_subprocess(
         stderr=subprocess.PIPE,
         text=True,
         env=env,
+        cwd=cwd or None,
     )
 
     timed_out = threading.Event()

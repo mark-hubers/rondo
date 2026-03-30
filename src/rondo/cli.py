@@ -159,6 +159,7 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
         help="System prompt for dispatch ('auto' for Rondo default)",
     )
     parser.add_argument("--max-budget", type=float, default=None, dest="max_budget", help="Max cost per task in USD")
+    parser.add_argument("--project", default=None, help="Working directory for dispatched tasks (U-15)")
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -223,36 +224,40 @@ def load_phases_file(filepath: str) -> list[Round]:
 # ──────────────────────────────────────────────────────────────────
 
 
+## -- CLI arg name → RondoConfig field name (for non-None override)
+_ARG_TO_CONFIG = {
+    "workers": "workers",
+    "model": "default_model",
+    "auth": "auth",
+    "timeout": "task_timeout_sec",
+    "effort": "effort",
+    "on_overage": "on_overage",
+    "permission_mode": "permission_mode",
+    "json_schema": "json_schema",
+    "max_budget": "max_budget_usd",
+    "project": "project",
+}
+
+## -- CLI boolean flags (store_true) → RondoConfig field name
+_BOOL_FLAGS = {
+    "dry_run": "dry_run",
+    "verbose": "verbose",
+    "bare": "bare",
+}
+
+
 def _build_config(args: argparse.Namespace) -> RondoConfig:
     """Construct RondoConfig from CLI args with COALESCE."""
-    # -- Build CLI overrides dict (only non-None values)
     overrides: dict = {}
-    if getattr(args, "workers", None) is not None:
-        overrides["workers"] = args.workers
-    if getattr(args, "model", None) is not None:
-        overrides["default_model"] = args.model
-    if getattr(args, "auth", None) is not None:
-        overrides["auth"] = args.auth
-    if getattr(args, "timeout", None) is not None:
-        overrides["task_timeout_sec"] = args.timeout
-    if getattr(args, "effort", None) is not None:
-        overrides["effort"] = args.effort
-    if getattr(args, "on_overage", None) is not None:
-        overrides["on_overage"] = args.on_overage
-    if getattr(args, "permission_mode", None) is not None:
-        overrides["permission_mode"] = args.permission_mode
-    if getattr(args, "dry_run", False):
-        overrides["dry_run"] = True
-    if getattr(args, "verbose", False):
-        overrides["verbose"] = True
-    if getattr(args, "bare", False):
-        overrides["bare"] = True
-    if getattr(args, "json_schema", None):
-        overrides["json_schema"] = args.json_schema
+    for arg_name, config_name in _ARG_TO_CONFIG.items():
+        val = getattr(args, arg_name, None)
+        if val is not None:
+            overrides[config_name] = val
+    for arg_name, config_name in _BOOL_FLAGS.items():
+        if getattr(args, arg_name, False):
+            overrides[config_name] = True
     if getattr(args, "system_prompt", None):
         overrides["dispatch_system_prompt"] = args.system_prompt
-    if getattr(args, "max_budget", None) is not None:
-        overrides["max_budget_usd"] = args.max_budget
 
     config_path = getattr(args, "config", None)
 

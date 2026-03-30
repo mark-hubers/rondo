@@ -73,6 +73,9 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     # -- spool (REQ-101 req 045: sync callers skip spool)
     spool_enabled: bool = False  # -- False = sync (no spool), True = async (overnight)
 
+    # -- project (U-15 to U-19: cross-repo dispatching)
+    project: str = ""  # -- empty = CWD, set = subprocess runs in this dir
+
     # -- flags
     bare: bool = False  # -- REQ-100 req 071: add --bare for automated dispatch
     dry_run: bool = False

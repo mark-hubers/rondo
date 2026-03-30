@@ -1954,4 +1954,37 @@ class TestSpoolGating:
             mock_spool.assert_not_called()
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  U-15 to U-19: --project flag (RONDO-36)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestProjectFlag:
+    """U-15 to U-19: --project sets subprocess working directory."""
+
+    def test_config_has_project_field(self):
+        """U-15: RondoConfig has project field."""
+        config = RondoConfig()
+        assert hasattr(config, "project")
+        assert config.project == ""
+
+    def test_project_sets_subprocess_cwd(self, tmp_path):
+        """U-17: --project sets cwd on subprocess."""
+        task = Task(name="proj-test", instruction="check", done_when="done")
+        config = RondoConfig(project=str(tmp_path))
+
+        with patch("rondo.dispatch._run_subprocess") as mock_run:
+            mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
+            dispatch_task(task, config)
+            call_args = mock_run.call_args
+            assert call_args is not None
+            ## -- Verify cwd was passed
+            assert str(tmp_path) in str(call_args)
+
+    def test_default_project_is_empty(self):
+        """U-19: default is empty (CWD, no change)."""
+        config = RondoConfig()
+        assert config.project == ""
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

@@ -123,6 +123,8 @@ file can't use Rondo at all.
 | U-42 | Background dispatch status (`rondo_run_status`) MUST include `done_count` and `error_count` when tasks complete | SHOULD |
 | U-43 | Python API SHOULD support `on_task_complete` callback on `dispatch_task()` — called after each task finishes with the `TaskResult` | SHOULD |
 | U-44 | Polling `rondo_run_status` MUST be lightweight: no file reads, no DB queries, no AI calls — in-memory dict lookup only | MUST |
+| U-45 | `rondo_run_status(brief=True)` MUST return only `{status, done_count, error_count, pending_count}` — minimal tokens for polling loops | MUST |
+| U-46 | `rondo://help` resource and `--ai-help` MUST document the polling pattern: brief=True for cheap polling, brief=False for full results when done | MUST |
 
 ---
 

@@ -246,6 +246,37 @@ class TestRondoRunStatus:
         for task in result["tasks"]:
             assert "prompt_sent" in task or "raw_output" in task
 
+    def test_brief_has_only_status_and_counts(self, tmp_path):
+        """U-45: brief=True returns ONLY status + 3 counts. No dispatch_id, no cost."""
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='brief-test', tasks=[\n"
+            "        Task(name='t1', instruction='x', done_when='y'),\n"
+            "    ])\n"
+        )
+        ## -- Run sync dispatch so it completes
+        rondo_run_file(str(round_file), dry_run=True, background=True)
+        import time
+        time.sleep(1)
+        ## -- Simulate: inject a known result into background results
+        from rondo.mcp_server import _background_results
+        _background_results["test-brief"] = {
+            "status": "done",
+            "done_count": 2,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 1.23,
+            "tasks": [{"name": "t1"}, {"name": "t2"}],
+        }
+        result = json.loads(rondo_run_status("test-brief", brief=True))
+        ## -- Must have exactly these 4 keys
+        assert set(result.keys()) == {"status", "done_count", "error_count", "pending_count"}
+        ## -- No dispatch_id, no cost
+        assert "dispatch_id" not in result
+        assert "total_cost_usd" not in result
+
     def test_background_status_has_task_progress(self, tmp_path):
         """U-31: background dispatch status shows per-task progress."""
         import time

@@ -361,16 +361,14 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False) -> str:
     if not result:
         return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
 
-    # -- U-45: brief mode — minimal tokens for polling loops
+    # -- U-45: brief mode — minimal tokens for polling (~40 tokens)
     if brief:
         return json.dumps(
             {
                 "status": result.get("status", "unknown"),
-                "dispatch_id": dispatch_id,
                 "done_count": result.get("done_count", 0),
                 "error_count": result.get("error_count", 0),
                 "pending_count": result.get("pending_count", 0),
-                "total_cost_usd": result.get("total_cost_usd", 0.0),
             }
         )
 

@@ -1987,4 +1987,92 @@ class TestProjectFlag:
         assert config.project == ""
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  U-26 to U-30: Result parsing helpers (Phase 6)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestExtractJson:
+    """U-26: TaskResult.extract_json() parses raw_output as JSON."""
+
+    def test_valid_json(self):
+        r = TaskResult(task_name="t", raw_output='{"status":"done","count":3}')
+        assert r.extract_json() == {"status": "done", "count": 3}
+
+    def test_invalid_json_returns_none(self):
+        r = TaskResult(task_name="t", raw_output="This is not JSON at all")
+        assert r.extract_json() is None
+
+    def test_empty_output_returns_none(self):
+        r = TaskResult(task_name="t", raw_output="")
+        assert r.extract_json() is None
+
+    def test_json_embedded_in_text(self):
+        """Extract JSON even when surrounded by text."""
+        r = TaskResult(task_name="t", raw_output='Here is the result:\n{"status":"done"}\nDone.')
+        result = r.extract_json()
+        assert result is not None
+        assert result["status"] == "done"
+
+    def test_does_not_modify_raw_output(self):
+        """U-30: read-only."""
+        original = '{"key":"val"}'
+        r = TaskResult(task_name="t", raw_output=original)
+        r.extract_json()
+        assert r.raw_output == original
+
+
+class TestExtractCodeBlocks:
+    """U-27: TaskResult.extract_code_blocks() extracts fenced blocks."""
+
+    def test_single_block(self):
+        r = TaskResult(task_name="t", raw_output="```python\nprint('hi')\n```")
+        blocks = r.extract_code_blocks()
+        assert len(blocks) == 1
+        assert blocks[0] == ("python", "print('hi')")
+
+    def test_multiple_blocks(self):
+        r = TaskResult(task_name="t", raw_output="```js\nalert(1)\n```\ntext\n```bash\nls\n```")
+        blocks = r.extract_code_blocks()
+        assert len(blocks) == 2
+        assert blocks[0][0] == "js"
+        assert blocks[1][0] == "bash"
+
+    def test_no_language(self):
+        r = TaskResult(task_name="t", raw_output="```\nplain code\n```")
+        blocks = r.extract_code_blocks()
+        assert len(blocks) == 1
+        assert blocks[0] == ("", "plain code")
+
+    def test_no_blocks_returns_empty(self):
+        r = TaskResult(task_name="t", raw_output="No code here")
+        assert r.extract_code_blocks() == []
+
+    def test_never_raises(self):
+        """U-29: never raise."""
+        r = TaskResult(task_name="t", raw_output=None)  # type: ignore[arg-type]
+        assert r.extract_code_blocks() == []
+
+
+class TestExtractTable:
+    """U-28: TaskResult.extract_table() extracts markdown tables."""
+
+    def test_simple_table(self):
+        md = "| Name | Age |\n|------|-----|\n| Mark | 57 |\n| Bob | 30 |"
+        r = TaskResult(task_name="t", raw_output=md)
+        table = r.extract_table()
+        assert len(table) == 2
+        assert table[0]["Name"] == "Mark"
+        assert table[1]["Age"] == "30"
+
+    def test_no_table_returns_empty(self):
+        r = TaskResult(task_name="t", raw_output="No table here")
+        assert r.extract_table() == []
+
+    def test_never_raises(self):
+        """U-29: never raise."""
+        r = TaskResult(task_name="t", raw_output="")
+        assert r.extract_table() == []
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

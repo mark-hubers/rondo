@@ -131,6 +131,65 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     # -- ALWAYS-ON metrics (computed from audit data, included in every result)
     metrics: dict[str, Any] = field(default_factory=dict)
 
+    # -- U-26 to U-30: result parsing helpers (read-only, never raise)
+
+    def extract_json(self) -> dict[str, Any] | None:
+        """U-26: Parse raw_output as JSON. Returns dict or None."""
+        import json as _json
+        import re as _re
+
+        if not self.raw_output:
+            return None
+        try:
+            return _json.loads(self.raw_output)
+        except (ValueError, TypeError):
+            pass
+        ## -- Try extracting JSON object from surrounding text
+        try:
+            match = _re.search(r"\{[^{}]*\}", self.raw_output, _re.DOTALL)
+            if match:
+                return _json.loads(match.group(0))
+        except (ValueError, TypeError):
+            pass
+        return None
+
+    def extract_code_blocks(self) -> list[tuple[str, str]]:
+        """U-27: Extract fenced code blocks. Returns list of (language, content)."""
+        import re as _re
+
+        if not self.raw_output or not isinstance(self.raw_output, str):
+            return []
+        blocks: list[tuple[str, str]] = []
+        for match in _re.finditer(r"```(\w*)\n(.*?)```", self.raw_output, _re.DOTALL):
+            lang = match.group(1) or ""
+            content = match.group(2).rstrip("\n")
+            blocks.append((lang, content))
+        return blocks
+
+    def extract_table(self) -> list[dict[str, str]]:
+        """U-28: Extract first markdown table. Returns list of {header: value} dicts."""
+        if not self.raw_output or not isinstance(self.raw_output, str):
+            return []
+        lines = self.raw_output.strip().splitlines()
+        ## -- Find header row (contains |)
+        header_idx = -1
+        for i, line in enumerate(lines):
+            if "|" in line and i + 1 < len(lines) and "---" in lines[i + 1]:
+                header_idx = i
+                break
+        if header_idx < 0:
+            return []
+        headers = [h.strip() for h in lines[header_idx].split("|") if h.strip()]
+        rows: list[dict[str, str]] = []
+        for line in lines[header_idx + 2 :]:
+            if "|" not in line:
+                break
+            cells = [c.strip() for c in line.split("|") if c.strip()]
+            if cells:
+                row = dict(zip(headers, cells))
+                rows.append(row)
+        return rows
+
 
 @dataclass
 class DispatchUsage:  # pylint: disable=too-many-instance-attributes
@@ -323,7 +382,9 @@ def validate_task(
     # -- REQ-100 req 024: tool_mode validation
     valid_tool_modes = {"none", "sandbox", "default"}
     if task.tool_mode not in valid_tool_modes:
-        errors.append(f"Task '{task.name}' tool_mode '{task.tool_mode}' invalid — must be one of {sorted(valid_tool_modes)}")
+        errors.append(
+            f"Task '{task.name}' tool_mode '{task.tool_mode}' invalid — must be one of {sorted(valid_tool_modes)}"
+        )
 
     # -- REQ-106 req 009: context_data must be JSON-serializable
     if task.context_data:

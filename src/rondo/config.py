@@ -171,6 +171,16 @@ def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
     if not config.report_dir:
         errors.append("report_dir must not be empty")
 
+    # -- U-16: validate project path if set
+    if config.project:
+        from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+        project_path = Path(config.project).expanduser()
+        if not project_path.exists():
+            errors.append(f"--project path does not exist: {config.project}")
+        elif not project_path.is_dir():
+            errors.append(f"--project path is not a directory: {config.project}")
+
 
 # ──────────────────────────────────────────────────────────────────
 #  Config loading — Rondo-STD-109 rules 1-5, 7

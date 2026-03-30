@@ -247,21 +247,28 @@ def rondo_run_file(
                 if old_cc is not None:
                     os.environ["CLAUDECODE"] = old_cc
 
+            tasks_out = [
+                {
+                    "name": tr.task_name,
+                    "status": tr.status,
+                    "duration_sec": tr.duration_sec,
+                    "model": tr.model,
+                    "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
+                    "raw_output": tr.raw_output[:2000] if not dry_run else "",
+                    "cost_usd": tr.cost_usd or 0.0,
+                    "error_code": tr.error_code or "",
+                    "error_message": tr.error_message or "",
+                }
+                for tr in result.task_results
+            ]
+            statuses = [t["status"] for t in tasks_out]
             return {
                 "status": result.status,
                 "round_name": result.round_name,
-                "tasks": [
-                    {
-                        "name": tr.task_name,
-                        "status": tr.status,
-                        "duration_sec": tr.duration_sec,
-                        "model": tr.model,
-                        "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
-                        "raw_output": tr.raw_output[:2000] if not dry_run else "",
-                        "cost_usd": tr.cost_usd or 0.0,
-                    }
-                    for tr in result.task_results
-                ],
+                "tasks": tasks_out,
+                "done_count": statuses.count("done") + statuses.count("skipped"),
+                "error_count": statuses.count("error") + statuses.count("blocked"),
+                "pending_count": statuses.count("pending"),
                 "total_cost_usd": sum(u.cost_usd for u in result.usage),
                 "duration_sec": result.duration_sec,
                 "dry_run": dry_run,

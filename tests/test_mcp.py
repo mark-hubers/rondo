@@ -332,6 +332,31 @@ class TestInlineDispatch:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestRicherStatus:
+    """RONDO-44: status JSON has counts + error levels."""
+
+    def test_status_has_counts(self, tmp_path):
+        """Status includes done_count, error_count, pending_count."""
+        rf = tmp_path / "round.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
+            "    return Round(name='counts', tasks=[\n"
+            "        Task(name='t1', instruction='x', done_when='y'),\n"
+            "        Task(name='t2', instruction='x', done_when='y'),\n"
+            "    ])\n"
+        )
+        result = json.loads(rondo_run_file(str(rf), dry_run=True))
+        assert "done_count" in result
+        assert "error_count" in result
+        assert isinstance(result["done_count"], int)
+
+    def test_inline_has_counts(self):
+        """Inline dispatch also has counts."""
+        result = json.loads(rondo_run_file(prompt="hello", dry_run=True))
+        assert "done_count" in result
+
+
 class TestMCPDispatchE2E:
     """End-to-end MCP dispatch tests — covers all dispatch paths."""
 

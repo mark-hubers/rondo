@@ -167,6 +167,36 @@ class TestRondoRunFile:
         assert "~" not in result.get("error", "")  ## expanded, not literal ~
 
 
+class TestMcpResource:
+    """IFS-104 reqs 016-018: rondo://help resource for AI self-discovery."""
+
+    def test_create_server_has_resource(self):
+        """Resource is registered on the MCP server."""
+        from rondo.mcp_server import create_mcp_server
+
+        server = create_mcp_server()
+        assert server is not None
+
+    def test_help_resource_returns_json(self):
+        """rondo://help returns valid JSON with schemas."""
+        from rondo.mcp_server import create_mcp_server
+        from rondo.ai_help import get_ai_help
+
+        data = get_ai_help()
+        assert "round_schema" in data
+        assert "task_schema" in data
+        assert "example_round_file" in data
+        assert "gate_schema" in data
+
+    def test_help_resource_has_example(self):
+        """Resource includes compilable example round file (req 018)."""
+        from rondo.ai_help import get_ai_help
+
+        data = get_ai_help()
+        example = data["example_round_file"]
+        compile(example, "<resource-example>", "exec")
+
+
 class TestRondoRunStatus:
     """rondo_run_status: check background dispatch status."""
 

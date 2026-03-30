@@ -90,6 +90,30 @@ file can't use Rondo at all.
 | U-29 | Parsing helpers MUST be best-effort — never raise, return None/empty on failure | MUST |
 | U-30 | Parsing helpers MUST NOT modify the original `raw_output` — they are read-only views | MUST |
 
+### MCP DISPATCH STATUS (USH production feedback — Finding #165, #166)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-31 | `rondo_run_status` MUST return per-task progress: task name + status (done/running/pending) for each task in the round | MUST |
+| U-32 | `rondo_run_status` MUST include completed task results inline (raw_output truncated to 2000 chars) so callers don't need to read separate files | MUST |
+
+### INLINE TASK DISPATCH (USH production feedback — Finding #167)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-33 | `rondo_run` MUST accept an optional `prompt` parameter for one-off tasks without a round file. When `prompt` is set, Rondo creates an in-memory Round with one Task using the prompt as instruction | MUST |
+| U-34 | Inline dispatch MUST accept `done_when` parameter (defaults to "Task completed. Return results.") | SHOULD |
+| U-35 | Inline dispatch MUST return the same JSON structure as file-based dispatch | MUST |
+
+### MCP DISPATCH OBSERVABILITY (USH production feedback)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-36 | Background dispatch SHOULD track running cost (sum of completed task costs) in status response | SHOULD |
+| U-37 | `dispatched_at` field in audit OUTCOME records MUST be populated from the INTENT record timestamp (Finding #162) | MUST |
+| U-38 | `round_name` MUST flow from Round.name through dispatch to audit records (Finding #163) | MUST |
+| U-39 | `max_budget` documentation MUST note that budget cap only works with `auth: "api"`, not `auth: "max"` (Finding #164) | MUST |
+
 ---
 
 ## Gap Check: Cross-Spec Impact
@@ -102,6 +126,10 @@ file can't use Rondo at all.
 | U-15–U-19 (--project) | STD-109 | **New config field** — add to COALESCE chain |
 | U-20–U-25 (examples) | REQ-100-052/053/054 | **Implements** existing reqs — no spec change needed |
 | U-26–U-30 (result helpers) | STD-100 | **Extends** data standards — new methods on TaskResult |
+| U-31/U-32 (per-task status) | IFS-104 | **Extends** MCP server — richer status response |
+| U-33–U-35 (inline dispatch) | IFS-104 | **New interface** — prompt-based dispatch without files |
+| U-37/U-38 (audit fixes) | STD-113 | **Bug fix** — dispatched_at + round_name propagation |
+| U-39 (budget docs) | STD-109 | **Documentation** — max_budget limitation on Max plan |
 
 ## Cross-Spec Updates Required
 
@@ -110,7 +138,9 @@ file can't use Rondo at all.
 | REQ-103 | §11 Open Questions | Q3 → DECIDED (U-01, U-04) |
 | REQ-103 | Requirements table | Add req 027: `--skip-preflight` flag |
 | IFS-100 | Interface definition | Add `--ai-help` as formal interface |
-| STD-109 | Configuration table | Add `project` field to COALESCE chain |
+| IFS-104 | MCP tools | U-31/U-32 per-task status, U-33–U-35 inline dispatch |
+| STD-109 | Configuration table | Add `project` field + `max_budget` limitation note |
+| STD-113 | Audit trail | U-37 dispatched_at propagation, U-38 round_name flow |
 | STD-100 | Data Model | Add extract methods to TaskResult |
 | REQ-100 | Package layout | Add `examples/` directory with 4 files |
 
@@ -133,6 +163,12 @@ file can't use Rondo at all.
 | U-24 | Integration | test_examples.py imports and validates all examples |
 | U-26 | Unit | extract_json() parses valid JSON from output |
 | U-29 | Unit | extract_json() returns None on invalid output |
+| U-31 | Unit | rondo_run_status returns per-task name + status |
+| U-32 | Unit | rondo_run_status includes raw_output in completed tasks |
+| U-33 | Unit | rondo_run(prompt="...") creates in-memory round and dispatches |
+| U-35 | Unit | Inline dispatch returns same JSON as file-based |
+| U-37 | Unit | Audit OUTCOME has dispatched_at from INTENT |
+| U-38 | Unit | Audit OUTCOME has round_name from Round.name |
 
 ---
 
@@ -147,6 +183,10 @@ file can't use Rondo at all.
 | 5 | U-15–U-19 | --project flag for cross-repo dispatching |
 | 6 | U-26–U-30 | Result helpers for structured consumption |
 | 7 | U-03, U-04 | Polish: better dry-run output, --skip-preflight |
+| 8 | U-31, U-32 | Per-task status + results in status response (RONDO-42) |
+| 9 | U-33–U-35 | Inline task dispatch without round file (RONDO-43) |
+| 10 | U-37, U-38 | Audit bug fixes: dispatched_at + round_name |
+| 11 | U-36, U-39 | Polish: running cost, budget doc |
 
 ---
 
@@ -191,4 +231,4 @@ file can't use Rondo at all.
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2026-03-30 | Initial — 30 requirements across 6 features. Resolves REQ-103 Q3. Implements REQ-100-052/053/054. |
-| 0.2 | 2026-03-30 | USH production feedback: +6 requirements (U-31 to U-36), 3 bugs, 6 findings logged. |
+| 0.2 | 2026-03-30 | USH production feedback: +9 requirements (U-31 to U-39) in proper tables. 3 categories: MCP status (U-31/32), inline dispatch (U-33-35), observability fixes (U-36-39). 6 verification matrix entries. 4 new build phases (8-11). 6 findings (#162-167). Cross-spec updates for IFS-104, STD-113, STD-109. |

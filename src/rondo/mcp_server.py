@@ -162,6 +162,26 @@ def rondo_spool_consume() -> str:
         return json.dumps({"consumed": [], "count": 0, "error": str(exc)})
 
 
+def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
+    """U-47: push completion notification via MCP session (best-effort)."""
+    if session is None:
+        return
+    try:
+        import asyncio
+
+        msg = (
+            f"Rondo dispatch {dispatch_id} completed: "
+            f"{result.get('done_count', 0)} done, "
+            f"{result.get('error_count', 0)} errors, "
+            f"${result.get('total_cost_usd', 0):.2f}"
+        )
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(session.send_log_message(level="info", data=msg))
+        loop.close()
+    except (AttributeError, TypeError, OSError, RuntimeError):
+        pass  # -- U-49: best-effort, polling is fallback
+
+
 def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str, str, str | None]:
     """Validate and resolve file_path + project. Returns (file_path, project, error_json)."""
     from pathlib import Path
@@ -193,6 +213,7 @@ def rondo_run_file(
     background: bool = False,
     prompt: str = "",
     done_when: str = "Task completed. Return results.",
+    _session: Any = None,
 ) -> str:
     """Run a round file or inline prompt — MCP dispatch tool.
 
@@ -300,6 +321,7 @@ def rondo_run_file(
             result = _dispatch()
             result["dispatch_id"] = dispatch_id
             _background_results[dispatch_id] = result
+            _notify_completion(_session, dispatch_id, result)
 
         thread = threading.Thread(target=_bg_worker, daemon=True)
         thread.start()
@@ -422,7 +444,15 @@ def create_mcp_server() -> Any:
         background: bool = False,
         prompt: str = "",
         done_when: str = "Task completed. Return results.",
+        ctx: Any = None,
     ) -> str:
+        # -- U-47: capture session for background progress notifications
+        session = None
+        if ctx is not None:
+            try:
+                session = ctx.session
+            except (AttributeError, TypeError):
+                pass
         return rondo_run_file(
             file_path=file_path,
             dry_run=dry_run,
@@ -433,6 +463,7 @@ def create_mcp_server() -> Any:
             background=background,
             prompt=prompt,
             done_when=done_when,
+            _session=session,
         )
 
     @mcp.tool(

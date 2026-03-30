@@ -125,6 +125,9 @@ file can't use Rondo at all.
 | U-44 | Polling `rondo_run_status` MUST be lightweight: no file reads, no DB queries, no AI calls — in-memory dict lookup only | MUST |
 | U-45 | `rondo_run_status(brief=True)` MUST return only `{status, done_count, error_count, pending_count}` — minimal tokens for polling loops | MUST |
 | U-46 | `rondo://help` resource and `--ai-help` MUST document the polling pattern: brief=True for cheap polling, brief=False for full results when done | MUST |
+| U-47 | Background dispatch SHOULD use MCP `report_progress` to push per-task completion to client without polling — capture Context.session before tool returns, use in background thread | SHOULD |
+| U-48 | When progress notifications are available, final status SHOULD be pushed as a completion notification so client never needs to poll | SHOULD |
+| U-49 | Progress notifications MUST be best-effort — if push fails, polling via `rondo_run_status` remains the fallback (MCP spec: notifications can be dropped) | MUST |
 
 ---
 

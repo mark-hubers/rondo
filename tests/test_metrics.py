@@ -257,4 +257,51 @@ class TestMetricsSerialization:
         assert report.health == "GREEN"
 
 
+class TestMetricsInTaskResult:
+    """ALWAYS-ON: metrics embedded in every TaskResult — no second call."""
+
+    def test_task_result_has_metrics_field(self):
+        """TaskResult has a metrics dict field."""
+        from rondo.engine import TaskResult
+
+        tr = TaskResult(task_name="t")
+        assert hasattr(tr, "metrics")
+        assert isinstance(tr.metrics, dict)
+
+    def test_dispatch_returns_metrics(self):
+        """dispatch_task includes metrics in result."""
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+        from rondo.engine import Task
+
+        task = Task(name="auto", auto_fn=lambda: (True, "ok"))
+        config = RondoConfig()
+        result, _ = dispatch_task(task, config)
+        assert "health" in result.metrics
+        assert "total_dispatches" in result.metrics
+
+    def test_dry_run_includes_metrics(self):
+        """Even dry-run has metrics."""
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+        from rondo.engine import Task
+
+        task = Task(name="t", instruction="do", done_when="done")
+        config = RondoConfig(dry_run=True)
+        result, _ = dispatch_task(task, config)
+        assert "health" in result.metrics
+
+    def test_error_dispatch_includes_metrics(self):
+        """Error dispatch has metrics too."""
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+        from rondo.engine import Task
+
+        task = Task(name="broken")
+        config = RondoConfig()
+        result, _ = dispatch_task(task, config)
+        assert result.status == "error"
+        assert "health" in result.metrics
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a6.97a6b7

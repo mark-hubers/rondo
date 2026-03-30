@@ -54,6 +54,17 @@ _cc_version_cache: tuple[int, int, int] | None = None
 _BARE_MIN_VERSION = (2, 1, 81)
 
 
+def _attach_metrics(result: TaskResult, config: RondoConfig) -> None:
+    """Attach metrics to result — ALWAYS-ON, every path."""
+    try:
+        from rondo.metrics import compute_metrics
+
+        report = compute_metrics(audit_dir=config.audit_dir)
+        result.metrics = report.to_dict()
+    except (ImportError, OSError, TypeError):
+        pass
+
+
 def _get_audit_trail(config: RondoConfig) -> AuditTrail | None:
     """Create AuditTrail if audit_dir is configured — STD-113."""
     if not config.audit_dir:
@@ -206,41 +217,41 @@ def dispatch_task(
     if task_errors:
         msg = "; ".join(task_errors)
         logger.warning("Task '%s' failed validation: %s", task.name, msg)
-        return (
-            TaskResult(
-                task_name=task.name,
-                status="error",
-                error_code="ERR_INTERNAL",
-                error_message=f"Validation failed: {msg}",
-                raw_output="",
-                model="",
-                auth_mode=config.auth,
-                timestamp=timestamp,
-            ),
-            DispatchUsage(task_name=task.name),
+        result = TaskResult(
+            task_name=task.name,
+            status="error",
+            error_code="ERR_INTERNAL",
+            error_message=f"Validation failed: {msg}",
+            raw_output="",
+            model="",
+            auth_mode=config.auth,
+            timestamp=timestamp,
         )
+        _attach_metrics(result, config)
+        return result, DispatchUsage(task_name=task.name)
 
     model = resolve_model(cli_model, task, config)
 
     # -- Case 1: Dry run (Rondo-REQ-100 req 16)
     if config.dry_run:
         prompt = build_prompt(task) if not task.is_auto else f"[AUTO] {task.name}"
-        return (
-            TaskResult(
-                task_name=task.name,
-                status="skipped",
-                prompt_sent=prompt,
-                raw_output="",
-                model=model,
-                auth_mode=config.auth,
-                timestamp=timestamp,
-            ),
-            DispatchUsage(task_name=task.name, model=model),
+        result = TaskResult(
+            task_name=task.name,
+            status="skipped",
+            prompt_sent=prompt,
+            raw_output="",
+            model=model,
+            auth_mode=config.auth,
+            timestamp=timestamp,
         )
+        _attach_metrics(result, config)
+        return result, DispatchUsage(task_name=task.name, model=model)
 
     # -- Case 2: Auto task (Rondo-REQ-100 req 4)
     if task.is_auto:
-        return _dispatch_auto(task, config, model, timestamp)
+        r, u = _dispatch_auto(task, config, model, timestamp)
+        _attach_metrics(r, config)
+        return r, u
 
     # -- Case 3: Interactive task (Rondo-REQ-100 reqs 12-28)
     return _dispatch_interactive(task, config, model, timestamp)
@@ -484,6 +495,9 @@ def _finalize_dispatch(
         )
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Spool write failed (non-fatal): %s", exc)
+
+    # -- ALWAYS-ON: embed metrics in every result (no second call)
+    _attach_metrics(result, config)
 
     # -- REQ-104: log to history
     _log_to_history(result, usage, config)

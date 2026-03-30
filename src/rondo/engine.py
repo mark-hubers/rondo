@@ -128,6 +128,9 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     # -- audit trail (STD-113: callers can reference this dispatch)
     dispatch_id: str = ""
 
+    # -- ALWAYS-ON metrics (computed from audit data, included in every result)
+    metrics: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class DispatchUsage:  # pylint: disable=too-many-instance-attributes

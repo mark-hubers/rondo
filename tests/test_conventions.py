@@ -158,7 +158,7 @@ class TestImportLayering:
         "spool.py": set(),
         "_version.py": set(),
         "metrics.py": set(),
-        "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit", "spool"},
+        "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit", "spool", "metrics"},
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner", "preflight", "spool"},

@@ -91,6 +91,17 @@ def _get_quick_examples() -> list[dict[str, str]]:
             "task": 'Task(name="db-update", instruction="Query the API for new records. Add any new ones to the SQLite database.", done_when="New records added. Count reported.")',
             "run": "rondo_run(file_path='scan_round.py', project='~/my-project')",
         },
+        {
+            "name": "Background dispatch with cheap polling",
+            "task": 'rondo_run(file_path="scan.py", dry_run=False, background=True)',
+            "run": "rondo_run_status(dispatch_id='mcp-xxx', brief=True)  # ~50 tokens per poll",
+            "note": "brief=True returns {status, done_count, error_count} only. Use brief=False when done to get full results.",
+        },
+        {
+            "name": "One-off inline task (no round file)",
+            "task": 'rondo_run(prompt="Search for new trials", dry_run=False, model="haiku")',
+            "run": "Returns result directly — no polling needed for sync dispatch.",
+        },
     ]
 
 

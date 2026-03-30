@@ -317,11 +317,13 @@ def rondo_run_file(
     return json.dumps(_dispatch(), indent=2)
 
 
-def rondo_run_status(dispatch_id: str = "") -> str:
+def rondo_run_status(dispatch_id: str = "", brief: bool = False) -> str:
     """Check status of a background MCP dispatch.
 
-    Returns the result if complete, or running status if still in progress.
-    With no dispatch_id, lists all background dispatches.
+    Args:
+        dispatch_id: Get status of specific dispatch. Empty = list all.
+        brief: If True, return only status + counts (minimal tokens for polling).
+               If False, return full result with task details and output.
     """
     if not dispatch_id:
         return json.dumps(
@@ -336,6 +338,20 @@ def rondo_run_status(dispatch_id: str = "") -> str:
     result = _background_results.get(dispatch_id)
     if not result:
         return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
+
+    # -- U-45: brief mode — minimal tokens for polling loops
+    if brief:
+        return json.dumps(
+            {
+                "status": result.get("status", "unknown"),
+                "dispatch_id": dispatch_id,
+                "done_count": result.get("done_count", 0),
+                "error_count": result.get("error_count", 0),
+                "pending_count": result.get("pending_count", 0),
+                "total_cost_usd": result.get("total_cost_usd", 0.0),
+            }
+        )
+
     return json.dumps(result, indent=2)
 
 
@@ -421,10 +437,10 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_run_status",
-        description="Check status of background MCP dispatch. No args = list all. dispatch_id = get result.",
+        description="Check background dispatch. brief=True for cheap polling (status+counts only). brief=False for full results when done.",
     )
-    def _run_status(dispatch_id: str = "") -> str:
-        return rondo_run_status(dispatch_id=dispatch_id)
+    def _run_status(dispatch_id: str = "", brief: bool = False) -> str:
+        return rondo_run_status(dispatch_id=dispatch_id, brief=brief)
 
     @mcp.tool(
         name="rondo_spool_consume",

@@ -356,6 +356,33 @@ class TestRicherStatus:
         result = json.loads(rondo_run_file(prompt="hello", dry_run=True))
         assert "done_count" in result
 
+    def test_brief_status_minimal(self):
+        """U-45: brief=True returns only status + counts."""
+        result = json.loads(rondo_run_status(brief=True))
+        ## -- List mode with brief should have dispatches with minimal fields
+        assert "dispatches" in result
+
+    def test_brief_status_no_tasks(self):
+        """U-45: brief mode doesn't include full task array."""
+        ## -- Put a fake completed result in background store
+        from rondo.mcp_server import _background_results
+        _background_results["test-brief"] = {
+            "status": "done",
+            "dispatch_id": "test-brief",
+            "done_count": 2,
+            "error_count": 0,
+            "pending_count": 0,
+            "tasks": [{"name": "t1", "status": "done", "raw_output": "x" * 1000}],
+            "total_cost_usd": 0.5,
+        }
+        brief = json.loads(rondo_run_status("test-brief", brief=True))
+        assert brief["status"] == "done"
+        assert brief["done_count"] == 2
+        assert "tasks" not in brief  ## brief omits task details
+        assert "raw_output" not in json.dumps(brief)
+        ## -- Cleanup
+        del _background_results["test-brief"]
+
 
 class TestMCPDispatchE2E:
     """End-to-end MCP dispatch tests — covers all dispatch paths."""

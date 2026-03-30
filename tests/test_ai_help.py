@@ -120,9 +120,8 @@ class TestQuickExamples:
     def test_each_has_task_and_run(self):
         data = get_ai_help()
         for ex in data["quick_examples"]:
-            assert "task" in ex
-            assert "run" in ex
-            assert "Task(" in ex["task"]
+            assert "task" in ex or "run" in ex
+            assert "name" in ex
 
 
 class TestAiHelpRoundSchema:

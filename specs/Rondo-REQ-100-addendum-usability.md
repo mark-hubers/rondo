@@ -1,0 +1,157 @@
+# Rondo-REQ-100 Addendum: Usability — Self-Service Round Authoring
+
+**Parent:** Rondo-REQ-100-core.md
+**Created:** 2026-03-30
+**Origin:** Session 93 — USH deep-scan attempt exposed 6 usability gaps
+**Status:** APPROVED
+
+---
+
+## Problem Statement
+
+When a user (human or AI agent) tries to write a Rondo round file for the first
+time, they hit multiple friction points:
+
+1. No way to discover the Round/Task API without reading source code
+2. No scaffolding — must write from scratch, guess imports
+3. Dry-run blocked inside Claude Code (preflight rejects nested session)
+4. No way to target a different project/workdir from the round file
+5. Example rounds spec'd (REQ-100-052/053/054) but never built
+6. No helpers to parse structured data from task results
+
+**Evidence:** Session 93 USH scan attempt — 5 failed iterations, sys.path hack,
+wrong return type, preflight block on dry-run. A user who can't author a round
+file can't use Rondo at all.
+
+---
+
+## Requirements
+
+### DRY-RUN + PREFLIGHT (resolves REQ-103 Q3: OPEN → DECIDED)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-01 | `--dry-run` MUST skip preflight entirely — dry-run shows prompts only, no dispatch, no Claude binary needed | MUST |
+| U-02 | `--dry-run` inside a Claude Code session (CLAUDECODE env set) MUST work — it only formats prompts, never spawns subprocess | MUST |
+| U-03 | When `--dry-run` is active, output MUST show: task name, model, prompt text, context files, done_when criteria — enough to verify the round file is correct | MUST |
+| U-04 | `--skip-preflight` flag MUST be available on `rondo run` and `rondo overnight` — logged as WARNING in audit, never silent | SHOULD |
+
+**Decision (REQ-103 Q3):** `--skip-preflight` is allowed. It MUST log a warning.
+`--dry-run` always skips preflight (no dispatch = no preflight needed).
+
+### AI-HELP ENRICHMENT
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-05 | `rondo --ai-help` MUST include the full Round dataclass schema: field names, types, defaults, descriptions | MUST |
+| U-06 | `rondo --ai-help` MUST include the full Task dataclass schema: all fields including instruction, context_files, done_when, model, mode, auto_fn | MUST |
+| U-07 | `rondo --ai-help` MUST include a minimal round file example (copy-paste ready) showing `from rondo.engine import Round, Task` and `def build_round() -> Round:` | MUST |
+| U-08 | `rondo --ai-help` MUST include the Gate/GateResult schema for users writing gated rounds | SHOULD |
+| U-09 | `rondo --ai-help` output MUST be valid JSON (parseable by AI agents via `--ai-help | jq`) | MUST |
+
+### INIT SCAFFOLDING
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-10 | `rondo init` MUST create a starter round file in the current directory | MUST |
+| U-11 | `rondo init` MUST generate a valid Python file with `build_round() -> Round:` that runs with `rondo run` immediately (no edits needed for hello-world) | MUST |
+| U-12 | `rondo init --name <name>` MUST set the round name and first task name from the flag | SHOULD |
+| U-13 | Generated file MUST include comments explaining each field and common patterns | MUST |
+| U-14 | `rondo init` MUST NOT overwrite an existing file — error with message | MUST |
+
+### PROJECT/WORKDIR FLAG
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-15 | `rondo run --project <path>` MUST set the working directory for all dispatched tasks to `<path>` | MUST |
+| U-16 | `--project` path MUST be validated: directory exists, is readable | MUST |
+| U-17 | When `--project` is set, `claude -p` subprocess MUST be spawned with `cwd=<path>` so tasks have access to that project's files and MCP servers | MUST |
+| U-18 | `--project` MUST be available on `rondo run`, `rondo live`, and `rondo overnight` | MUST |
+| U-19 | If `--project` is not set, default is CWD (current behavior, no change) | MUST |
+
+### EXAMPLE ROUNDS (implements existing REQ-100-052/053/054)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-20 | `examples/round_hello.py` — 1 task, no gates, simplest possible round. Must run with `rondo run examples/round_hello.py --dry-run` | MUST |
+| U-21 | `examples/round_file_check.py` — auto task (check file exists) + pre-gate (verify CWD). Demonstrates auto_fn and gate patterns | MUST |
+| U-22 | `examples/round_multi_task.py` — 3 tasks with model hints, context_files, different done_when criteria. Parallel-ready | MUST |
+| U-23 | `examples/round_overnight.py` — multi-phase overnight round file. Demonstrates build_phases() for `rondo overnight` | SHOULD |
+| U-24 | All example files MUST be tested in the test suite (test_examples.py) — living docs, not dead code | MUST |
+| U-25 | All example files MUST have header comments with usage: `rondo run examples/X.py --dry-run` | MUST |
+
+### RESULT PARSING HELPERS
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-26 | `TaskResult.extract_json()` MUST attempt to parse `raw_output` as JSON, returning dict or None | SHOULD |
+| U-27 | `TaskResult.extract_code_blocks()` MUST extract fenced code blocks from `raw_output`, returning list of (language, content) tuples | SHOULD |
+| U-28 | `TaskResult.extract_table()` MUST extract markdown tables from `raw_output`, returning list of dicts (header→value) | MAY |
+| U-29 | Parsing helpers MUST be best-effort — never raise, return None/empty on failure | MUST |
+| U-30 | Parsing helpers MUST NOT modify the original `raw_output` — they are read-only views | MUST |
+
+---
+
+## Gap Check: Cross-Spec Impact
+
+| This Addendum | Affects | How |
+|--------------|---------|-----|
+| U-01/U-02 (dry-run skip preflight) | REQ-103 Q3 | **Resolves** — Q3 answered: yes, skip allowed with warning |
+| U-04 (--skip-preflight) | REQ-103 | **New flag** — add to preflight spec |
+| U-05–U-09 (--ai-help) | IFS-100 | **New interface** — ai-help is a machine-readable API surface |
+| U-15–U-19 (--project) | STD-109 | **New config field** — add to COALESCE chain |
+| U-20–U-25 (examples) | REQ-100-052/053/054 | **Implements** existing reqs — no spec change needed |
+| U-26–U-30 (result helpers) | STD-100 | **Extends** data standards — new methods on TaskResult |
+
+## Cross-Spec Updates Required
+
+| Spec | Section | Update |
+|------|---------|--------|
+| REQ-103 | §11 Open Questions | Q3 → DECIDED (U-01, U-04) |
+| REQ-103 | Requirements table | Add req 027: `--skip-preflight` flag |
+| IFS-100 | Interface definition | Add `--ai-help` as formal interface |
+| STD-109 | Configuration table | Add `project` field to COALESCE chain |
+| STD-100 | Data Model | Add extract methods to TaskResult |
+| REQ-100 | Package layout | Add `examples/` directory with 4 files |
+
+---
+
+## Verification Matrix
+
+| Req | Test Type | Test Description |
+|-----|-----------|-----------------|
+| U-01 | Unit | `--dry-run` with no claude binary works |
+| U-02 | Unit | `--dry-run` with CLAUDECODE env set works |
+| U-03 | Unit | Dry-run output contains task name, prompt, model |
+| U-05 | Unit | `--ai-help` JSON contains Round schema |
+| U-06 | Unit | `--ai-help` JSON contains Task schema with all fields |
+| U-07 | Unit | `--ai-help` JSON contains example round file |
+| U-10 | Unit | `rondo init` creates valid file |
+| U-11 | E2E | Generated file runs with `rondo run --dry-run` |
+| U-15 | Unit | `--project` sets subprocess CWD |
+| U-20–U-23 | E2E | Each example runs with `--dry-run` |
+| U-24 | Integration | test_examples.py imports and validates all examples |
+| U-26 | Unit | extract_json() parses valid JSON from output |
+| U-29 | Unit | extract_json() returns None on invalid output |
+
+---
+
+## Build Order
+
+| Phase | Reqs | Why This Order |
+|-------|------|---------------|
+| 1 | U-01, U-02 | Unblocks testing everything else from inside CC |
+| 2 | U-05–U-09 | Unblocks AI agents discovering the API |
+| 3 | U-10–U-14 | Unblocks first-time users creating round files |
+| 4 | U-20–U-25 | Living examples for learning and testing |
+| 5 | U-15–U-19 | --project flag for cross-repo dispatching |
+| 6 | U-26–U-30 | Result helpers for structured consumption |
+| 7 | U-03, U-04 | Polish: better dry-run output, --skip-preflight |
+
+---
+
+## Change Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 0.1 | 2026-03-30 | Initial — 30 requirements across 6 features. Resolves REQ-103 Q3. Implements REQ-100-052/053/054. |

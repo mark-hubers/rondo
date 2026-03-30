@@ -82,4 +82,82 @@ class TestAiHelpCLI:
         assert exit_code == 0
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  U-05 to U-09: Enriched ai-help (RONDO-33)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAiHelpRoundSchema:
+    """U-05: --ai-help includes Round dataclass schema."""
+
+    def test_round_schema_present(self):
+        data = get_ai_help()
+        assert "round_schema" in data
+
+    def test_round_schema_has_fields(self):
+        data = get_ai_help()
+        rs = data["round_schema"]
+        assert "name" in str(rs)
+        assert "tasks" in str(rs)
+        assert "pre_gates" in str(rs)
+        assert "post_gates" in str(rs)
+
+
+class TestAiHelpTaskSchemaComplete:
+    """U-06: --ai-help Task schema includes ALL fields."""
+
+    def test_task_schema_has_description(self):
+        data = get_ai_help()
+        props = data["task_schema"]["properties"]
+        assert "description" in props
+
+    def test_task_schema_has_mode(self):
+        data = get_ai_help()
+        props = data["task_schema"]["properties"]
+        assert "mode" in props
+
+    def test_task_schema_has_auto_fn(self):
+        data = get_ai_help()
+        props = data["task_schema"]["properties"]
+        assert "auto_fn" in props
+
+
+class TestAiHelpExampleRoundFile:
+    """U-07: --ai-help includes a copy-paste ready example round file."""
+
+    def test_example_round_file_present(self):
+        data = get_ai_help()
+        assert "example_round_file" in data
+
+    def test_example_has_build_round(self):
+        data = get_ai_help()
+        example = data["example_round_file"]
+        assert "def build_round()" in example
+
+    def test_example_has_imports(self):
+        data = get_ai_help()
+        example = data["example_round_file"]
+        assert "from rondo.engine import Round, Task" in example
+
+    def test_example_is_valid_python(self):
+        """The example must actually compile."""
+        data = get_ai_help()
+        compile(data["example_round_file"], "<ai-help-example>", "exec")
+
+
+class TestAiHelpGateSchema:
+    """U-08: --ai-help includes Gate/GateResult schema."""
+
+    def test_gate_schema_present(self):
+        data = get_ai_help()
+        assert "gate_schema" in data
+
+    def test_gate_schema_has_fields(self):
+        data = get_ai_help()
+        gs = data["gate_schema"]
+        assert "name" in str(gs)
+        assert "check_fn" in str(gs)
+        assert "blocking" in str(gs)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.a1b2c5

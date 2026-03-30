@@ -29,10 +29,13 @@ def get_ai_help() -> dict[str, Any]:
         "install": "uv tool install --editable ~/git/mhubers/ace2/rondo",
         "commands": _get_commands(),
         "config": _get_config_options(),
+        "round_schema": _get_round_schema(),
         "task_schema": _get_task_schema(),
+        "gate_schema": _get_gate_schema(),
         "result_schema": _get_result_schema(),
         "capabilities": get_capabilities(),
         "examples": _get_examples(),
+        "example_round_file": _get_example_round_file(),
     }
 
 
@@ -92,15 +95,51 @@ def _get_commands() -> list[dict[str, str]]:
     """All CLI commands with descriptions."""
     return [
         {"name": "run", "description": "Execute a round definition file", "usage": "rondo run <file.py> [flags]"},
-        {"name": "live", "description": "Execute round in live mode (human reviews each task)", "usage": "rondo live <file.py> [--from N] [--task N]"},
-        {"name": "overnight", "description": "Run overnight automation with phase scheduling", "usage": "rondo overnight <file.py> [--mode minimal|standard|full]"},
-        {"name": "preflight", "description": "Check dispatch environment without running", "usage": "rondo preflight [--json]"},
-        {"name": "history", "description": "Show dispatch history with cost tracking", "usage": "rondo history [--model M] [--status S] [--expensive] [--json]"},
-        {"name": "report", "description": "Generate morning report from results", "usage": "rondo report <results_dir>"},
-        {"name": "audit", "description": "Query dispatch audit trail (always-on, every dispatch recorded)", "usage": "rondo audit [dispatch_id] [--cost] [--failed] [--json]"},
-        {"name": "flaky", "description": "Show flaky task templates with flip rates", "usage": "rondo flaky [--json] [--threshold 0.20]"},
-        {"name": "spool", "description": "Manage result spool (list/clean/export pending results)", "usage": "rondo spool [list|clean|export|consume] [--all] [--since YYYY-MM-DD] [--json]"},
-        {"name": "metrics", "description": "Dispatch metrics for dashboards and health (cost, reliability, latency, tokens)", "usage": "rondo metrics [--json]"},
+        {
+            "name": "live",
+            "description": "Execute round in live mode (human reviews each task)",
+            "usage": "rondo live <file.py> [--from N] [--task N]",
+        },
+        {
+            "name": "overnight",
+            "description": "Run overnight automation with phase scheduling",
+            "usage": "rondo overnight <file.py> [--mode minimal|standard|full]",
+        },
+        {
+            "name": "preflight",
+            "description": "Check dispatch environment without running",
+            "usage": "rondo preflight [--json]",
+        },
+        {
+            "name": "history",
+            "description": "Show dispatch history with cost tracking",
+            "usage": "rondo history [--model M] [--status S] [--expensive] [--json]",
+        },
+        {
+            "name": "report",
+            "description": "Generate morning report from results",
+            "usage": "rondo report <results_dir>",
+        },
+        {
+            "name": "audit",
+            "description": "Query dispatch audit trail (always-on, every dispatch recorded)",
+            "usage": "rondo audit [dispatch_id] [--cost] [--failed] [--json]",
+        },
+        {
+            "name": "flaky",
+            "description": "Show flaky task templates with flip rates",
+            "usage": "rondo flaky [--json] [--threshold 0.20]",
+        },
+        {
+            "name": "spool",
+            "description": "Manage result spool (list/clean/export pending results)",
+            "usage": "rondo spool [list|clean|export|consume] [--all] [--since YYYY-MM-DD] [--json]",
+        },
+        {
+            "name": "metrics",
+            "description": "Dispatch metrics for dashboards and health (cost, reliability, latency, tokens)",
+            "usage": "rondo metrics [--json]",
+        },
     ]
 
 
@@ -111,31 +150,136 @@ def _get_config_options() -> list[dict[str, Any]]:
         {"name": "default_model", "type": "string", "default": "sonnet", "values": ["sonnet", "opus", "haiku"]},
         {"name": "effort", "type": "string", "default": "high", "values": ["low", "medium", "high", "max"]},
         {"name": "workers", "type": "int", "default": 4, "description": "Parallel dispatch workers"},
-        {"name": "permission_mode", "type": "string", "default": "auto", "values": ["default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"]},
-        {"name": "bare", "type": "bool", "default": False, "description": "Use --bare for fast dispatch (CC >= 2.1.81)"},
+        {
+            "name": "permission_mode",
+            "type": "string",
+            "default": "auto",
+            "values": ["default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"],
+        },
+        {
+            "name": "bare",
+            "type": "bool",
+            "default": False,
+            "description": "Use --bare for fast dispatch (CC >= 2.1.81)",
+        },
         {"name": "json_schema", "type": "string", "default": "", "description": "'auto' for Rondo result schema"},
-        {"name": "dispatch_system_prompt", "type": "string", "default": "", "description": "'auto' for Rondo dispatch prompt"},
+        {
+            "name": "dispatch_system_prompt",
+            "type": "string",
+            "default": "",
+            "description": "'auto' for Rondo dispatch prompt",
+        },
         {"name": "max_budget_usd", "type": "float", "default": None, "description": "Cost cap per task in USD"},
         {"name": "task_timeout_sec", "type": "int", "default": 300},
         {"name": "dry_run", "type": "bool", "default": False},
     ]
 
 
-def _get_task_schema() -> dict[str, Any]:
-    """Task definition schema for round files."""
+def _get_round_schema() -> dict[str, Any]:
+    """Round definition schema — U-05."""
     return {
         "type": "object",
-        "required": ["name", "instruction", "done_when"],
+        "required": ["name"],
         "properties": {
-            "name": {"type": "string", "description": "Unique task name within round"},
-            "instruction": {"type": "string", "description": "What Claude should do (the 'Do' field)"},
-            "done_when": {"type": "string", "description": "Completion criteria (the 'Done' field)"},
-            "context_files": {"type": "array", "items": {"type": "string"}, "description": "Files for context (the 'Read' field)"},
-            "context_data": {"type": "object", "description": "Structured data injected into prompt"},
-            "model": {"type": "string", "description": "Model hint (COALESCE: task → config → default)"},
-            "tool_mode": {"type": "string", "enum": ["none", "sandbox", "default"]},
-            "human_input": {"type": "string", "description": "Prompt for human before dispatch"},
+            "name": {"type": "string", "description": "Round name (unique identifier)"},
+            "tasks": {
+                "type": "array",
+                "items": {"$ref": "#/task_schema"},
+                "description": "List of Task objects to execute",
+            },
+            "pre_gates": {
+                "type": "array",
+                "items": {"$ref": "#/gate_schema"},
+                "description": "Gates checked BEFORE any task runs (all must pass)",
+            },
+            "post_gates": {
+                "type": "array",
+                "items": {"$ref": "#/gate_schema"},
+                "description": "Gates checked AFTER all tasks complete",
+            },
         },
+        "note": "Import: from rondo.engine import Round, Task, Gate",
+    }
+
+
+def _get_task_schema() -> dict[str, Any]:
+    """Task definition schema — U-06 (complete fields)."""
+    return {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "Unique task name within round",
+            },
+            "description": {
+                "type": "string",
+                "default": "",
+                "description": "Brief human summary of what this task does",
+            },
+            "instruction": {
+                "type": "string",
+                "default": "",
+                "description": "What Claude should do (the 'Do' field of three-field contract)",
+            },
+            "context_files": {
+                "type": "array",
+                "items": {"type": "string"},
+                "default": [],
+                "description": "Files Claude should read for context (the 'Read' field)",
+            },
+            "done_when": {
+                "type": "string",
+                "default": "",
+                "description": "Completion criteria (the 'Done' field)",
+            },
+            "context_data": {
+                "type": "object",
+                "default": {},
+                "description": "Structured data injected into prompt (REQ-106)",
+            },
+            "auto_fn": {
+                "type": "callable",
+                "default": None,
+                "description": "Python function returning (bool, str) — alternative to three-field contract for non-AI tasks",
+            },
+            "model": {
+                "type": "string",
+                "default": None,
+                "description": "Model hint — COALESCE: task.model → config.default_model → 'sonnet'",
+            },
+            "mode": {
+                "type": "string",
+                "enum": ["interactive", "auto"],
+                "default": "interactive",
+                "description": "Task mode — 'interactive' dispatches to Claude, 'auto' calls auto_fn",
+            },
+        },
+        "note": "Interactive tasks need instruction + done_when. Auto tasks need auto_fn.",
+    }
+
+
+def _get_gate_schema() -> dict[str, Any]:
+    """Gate definition schema — U-08."""
+    return {
+        "type": "object",
+        "required": ["name", "check_fn"],
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "Gate name for logging and reporting",
+            },
+            "check_fn": {
+                "type": "callable",
+                "description": "Function returning (bool, str) — (passed, detail). Takes NO arguments. Capture context via closure.",
+            },
+            "blocking": {
+                "type": "boolean",
+                "default": True,
+                "description": "If True and gate fails, round is aborted. If False, failure is logged but round continues.",
+            },
+        },
+        "note": "Import: from rondo.engine import Gate",
     }
 
 
@@ -157,11 +301,58 @@ def _get_examples() -> list[dict[str, str]]:
     """Usage examples for AI agents."""
     return [
         {"description": "Simple dispatch", "code": "rondo run my_round.py"},
-        {"description": "With structured output", "code": "rondo run my_round.py --json-schema auto --system-prompt auto"},
+        {
+            "description": "With structured output",
+            "code": "rondo run my_round.py --json-schema auto --system-prompt auto",
+        },
         {"description": "Cost-capped dispatch", "code": "rondo run my_round.py --max-budget 0.50"},
         {"description": "Check environment first", "code": "rondo preflight --json"},
         {"description": "See what would execute", "code": "rondo run my_round.py --dry-run --verbose"},
+        {"description": "Scaffold a new round", "code": "rondo init"},
+        {"description": "Target another project", "code": "rondo run scan.py --project ~/my-project"},
     ]
+
+
+def _get_example_round_file() -> str:
+    """Copy-paste ready example round file — U-07."""
+    return '''"""Example Rondo round file — copy this to get started.
+
+Usage:
+    rondo run this_file.py --dry-run      # preview
+    rondo run this_file.py                # execute
+    rondo run this_file.py --model haiku  # use haiku
+"""
+
+from rondo.engine import Round, Task
+
+
+def build_round() -> Round:
+    """Define the tasks for this round."""
+    return Round(
+        name="my-round",
+        tasks=[
+            Task(
+                name="review-code",
+                description="Review Python code for issues",
+                instruction="""Review the code in src/ for:
+1. Security issues
+2. Performance problems
+3. Missing error handling
+
+Report findings as a numbered list.""",
+                context_files=["src/main.py", "src/utils.py"],
+                done_when="All files reviewed. Findings listed.",
+            ),
+            Task(
+                name="check-tests",
+                description="Verify test coverage",
+                instruction="Run pytest and report coverage gaps.",
+                done_when="Test results shown. Coverage gaps identified.",
+                model="haiku",  # -- cheaper model for simple task
+            ),
+        ],
+    )
+'''
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.a1b3c6

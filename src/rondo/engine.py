@@ -22,6 +22,19 @@ from typing import Any
 TERMINAL_STATES: set[str] = {"done", "blocked", "partial", "error", "skipped"}
 VALID_STATES: set[str] = {"pending", "in_progress"} | TERMINAL_STATES
 
+# -- H-15: Canonical error codes (STD-107 security hardening)
+ERR_INVALID_INPUT = "ERR_INVALID_INPUT"
+ERR_INPUT_TOO_LARGE = "ERR_INPUT_TOO_LARGE"
+ERR_LIMIT_EXCEEDED = "ERR_LIMIT_EXCEEDED"
+ERR_INTERNAL = "ERR_INTERNAL"
+ERR_TIMEOUT = "ERR_TIMEOUT"
+ERR_WATCHDOG_TIMEOUT = "ERR_WATCHDOG_TIMEOUT"
+ERR_CONFIG = "ERR_CONFIG"
+ERR_PROVIDER = "ERR_PROVIDER"
+ERR_MUTATIONS_DISABLED = "ERR_MUTATIONS_DISABLED"
+ERR_NESTED_SESSION = "ERR_NESTED_SESSION"
+ERR_AUTH = "ERR_AUTH"
+
 
 # ──────────────────────────────────────────────────────────────────
 #  Dataclasses — Rondo-REQ-100 reqs 1-5, Rondo-STD-108, Rondo-REQ-100 Data Boundary

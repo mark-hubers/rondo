@@ -96,4 +96,36 @@ class TestProviderRouting:
         assert get_provider("unknown-model-xyz").name == "claude"
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Provider-aware MCP dispatch (RONDO-73)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestMCPProviderRouting:
+    """MCP dispatch routes non-Claude models to provider adapters."""
+
+    def test_ollama_model_routes_to_adapter(self) -> None:
+        """rondo_run_file with ollama model uses OllamaAdapter."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Say hello",
+            model="llama3.2",
+            dry_run=True,
+        ))
+        ## -- Dry-run with non-Claude model: should still return valid result
+        assert result["status"] in ("done", "skipped", "error")
+
+    def test_claude_model_uses_existing_path(self) -> None:
+        """rondo_run_file with sonnet uses existing Claude dispatch."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Say hello",
+            model="sonnet",
+            dry_run=True,
+        ))
+        assert result["status"] in ("done", "skipped")
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

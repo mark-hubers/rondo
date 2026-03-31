@@ -448,6 +448,40 @@ def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
         pass  # -- U-49: best-effort, polling is fallback
 
 
+def _dispatch_via_provider_or_claude(
+    round_def: Any,
+    config: Any,
+    model: str,
+    prompt: str,
+    dry_run: bool,
+    run_round: Any,
+) -> Any:
+    """REQ-109: route to provider adapter or Claude dispatch."""
+    from rondo.providers import get_provider
+
+    provider = get_provider(model)
+    if provider.name != "claude":
+        from rondo.engine import RoundResult, TaskResult
+
+        task_results = []
+        for task in round_def.tasks:
+            task_prompt = task.instruction or prompt
+            if dry_run:
+                task_results.append(
+                    TaskResult(task_name=task.name, status="skipped", prompt_sent=task_prompt[:500], model=model)
+                )
+            else:
+                tr = provider.dispatch(prompt=task_prompt, model=model, task_name=task.name)
+                task_results.append(tr)
+        ok_statuses = {"done", "skipped"}
+        return RoundResult(
+            round_name=round_def.name,
+            status="done" if all(t.status in ok_statuses for t in task_results) else "partial",
+            task_results=task_results,
+        )
+    return run_round(round_def, config=config)
+
+
 def _get_task_names(file_path: str, prompt: str) -> list[str]:
     """U-31 + U-54: pre-populate task names for background progress tracking."""
     if prompt:
@@ -538,11 +572,15 @@ def rondo_run_file(
                 config_kwargs["max_budget_usd"] = max_budget
             config = RondoConfig(**config_kwargs)
 
-            # -- Finding #175/#181: NEVER mutate os.environ from threads
-            # -- dispatch.prepare_env() already strips CLAUDECODE in the subprocess env copy
-            # -- We just need to ensure it's not in our env when subprocess.Popen inherits
-            # -- Safe approach: temporarily set via os.environ only from main thread
-            result = run_round(round_def, config=config)
+            # -- REQ-109: route to provider adapter or Claude dispatch
+            result = _dispatch_via_provider_or_claude(
+                round_def,
+                config,
+                model,
+                prompt,
+                dry_run,
+                run_round,
+            )
 
             tasks_out = [
                 {

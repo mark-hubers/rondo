@@ -1838,12 +1838,13 @@ class TestSubprocessCommand:
     """REQ-100: _build_subprocess_cmd produces correct CLI command."""
 
     def test_basic_command_structure(self):
-        """Basic command has claude -p <prompt> --model --output-format."""
+        """Basic command has claude -p --model --output-format (prompt via stdin)."""
         config = RondoConfig()
         cmd = _build_subprocess_cmd(config, "hello", "sonnet")
         assert cmd[0] == "claude"
         assert "-p" in cmd
-        assert "hello" in cmd
+        ## -- Finding #177: prompt piped via stdin, NOT in cmd args
+        assert "hello" not in cmd
         assert "--model" in cmd
         assert "sonnet" in cmd
         assert "--output-format" in cmd

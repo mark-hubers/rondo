@@ -379,6 +379,7 @@ def _dispatch_interactive(
             config.task_timeout_sec,
             cwd=config.project,
             watchdog_sec=0,  # -- watchdog enabled per-call, not by default
+            stdin_text=prompt,  # -- Finding #177: pipe via stdin, not CLI arg
         )
         duration = time.monotonic() - start
 
@@ -542,10 +543,10 @@ def _build_subprocess_cmd(
     REQ-100 reqs 047-049: --permission-mode from config.
     REQ-100 reqs 071-073: --bare for automated dispatch.
     """
+    ## -- Finding #177: prompt piped via stdin, not CLI arg (ARG_MAX safe)
     cmd = [
         config.claude_binary,
         "-p",
-        prompt,
         "--model",
         model,
         "--output-format",
@@ -598,28 +599,73 @@ def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:
     cmd.append("--no-session-persistence")
 
 
+def _run_with_watchdog(
+    proc: subprocess.Popen,
+    watchdog_sec: int,
+    timed_out: threading.Event,
+    kill_fn: object,
+    timer: threading.Timer,
+) -> tuple[str, str, int, bool]:
+    """Watchdog path: monitor stdout for silence, kill if idle."""
+    import select
+
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+
+    try:
+        while proc.poll() is None and not timed_out.is_set():
+            ready, _, _ = select.select([proc.stdout], [], [], watchdog_sec)
+            if ready:
+                chunk = proc.stdout.readline()
+                if chunk:
+                    stdout_parts.append(chunk)
+                else:
+                    break
+            else:
+                kill_fn("watchdog_silence")
+                break
+        remaining = proc.stdout.read()
+        if remaining:
+            stdout_parts.append(remaining)
+        stderr_out = proc.stderr.read() if proc.stderr else ""
+        if stderr_out:
+            stderr_parts.append(stderr_out)
+        proc.wait()
+    finally:
+        timer.cancel()
+
+    rc = proc.returncode if proc.returncode is not None else -1
+    return "".join(stdout_parts), "".join(stderr_parts), rc, timed_out.is_set()
+
+
 def _run_subprocess(
     cmd: list[str],
     env: dict[str, str],
     timeout_sec: int,
     cwd: str = "",
     watchdog_sec: int = 0,
+    stdin_text: str = "",
 ) -> tuple[str, str, int, bool]:
     """Launch subprocess with SIGTERM-first kill + watchdog silence detection.
 
     Returns (stdout, stderr, returncode, timed_out).
     Rondo-STD-110 R1: Popen for SIGTERM-first kill sequence.
     REQ-101 req 019-020: watchdog kills on output silence.
-    U-17: cwd sets working directory for cross-repo dispatch.
+    Finding #177: prompt piped via stdin (ARG_MAX safe).
     """
     proc = subprocess.Popen(  # pylint: disable=consider-using-with
         cmd,
+        stdin=subprocess.PIPE if stdin_text else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         env=env,
         cwd=cwd or None,
     )
+    ## -- Write prompt to stdin if provided
+    if stdin_text and proc.stdin:
+        proc.stdin.write(stdin_text)
+        proc.stdin.close()
 
     timed_out = threading.Event()
 
@@ -637,41 +683,13 @@ def _run_subprocess(
     timer.start()
 
     # -- REQ-101 req 019-020: watchdog for output silence
-    # -- Finding #172: select() only works on Unix/macOS, not Windows
     import sys as _sys
 
     if watchdog_sec > 0 and _sys.platform != "win32":
-        import select
-
-        stdout_parts: list[str] = []
-        stderr_parts: list[str] = []
-
         try:
-            while proc.poll() is None and not timed_out.is_set():
-                ready, _, _ = select.select([proc.stdout], [], [], watchdog_sec)
-                if ready:
-                    chunk = proc.stdout.readline()
-                    if chunk:
-                        stdout_parts.append(chunk)
-                    else:
-                        break  # -- EOF
-                else:
-                    # -- No output for watchdog_sec → kill
-                    _kill("watchdog_silence")
-                    break
-            # -- Read remaining
-            remaining = proc.stdout.read()
-            if remaining:
-                stdout_parts.append(remaining)
-            stderr_out = proc.stderr.read() if proc.stderr else ""
-            if stderr_out:
-                stderr_parts.append(stderr_out)
-            proc.wait()
+            return _run_with_watchdog(proc, watchdog_sec, timed_out, _kill, timer)
         finally:
             timer.cancel()
-
-        rc = proc.returncode if proc.returncode is not None else -1
-        return "".join(stdout_parts), "".join(stderr_parts), rc, timed_out.is_set()
 
     # -- Simple mode (no watchdog)
     try:

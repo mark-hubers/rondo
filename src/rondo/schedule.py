@@ -60,7 +60,9 @@ def generate_plist(
     all_args = [command] + args
     args_xml = "\n".join(f"        <string>{a}</string>" for a in all_args)
     interval_xml = _INTERVALS.get(interval, _INTERVALS["weekly"])
-    log_path = f"/tmp/rondo-{name}.log"  # nosec B108 — launchd log path
+    log_dir = Path.home() / ".rondo" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = str(log_dir / f"{name}.log")
     work_dir = work_dir or str(Path.home())
 
     plist = _PLIST_TEMPLATE.format(

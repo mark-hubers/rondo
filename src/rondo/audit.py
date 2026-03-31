@@ -160,6 +160,7 @@ class AuditTrail:
         self._audit_dir = Path(self.config.audit_dir).expanduser()
         self._audit_dir.mkdir(parents=True, exist_ok=True)
         self._jsonl_path = self._audit_dir / "rondo_audit.jsonl"
+        self._intent_times: dict[str, str] = {}  # -- dispatch_id → dispatched_at
 
     def record_intent(
         self,
@@ -196,6 +197,9 @@ class AuditTrail:
 
         # -- STD-113 req 007: append to JSONL (req 010: append-only)
         self._append_jsonl(record)
+
+        # -- Finding #162: store dispatched_at for OUTCOME propagation
+        self._intent_times[dispatch_id] = record.dispatched_at
 
         logger.info("Audit INTENT: %s task=%s model=%s", dispatch_id, task_name, model)
         return record
@@ -237,6 +241,7 @@ class AuditTrail:
             output_tokens=output_tokens,
             result_file=result_file,
             files_modified=files_modified or [],
+            dispatched_at=self._intent_times.get(dispatch_id, ""),
             completed_at=datetime.now(UTC).isoformat(),
         )
 

@@ -490,4 +490,41 @@ class TestAuditReset:
         assert count == 0
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Bug fixes (RONDO-49: findings #162, #163)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAuditDispatchedAt:
+    """Finding #162: OUTCOME must have dispatched_at from INTENT."""
+
+    def test_outcome_has_dispatched_at(self, tmp_path):
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id,
+            task_name="t", model="m", status="done", exit_code=0,
+        )
+        ## -- Read OUTCOME line from JSONL
+        lines = (tmp_path / "rondo_audit.jsonl").read_text().strip().splitlines()
+        outcome = json.loads(lines[-1])
+        assert outcome["dispatched_at"] != ""
+        assert outcome["dispatched_at"] == record.dispatched_at
+
+
+class TestAuditRoundName:
+    """Finding #163: round_name must flow through dispatch."""
+
+    def test_outcome_has_round_name(self, tmp_path):
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = trail.record_intent(task_name="t", round_name="my-round", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id,
+            task_name="t", round_name="my-round", model="m", status="done", exit_code=0,
+        )
+        lines = (tmp_path / "rondo_audit.jsonl").read_text().strip().splitlines()
+        outcome = json.loads(lines[-1])
+        assert outcome["round_name"] == "my-round"
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b3

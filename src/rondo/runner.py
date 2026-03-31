@@ -159,7 +159,7 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
             result.usage.append(DispatchUsage(task_name=task.name))
             continue
 
-        task_result, usage = _dispatch_with_safety_net(task, config)
+        task_result, usage = _dispatch_with_safety_net(task, config, round_name=round_def.name)
         task.status = task_result.status
         result.task_results.append(task_result)
         result.usage.append(usage)
@@ -220,6 +220,7 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
 def _dispatch_with_safety_net(
     task: Task,
     config: RondoConfig,
+    round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Dispatch a task with Rondo-STD-108 rule 6 safety net.
 
@@ -228,7 +229,7 @@ def _dispatch_with_safety_net(
     """
     task.status = "in_progress"
     try:
-        return dispatch_task(task, config)
+        return dispatch_task(task, config, round_name=round_name)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         logger.warning("Dispatch safety net caught %s for task %s: %s", type(exc).__name__, task.name, exc)
         return (

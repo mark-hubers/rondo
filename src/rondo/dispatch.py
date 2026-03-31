@@ -206,6 +206,7 @@ def dispatch_task(
     config: RondoConfig,
     *,
     cli_model: str | None = None,
+    round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Dispatch a single task. Returns (TaskResult, DispatchUsage).
 
@@ -258,7 +259,7 @@ def dispatch_task(
         return r, u
 
     # -- Case 3: Interactive task (Rondo-REQ-100 reqs 12-28)
-    return _dispatch_interactive(task, config, model, timestamp)
+    return _dispatch_interactive(task, config, model, timestamp, round_name=round_name)
 
 
 def _dispatch_auto(
@@ -347,6 +348,7 @@ def _dispatch_interactive(
     config: RondoConfig,
     model: str,
     timestamp: str,
+    round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Execute an interactive task via claude -p subprocess.
 
@@ -365,7 +367,7 @@ def _dispatch_interactive(
     if audit_trail:
         audit_record = audit_trail.record_intent(
             task_name=task.name,
-            round_name="",
+            round_name=round_name,
             model=model,
             prompt=prompt,
         )

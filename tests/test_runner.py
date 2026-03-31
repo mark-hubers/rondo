@@ -550,7 +550,7 @@ class TestCircuitBreakerDeep:
         ])
         config = RondoConfig()
 
-        def mock_dispatch(task, cfg):
+        def mock_dispatch(task, cfg, **kwargs):
             if task.name == "ok":
                 return (TaskResult(task_name=task.name, status="done"), DispatchUsage())
             return (

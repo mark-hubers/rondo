@@ -267,7 +267,12 @@ def _get_config_options() -> list[dict[str, Any]]:
             "default": "",
             "description": "'auto' for Rondo dispatch prompt",
         },
-        {"name": "max_budget_usd", "type": "float", "default": None, "description": "Cost cap per task in USD"},
+        {
+            "name": "max_budget_usd",
+            "type": "float",
+            "default": None,
+            "description": "Cost cap per task in USD (only works with auth:'api', not auth:'max' — Max plan has no per-token billing)",
+        },
         {"name": "task_timeout_sec", "type": "int", "default": 300},
         {"name": "dry_run", "type": "bool", "default": False},
     ]

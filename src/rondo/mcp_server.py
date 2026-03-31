@@ -178,6 +178,19 @@ def rondo_dispatch_info() -> str:
 
 ## -- Background dispatch tracking (RONDO-39)
 _background_results: dict[str, dict] = {}
+_MAX_BACKGROUND_ENTRIES = 100  # -- H-01
+
+
+def _prune_background() -> None:
+    """H-01/H-02: evict oldest completed entries when over max."""
+    if len(_background_results) <= _MAX_BACKGROUND_ENTRIES:
+        return
+    ## -- Sort by completion: running entries kept, oldest completed evicted
+    completed = [(k, v) for k, v in _background_results.items() if v.get("status") not in ("running", "dispatched")]
+    completed.sort(key=lambda x: x[1].get("ts", 0))
+    to_remove = len(_background_results) - _MAX_BACKGROUND_ENTRIES
+    for k, _ in completed[:to_remove]:
+        del _background_results[k]
 
 
 def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
@@ -889,6 +902,7 @@ def rondo_run_file(
     # -- Background dispatch: return dispatch_id immediately
     if background and not dry_run:
         dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
+        _prune_background()  # -- H-01: evict before adding
 
         task_names = _get_task_names(file_path, prompt)
 

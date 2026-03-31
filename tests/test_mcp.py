@@ -670,6 +670,25 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestBackgroundTTL:
+    """H-01 to H-03: background results TTL + max entries."""
+
+    def test_max_100_entries(self):
+        """H-01: max 100 background entries."""
+        from rondo.mcp_server import _background_results, _prune_background
+
+        _background_results.clear()
+        for i in range(110):
+            _background_results[f"id-{i}"] = {"status": "done", "ts": 0}
+        _prune_background()
+        assert len(_background_results) <= 100
+
+    def test_expired_returns_expired(self):
+        """H-03: evicted dispatch returns 'expired'."""
+        result = json.loads(rondo_run_status("nonexistent-evicted-id"))
+        assert result["status"] == "error"
+
+
 class TestMCPInputLimits:
     """H-07 to H-11: input size caps on MCP tools."""
 

@@ -63,13 +63,23 @@ class ClaudeCLIAdapter(ProviderAdapter):
     name: str = "claude"
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Dispatch via claude -p (delegates to existing dispatch.py)."""
-        # -- Delegate to existing dispatch pipeline
-        return TaskResult(
-            task_name=kwargs.get("task_name", "claude-dispatch"),
-            status="error",
-            error_message="Use dispatch_task() directly for Claude CLI — adapter is for routing only",
-        )
+        """Dispatch via claude -p subprocess.
+
+        NOTE: For Claude models, the MCP/CLI path uses run_round() → dispatch_task()
+        directly (the proven path with 1168 tests). This adapter is used when
+        provider routing explicitly selects Claude for non-standard flows.
+        See REQ-109 decision: adapters route MCP/inline, run_round routes batch.
+        """
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+        from rondo.engine import Task
+
+        task_name = kwargs.get("task_name", "claude-dispatch")
+        done_when = kwargs.get("done_when", "Task completed.")
+        task = Task(name=task_name, instruction=prompt, done_when=done_when)
+        config = RondoConfig(default_model=model)
+        result, _ = dispatch_task(task, config)
+        return result
 
     def health(self) -> bool:
         """Check if claude binary is on PATH."""

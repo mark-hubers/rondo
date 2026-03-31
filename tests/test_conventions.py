@@ -158,7 +158,7 @@ class TestImportLayering:
         "spool.py": set(),
         "_version.py": set(),
         "metrics.py": set(),
-        "mcp_server.py": {"metrics", "_version", "cli", "config", "runner", "ai_help", "engine", "spool", "notify", "history", "providers"},
+        "mcp_server.py": {"metrics", "_version", "cli", "config", "runner", "ai_help", "engine", "spool", "notify", "history", "providers", "audit"},
         "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit", "spool", "metrics"},
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},

@@ -461,7 +461,12 @@ def _dispatch_via_provider_or_claude(
 
     provider = get_provider(model)
     if provider.name != "claude":
+        from rondo.audit import AuditConfig, AuditTrail
         from rondo.engine import RoundResult, TaskResult
+
+        ## -- Finding #188: provider dispatches must log to audit
+        audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
+        audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
 
         task_results = []
         for task in round_def.tasks:
@@ -471,7 +476,26 @@ def _dispatch_via_provider_or_claude(
                     TaskResult(task_name=task.name, status="skipped", prompt_sent=task_prompt[:500], model=model)
                 )
             else:
+                ## -- Audit INTENT
+                record = audit_trail.record_intent(
+                    task_name=task.name,
+                    round_name=round_def.name,
+                    model=model,
+                    prompt=task_prompt,
+                )
                 tr = provider.dispatch(prompt=task_prompt, model=model, task_name=task.name)
+                ## -- Audit OUTCOME
+                audit_trail.record_outcome(
+                    dispatch_id=record.dispatch_id,
+                    task_name=task.name,
+                    round_name=round_def.name,
+                    model=model,
+                    status=tr.status,
+                    exit_code=0,
+                    duration_sec=tr.duration_sec,
+                    raw_output=tr.raw_output,
+                )
+                tr.dispatch_id = record.dispatch_id
                 task_results.append(tr)
         ok_statuses = {"done", "skipped"}
         return RoundResult(

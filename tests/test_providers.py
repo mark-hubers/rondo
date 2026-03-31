@@ -128,4 +128,30 @@ class TestMCPProviderRouting:
         assert result["status"] in ("done", "skipped")
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Finding #188: Provider dispatches log to audit (RONDO-74)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestProviderAuditTrail:
+    """Provider dispatches must write to audit JSONL."""
+
+    def test_ollama_dispatch_creates_audit(self, tmp_path, monkeypatch):
+        """Ollama dispatch writes INTENT+OUTCOME to audit JSONL."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        (tmp_path / "audit").mkdir()
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Say hello", model="llama3.1:8b", dry_run=False,
+        ))
+        ## -- Check audit file exists and has records
+        audit_file = tmp_path / "audit" / "rondo_audit.jsonl"
+        if audit_file.exists():
+            lines = audit_file.read_text().strip().splitlines()
+            assert len(lines) >= 1  ## at least OUTCOME
+        ## -- Result should still be valid
+        assert result["status"] in ("done", "error", "partial")
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

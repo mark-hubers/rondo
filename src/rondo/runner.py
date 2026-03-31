@@ -172,6 +172,9 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         if task_result.error_code:
             _notify_failure(task_result)
 
+        # -- Finding #189: rate limit backoff
+        _handle_rate_limit(usage, config)
+
         # -- Circuit breaker tracking (REQ-100 req 057-058)
         if task_result.error_code and task_result.error_code == last_error_code:
             consecutive_errors += 1
@@ -218,6 +221,13 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
 # ──────────────────────────────────────────────────────────────────
 #  Internal helpers — extracted for DRY + pylint statement count
 # ──────────────────────────────────────────────────────────────────
+
+
+def _handle_rate_limit(usage: DispatchUsage, config: RondoConfig) -> None:
+    """Finding #189: pause on rate limit before next dispatch."""
+    if usage.rate_limit_status == "blocked" and config.rate_limit_backoff_sec > 0:
+        logger.warning("Rate limited. Backing off %ds.", config.rate_limit_backoff_sec)
+        time.sleep(config.rate_limit_backoff_sec)
 
 
 def _warn_file_conflicts(tasks: list[Task]) -> None:

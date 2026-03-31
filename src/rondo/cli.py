@@ -336,12 +336,27 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
-    """REQ-109: route to provider adapter or Claude run_round."""
+    """REQ-109 req 026-027: route to provider adapter or Claude run_round.
+
+    Non-Claude providers go through adapter.dispatch() + shared _finalize_dispatch().
+    Claude goes through run_round() → dispatch_task() (proven path).
+    Both paths get the full ALWAYS-ON pipeline: audit, sanitize, spool, history, metrics.
+    """
     from rondo.providers import get_provider  # pylint: disable=import-outside-toplevel
 
     provider = get_provider(config.default_model)
     if provider.name != "claude":
-        from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+        from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
+        from rondo.dispatch import _finalize_dispatch  # pylint: disable=import-outside-toplevel
+        from rondo.engine import DispatchUsage, RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+
+        # -- REQ-109 req 026: shared finalization for ALL providers
+        audit_trail = None
+        if config.audit_dir:
+            try:
+                audit_trail = AuditTrail(config=AuditConfig(audit_dir=config.audit_dir))
+            except (OSError, TypeError):
+                pass
 
         task_results = []
         for task in round_def.tasks:
@@ -355,7 +370,19 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
                     )
                 )
             else:
+                # -- Audit INTENT before dispatch
+                audit_record = None
+                if audit_trail:
+                    audit_record = audit_trail.record_intent(
+                        task_name=task.name,
+                        round_name=round_def.name,
+                        model=config.default_model,
+                        prompt=task.instruction or "",
+                    )
                 tr = provider.dispatch(prompt=task.instruction, model=config.default_model, task_name=task.name)
+                usage = DispatchUsage(task_name=task.name, model=config.default_model, cost_usd=tr.cost_usd or 0.0)
+                # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
+                tr, usage = _finalize_dispatch(tr, usage, config, audit_trail, audit_record, round_name=round_def.name)
                 task_results.append(tr)
         ok = {"done", "skipped"}
         return RoundResult(

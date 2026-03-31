@@ -713,17 +713,39 @@ def _dispatch_via_provider_or_claude(
     dry_run: bool,
     run_round: Any,
 ) -> Any:
-    """REQ-109: route to provider adapter or Claude dispatch."""
+    """REQ-109 req 026-027: route to provider adapter or Claude dispatch.
+
+    Non-Claude providers go through adapter.dispatch() + shared _finalize_dispatch().
+    Claude goes through run_round() → dispatch_task() (proven path).
+    Both paths get the full ALWAYS-ON pipeline: audit, sanitize, spool, history, metrics.
+    """
     from rondo.providers import get_provider
 
     provider = get_provider(model)
     if provider.name != "claude":
         from rondo.audit import AuditConfig, AuditTrail
-        from rondo.engine import RoundResult, TaskResult
+        from rondo.dispatch import _finalize_dispatch
+        from rondo.engine import DispatchUsage, RoundResult, TaskResult
 
-        # -- Finding #188: provider dispatches must log to audit
+        # -- REQ-109 req 026: shared finalization for ALL providers
         audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
-        audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
+        audit_trail = None
+        try:
+            audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
+        except (OSError, TypeError):
+            pass
+
+        # -- Build a minimal config for _finalize_dispatch
+        from rondo.config import RondoConfig
+
+        finalize_config = (
+            config
+            if isinstance(config, RondoConfig)
+            else RondoConfig(
+                audit_dir=audit_dir,
+                results_dir=_resolve_dir("~/.rondo/results", "results"),
+            )
+        )
 
         task_results = []
         for task in round_def.tasks:
@@ -733,26 +755,26 @@ def _dispatch_via_provider_or_claude(
                     TaskResult(task_name=task.name, status="skipped", prompt_sent=task_prompt[:500], model=model)
                 )
             else:
-                # -- Audit INTENT
-                record = audit_trail.record_intent(
-                    task_name=task.name,
-                    round_name=round_def.name,
-                    model=model,
-                    prompt=task_prompt,
-                )
+                # -- Audit INTENT before dispatch
+                audit_record = None
+                if audit_trail:
+                    audit_record = audit_trail.record_intent(
+                        task_name=task.name,
+                        round_name=round_def.name,
+                        model=model,
+                        prompt=task_prompt,
+                    )
                 tr = provider.dispatch(prompt=task_prompt, model=model, task_name=task.name)
-                # -- Audit OUTCOME
-                audit_trail.record_outcome(
-                    dispatch_id=record.dispatch_id,
-                    task_name=task.name,
+                usage = DispatchUsage(task_name=task.name, model=model, cost_usd=tr.cost_usd or 0.0)
+                # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
+                tr, usage = _finalize_dispatch(
+                    tr,
+                    usage,
+                    finalize_config,
+                    audit_trail,
+                    audit_record,
                     round_name=round_def.name,
-                    model=model,
-                    status=tr.status,
-                    exit_code=0,
-                    duration_sec=tr.duration_sec,
-                    raw_output=tr.raw_output,
                 )
-                tr.dispatch_id = record.dispatch_id
                 task_results.append(tr)
         ok_statuses = {"done", "skipped"}
         return RoundResult(

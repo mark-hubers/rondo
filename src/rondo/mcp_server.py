@@ -197,6 +197,29 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_models() -> str:
+    """List available models with providers, benchmarks, and task recommendations."""
+    from rondo.providers import _TASK_MODEL_MAP, OllamaAdapter
+
+    providers = [
+        {
+            "name": "claude",
+            "models": ["sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"],
+            "cost": "Max plan or API key",
+        },
+        {
+            "name": "ollama",
+            "models": OllamaAdapter().models() or ["(none installed — run: ollama pull llama3.1:8b)"],
+            "cost": "$0 (local)",
+        },
+    ]
+    recommendations = [
+        {"task": k, "model": v, "provider": "ollama" if ":" in v or v.startswith("llama") else "claude"}
+        for k, v in _TASK_MODEL_MAP.items()
+    ]
+    return json.dumps({"providers": providers, "recommendations": recommendations}, indent=2)
+
+
 def rondo_cost(days: int = 30) -> str:
     """Monthly cost dashboard — spend tracking per model.
 
@@ -829,6 +852,13 @@ def create_mcp_server() -> Any:
     )
     def _cost(days: int = 30) -> str:
         return rondo_cost(days=days)
+
+    @mcp.tool(
+        name="rondo_models",
+        description="List available AI models: Claude + Ollama local models, with task-type recommendations (code-review→qwen-coder, reasoning→deepseek, etc.).",
+    )
+    def _models() -> str:
+        return rondo_models()
 
     @mcp.tool(
         name="rondo_templates",

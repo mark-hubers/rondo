@@ -670,6 +670,23 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestRondoModels:
+    """rondo_models: discover available models and recommendations."""
+
+    def test_models_returns_json(self):
+        from rondo.mcp_server import rondo_models
+
+        result = json.loads(rondo_models())
+        assert "providers" in result
+
+    def test_models_has_recommendations(self):
+        from rondo.mcp_server import rondo_models
+
+        result = json.loads(rondo_models())
+        assert "recommendations" in result
+        assert len(result["recommendations"]) >= 5
+
+
 class TestCursorP0ErrorCode:
     """U-52: error_code flows to audit OUTCOME."""
 

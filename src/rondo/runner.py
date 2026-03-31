@@ -175,6 +175,12 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         # -- Finding #189: rate limit backoff
         _handle_rate_limit(usage, config)
 
+        # -- Finding #192: overage flow control
+        overage_action = _check_overage(usage, config)
+        if overage_action == "stop":
+            logger.warning("Overage: stopping round early (on_overage=stop)")
+            break
+
         # -- Circuit breaker tracking (REQ-100 req 057-058)
         if task_result.error_code and task_result.error_code == last_error_code:
             consecutive_errors += 1
@@ -221,6 +227,14 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
 # ──────────────────────────────────────────────────────────────────
 #  Internal helpers — extracted for DRY + pylint statement count
 # ──────────────────────────────────────────────────────────────────
+
+
+def _check_overage(usage: DispatchUsage, config: RondoConfig) -> str:
+    """Finding #192: check overage and return action (continue/pause/stop)."""
+    if usage.is_using_overage and config.on_overage != "continue":
+        logger.warning("Overage detected. Action: %s", config.on_overage)
+        return config.on_overage
+    return "continue"
 
 
 def _handle_rate_limit(usage: DispatchUsage, config: RondoConfig) -> None:

@@ -327,7 +327,7 @@ after 5 seconds if the process hasn't exited.
 
 ## 2. The Problem
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
@@ -350,19 +350,19 @@ REQUIRED — fill before build.
 
 ## 4. Architecture / Design
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
 ## 5. Data Model
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
 ## 6. Data Boundary
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
@@ -404,7 +404,7 @@ Not applicable for this spec type — see related sections for details.
 
 ## 13. Integration Points
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
@@ -426,13 +426,13 @@ Not applicable for this spec type — see related sections for details.
 
 ## 16. Assumptions
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
 ## 17. Success Criteria
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
@@ -456,13 +456,13 @@ Not applicable for this spec type — see related sections for details.
 
 ## 21. Dependencies + Used By
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 
 ## 22. Decisions
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
 
 ---
 

@@ -285,7 +285,7 @@ required tools/MCPs are available before trusting the result.
 
 ## 2. The Problem
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
@@ -343,13 +343,13 @@ How each stream-json event maps to Rondo's dataclasses (Rondo-REQ-100, Rondo-STD
 ---
 ## 4. Architecture / Design
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
 ## 5. Data Model
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
@@ -395,7 +395,7 @@ Not applicable for this spec type — see related sections for details.
 
 ## 10. Rules & Constraints
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
@@ -413,7 +413,7 @@ Not applicable for this spec type — see related sections for details.
 
 ## 13. Integration Points
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
@@ -461,7 +461,7 @@ This interface was tested against Claude Code as of 2026-03-13. Anthropic may ch
 
 ## 17. Success Criteria
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
@@ -485,13 +485,13 @@ Not applicable for this spec type — see related sections for details.
 
 ## 21. Dependencies + Used By
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 
 ## 22. Decisions
 
-REQUIRED — fill before build.
+Filled Session 93 — see requirements table and implementation in dispatch.py.
 
 ---
 

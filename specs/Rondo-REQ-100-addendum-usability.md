@@ -131,6 +131,15 @@ file can't use Rondo at all.
 | U-50 | `rondo_run_status(heartbeat=True)` MUST return ultra-compact response: single-letter keys `{"s":"w","d":2,"e":0,"p":1}` (~10 tokens). Status codes: `w`=working, `d`=done, `e`=error. For tight polling loops. | SHOULD |
 | U-51 | `rondo://help` resource MUST document the 3 polling tiers: heartbeat (~10 tokens), brief (~40 tokens), full (~300+ tokens) with guidance on when to use each | MUST |
 
+### CURSOR REVIEW FIXES (Session 93 — Multi-AI Review)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-52 | `_finalize_dispatch` MUST pass `error_code` from TaskResult to `record_outcome` — audit JSONL must capture error types for failure analytics | MUST |
+| U-53 | MCP tool functions (`rondo_metrics`, `rondo_health`, `rondo_audit_summary`, `rondo_spool_consume`) MUST honor `RONDO_TEST_DIR` env var for path resolution — test/production path parity | MUST |
+| U-54 | Background dispatch with `prompt=` (inline) MUST pre-populate `task_names=["inline-task"]` in status — callers see pending rows before completion | MUST |
+| U-55 | `rondo_dispatch_info` command list MUST be derived from `build_parser()` or a shared constant — no hardcoded list that drifts from CLI | MUST |
+
 ---
 
 ## Gap Check: Cross-Spec Impact

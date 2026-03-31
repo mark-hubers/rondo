@@ -62,7 +62,9 @@ def rondo_metrics() -> str:
     """
     from rondo.metrics import compute_metrics
 
-    report = compute_metrics(audit_dir=_DEFAULT_AUDIT_DIR, spool_dir=_DEFAULT_SPOOL_DIR)
+    report = compute_metrics(
+        audit_dir=_resolve_dir(_DEFAULT_AUDIT_DIR, "audit"), spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool")
+    )
     return json.dumps(report.to_dict(), indent=2)
 
 
@@ -73,7 +75,9 @@ def rondo_health() -> str:
     """
     from rondo.metrics import compute_metrics
 
-    report = compute_metrics(audit_dir=_DEFAULT_AUDIT_DIR, spool_dir=_DEFAULT_SPOOL_DIR)
+    report = compute_metrics(
+        audit_dir=_resolve_dir(_DEFAULT_AUDIT_DIR, "audit"), spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool")
+    )
     return json.dumps(
         {
             "health": report.health,
@@ -90,7 +94,7 @@ def rondo_audit_summary(limit: int = 10) -> str:
 
     IFS-104 req 003: query tool for audit data.
     """
-    audit_path = Path(_DEFAULT_AUDIT_DIR).expanduser() / "rondo_audit.jsonl"
+    audit_path = Path(_resolve_dir(_DEFAULT_AUDIT_DIR, "audit")).expanduser() / "rondo_audit.jsonl"
     if not audit_path.exists():
         return json.dumps({"recent": [], "total": 0})
 
@@ -121,24 +125,22 @@ def rondo_dispatch_info() -> str:
     Same data as `rondo --ai-help` but via MCP.
     """
     from rondo._version import get_version
+    from rondo.cli import build_parser
+
+    ## -- U-55: derive command list from CLI parser (single source of truth)
+    commands: list[str] = []
+    parser = build_parser()
+    for action in parser._subparsers._actions:
+        if hasattr(action, "choices") and action.choices:
+            commands = sorted(action.choices.keys())
+            break
 
     return json.dumps(
         {
             "name": "rondo",
             "version": get_version(),
             "description": "Define AI tasks in Python, send them to Claude, get structured results back.",
-            "commands": [
-                "run",
-                "live",
-                "overnight",
-                "preflight",
-                "history",
-                "report",
-                "audit",
-                "flaky",
-                "spool",
-                "metrics",
-            ],
+            "commands": commands,
             "interfaces": ["python_import", "cli", "mcp_stdio"],
             "design_principles": ["COALESCE", "ALWAYS-ON", "Dual-Path-With-Alerting"],
             "always_on_artifacts": [
@@ -166,7 +168,7 @@ def rondo_spool_consume() -> str:
     try:
         from rondo.spool import SpoolConfig, SpoolManager
 
-        spool = SpoolManager(config=SpoolConfig(spool_dir=_DEFAULT_SPOOL_DIR))
+        spool = SpoolManager(config=SpoolConfig(spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool")))
         consumed = spool.consume_all()
         return json.dumps({"consumed": consumed, "count": len(consumed)}, indent=2)
     except (ImportError, OSError, TypeError) as exc:
@@ -191,6 +193,19 @@ def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
         loop.close()
     except (AttributeError, TypeError, OSError, RuntimeError):
         pass  # -- U-49: best-effort, polling is fallback
+
+
+def _get_task_names(file_path: str, prompt: str) -> list[str]:
+    """U-31 + U-54: pre-populate task names for background progress tracking."""
+    if prompt:
+        return ["inline-task"]
+    try:
+        from rondo.cli import load_round_file as _load
+
+        rd = _load(file_path)
+        return [t.name for t in rd.tasks]
+    except (FileNotFoundError, AttributeError, TypeError, ImportError):
+        return []
 
 
 def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str, str, str | None]:
@@ -312,14 +327,7 @@ def rondo_run_file(
     if background and not dry_run:
         dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
 
-        # -- U-31: pre-populate task names as "pending" for progress tracking
-        try:
-            from rondo.cli import load_round_file as _load
-
-            rd = _load(file_path)
-            task_names = [t.name for t in rd.tasks]
-        except (FileNotFoundError, AttributeError, TypeError, ImportError):
-            task_names = []
+        task_names = _get_task_names(file_path, prompt)
 
         _background_results[dispatch_id] = {
             "status": "running",

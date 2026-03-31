@@ -52,6 +52,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
     mode: str = "interactive"  # -- "interactive" or "auto"
     tool_mode: str = "default"  # -- "none" | "sandbox" | "default" (REQ-100 reqs 022-024)
     bare: bool | None = None  # -- task-level --bare override (REQ-100 req 073: false to opt out)
+    safe_parallel: bool = False  # -- REQ-101 req 058: safe for parallel dispatch
     human_input: str = ""  # -- Rondo-REQ-100 req 063: prompt for human before dispatch
 
     # -- state (Rondo-REQ-100 req 8)

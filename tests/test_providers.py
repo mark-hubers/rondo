@@ -175,6 +175,21 @@ class TestProviderAuditTrail:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestSafeParallel:
+    """REQ-101 req 058: safe_parallel field on Task."""
+
+    def test_task_has_safe_parallel(self) -> None:
+        from rondo.engine import Task
+        t = Task(name="t", instruction="x", done_when="y")
+        assert hasattr(t, "safe_parallel")
+        assert t.safe_parallel is False  ## default: not safe for parallel
+
+    def test_safe_parallel_true(self) -> None:
+        from rondo.engine import Task
+        t = Task(name="t", instruction="x", done_when="y", safe_parallel=True)
+        assert t.safe_parallel is True
+
+
 class TestRondoSchedule:
     """rondo schedule: generate launchd plists."""
 

@@ -558,6 +558,25 @@ class TestMCPDispatchE2E:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestRondoCost:
+    """Cost dashboard: monthly spend tracking."""
+
+    def test_cost_returns_json(self):
+        """rondo_cost returns valid JSON with cost breakdown."""
+        from rondo.mcp_server import rondo_cost
+
+        result = json.loads(rondo_cost())
+        assert "total_cost_usd" in result
+        assert "by_model" in result
+
+    def test_cost_has_period(self):
+        """Cost includes the reporting period."""
+        from rondo.mcp_server import rondo_cost
+
+        result = json.loads(rondo_cost())
+        assert "period" in result
+
+
 class TestRondoTemplates:
     """Template library: pre-built round patterns."""
 

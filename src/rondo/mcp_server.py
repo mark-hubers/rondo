@@ -182,6 +182,49 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_cost(days: int = 30) -> str:
+    """Monthly cost dashboard — spend tracking per model.
+
+    Reads audit trail for the last N days and aggregates cost.
+    """
+    from datetime import UTC, datetime, timedelta
+    from pathlib import Path
+
+    audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
+    audit_path = Path(audit_dir).expanduser() / "rondo_audit.jsonl"
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+
+    by_model: dict[str, float] = {}
+    total = 0.0
+    dispatch_count = 0
+
+    if audit_path.exists():
+        for line in audit_path.read_text(encoding="utf-8").strip().split("\n"):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+                cost = record.get("cost_usd", 0) or 0
+                if cost > 0 and record.get("completed_at", "") >= cutoff:
+                    model = record.get("model", "unknown")
+                    by_model[model] = by_model.get(model, 0) + cost
+                    total += cost
+                    dispatch_count += 1
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+    return json.dumps(
+        {
+            "total_cost_usd": round(total, 4),
+            "by_model": {k: round(v, 4) for k, v in sorted(by_model.items())},
+            "dispatch_count": dispatch_count,
+            "period": f"last {days} days",
+            "daily_avg": round(total / max(days, 1), 4),
+        },
+        indent=2,
+    )
+
+
 def rondo_templates() -> str:
     """List pre-built round templates — reusable patterns for common tasks.
 
@@ -702,6 +745,13 @@ def create_mcp_server() -> Any:
     )
     def _history(model: str = "", status: str = "", limit: int = 20) -> str:
         return rondo_history(model=model, status=status, limit=limit)
+
+    @mcp.tool(
+        name="rondo_cost",
+        description="Monthly cost dashboard: total spend, cost per model, daily average. Default last 30 days.",
+    )
+    def _cost(days: int = 30) -> str:
+        return rondo_cost(days=days)
 
     @mcp.tool(
         name="rondo_templates",

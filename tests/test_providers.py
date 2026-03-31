@@ -111,6 +111,38 @@ class TestProviderRouting:
         assert recommend_model("general") == "qwen2.5:32b"
         assert recommend_model("unknown-type") == "sonnet"  ## default to Claude
 
+    def test_recommend_model_config_override(self, tmp_path) -> None:
+        """REQ-109 req 028: TOML config overrides default model map."""
+        from rondo.providers import _task_model_overrides, load_task_models, recommend_model
+
+        # -- Write a TOML config with overrides
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            '[routing.task_models]\n'
+            '"code-review" = "my-custom-model:latest"\n'
+            '"reasoning" = "my-reasoning:7b"\n'
+        )
+        # -- Load and verify overrides win
+        load_task_models(str(config_file))
+        assert recommend_model("code-review") == "my-custom-model:latest"
+        assert recommend_model("reasoning") == "my-reasoning:7b"
+        # -- Defaults still work for non-overridden types
+        assert recommend_model("classify") == "llama3.1:8b"
+        assert recommend_model("unknown-type") == "sonnet"
+        # -- Cleanup: restore empty overrides
+        _task_model_overrides.clear()
+
+    def test_load_task_models_missing_file(self) -> None:
+        """load_task_models handles missing config gracefully."""
+        from rondo.providers import _task_model_overrides, load_task_models
+
+        # -- Clear any leftover overrides from prior tests
+        _task_model_overrides.clear()
+        # -- Non-existent file should return defaults, not crash
+        result = load_task_models("/tmp/nonexistent-rondo-config.toml")
+        assert "code-review" in result
+        assert result["code-review"] == "qwen2.5-coder:7b"
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Provider-aware MCP dispatch (RONDO-73)

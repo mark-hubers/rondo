@@ -192,11 +192,11 @@ def get_provider(model: str) -> ProviderAdapter | _ClaudeRoute:
 
 
 # -- ──────────────────────────────────────────────────────────────
-# --  Task type → model recommendation
+# --  Task type → model recommendation — REQ-109 D9, req 028
 # -- ──────────────────────────────────────────────────────────────
 
-# -- Best model per task type (local-first, Claude as fallback)
-_TASK_MODEL_MAP: dict[str, str] = {
+# -- Default model map (used when no TOML config overrides)
+_DEFAULT_TASK_MODELS: dict[str, str] = {
     "code-review": "qwen2.5-coder:7b",
     "code-fix": "qwen2.5-coder:7b",
     "code-generate": "qwen2.5-coder:7b",
@@ -214,13 +214,48 @@ _TASK_MODEL_MAP: dict[str, str] = {
     "analysis": "qwen2.5:32b",
 }
 
+# -- Config-loaded overrides (populated by load_task_models)
+_task_model_overrides: dict[str, str] = {}
+
+
+def load_task_models(config_path: str = "") -> dict[str, str]:
+    """Load task→model map from TOML config — REQ-109 req 028.
+
+    COALESCE: config file → defaults. Config wins for any key it specifies.
+    Reads [routing.task_models] section from ~/.rondo/config.toml or given path.
+    """
+    global _task_model_overrides  # noqa: PLW0603
+    import tomllib
+    from pathlib import Path
+
+    path = Path(config_path) if config_path else Path.home() / ".rondo" / "config.toml"
+    if path.is_file():
+        try:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+            routing = data.get("routing", {})
+            overrides = routing.get("task_models", {})
+            if isinstance(overrides, dict):
+                _task_model_overrides = {k: str(v) for k, v in overrides.items()}
+        except (tomllib.TOMLDecodeError, OSError):
+            pass
+
+    # -- Return merged: overrides win over defaults
+    merged = {**_DEFAULT_TASK_MODELS, **_task_model_overrides}
+    return merged
+
 
 def recommend_model(task_type: str) -> str:
-    """Recommend the best model for a task type — REQ-109.
+    """Recommend the best model for a task type — REQ-109 req 028.
 
-    Returns local model name for known types, 'sonnet' (Claude) for unknown.
+    COALESCE: config override → default map → 'sonnet' fallback.
+    Config is loaded from ~/.rondo/config.toml [routing.task_models].
     """
-    return _TASK_MODEL_MAP.get(task_type.lower(), "sonnet")
+    key = task_type.lower()
+    # -- Check overrides first, then defaults, then Claude fallback
+    if key in _task_model_overrides:
+        return _task_model_overrides[key]
+    return _DEFAULT_TASK_MODELS.get(key, "sonnet")
 
 
 # -- sig: mgh-6201.cd.bd955f.a109.b10901

@@ -433,8 +433,9 @@ def rondo_chain(steps_json: str, dry_run: bool = False) -> str:
 
 def rondo_models() -> str:
     """List available models with providers, benchmarks, and task recommendations."""
-    from rondo.providers import _TASK_MODEL_MAP, _ollama_adapter
+    from rondo.providers import _ollama_adapter, load_task_models
 
+    merged_models = load_task_models()
     providers = [
         {
             "name": "claude",
@@ -449,7 +450,7 @@ def rondo_models() -> str:
     ]
     recommendations = [
         {"task": k, "model": v, "provider": "ollama" if ":" in v or v.startswith("llama") else "claude"}
-        for k, v in _TASK_MODEL_MAP.items()
+        for k, v in merged_models.items()
     ]
     return json.dumps({"providers": providers, "recommendations": recommendations}, indent=2)
 

@@ -670,6 +670,31 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestRondoBenchmark:
+    """rondo_benchmark: same prompt → multiple models → ranked."""
+
+    def test_benchmark_returns_json(self):
+        from rondo.mcp_server import rondo_benchmark
+
+        result = json.loads(rondo_benchmark(
+            prompt="Say hello",
+            models=json.dumps(["llama3.1:8b", "qwen2.5:32b"]),
+            dry_run=True,
+        ))
+        assert "results" in result
+        assert len(result["results"]) == 2
+
+    def test_benchmark_ranks_by_speed(self):
+        from rondo.mcp_server import rondo_benchmark
+
+        result = json.loads(rondo_benchmark(
+            prompt="Say hello",
+            models=json.dumps(["llama3.1:8b"]),
+            dry_run=True,
+        ))
+        assert "ranked" in result
+
+
 class TestRondoChain:
     """rondo_chain: pipe output of step N as input to step N+1."""
 

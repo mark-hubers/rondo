@@ -197,6 +197,60 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> str:
+    """Benchmark: dispatch same prompt to multiple models, rank by speed/cost.
+
+    Returns results sorted by duration (fastest first).
+    """
+    try:
+        model_list = json.loads(models) if models else []
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid models JSON"})
+
+    if not model_list:
+        model_list = ["llama3.1:8b", "qwen2.5:32b", "sonnet"]
+
+    results: list[dict] = []
+    for model_name in model_list:
+        if dry_run:
+            results.append(
+                {
+                    "model": model_name,
+                    "status": "skipped",
+                    "duration_sec": 0,
+                    "output_length": 0,
+                    "cost_usd": 0,
+                }
+            )
+        else:
+            raw = rondo_run_file(prompt=prompt, model=model_name, dry_run=False)
+            r = json.loads(raw)
+            tasks = r.get("tasks", [])
+            task = tasks[0] if tasks else {}
+            results.append(
+                {
+                    "model": model_name,
+                    "status": r.get("status", "error"),
+                    "duration_sec": task.get("duration_sec", 0),
+                    "output_length": len(task.get("raw_output", "")),
+                    "cost_usd": r.get("total_cost_usd", 0),
+                }
+            )
+
+    ranked = sorted(results, key=lambda x: x["duration_sec"])
+
+    return json.dumps(
+        {
+            "status": "done",
+            "prompt": prompt[:100],
+            "results": results,
+            "ranked": ranked,
+            "fastest": ranked[0]["model"] if ranked else "",
+        },
+        indent=2,
+    )
+
+
 def rondo_chain(steps_json: str, dry_run: bool = False) -> str:
     """Chain dispatch: output of step N feeds as context to step N+1.
 
@@ -916,6 +970,13 @@ def create_mcp_server() -> Any:
     )
     def _cost(days: int = 30) -> str:
         return rondo_cost(days=days)
+
+    @mcp.tool(
+        name="rondo_benchmark",
+        description="Benchmark: same prompt → multiple models → ranked by speed. Pass models as JSON array. Default: llama3.1:8b + qwen2.5:32b + sonnet.",
+    )
+    def _benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> str:
+        return rondo_benchmark(prompt=prompt, models=models, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_chain",

@@ -50,46 +50,24 @@ class ProviderAdapter(ABC):
 
 
 # -- ──────────────────────────────────────────────────────────────
-# --  REQ-109 req 002: Claude CLI adapter (existing dispatch path)
+# --  REQ-109 D6: Claude routing marker (not an adapter)
+# --  Claude dispatch uses dispatch_task() directly — the proven
+# --  path with 1168+ tests. This marker exists only for
+# --  get_provider() routing: callers check .name == "claude"
+# --  to decide which path to take. No dispatch logic here.
+# --  Phase 2 will extract Claude transport into a real adapter.
 # -- ──────────────────────────────────────────────────────────────
 
 
-class ClaudeCLIAdapter(ProviderAdapter):
-    """Claude Code CLI adapter — dispatches via 'claude -p' subprocess.
+class _ClaudeRoute:
+    """Routing marker for Claude models — NOT a ProviderAdapter.
 
-    This is the original Rondo dispatch path, now wrapped as an adapter.
+    Callers check get_provider(model).name to decide:
+    - "claude" → use dispatch_task() directly (proven path)
+    - anything else → use adapter.dispatch() + shared finalization
     """
 
     name: str = "claude"
-
-    def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Dispatch via claude -p subprocess.
-
-        NOTE: For Claude models, the MCP/CLI path uses run_round() → dispatch_task()
-        directly (the proven path with 1168 tests). This adapter is used when
-        provider routing explicitly selects Claude for non-standard flows.
-        See REQ-109 decision: adapters route MCP/inline, run_round routes batch.
-        """
-        from rondo.config import RondoConfig
-        from rondo.dispatch import dispatch_task
-        from rondo.engine import Task
-
-        task_name = kwargs.get("task_name", "claude-dispatch")
-        done_when = kwargs.get("done_when", "Task completed.")
-        task = Task(name=task_name, instruction=prompt, done_when=done_when)
-        config = RondoConfig(default_model=model)
-        result, _ = dispatch_task(task, config)
-        return result
-
-    def health(self) -> bool:
-        """Check if claude binary is on PATH."""
-        import shutil
-
-        return shutil.which("claude") is not None
-
-    def models(self) -> list[str]:
-        """Claude Code supported models."""
-        return ["sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"]
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -187,18 +165,20 @@ class OllamaAdapter(ProviderAdapter):
 _CLAUDE_MODELS = {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}
 _OLLAMA_PREFIXES = {"llama", "qwen", "mistral", "phi", "gemma", "codellama", "deepseek"}
 
-# -- Singleton adapters
-_claude_adapter = ClaudeCLIAdapter()
+# -- Singleton instances
+_claude_route = _ClaudeRoute()
 _ollama_adapter = OllamaAdapter()
 
 
-def get_provider(model: str) -> ProviderAdapter:
-    """Route model name to the correct provider adapter — REQ-109 req 012.
+def get_provider(model: str) -> ProviderAdapter | _ClaudeRoute:
+    """Route model name to the correct provider — REQ-109 req 012.
 
-    Returns Claude adapter as default for unknown models (backward compat).
+    Returns _ClaudeRoute for Claude models (callers use dispatch_task directly).
+    Returns OllamaAdapter for local models (callers use adapter.dispatch).
+    Returns _ClaudeRoute as default for unknown models (backward compat).
     """
     if model in _CLAUDE_MODELS:
-        return _claude_adapter
+        return _claude_route
 
     # -- Check Ollama prefixes: strip version (llama3.2→llama), tag (qwen:7b→qwen)
     import re
@@ -208,7 +188,7 @@ def get_provider(model: str) -> ProviderAdapter:
         return _ollama_adapter
 
     # -- Default: Claude (backward compat)
-    return _claude_adapter
+    return _claude_route
 
 
 # -- ──────────────────────────────────────────────────────────────

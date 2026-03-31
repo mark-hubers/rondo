@@ -246,6 +246,12 @@ def rondo_schedule_create(
         return json.dumps({"status": "preview", "plist": plist[:500], "name": sched_name, "interval": interval})
 
     out_dir = Path.home() / "Library" / "LaunchAgents"
+
+    ## -- H-13: max 20 active schedules
+    existing = list(out_dir.glob("com.rondo.*.plist")) if out_dir.exists() else []
+    if len(existing) >= 20:
+        return json.dumps({"status": "error", "error": "Too many schedules (max 20)", "code": "ERR_LIMIT_EXCEEDED"})
+
     out_path = out_dir / f"com.rondo.{sched_name}.plist"
     out_path.write_text(plist, encoding="utf-8")
     return json.dumps({"status": "installed", "path": str(out_path), "name": sched_name, "interval": interval})

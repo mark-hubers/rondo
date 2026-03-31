@@ -108,6 +108,9 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         result.duration_sec = time.monotonic() - start_time
         return result
 
+    # -- STD-110 req 004-005: file conflict detection (advisory)
+    _warn_file_conflicts(round_def.tasks)
+
     # -- Phase 1: Pre-gates (Rondo-REQ-100 req 6)
     if round_def.pre_gates:
         result.pre_gate_results = run_gates(round_def.pre_gates)
@@ -215,6 +218,12 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
 # ──────────────────────────────────────────────────────────────────
 #  Internal helpers — extracted for DRY + pylint statement count
 # ──────────────────────────────────────────────────────────────────
+
+
+def _warn_file_conflicts(tasks: list[Task]) -> None:
+    """Log warnings for file conflicts (advisory)."""
+    for c in detect_file_conflicts(tasks):
+        logger.warning("File conflict: %s", c)
 
 
 def detect_file_conflicts(tasks: list[Task]) -> list[str]:

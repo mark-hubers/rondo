@@ -212,55 +212,17 @@ def get_capabilities() -> dict[str, Any]:
 
 
 def _get_commands() -> list[dict[str, str]]:
-    """All CLI commands with descriptions."""
-    return [
-        {"name": "run", "description": "Execute a round definition file", "usage": "rondo run <file.py> [flags]"},
-        {
-            "name": "live",
-            "description": "Execute round in live mode (human reviews each task)",
-            "usage": "rondo live <file.py> [--from N] [--task N]",
-        },
-        {
-            "name": "overnight",
-            "description": "Run overnight automation with phase scheduling",
-            "usage": "rondo overnight <file.py> [--mode minimal|standard|full]",
-        },
-        {
-            "name": "preflight",
-            "description": "Check dispatch environment without running",
-            "usage": "rondo preflight [--json]",
-        },
-        {
-            "name": "history",
-            "description": "Show dispatch history with cost tracking",
-            "usage": "rondo history [--model M] [--status S] [--expensive] [--json]",
-        },
-        {
-            "name": "report",
-            "description": "Generate morning report from results",
-            "usage": "rondo report <results_dir>",
-        },
-        {
-            "name": "audit",
-            "description": "Query dispatch audit trail (always-on, every dispatch recorded)",
-            "usage": "rondo audit [dispatch_id] [--cost] [--failed] [--json]",
-        },
-        {
-            "name": "flaky",
-            "description": "Show flaky task templates with flip rates",
-            "usage": "rondo flaky [--json] [--threshold 0.20]",
-        },
-        {
-            "name": "spool",
-            "description": "Manage result spool (list/clean/export pending results)",
-            "usage": "rondo spool [list|clean|export|consume] [--all] [--since YYYY-MM-DD] [--json]",
-        },
-        {
-            "name": "metrics",
-            "description": "Dispatch metrics for dashboards and health (cost, reliability, latency, tokens)",
-            "usage": "rondo metrics [--json]",
-        },
-    ]
+    """All CLI commands — derived from build_parser() (U-55 SSOT)."""
+    from rondo.cli import build_parser
+
+    commands: list[dict[str, str]] = []
+    parser = build_parser()
+    for action in parser._subparsers._actions:
+        if hasattr(action, "choices") and action.choices:
+            for name, sub in action.choices.items():
+                commands.append({"name": name, "description": sub.description or sub.format_usage().strip()})
+            break
+    return commands
 
 
 def _get_config_options() -> list[dict[str, Any]]:

@@ -213,4 +213,45 @@ class TestQuietMode:
         assert log_file.exists()
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  CRITICAL: AppleScript injection fix (RONDO-67, Finding #182)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAppleScriptInjection:
+    """Finding #182: msg with double-quotes must not break AppleScript."""
+
+    def test_double_quote_escaped(self):
+        """Message with double-quote doesn't inject AppleScript."""
+        with patch("subprocess.run") as mock_run:
+            notify_round_complete(
+                round_name='test"injection', status="done",
+                duration_sec=5.0, cost_usd=0.01,
+                config=NotifyConfig(channels=["macos"]),
+            )
+            cmd = mock_run.call_args[0][0]
+            script = cmd[2]  ## osascript -e "script"
+            ## -- No unescaped double-quotes inside the notification strings
+            assert '"injection' not in script or '\\"' in script or "'" in script
+
+    def test_shell_command_not_executed(self):
+        """Malicious payload in msg has quotes escaped — AppleScript sees literal text."""
+        with patch("subprocess.run") as mock_run:
+            notify_round_complete(
+                round_name='x" & do shell script "rm -rf ~',
+                status="done",
+                duration_sec=5.0, cost_usd=0.01,
+                config=NotifyConfig(channels=["macos"]),
+            )
+            cmd = mock_run.call_args[0][0]
+            script = cmd[2]
+            ## -- All internal double-quotes must be escaped with backslash
+            ## -- Count: script has outer quotes + escaped inner quotes only
+            import re
+            ## -- Find unescaped double-quotes (not preceded by backslash)
+            ## -- Should only be the 2 outer AppleScript string delimiters + 2 for 'with title'
+            unescaped = re.findall(r'(?<!\\)"', script)
+            assert len(unescaped) == 4, f"Expected 4 unescaped quotes (string delimiters), got {len(unescaped)}: {script}"
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.f1a2b3

@@ -87,10 +87,21 @@ def _send_file(msg: str, log_file: str) -> None:
         logger.debug("File notification failed: %s", exc)
 
 
+def _escape_applescript(s: str) -> str:
+    """Escape a string for safe embedding in AppleScript double-quoted string.
+
+    Finding #182: AI output is untrusted. Double-quotes in msg could
+    terminate the AppleScript string and inject arbitrary commands.
+    """
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
 def _send_macos(msg: str, title: str) -> None:
     """Send a macOS notification via osascript — Rondo-REQ-105 req 005."""
     try:
-        script = f'display notification "{msg}" with title "{title}"'
+        safe_msg = _escape_applescript(msg)[:200]
+        safe_title = _escape_applescript(title)[:50]
+        script = f'display notification "{safe_msg}" with title "{safe_title}"'
         subprocess.run(
             ["osascript", "-e", script],
             capture_output=True,

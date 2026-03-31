@@ -667,7 +667,8 @@ def _run_subprocess(
         finally:
             timer.cancel()
 
-        return "".join(stdout_parts), "".join(stderr_parts), proc.returncode or -1, timed_out.is_set()
+        rc = proc.returncode if proc.returncode is not None else -1
+        return "".join(stdout_parts), "".join(stderr_parts), rc, timed_out.is_set()
 
     # -- Simple mode (no watchdog)
     try:

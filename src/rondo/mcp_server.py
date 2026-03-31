@@ -485,7 +485,6 @@ def rondo_run_file(
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
     Strips CLAUDECODE env var to avoid nested session errors.
     """
-    import os
     import threading
     import uuid
 
@@ -521,13 +520,11 @@ def rondo_run_file(
                 config_kwargs["max_budget_usd"] = max_budget
             config = RondoConfig(**config_kwargs)
 
-            # -- Strip CLAUDECODE to prevent nested session errors
-            old_cc = os.environ.pop("CLAUDECODE", None)
-            try:
-                result = run_round(round_def, config=config)
-            finally:
-                if old_cc is not None:
-                    os.environ["CLAUDECODE"] = old_cc
+            # -- Finding #175/#181: NEVER mutate os.environ from threads
+            # -- dispatch.prepare_env() already strips CLAUDECODE in the subprocess env copy
+            # -- We just need to ensure it's not in our env when subprocess.Popen inherits
+            # -- Safe approach: temporarily set via os.environ only from main thread
+            result = run_round(round_def, config=config)
 
             tasks_out = [
                 {

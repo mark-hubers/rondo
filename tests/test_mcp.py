@@ -670,6 +670,24 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestRondoScheduleMCP:
+    """rondo_schedule MCP: manage scheduled dispatches."""
+
+    def test_schedule_list(self):
+        from rondo.mcp_server import rondo_schedule_list
+
+        result = json.loads(rondo_schedule_list())
+        assert "schedules" in result
+
+    def test_schedule_create_dry_run(self):
+        from rondo.mcp_server import rondo_schedule_create
+
+        result = json.loads(rondo_schedule_create(
+            file_path="/tmp/test.py", interval="weekly", dry_run=True,
+        ))
+        assert "plist" in result or "status" in result
+
+
 class TestRondoExplain:
     """rondo_explain: local model reviews another model's output."""
 

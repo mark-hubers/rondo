@@ -197,6 +197,54 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_schedule_list() -> str:
+    """List installed Rondo schedules (launchd plists)."""
+    from pathlib import Path
+
+    launch_dir = Path.home() / "Library" / "LaunchAgents"
+    schedules = []
+    if launch_dir.exists():
+        for p in sorted(launch_dir.glob("com.rondo.*.plist")):
+            name = p.stem.replace("com.rondo.", "")
+            schedules.append({"name": name, "path": str(p)})
+    return json.dumps({"schedules": schedules, "count": len(schedules)}, indent=2)
+
+
+def rondo_schedule_create(
+    file_path: str,
+    interval: str = "weekly",
+    model: str = "",
+    name: str = "",
+    dry_run: bool = False,
+) -> str:
+    """Create a scheduled Rondo dispatch (generates launchd plist)."""
+    from pathlib import Path
+
+    from rondo.schedule import generate_plist
+
+    resolved = str(Path(file_path).expanduser().resolve()) if file_path else ""
+    sched_name = name or (Path(file_path).stem if file_path else "unnamed")
+    cmd_args = ["run", resolved]
+    if model:
+        cmd_args.extend(["--model", model])
+
+    plist = generate_plist(
+        name=sched_name,
+        command="/Users/markhubers/.local/bin/rondo",
+        args=cmd_args,
+        interval=interval,
+        work_dir=str(Path(resolved).parent) if resolved else "",
+    )
+
+    if dry_run:
+        return json.dumps({"status": "preview", "plist": plist[:500], "name": sched_name, "interval": interval})
+
+    out_dir = Path.home() / "Library" / "LaunchAgents"
+    out_path = out_dir / f"com.rondo.{sched_name}.plist"
+    out_path.write_text(plist, encoding="utf-8")
+    return json.dumps({"status": "installed", "path": str(out_path), "name": sched_name, "interval": interval})
+
+
 def rondo_explain(
     output: str, question: str = "Is this correct?", model: str = "qwen2.5:32b", dry_run: bool = False
 ) -> str:
@@ -993,6 +1041,22 @@ def create_mcp_server() -> Any:
     )
     def _cost(days: int = 30) -> str:
         return rondo_cost(days=days)
+
+    @mcp.tool(
+        name="rondo_schedule_list",
+        description="List installed Rondo scheduled dispatches (launchd plists).",
+    )
+    def _schedule_list() -> str:
+        return rondo_schedule_list()
+
+    @mcp.tool(
+        name="rondo_schedule_create",
+        description="Create a scheduled Rondo dispatch. interval: hourly/daily/weekly/monthly. dry_run=True to preview.",
+    )
+    def _schedule_create(
+        file_path: str, interval: str = "weekly", model: str = "", name: str = "", dry_run: bool = False
+    ) -> str:
+        return rondo_schedule_create(file_path=file_path, interval=interval, model=model, name=name, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_explain",

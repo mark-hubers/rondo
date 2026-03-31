@@ -637,7 +637,10 @@ def _run_subprocess(
     timer.start()
 
     # -- REQ-101 req 019-020: watchdog for output silence
-    if watchdog_sec > 0:
+    # -- Finding #172: select() only works on Unix/macOS, not Windows
+    import sys as _sys
+
+    if watchdog_sec > 0 and _sys.platform != "win32":
         import select
 
         stdout_parts: list[str] = []

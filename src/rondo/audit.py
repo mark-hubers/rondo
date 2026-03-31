@@ -326,9 +326,23 @@ class AuditTrail:
         return removed
 
     def _append_jsonl(self, record: AuditRecord) -> None:
-        """Append record to JSONL file — STD-113 reqs 007, 010."""
+        """Append record to JSONL file — STD-113 reqs 007, 010.
+
+        Finding #186: advisory file lock prevents interleaved writes
+        from parallel dispatch threads.
+        """
+        line = json.dumps(record.to_dict()) + "\n"
         with self._jsonl_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record.to_dict()) + "\n")
+            try:
+                import fcntl
+
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                f.write(line)
+                f.flush()
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except (ImportError, OSError):
+                ## -- Windows or lock failure: write without lock (best-effort)
+                f.write(line)
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b4

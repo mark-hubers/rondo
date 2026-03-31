@@ -48,10 +48,33 @@ def _resolve_dir(default: str, subdir: str) -> str:
 _DEFAULT_AUDIT_DIR = "~/.rondo/audit"
 _DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 
+## -- Finding #183: cache metrics to avoid reading JSONL 3-4x on morning check-in
+_metrics_cache: dict[str, Any] = {}
+_METRICS_CACHE_TTL = 30  # -- seconds
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Tool functions (testable without MCP transport)
 # -- ──────────────────────────────────────────────────────────────
+
+
+def _get_cached_metrics() -> Any:
+    """Return cached MetricsReport if fresh, else compute and cache."""
+    import time
+
+    from rondo.metrics import compute_metrics
+
+    now = time.monotonic()
+    if _metrics_cache.get("report") and (now - _metrics_cache.get("ts", 0)) < _METRICS_CACHE_TTL:
+        return _metrics_cache["report"]
+
+    report = compute_metrics(
+        audit_dir=_resolve_dir(_DEFAULT_AUDIT_DIR, "audit"),
+        spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool"),
+    )
+    _metrics_cache["report"] = report
+    _metrics_cache["ts"] = now
+    return report
 
 
 def rondo_metrics() -> str:
@@ -60,11 +83,7 @@ def rondo_metrics() -> str:
     IFS-104 req 003: query tool for dashboard data.
     Returns JSON string — same data as `rondo metrics --json`.
     """
-    from rondo.metrics import compute_metrics
-
-    report = compute_metrics(
-        audit_dir=_resolve_dir(_DEFAULT_AUDIT_DIR, "audit"), spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool")
-    )
+    report = _get_cached_metrics()
     return json.dumps(report.to_dict(), indent=2)
 
 
@@ -73,11 +92,7 @@ def rondo_health() -> str:
 
     IFS-104 req 005: lightweight status for preflight decisions.
     """
-    from rondo.metrics import compute_metrics
-
-    report = compute_metrics(
-        audit_dir=_resolve_dir(_DEFAULT_AUDIT_DIR, "audit"), spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool")
-    )
+    report = _get_cached_metrics()
     return json.dumps(
         {
             "health": report.health,

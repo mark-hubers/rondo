@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 # --  Default paths — ALWAYS-ON data locations
 # -- ──────────────────────────────────────────────────────────────
 
+
+def _resolve_dir(default: str, subdir: str) -> str:
+    """Resolve path: RONDO_TEST_DIR → default. Shared by MCP tools."""
+    import os
+
+    test_dir = os.environ.get("RONDO_TEST_DIR")
+    if test_dir:
+        return os.path.join(test_dir, subdir)
+    return default
+
+
 _DEFAULT_AUDIT_DIR = "~/.rondo/audit"
 _DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 

@@ -395,7 +395,7 @@ def _dispatch_interactive(
                 auth=config.auth,
                 timestamp=timestamp,
             )
-            return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
+            return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
         # -- Handle non-zero exit (Rondo-REQ-100 req 27)
         if returncode != 0:
@@ -412,7 +412,7 @@ def _dispatch_interactive(
                 auth=config.auth,
                 timestamp=timestamp,
             )
-            return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
+            return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
         # -- Handle empty stdout (Rondo-STD-108: ERR_EMPTY_OUTPUT)
         if not stdout or not stdout.strip():
@@ -428,7 +428,7 @@ def _dispatch_interactive(
                 auth=config.auth,
                 timestamp=timestamp,
             )
-            return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
+            return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
         # -- Parse and build success result
         return _parse_and_build_result(
@@ -443,6 +443,7 @@ def _dispatch_interactive(
             duration,
             audit_trail=audit_trail,
             audit_record=audit_record,
+            round_name=round_name,
         )
 
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
@@ -458,7 +459,7 @@ def _dispatch_interactive(
             auth=config.auth,
             timestamp=timestamp,
         )
-        return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
+        return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
 
 def _finalize_dispatch(
@@ -467,6 +468,7 @@ def _finalize_dispatch(
     config: RondoConfig,
     audit_trail: AuditTrail | None,
     audit_record: object | None,
+    round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Shared ALWAYS-ON pipeline for ALL dispatch paths (success + error).
 
@@ -483,9 +485,11 @@ def _finalize_dispatch(
             audit_trail.record_outcome(
                 dispatch_id=audit_record.dispatch_id,
                 task_name=result.task_name,
+                round_name=round_name,
                 model=result.model,
                 status=result.status,
                 exit_code=result.exit_code or 0,
+                error_code=result.error_code,
                 cost_usd=usage.cost_usd,
                 duration_sec=result.duration_sec,
                 raw_output=result.raw_output,
@@ -647,6 +651,7 @@ def _parse_and_build_result(
     *,
     audit_trail: AuditTrail | None = None,
     audit_record: object | None = None,
+    round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Parse stream-json output and build success/partial TaskResult.
 
@@ -702,7 +707,7 @@ def _parse_and_build_result(
     )
 
     # -- ALWAYS-ON: shared finalizer for all paths (Cursor Session 92 review)
-    return _finalize_dispatch(result, usage, config, audit_trail, audit_record)
+    return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
 
 def _log_to_history(

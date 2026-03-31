@@ -378,7 +378,7 @@ def _dispatch_interactive(
             env,
             config.task_timeout_sec,
             cwd=config.project,
-            watchdog_sec=0,  # -- watchdog enabled per-call, not by default
+            watchdog_sec=config.watchdog_timeout_sec if not os.environ.get("RONDO_TEST_DIR") else 0,  # -- #191
             stdin_text=prompt,  # -- Finding #177: pipe via stdin, not CLI arg
         )
         duration = time.monotonic() - start

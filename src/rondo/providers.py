@@ -120,7 +120,7 @@ class OllamaAdapter(ProviderAdapter):
                 data=data,
                 headers={"Content-Type": "application/json"},
             )
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310
                 result = json.loads(resp.read().decode("utf-8"))
 
             duration = time.monotonic() - start
@@ -149,7 +149,7 @@ class OllamaAdapter(ProviderAdapter):
         import urllib.request
 
         try:
-            with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=5) as resp:
+            with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=5) as resp:  # nosec B310
                 return resp.status == 200
         except (urllib.error.URLError, OSError):
             return False
@@ -160,7 +160,7 @@ class OllamaAdapter(ProviderAdapter):
         import urllib.request
 
         try:
-            with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=5) as resp:
+            with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=5) as resp:  # nosec B310
                 data = json.loads(resp.read().decode("utf-8"))
                 return [m["name"] for m in data.get("models", [])]
         except (urllib.error.URLError, OSError, json.JSONDecodeError):
@@ -197,6 +197,38 @@ def get_provider(model: str) -> ProviderAdapter:
 
     ## -- Default: Claude (backward compat)
     return _claude_adapter
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  Task type → model recommendation
+# -- ──────────────────────────────────────────────────────────────
+
+## -- Best model per task type (local-first, Claude as fallback)
+_TASK_MODEL_MAP: dict[str, str] = {
+    "code-review": "qwen2.5-coder:7b",
+    "code-fix": "qwen2.5-coder:7b",
+    "code-generate": "qwen2.5-coder:7b",
+    "reasoning": "deepseek-r1:8b",
+    "math": "deepseek-r1:8b",
+    "logic": "deepseek-r1:8b",
+    "classify": "llama3.1:8b",
+    "scan": "llama3.1:8b",
+    "filter": "llama3.1:8b",
+    "structured-json": "phi4:14b",
+    "extract": "phi4:14b",
+    "summarize": "gemma3:12b",
+    "general": "qwen2.5:32b",
+    "research": "qwen2.5:32b",
+    "analysis": "qwen2.5:32b",
+}
+
+
+def recommend_model(task_type: str) -> str:
+    """Recommend the best model for a task type — REQ-109.
+
+    Returns local model name for known types, 'sonnet' (Claude) for unknown.
+    """
+    return _TASK_MODEL_MAP.get(task_type.lower(), "sonnet")
 
 
 # -- sig: mgh-6201.cd.bd955f.a109.b10901

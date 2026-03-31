@@ -86,14 +86,30 @@ class TestProviderRouting:
     def test_route_ollama_models(self) -> None:
         from rondo.providers import get_provider
 
-        assert get_provider("llama3.2").name == "ollama"
-        assert get_provider("qwen2.5").name == "ollama"
+        assert get_provider("llama3.1:8b").name == "ollama"
+        assert get_provider("qwen2.5:32b").name == "ollama"
+        assert get_provider("qwen2.5-coder:7b").name == "ollama"
+        assert get_provider("deepseek-r1:8b").name == "ollama"
+        assert get_provider("gemma3:12b").name == "ollama"
+        assert get_provider("phi4:14b").name == "ollama"
+        assert get_provider("mistral").name == "ollama"
 
     def test_unknown_model_returns_claude(self) -> None:
         """Unknown models default to Claude (backward compat)."""
         from rondo.providers import get_provider
 
         assert get_provider("unknown-model-xyz").name == "claude"
+
+    def test_recommend_model_for_task(self) -> None:
+        """recommend_model returns best local model for task type."""
+        from rondo.providers import recommend_model
+
+        assert recommend_model("code-review") == "qwen2.5-coder:7b"
+        assert recommend_model("reasoning") == "deepseek-r1:8b"
+        assert recommend_model("classify") == "llama3.1:8b"
+        assert recommend_model("structured-json") == "phi4:14b"
+        assert recommend_model("general") == "qwen2.5:32b"
+        assert recommend_model("unknown-type") == "sonnet"  ## default to Claude
 
 
 # -- ──────────────────────────────────────────────────────────────

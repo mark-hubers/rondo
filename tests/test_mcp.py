@@ -670,6 +670,31 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestRondoExplain:
+    """rondo_explain: local model reviews another model's output."""
+
+    def test_explain_returns_json(self):
+        from rondo.mcp_server import rondo_explain
+
+        result = json.loads(rondo_explain(
+            output="Found 3 trials: NCT001, NCT002, NCT003",
+            question="Are these real trial numbers?",
+            dry_run=True,
+        ))
+        assert "status" in result
+
+    def test_explain_default_model_is_local(self):
+        from rondo.mcp_server import rondo_explain
+
+        result = json.loads(rondo_explain(
+            output="Some code", question="Is this correct?", dry_run=True,
+        ))
+        ## -- Should use a local model by default (not Claude)
+        tasks = result.get("tasks", [])
+        if tasks:
+            assert tasks[0].get("model") != "sonnet"
+
+
 class TestRondoBenchmark:
     """rondo_benchmark: same prompt → multiple models → ranked."""
 

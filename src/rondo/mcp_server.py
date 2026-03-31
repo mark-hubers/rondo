@@ -197,6 +197,29 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_explain(
+    output: str, question: str = "Is this correct?", model: str = "qwen2.5:32b", dry_run: bool = False
+) -> str:
+    """Second opinion: local model reviews another model's output at zero cost.
+
+    Pass the output from a Claude/other dispatch + a review question.
+    Default model is qwen2.5:32b (best local quality).
+    """
+    prompt = f"""Review this AI-generated output and answer the question.
+
+## Output to review:
+{output[:5000]}
+
+## Question:
+{question}
+
+Be specific. If you find errors, list them. If correct, say why."""
+
+    return rondo_run_file(
+        prompt=prompt, model=model, dry_run=dry_run, done_when="Review complete with specific assessment."
+    )
+
+
 def rondo_benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> str:
     """Benchmark: dispatch same prompt to multiple models, rank by speed/cost.
 
@@ -970,6 +993,15 @@ def create_mcp_server() -> Any:
     )
     def _cost(days: int = 30) -> str:
         return rondo_cost(days=days)
+
+    @mcp.tool(
+        name="rondo_explain",
+        description="Second opinion: local model reviews AI output at $0 cost. Pass output + question. Default: qwen2.5:32b.",
+    )
+    def _explain(
+        output: str, question: str = "Is this correct?", model: str = "qwen2.5:32b", dry_run: bool = False
+    ) -> str:
+        return rondo_explain(output=output, question=question, model=model, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_benchmark",

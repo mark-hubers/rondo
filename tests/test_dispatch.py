@@ -2075,4 +2075,41 @@ class TestExtractTable:
         assert r.extract_table() == []
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-106 req 005: context_data size cap (RONDO-52)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestContextDataSizeCap:
+    """REQ-106 req 005: context_data included in max_context_bytes cap."""
+
+    def test_large_context_data_rejected(self):
+        """context_data > max_context_bytes is rejected."""
+        from rondo.engine import validate_task
+        big_data = {"payload": "x" * 600_000}
+        task = Task(name="big", instruction="x", done_when="y", context_data=big_data)
+        errors = validate_task(task, max_context_bytes=500_000)
+        assert any("context" in e.lower() and "bytes" in e.lower() for e in errors)
+
+    def test_small_context_data_accepted(self):
+        """context_data under cap passes."""
+        from rondo.engine import validate_task
+        task = Task(name="ok", instruction="x", done_when="y", context_data={"key": "val"})
+        errors = validate_task(task, max_context_bytes=500_000)
+        assert not any("context_data" in e for e in errors)
+
+    def test_combined_files_and_data_cap(self, tmp_path):
+        """context_files + context_data combined must be under cap."""
+        from rondo.engine import validate_task
+        big_file = tmp_path / "big.txt"
+        big_file.write_text("x" * 400_000)
+        big_data = {"extra": "y" * 200_000}
+        task = Task(
+            name="combined", instruction="x", done_when="y",
+            context_files=[str(big_file)], context_data=big_data,
+        )
+        errors = validate_task(task, max_context_bytes=500_000)
+        assert any("bytes" in e.lower() for e in errors)
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

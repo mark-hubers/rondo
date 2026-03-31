@@ -387,14 +387,22 @@ def validate_task(
         )
 
     # -- REQ-106 req 009: context_data must be JSON-serializable
+    context_data_size = 0
     if task.context_data:
         try:
-            json.dumps(task.context_data)
+            serialized = json.dumps(task.context_data)
+            context_data_size = len(serialized.encode("utf-8"))
         except (TypeError, ValueError) as e:
             errors.append(f"Task '{task.name}' context_data not JSON-serializable: {e}")
 
+    # -- REQ-106 req 005: context_data included in size cap
+    if context_data_size > max_context_bytes:
+        errors.append(
+            f"Task '{task.name}' context_data {context_data_size} bytes exceeds max_context_bytes ({max_context_bytes})"
+        )
+
     # -- REQ-100 req 003: context_files validation (extracted for complexity)
-    errors.extend(_validate_context_files(task, project_root, max_context_bytes))
+    errors.extend(_validate_context_files(task, project_root, max_context_bytes, context_data_size))
 
     return errors
 
@@ -403,10 +411,12 @@ def _validate_context_files(
     task: Task,
     project_root: str | None,
     max_context_bytes: int,
+    context_data_size: int = 0,
 ) -> list[str]:
     """Validate context_files paths — REQ-100 req 003.
 
     Checks: no traversal, no absolute (without root), no symlinks outside root, size cap.
+    REQ-106 req 005: combined context_files + context_data size checked.
     """
     from pathlib import Path
 
@@ -431,9 +441,11 @@ def _validate_context_files(
         if p.exists() and p.is_file():
             total_size += p.stat().st_size
 
-    if total_size > max_context_bytes:
+    combined_size = total_size + context_data_size
+    if combined_size > max_context_bytes:
         errors.append(
-            f"Task '{task.name}' context_files total {total_size} bytes exceeds max_context_bytes ({max_context_bytes})"
+            f"Task '{task.name}' context total {combined_size} bytes "
+            f"(files={total_size} + data={context_data_size}) exceeds max_context_bytes ({max_context_bytes})"
         )
 
     return errors

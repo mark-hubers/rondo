@@ -289,7 +289,10 @@ def rondo_summarize(dispatch_json: str, dry_run: bool = False, model: str = "hai
     parts = ["Summarize these task results into a concise report:\n"]
     for task in tasks:
         name = task.get("name", "unknown")
-        output = task.get("raw_output", "")[:3000]
+        full_output = task.get("raw_output", "")
+        output = full_output[:3000]
+        if len(full_output) > 3000:
+            output += f"\n[TRUNCATED: {len(full_output)} chars total, showing first 3000]"
         status = task.get("status", "unknown")
         parts.append(f"## Task: {name} ({status})\n{output}\n")
 

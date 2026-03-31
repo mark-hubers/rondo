@@ -136,7 +136,6 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     def extract_json(self) -> dict[str, Any] | None:
         """U-26: Parse raw_output as JSON. Returns dict or None."""
         import json as _json
-        import re as _re
 
         if not self.raw_output:
             return None
@@ -144,11 +143,18 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
             return _json.loads(self.raw_output)
         except (ValueError, TypeError):
             pass
-        ## -- Try extracting JSON object from surrounding text
+        ## -- Try balanced-brace extraction for nested JSON (Finding #178)
         try:
-            match = _re.search(r"\{[^{}]*\}", self.raw_output, _re.DOTALL)
-            if match:
-                return _json.loads(match.group(0))
+            start = self.raw_output.index("{")
+            depth = 0
+            for i, ch in enumerate(self.raw_output[start:], start):
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        candidate = self.raw_output[start : i + 1]
+                        return _json.loads(candidate)
         except (ValueError, TypeError):
             pass
         return None

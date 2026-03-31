@@ -229,7 +229,14 @@ def load_config(
         if resolved is not None:
             kwargs[f.name] = resolved
 
-    return RondoConfig(**kwargs)
+    config = RondoConfig(**kwargs)
+
+    # -- Finding #180: validate config and warn on errors
+    errors = validate_config(config)
+    for err in errors:
+        warnings.warn(f"Config validation: {err}", stacklevel=2)
+
+    return config
 
 
 def _load_toml(

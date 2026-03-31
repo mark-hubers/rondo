@@ -2014,6 +2014,13 @@ class TestExtractJson:
         assert result is not None
         assert result["status"] == "done"
 
+    def test_nested_json_extracted(self):
+        """Finding #178: nested JSON objects must be parseable."""
+        r = TaskResult(task_name="t", raw_output='Result: {"status":"done","data":{"count":3,"items":["a","b"]}}')
+        result = r.extract_json()
+        assert result is not None
+        assert result["data"]["count"] == 3
+
     def test_does_not_modify_raw_output(self):
         """U-30: read-only."""
         original = '{"key":"val"}'

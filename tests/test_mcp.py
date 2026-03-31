@@ -670,6 +670,28 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestRondoChain:
+    """rondo_chain: pipe output of step N as input to step N+1."""
+
+    def test_chain_returns_json(self):
+        from rondo.mcp_server import rondo_chain
+
+        steps = json.dumps([
+            {"prompt": "List 3 colors", "model": "llama3.1:8b"},
+            {"prompt": "For each color in the previous result, name a fruit of that color", "model": "llama3.1:8b"},
+        ])
+        result = json.loads(rondo_chain(steps, dry_run=True))
+        assert "steps" in result
+        assert len(result["steps"]) == 2
+
+    def test_chain_empty_steps(self):
+        from rondo.mcp_server import rondo_chain
+
+        result = json.loads(rondo_chain("[]"))
+        assert result["status"] == "done"
+        assert result["steps"] == []
+
+
 class TestRondoModels:
     """rondo_models: discover available models and recommendations."""
 

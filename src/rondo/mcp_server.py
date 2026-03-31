@@ -197,6 +197,70 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_chain(steps_json: str, dry_run: bool = False) -> str:
+    """Chain dispatch: output of step N feeds as context to step N+1.
+
+    Each step is {prompt, model, done_when?}. Previous output appended to prompt.
+    """
+    try:
+        steps = json.loads(steps_json) if steps_json else []
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid steps_json"})
+
+    if not steps:
+        return json.dumps({"status": "done", "steps": [], "total_cost_usd": 0})
+
+    results: list[dict] = []
+    previous_output = ""
+    total_cost = 0.0
+
+    for i, step in enumerate(steps):
+        step_prompt = step.get("prompt", "")
+        if previous_output:
+            step_prompt = f"{step_prompt}\n\n## Previous step output:\n{previous_output}"
+
+        step_model = step.get("model", "sonnet")
+        step_done = step.get("done_when", "Task completed.")
+
+        if dry_run:
+            results.append(
+                {
+                    "step": i + 1,
+                    "prompt_preview": step_prompt[:300],
+                    "model": step_model,
+                    "status": "skipped",
+                }
+            )
+            previous_output = f"[dry-run step {i + 1} output]"
+        else:
+            raw = rondo_run_file(
+                prompt=step_prompt,
+                model=step_model,
+                done_when=step_done,
+                dry_run=False,
+            )
+            step_result = json.loads(raw)
+            tasks = step_result.get("tasks", [])
+            output = tasks[0].get("raw_output", "") if tasks else ""
+            cost = step_result.get("total_cost_usd", 0)
+            total_cost += cost
+            previous_output = output
+            results.append(
+                {
+                    "step": i + 1,
+                    "model": step_model,
+                    "status": step_result.get("status", "unknown"),
+                    "output_length": len(output),
+                    "cost_usd": cost,
+                }
+            )
+
+    return json.dumps(
+        {"status": "done", "steps": results, "total_cost_usd": total_cost},
+        indent=2,
+    )
+
+
 def rondo_models() -> str:
     """List available models with providers, benchmarks, and task recommendations."""
     from rondo.providers import _TASK_MODEL_MAP, _ollama_adapter
@@ -852,6 +916,13 @@ def create_mcp_server() -> Any:
     )
     def _cost(days: int = 30) -> str:
         return rondo_cost(days=days)
+
+    @mcp.tool(
+        name="rondo_chain",
+        description="Pipeline: chain steps where output of step N feeds into step N+1. Pass JSON array of {prompt, model, done_when}. dry_run=True to preview.",
+    )
+    def _chain(steps_json: str, dry_run: bool = False) -> str:
+        return rondo_chain(steps_json=steps_json, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_models",

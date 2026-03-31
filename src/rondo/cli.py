@@ -129,6 +129,14 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser = subparsers.add_parser("init", help="Create a starter round file")
     init_parser.add_argument("--name", default="my-round", help="Round name (default: my-round)")
 
+    ## -- schedule subcommand (REQ-101 scheduling)
+    sched_parser = subparsers.add_parser("schedule", help="Create launchd plist for recurring dispatch")
+    sched_parser.add_argument("file", help="Round file to schedule")
+    sched_parser.add_argument("--interval", default="weekly", choices=["hourly", "daily", "weekly", "monthly"])
+    sched_parser.add_argument("--name", default="", help="Schedule name (default: derived from file)")
+    sched_parser.add_argument("--model", default=None, help="Model override")
+    sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
+
     return parser
 
 
@@ -944,6 +952,39 @@ def build_round() -> Round:
     return EXIT_SUCCESS
 
 
+def _cmd_schedule(args: argparse.Namespace) -> int:
+    """Create a launchd plist for recurring Rondo dispatch."""
+    from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+    from rondo.schedule import generate_plist  # pylint: disable=import-outside-toplevel
+
+    file_path = str(Path(args.file).resolve())
+    name = args.name or Path(args.file).stem
+    cmd_args = ["run", file_path]
+    if args.model:
+        cmd_args.extend(["--model", args.model])
+
+    plist = generate_plist(
+        name=name,
+        command="/Users/markhubers/.local/bin/rondo",
+        args=cmd_args,
+        interval=args.interval,
+        work_dir=str(Path(file_path).parent),
+    )
+
+    if getattr(args, "install", False):
+        out_dir = Path.home() / "Library" / "LaunchAgents"
+        out_path = out_dir / f"com.rondo.{name}.plist"
+        out_path.write_text(plist, encoding="utf-8")
+        print(f"Installed: {out_path}")
+        print(f"  Load: launchctl load {out_path}")
+    else:
+        print(plist)
+        print(f"\n# Install with: rondo schedule {args.file} --install")
+
+    return EXIT_SUCCESS
+
+
 # -- Populate command dispatch table
 _COMMANDS.update(
     {
@@ -959,6 +1000,7 @@ _COMMANDS.update(
         "metrics": _cmd_metrics,
         "mcp": _cmd_mcp,
         "init": _cmd_init,
+        "schedule": _cmd_schedule,
     }
 )
 

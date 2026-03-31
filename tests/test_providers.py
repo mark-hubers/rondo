@@ -175,6 +175,35 @@ class TestProviderAuditTrail:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestRondoSchedule:
+    """rondo schedule: generate launchd plists."""
+
+    def test_schedule_generates_plist(self, tmp_path) -> None:
+        from rondo.schedule import generate_plist
+
+        plist = generate_plist(
+            name="ush-weekly",
+            command="/Users/markhubers/.local/bin/rondo",
+            args=["run", "scripts/ush-scan.py", "--model", "haiku"],
+            interval="weekly",
+            output_dir=str(tmp_path),
+        )
+        assert "com.rondo.ush-weekly" in plist
+        assert "StartCalendarInterval" in plist
+
+    def test_schedule_daily(self, tmp_path) -> None:
+        from rondo.schedule import generate_plist
+
+        plist = generate_plist(
+            name="daily-scan",
+            command="rondo",
+            args=["run", "scan.py"],
+            interval="daily",
+            output_dir=str(tmp_path),
+        )
+        assert "Hour" in plist
+
+
 class TestCLIProviderDispatch:
     """CLI dispatch routes non-Claude models to provider adapters."""
 

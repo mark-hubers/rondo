@@ -517,8 +517,8 @@ class TestNoHttpUrls:
         import re
         for src_file in SRC_FILES:
             content = src_file.read_text(encoding="utf-8")
-            ## -- Find http:// but allow localhost
-            matches = re.findall(r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)\S+', content)
+            ## -- Find http:// but allow localhost + Apple DTD (plist standard)
+            matches = re.findall(r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0|www\.apple\.com/DTDs)\S+', content)
             assert not matches, f"{src_file.name} uses plain HTTP: {matches[:2]}"
 
 

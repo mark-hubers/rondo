@@ -666,4 +666,47 @@ class TestSaveResultSafe:
             assert mock_save.call_count == 2
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  STD-110 req 004-005: File conflict detection (RONDO-57)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestFileConflictDetection:
+    """STD-110 req 004-005: detect tasks touching same files."""
+
+    def test_no_conflict(self):
+        """Tasks with different context_files = no conflict."""
+        from rondo.runner import detect_file_conflicts
+
+        tasks = [
+            Task(name="t1", instruction="x", done_when="y", context_files=["a.py"]),
+            Task(name="t2", instruction="x", done_when="y", context_files=["b.py"]),
+        ]
+        conflicts = detect_file_conflicts(tasks)
+        assert len(conflicts) == 0
+
+    def test_detects_overlap(self):
+        """Tasks sharing a file = conflict detected."""
+        from rondo.runner import detect_file_conflicts
+
+        tasks = [
+            Task(name="t1", instruction="x", done_when="y", context_files=["shared.py", "a.py"]),
+            Task(name="t2", instruction="x", done_when="y", context_files=["shared.py", "b.py"]),
+        ]
+        conflicts = detect_file_conflicts(tasks)
+        assert len(conflicts) == 1
+        assert "shared.py" in conflicts[0]
+
+    def test_no_files_no_conflict(self):
+        """Tasks with no context_files = no conflict."""
+        from rondo.runner import detect_file_conflicts
+
+        tasks = [
+            Task(name="t1", instruction="x", done_when="y"),
+            Task(name="t2", instruction="x", done_when="y"),
+        ]
+        conflicts = detect_file_conflicts(tasks)
+        assert len(conflicts) == 0
+
+
 # -- sig: mgh-6201.cd.bd955f.d451.a88884

@@ -217,6 +217,24 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
 # ──────────────────────────────────────────────────────────────────
 
 
+def detect_file_conflicts(tasks: list[Task]) -> list[str]:
+    """STD-110 req 004: detect tasks that touch the same files.
+
+    Returns list of conflict descriptions. Empty = no conflicts.
+    Advisory only (req 005) — warns but doesn't block.
+    """
+    file_to_tasks: dict[str, list[str]] = {}
+    for task in tasks:
+        for f in task.context_files:
+            file_to_tasks.setdefault(f, []).append(task.name)
+
+    conflicts: list[str] = []
+    for filepath, task_names in file_to_tasks.items():
+        if len(task_names) > 1:
+            conflicts.append(f"{filepath} touched by: {', '.join(task_names)}")
+    return conflicts
+
+
 def _dispatch_with_safety_net(
     task: Task,
     config: RondoConfig,

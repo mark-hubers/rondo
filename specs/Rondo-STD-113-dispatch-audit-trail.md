@@ -342,6 +342,8 @@ Spec review cost tracked in `reports/ai-reviews/`. ~$0.10/review/body.
 
 CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal — if dispatches are missing audit records, something is wrong. CORE-STD-013 (TrackerData) aligns with the append-only JSONL pattern. CORE-STD-021 MCP tools may reference dispatch_ids from OB's side but do not query Rondo's audit files directly.
 
+**Session 94 — Non-Claude provider coverage:** Prior to REQ-109 v1.2, non-Claude providers (Ollama) generated audit INTENT/OUTCOME records in the MCP path but NOT in the CLI path (split-brain). REQ-109 req 026 now mandates ALL provider dispatch results pass through `_finalize_dispatch()`, which includes audit OUTCOME recording. This means STD-113 audit coverage is now universal across all providers and all entry points (CLI, MCP, Python import).
+
 ---
 
 ### Feature Maturity
@@ -359,3 +361,4 @@ CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-114. 16 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |
+| 1.2 | 2026-03-31 | Session 94: Added note on universal provider audit coverage per REQ-109 v1.2 req 026. Non-Claude CLI path now goes through shared finalization (was split-brain). |

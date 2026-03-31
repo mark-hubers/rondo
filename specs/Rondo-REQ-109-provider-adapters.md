@@ -4,9 +4,9 @@
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-03-20 | **Updated:** 2026-03-22 | **Status:** DESIGNED
+**Created:** 2026-03-20 | **Updated:** 2026-03-31 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.1
+**Version:** 1.2
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -57,10 +57,20 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | ID | Requirement | Priority | Verified By |
 |----|-------------|----------|-------------|
 | 001 | `ProviderAdapter` abstract base class with: `dispatch(prompt, model, config) → DispatchResult`, `health() → bool`, `models() → list[str]` | MUST | Interface test |
-| 002 | One adapter class per provider: `ClaudeCLIAdapter`, `ClaudeAPIAdapter`, `GeminiAdapter`, `OpenAIAdapter`, `OllamaAdapter`, `ContainerAdapter` | MUST | Adapter test |
+| 002 | One adapter class per non-Claude provider: `OllamaAdapter`, plus future `GeminiAdapter`, `OpenAIAdapter`, `ContainerAdapter`. Claude dispatch uses `dispatch_task()` directly (Phase 1). Phase 2: extract Claude transport into a real `ClaudeCLIAdapter`. | MUST | Adapter test |
 | 003 | Adding a new provider = implement one adapter class. NO changes to OB, Caliber, ACE, or any other code. | MUST | Isolation test |
-| 004 | All adapters return the same `DispatchResult` format regardless of provider (model-agnostic output) | MUST | Format test |
+| 004 | All adapters return the same `TaskResult` format regardless of provider (model-agnostic output) | MUST | Format test |
 | 005 | Adapter config via TOML: `[providers.<name>] type, api_key_env, endpoint, default_model` | MUST | Config test |
+
+
+### Shared Finalization Pipeline (Session 94 — split-brain fix)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 026 | ALL provider dispatch results MUST pass through the shared finalization pipeline (`_finalize_dispatch`): audit OUTCOME, sanitize, spool, history, metrics. No provider may skip any stage. | MUST | Pipeline test |
+| 027 | Claude dispatch uses `dispatch_task()` → `_finalize_dispatch()` (proven path, 1168 tests). Non-Claude providers use `ProviderAdapter.dispatch()` → `_finalize_dispatch()`. Two transports, one finalization. | MUST | Path test |
+| 028 | `recommend_model(task_type)` MUST read from TOML config (`[routing.task_models]`), not a hardcoded dictionary. Manual config always wins over learned affinity (req 024). | MUST | Config test |
+| 029 | Anti-pattern guard: if a new dispatch path is added that bypasses `_finalize_dispatch`, tests MUST fail. The pipeline is mandatory, not optional. | MUST | Guard test |
 
 
 ### Credential Management
@@ -112,30 +122,49 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 ## 4. Architecture / Design
 
 ```
-OAPayload arrives at Rondo
+Task arrives at Rondo (MCP, CLI, or Python import)
         │
    ┌────┴────┐
-   │ Router  │ ← checks task_type → routing table → selects provider + model
+   │ Router  │ ← get_provider(model) → Claude or non-Claude?
    └────┬────┘
         │
-   ┌────┴──────────────────────────────────────┐
-   │           Provider Adapters                │
-   │                                            │
-   │  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
-   │  │ Claude   │  │ Gemini   │  │ OpenAI   │ │
-   │  │ CLI/API  │  │ REST     │  │ REST     │ │
-   │  └────┬─────┘  └────┬─────┘  └────┬─────┘ │
-   │       │              │              │       │
-   │  ┌────┴─────┐  ┌────┴─────┐  ┌────┴─────┐ │
-   │  │ Ollama   │  │Container │  │ Future   │ │
-   │  │ REST     │  │ CLI      │  │ adapter  │ │
-   │  └──────────┘  └──────────┘  └──────────┘ │
-   └───────────────────┬───────────────────────┘
-                       │
-                  DispatchResult (same format regardless of provider)
-                       │
-                  OAResult (model-agnostic)
+  ══════╪══════════════  TRANSPORT LAYER (provider-specific)  ═══════
+        │
+   ┌────┴──────────────────────────────────────────────────────────┐
+   │                                                               │
+   │  Claude path               Non-Claude path                   │
+   │  ┌──────────────┐          ┌──────────────┐  ┌────────────┐  │
+   │  │ dispatch_    │          │ Ollama       │  │ Future     │  │
+   │  │ task()       │          │ Adapter      │  │ adapters   │  │
+   │  │ (subprocess  │          │ (HTTP API)   │  │ (Gemini,   │  │
+   │  │  claude -p)  │          │              │  │  OpenAI)   │  │
+   │  │ 1168 tests   │          │              │  │            │  │
+   │  └──────┬───────┘          └──────┬───────┘  └─────┬──────┘  │
+   │         │                         │                │         │
+   └─────────┼─────────────────────────┼────────────────┼─────────┘
+             │                         │                │
+             └─────────────┬───────────┘────────────────┘
+                           │
+  ═════════════════  FINALIZATION LAYER (shared, mandatory)  ═════════
+                           │
+                  ┌────────┴────────┐
+                  │ _finalize_      │  audit OUTCOME, sanitize,
+                  │ dispatch()      │  spool, history, metrics
+                  │ (ALL providers) │  — ALWAYS-ON, no bypass
+                  └────────┬────────┘
+                           │
+                      TaskResult (same format regardless of provider)
 ```
+
+### Phase 1 vs Phase 2
+
+| Phase | Claude path | Non-Claude path | Finalization |
+|-------|-------------|-----------------|--------------|
+| **Phase 1 (current)** | `dispatch_task()` directly | `ProviderAdapter.dispatch()` | Shared `_finalize_dispatch()` for ALL |
+| **Phase 2 (future)** | Extract transport into `ClaudeCLIAdapter.dispatch()` | Same as Phase 1 | Same — `dispatch_task()` becomes thin router |
+
+Phase 2 triggers when a 3rd provider is added or during an architecture sprint.
+The anti-pattern this prevents: "two paths to the same outcome where one path gets features the other doesn't" (split-brain dispatch, caught Session 94 by DeepSeek-R1 contrarian review).
 
 ### Default Routing (Session 83 — proven task-model affinities)
 
@@ -421,6 +450,10 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | D3 | Affinity is advisory, manual wins | 2026-03-20 | Mark controls routing. AI suggests, Mark decides. |
 | D4 | 6 adapter types in v1 | 2026-03-20 | Claude CLI/API, Gemini, OpenAI, Ollama, Container covers all known needs |
 | D5 | Session 83 default routing table | 2026-03-20 | Proven live — 3 providers tested with real API calls |
+| D6 | Remove ClaudeCLIAdapter (Phase 1) | 2026-03-31 | Dead code — both CLI and MCP callers bypass it via `if provider.name != "claude"`. Misleads readers into thinking Claude goes through adapter pattern. Session 94: 2 AI bodies (Qwen, DeepSeek-R1) confirmed removal. |
+| D7 | Shared finalization pipeline for ALL providers | 2026-03-31 | Ollama CLI path was missing audit, sanitize, spool, history, metrics — half the ALWAYS-ON pipeline. Fix: all providers pass results through `_finalize_dispatch()`. Session 94: Cursor identified split-brain, DeepSeek-R1 validated fix. |
+| D8 | Phased approach: fix pipeline now, pure adapters later | 2026-03-31 | DeepSeek-R1 argued for full unification (all providers through adapter pattern). Deferred to Phase 2 — refactoring 300+ lines of proven Claude transport code risks regressions with only 2 providers. Phase 2 triggers when 3rd provider arrives. |
+| D9 | Move recommend_model() from hardcoded dict to TOML config | 2026-03-31 | Cursor critique: "hardcoded strategy map pretending to be future-proof." Config-driven routing lets Mark update model preferences without code changes. Affinity tracking (req 021-023) can suggest, config decides. |
 
 ---
 
@@ -455,6 +488,7 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | Keychain API changes in macOS update | Low | Credential retrieval fails | Abstraction layer for credential store |
 | Model naming inconsistency across providers | Medium | Routing confusion | Canonical model names in config, adapter translates |
 | Single-point-of-failure (one provider) | Medium | Batch blocked | Fallback provider always configured |
+| Split-brain dispatch (two paths, one gets features) | High | Provider paths diverge silently — one gets audit/sanitize/spool, the other doesn't | Req 026: ALL providers through shared `_finalize_dispatch()`. Req 029: guard test fails if bypass detected. Session 94 lesson. |
 
 ---
 
@@ -537,10 +571,13 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 | Feature | Maturity | Evidence | Retest |
 |---------|----------|----------|--------|
-| Provider adapter interface | SPIKED | Spike prototyped Claude adapter via claude -p | Phase 1 build |
-| Claude Code adapter | SPIKED | Spike proved subprocess dispatch works | After Claude CLI changes |
-| Multi-model routing | THEORY | Specced for opus/sonnet/haiku per task | Phase 1 build |
-| Alternative provider support | THEORY | Specced for future non-Claude providers | Phase 3 build |
+| Provider adapter interface | BUILT | ABC + OllamaAdapter live, 1168 tests | After new provider added |
+| Claude dispatch (dispatch_task) | BUILT | Proven path, 1168 tests, 74 sprints | After Claude CLI changes |
+| Ollama adapter | BUILT | Live dispatch to 8 local models | After Ollama API changes |
+| Shared finalization pipeline | DESIGNED | Session 94 — spec done, code pending | Phase 1 sprint |
+| recommend_model config-driven | DESIGNED | Session 94 — spec done, code pending | Phase 1 sprint |
+| Multi-model routing (get_provider) | BUILT | Routes Claude vs Ollama by model name | After 3rd provider |
+| Phase 2: Claude as real adapter | THEORY | DeepSeek-R1 validated architecture | When 3rd provider arrives |
 
 
 ## 35. Change History
@@ -549,3 +586,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Provider adapter interface, credential management, model routing, affinity tracking. 25 requirements. Session 83: 3 providers proven live. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
+| 1.2 | 2026-03-31 | **Split-brain fix (Session 94).** Removed ClaudeCLIAdapter (D6). Added shared finalization pipeline reqs 026-029 (D7). Phased approach: Phase 1 fixes pipeline gap, Phase 2 extracts Claude into real adapter (D8). recommend_model to TOML config (D9). New architecture diagram: two transports, one finalization. Risk added: split-brain anti-pattern. Feature maturity updated to reflect built state. AI body review: Qwen 32B (architectural) + DeepSeek-R1 8B (contrarian). Cross-product verified: CORE-ADR-001 already mandates this design, no changes needed to OB/Caliber/ACE specs. |

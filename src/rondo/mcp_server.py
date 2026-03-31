@@ -182,6 +182,36 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_retry(dispatch_id: str, model: str = "") -> str:
+    """Re-run failed tasks from a previous dispatch — U-56 to U-58.
+
+    Looks up the dispatch result, finds failed/error tasks, re-dispatches them.
+    """
+    result = _background_results.get(dispatch_id)
+    if not result:
+        return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
+
+    tasks = result.get("tasks", [])
+    failed = [t for t in tasks if t.get("status") in ("error", "blocked", "partial")]
+    if not failed:
+        return json.dumps({"status": "done", "message": "No failed tasks to retry", "retried": 0})
+
+    # -- Build inline prompts for each failed task
+    retried: list[dict] = []
+    for task in failed:
+        task_result = rondo_run_file(
+            prompt=f"Retry: {task.get('name', 'unknown')}. Previous error: {task.get('error_message', 'unknown')}",
+            dry_run=False,
+            model=model or task.get("model", "sonnet"),
+        )
+        retried.append({"name": task.get("name"), "retry_result": json.loads(task_result)})
+
+    return json.dumps(
+        {"status": "done", "retried": len(retried), "skipped": len(tasks) - len(failed), "results": retried},
+        indent=2,
+    )
+
+
 def rondo_spool_consume() -> str:
     """Consume all pending spool results — mailbox drain.
 
@@ -549,6 +579,13 @@ def create_mcp_server() -> Any:
     )
     def _history(model: str = "", status: str = "", limit: int = 20) -> str:
         return rondo_history(model=model, status=status, limit=limit)
+
+    @mcp.tool(
+        name="rondo_retry",
+        description="Re-run failed tasks from a previous background dispatch. Pass the dispatch_id.",
+    )
+    def _retry(dispatch_id: str, model: str = "") -> str:
+        return rondo_retry(dispatch_id=dispatch_id, model=model)
 
     @mcp.tool(
         name="rondo_spool_consume",

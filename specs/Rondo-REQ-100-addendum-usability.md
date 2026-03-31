@@ -220,6 +220,22 @@ file can't use Rondo at all.
 
 ---
 
+### RETRY FAILED TASKS (RONDO-62)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-56 | `rondo_retry(dispatch_id)` MCP tool MUST re-dispatch only failed/error tasks from a previous dispatch | MUST |
+| U-57 | Retry MUST use the same round file and config as the original dispatch | MUST |
+| U-58 | Retry result MUST include which tasks were re-run and which were skipped (already done) | MUST |
+
+### DIFF — WHAT'S NEW (RONDO-63)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-59 | `rondo_diff(current, previous)` MUST compare two dispatch results and report new items | MUST |
+| U-60 | Diff output MUST show: new items, removed items, unchanged count | MUST |
+| U-61 | `rondo_diff` MUST be available as MCP tool for AI consumption | MUST |
+
 ---
 
 ## USH Production Feedback (Session 93 — First Real Use)

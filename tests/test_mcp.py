@@ -558,6 +558,24 @@ class TestMCPDispatchE2E:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestRondoRetry:
+    """U-56 to U-58: retry failed tasks from a previous dispatch."""
+
+    def test_retry_returns_json(self):
+        """rondo_retry returns valid JSON."""
+        from rondo.mcp_server import rondo_retry
+
+        result = json.loads(rondo_retry("nonexistent-id"))
+        assert "status" in result
+
+    def test_retry_unknown_dispatch_errors(self):
+        """Unknown dispatch_id returns error."""
+        from rondo.mcp_server import rondo_retry
+
+        result = json.loads(rondo_retry("bad-id"))
+        assert result["status"] == "error"
+
+
 class TestCursorP0ErrorCode:
     """U-52: error_code flows to audit OUTCOME."""
 

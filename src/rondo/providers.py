@@ -95,8 +95,10 @@ class OllamaAdapter(ProviderAdapter):
 
     name: str = "ollama"
 
-    def __init__(self, endpoint: str = "http://localhost:11434") -> None:
-        self.endpoint = endpoint
+    def __init__(self, endpoint: str = "") -> None:
+        import os
+
+        self.endpoint = endpoint or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Ollama API, return TaskResult."""

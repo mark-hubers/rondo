@@ -199,7 +199,7 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
 
 def rondo_models() -> str:
     """List available models with providers, benchmarks, and task recommendations."""
-    from rondo.providers import _TASK_MODEL_MAP, OllamaAdapter
+    from rondo.providers import _TASK_MODEL_MAP, _ollama_adapter
 
     providers = [
         {
@@ -209,7 +209,7 @@ def rondo_models() -> str:
         },
         {
             "name": "ollama",
-            "models": OllamaAdapter().models() or ["(none installed — run: ollama pull llama3.1:8b)"],
+            "models": _ollama_adapter.models() or ["(none — run: ollama pull llama3.1:8b)"],
             "cost": "$0 (local)",
         },
     ]

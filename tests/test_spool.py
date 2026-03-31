@@ -310,4 +310,53 @@ class TestSpoolMorningReport:
         assert total_cost == pytest.approx(0.6)
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  STD-107 req 006: File permissions (RONDO-55)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestSpoolPermissions:
+    """STD-107 req 006: spool directory 700, spool files owner-only."""
+
+    def test_spool_dir_created_700(self, tmp_path):
+        """New spool dir has owner-only permissions."""
+        import stat
+
+        spool_dir = tmp_path / "new-spool"
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(spool_dir)))
+        spool.write_result(task_name="t", result={"status": "done"})
+        mode = spool_dir.stat().st_mode & 0o777
+        assert mode == 0o700, f"Expected 700, got {oct(mode)}"
+
+    def test_spool_files_600(self, tmp_path):
+        """Spool files have owner-only read/write."""
+        import stat
+
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        path = spool.write_result(task_name="t", result={"status": "done"})
+        mode = path.stat().st_mode & 0o777
+        assert mode == 0o600, f"Expected 600, got {oct(mode)}"
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  STD-107 req 004: Input validation (RONDO-55)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestSpoolInputValidation:
+    """STD-107 req 004+009: validate spool input before writing."""
+
+    def test_rejects_non_dict_result(self, tmp_path):
+        """Spool rejects non-dict results."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        path = spool.write_result(task_name="t", result="not a dict")  # type: ignore[arg-type]
+        assert path is None
+
+    def test_rejects_empty_task_name(self, tmp_path):
+        """Spool rejects empty task name."""
+        spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
+        path = spool.write_result(task_name="", result={"status": "done"})
+        assert path is None
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a4.95a4b5

@@ -120,6 +120,14 @@ class SpoolManager:
         if not self._ensure_dir():
             return None
 
+        # -- STD-107 req 004/009: validate input before writing
+        if not isinstance(result, dict):
+            logger.warning("Spool rejected non-dict result for task '%s'", task_name)
+            return None
+        if not task_name or not task_name.strip():
+            logger.warning("Spool rejected empty task_name")
+            return None
+
         # -- Filename: {ISO-timestamp}-{task_name}.json (req 043)
         ts = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%S")
         safe_name = _safe_task_slug(task_name)
@@ -162,13 +170,15 @@ class SpoolManager:
         now = time.time()
         for filepath in sorted(self.spool_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             stat = filepath.stat()
-            entries.append({
-                "filename": filepath.name,
-                "age_sec": now - stat.st_mtime,
-                "size_bytes": stat.st_size,
-                "task_name": _extract_task_name(filepath.name),
-                "path": str(filepath),
-            })
+            entries.append(
+                {
+                    "filename": filepath.name,
+                    "age_sec": now - stat.st_mtime,
+                    "size_bytes": stat.st_size,
+                    "task_name": _extract_task_name(filepath.name),
+                    "path": str(filepath),
+                }
+            )
         return entries
 
     def clean_expired(self) -> int:

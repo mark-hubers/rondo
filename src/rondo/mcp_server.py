@@ -182,6 +182,39 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_summarize(dispatch_json: str, dry_run: bool = False, model: str = "haiku") -> str:
+    """Condense multiple task results into one summary — via AI dispatch.
+
+    Takes a dispatch result JSON, builds a summarization prompt from all
+    task outputs, dispatches to AI, returns the summary.
+    """
+    try:
+        data = json.loads(dispatch_json) if dispatch_json else {}
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid dispatch_json"})
+
+    tasks = data.get("tasks", [])
+    if not tasks:
+        return json.dumps({"status": "done", "summary": "No tasks to summarize"})
+
+    # -- Build summarization prompt from all task outputs
+    parts = ["Summarize these task results into a concise report:\n"]
+    for task in tasks:
+        name = task.get("name", "unknown")
+        output = task.get("raw_output", "")[:3000]
+        status = task.get("status", "unknown")
+        parts.append(f"## Task: {name} ({status})\n{output}\n")
+
+    prompt = "\n".join(parts)
+
+    if dry_run:
+        return json.dumps({"status": "done", "summary_prompt": prompt[:500], "task_count": len(tasks)})
+
+    # -- Dispatch summarization via rondo_run_file
+    result = rondo_run_file(prompt=prompt, done_when="Summary report written.", dry_run=False, model=model)
+    return result
+
+
 def rondo_diff(current_json: str, previous_json: str = "") -> str:
     """Compare two dispatch results — U-59 to U-61.
 
@@ -624,6 +657,13 @@ def create_mcp_server() -> Any:
     )
     def _history(model: str = "", status: str = "", limit: int = 20) -> str:
         return rondo_history(model=model, status=status, limit=limit)
+
+    @mcp.tool(
+        name="rondo_summarize",
+        description="Condense multiple task results into one report via AI. Pass dispatch result JSON. dry_run=True to preview prompt.",
+    )
+    def _summarize(dispatch_json: str, dry_run: bool = False, model: str = "haiku") -> str:
+        return rondo_summarize(dispatch_json=dispatch_json, dry_run=dry_run, model=model)
 
     @mcp.tool(
         name="rondo_diff",

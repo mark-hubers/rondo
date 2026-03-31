@@ -558,6 +558,30 @@ class TestMCPDispatchE2E:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestRondoSummarize:
+    """Result summarizer: condense multiple task outputs."""
+
+    def test_summarize_returns_json(self):
+        """rondo_summarize returns valid JSON."""
+        from rondo.mcp_server import rondo_summarize
+
+        dispatch = json.dumps({
+            "tasks": [
+                {"name": "t1", "raw_output": "Found 3 new trials"},
+                {"name": "t2", "raw_output": "Found 5 papers"},
+            ]
+        })
+        result = json.loads(rondo_summarize(dispatch, dry_run=True))
+        assert "summary_prompt" in result or "summary" in result
+
+    def test_summarize_empty_tasks(self):
+        """No tasks = nothing to summarize."""
+        from rondo.mcp_server import rondo_summarize
+
+        result = json.loads(rondo_summarize(json.dumps({"tasks": []})))
+        assert result.get("summary") == "No tasks to summarize"
+
+
 class TestRondoRetry:
     """U-56 to U-58: retry failed tasks from a previous dispatch."""
 

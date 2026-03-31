@@ -90,10 +90,63 @@ def _send_macos(msg: str, title: str) -> None:
         script = f'display notification "{msg}" with title "{title}"'
         subprocess.run(
             ["osascript", "-e", script],
-            capture_output=True, check=False, timeout=5,
+            capture_output=True,
+            check=False,
+            timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         logger.debug("macOS notification failed: %s", exc)
+
+
+def notify_budget_threshold(
+    *,
+    spent_usd: float,
+    budget_usd: float,
+    config: NotifyConfig | None = None,
+) -> None:
+    """Notify on budget threshold crossing — Rondo-REQ-105 req 003.
+
+    Fires at 50%, 75%, 90%. Under 50% = silent.
+    """
+    config = config or NotifyConfig()
+    if budget_usd <= 0:
+        return
+    pct = (spent_usd / budget_usd) * 100
+    if pct >= 90:
+        msg = f"Budget CRITICAL: ${spent_usd:.2f} of ${budget_usd:.2f} (90%+)"
+    elif pct >= 75:
+        msg = f"Budget WARNING: ${spent_usd:.2f} of ${budget_usd:.2f} (75%+)"
+    elif pct >= 50:
+        msg = f"Budget NOTICE: ${spent_usd:.2f} of ${budget_usd:.2f} (50%+)"
+    else:
+        return
+    _send(msg, title="Rondo: budget alert", config=config)
+
+
+# -- Deduplication state (Rondo-REQ-105 req 009)
+_dedup_seen: set[str] = set()
+
+
+def reset_dedup() -> None:
+    """Reset dedup state — for testing."""
+    _dedup_seen.clear()
+
+
+def notify_with_dedup(
+    key: str,
+    msg: str,
+    *,
+    config: NotifyConfig | None = None,
+) -> None:
+    """Send notification with dedup — Rondo-REQ-105 req 009.
+
+    Same key only fires once. Reset with reset_dedup().
+    """
+    config = config or NotifyConfig()
+    if key in _dedup_seen:
+        return
+    _dedup_seen.add(key)
+    _send(msg, title="Rondo", config=config)
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.c4d5e6

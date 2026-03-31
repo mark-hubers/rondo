@@ -77,4 +77,83 @@ class TestNotifyConfig:
         assert "macos" in c.channels
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-105 req 003: Budget threshold notifications (RONDO-51)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestBudgetThreshold:
+    """REQ-105 req 003: notify at 50%, 75%, 90% of budget."""
+
+    def test_budget_75_fires(self, capsys):
+        """Crossing 75% threshold fires notification."""
+        from rondo.notify import notify_budget_threshold
+        notify_budget_threshold(
+            spent_usd=7.50, budget_usd=10.0,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        captured = capsys.readouterr()
+        assert "75%" in captured.out
+
+    def test_budget_50_fires(self, capsys):
+        """Crossing 50% threshold fires notification."""
+        from rondo.notify import notify_budget_threshold
+        notify_budget_threshold(
+            spent_usd=5.0, budget_usd=10.0,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        captured = capsys.readouterr()
+        assert "50%" in captured.out
+
+    def test_budget_under_50_no_fire(self, capsys):
+        """Under 50% = no notification."""
+        from rondo.notify import notify_budget_threshold
+        notify_budget_threshold(
+            spent_usd=3.0, budget_usd=10.0,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-105 req 009: Deduplication (RONDO-51)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestNotifyDedup:
+    """REQ-105 req 009: don't spam same notification."""
+
+    def test_dedup_blocks_repeat(self, capsys):
+        """Same message twice = only one output."""
+        from rondo.notify import notify_with_dedup, reset_dedup
+        reset_dedup()
+        notify_with_dedup(
+            "rate_limited", "Rate limited",
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        notify_with_dedup(
+            "rate_limited", "Rate limited",
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        captured = capsys.readouterr()
+        assert captured.out.count("Rate limited") == 1
+
+    def test_different_keys_both_fire(self, capsys):
+        """Different dedup keys both fire."""
+        from rondo.notify import notify_with_dedup, reset_dedup
+        reset_dedup()
+        notify_with_dedup(
+            "rate_limited", "Rate limited",
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        notify_with_dedup(
+            "budget_warning", "Budget high",
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        captured = capsys.readouterr()
+        assert "Rate limited" in captured.out
+        assert "Budget high" in captured.out
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.f1a2b3

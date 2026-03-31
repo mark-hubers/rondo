@@ -176,18 +176,34 @@ def rondo_spool_consume() -> str:
 
 
 def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
-    """U-47: push completion notification via MCP session (best-effort)."""
+    """U-47 + REQ-105: notify on completion via MCP session + macOS."""
+    msg = (
+        f"Rondo dispatch {dispatch_id} completed: "
+        f"{result.get('done_count', 0)} done, "
+        f"{result.get('error_count', 0)} errors, "
+        f"${result.get('total_cost_usd', 0):.2f}"
+    )
+
+    # -- REQ-105: fire macOS notification (always, regardless of session)
+    try:
+        from rondo.notify import NotifyConfig, notify_round_complete
+
+        notify_round_complete(
+            round_name=result.get("round_name", dispatch_id),
+            status=result.get("status", "unknown"),
+            duration_sec=result.get("duration_sec", 0),
+            cost_usd=result.get("total_cost_usd", 0),
+            config=NotifyConfig(channels=["macos", "file"]),
+        )
+    except (ImportError, OSError):
+        pass
+
+    # -- U-47: push to MCP session (best-effort)
     if session is None:
         return
     try:
         import asyncio
 
-        msg = (
-            f"Rondo dispatch {dispatch_id} completed: "
-            f"{result.get('done_count', 0)} done, "
-            f"{result.get('error_count', 0)} errors, "
-            f"${result.get('total_cost_usd', 0):.2f}"
-        )
         loop = asyncio.new_event_loop()
         loop.run_until_complete(session.send_log_message(level="info", data=msg))
         loop.close()

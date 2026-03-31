@@ -2076,6 +2076,49 @@ class TestExtractTable:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  REQ-101 req 019-023: Watchdog timer (RONDO-58)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestWatchdog:
+    """REQ-101 req 019-023: detect stuck/hung dispatches by output silence."""
+
+    def test_watchdog_config_exists(self):
+        """RondoConfig has watchdog_timeout_sec."""
+        config = RondoConfig()
+        assert hasattr(config, "watchdog_timeout_sec")
+        assert config.watchdog_timeout_sec == 60
+
+    def test_watchdog_kills_silent_process(self):
+        """Process with no output for watchdog_timeout_sec is killed."""
+        from rondo.dispatch import _run_subprocess
+
+        ## -- sleep 30 produces no output
+        ## -- watchdog at 2s should kill it before task_timeout at 30s
+        stdout, stderr, returncode, timed_out = _run_subprocess(
+            ["sleep", "30"],
+            env={},
+            timeout_sec=30,
+            watchdog_sec=2,
+        )
+        assert timed_out is True
+
+    def test_watchdog_allows_output_producing_process(self):
+        """Process that produces output regularly is NOT killed by watchdog."""
+        from rondo.dispatch import _run_subprocess
+
+        ## -- echo produces output immediately, then exits
+        stdout, stderr, returncode, timed_out = _run_subprocess(
+            ["echo", "hello"],
+            env={},
+            timeout_sec=10,
+            watchdog_sec=2,
+        )
+        assert timed_out is False
+        assert "hello" in stdout
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  REQ-106 req 005: context_data size cap (RONDO-52)
 # -- ──────────────────────────────────────────────────────────────
 

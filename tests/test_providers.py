@@ -286,4 +286,77 @@ class TestCLIProviderDispatch:
         assert "invalid" not in result.stderr.lower() or result.returncode != 2
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 req 029: Guard — no dispatch path may skip finalization
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestFinalizationGuard:
+    """REQ-109 req 029: every non-Claude dispatch path must use _finalize_dispatch."""
+
+    def test_cli_provider_path_uses_finalize(self) -> None:
+        """CLI provider dispatch must call _finalize_dispatch."""
+        import ast
+        from pathlib import Path
+
+        cli_path = Path(__file__).parent.parent / "src" / "rondo" / "cli.py"
+        source = cli_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+
+        # -- Find _dispatch_with_provider function
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_dispatch_with_provider":
+                body_source = ast.get_source_segment(source, node) or ""
+                assert "_finalize_dispatch" in body_source, (
+                    "cli.py _dispatch_with_provider must call _finalize_dispatch "
+                    "(REQ-109 req 026: shared finalization for ALL providers)"
+                )
+                break
+        else:
+            pytest.fail("cli.py missing _dispatch_with_provider function")
+
+    def test_mcp_provider_path_uses_finalize(self) -> None:
+        """MCP provider dispatch must call _finalize_dispatch."""
+        import ast
+        from pathlib import Path
+
+        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_server.py"
+        source = mcp_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+
+        # -- Find _dispatch_via_provider_or_claude function
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_dispatch_via_provider_or_claude":
+                body_source = ast.get_source_segment(source, node) or ""
+                assert "_finalize_dispatch" in body_source, (
+                    "mcp_server.py _dispatch_via_provider_or_claude must call _finalize_dispatch "
+                    "(REQ-109 req 026: shared finalization for ALL providers)"
+                )
+                break
+        else:
+            pytest.fail("mcp_server.py missing _dispatch_via_provider_or_claude function")
+
+    def test_no_manual_audit_outcome_in_provider_paths(self) -> None:
+        """Provider paths must NOT call audit_trail.record_outcome directly.
+
+        _finalize_dispatch handles audit OUTCOME — manual calls mean
+        someone bypassed the shared pipeline (split-brain anti-pattern).
+        """
+        import ast
+        from pathlib import Path
+
+        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_server.py"
+        source = mcp_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_dispatch_via_provider_or_claude":
+                body_source = ast.get_source_segment(source, node) or ""
+                assert "record_outcome" not in body_source, (
+                    "mcp_server.py _dispatch_via_provider_or_claude must NOT call record_outcome "
+                    "directly — _finalize_dispatch handles it (REQ-109 req 026)"
+                )
+                break
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

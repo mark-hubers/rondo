@@ -24,6 +24,9 @@ from rondo.dispatch import _BARE_MIN_VERSION, detect_cc_version
 
 logger = logging.getLogger(__name__)
 
+# -- REQ-103 req 025-026: preflight result cache, version-keyed
+_preflight_cache: dict[str, PreflightResult] = {}
+
 
 @dataclass
 class PreflightResult:
@@ -52,9 +55,17 @@ def run_preflight(
     """Run all preflight checks. Returns PreflightResult.
 
     REQ-103 reqs 001-013: environment validation before dispatch.
+    REQ-103 req 025-026: cache result keyed by CC version.
     """
     if config is None:
         config = RondoConfig()
+
+    # -- REQ-103 req 026: check cache by CC version
+    version = detect_cc_version(config.claude_binary)
+    cache_key = ".".join(str(x) for x in version) if version else "unknown"
+    if cache_key in _preflight_cache:
+        logger.debug("Preflight cache hit: %s", cache_key)
+        return _preflight_cache[cache_key]
 
     result = PreflightResult()
 
@@ -84,6 +95,8 @@ def run_preflight(
     else:
         result.status = "GREEN"
 
+    # -- REQ-103 req 025: cache result for batch mode
+    _preflight_cache[cache_key] = result
     return result
 
 
@@ -117,33 +130,24 @@ def _check_auth(result: PreflightResult, config: RondoConfig) -> None:
         key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not key:
             result.errors.append(
-                "auth=api but ANTHROPIC_API_KEY not set. "
-                "Set the key or switch to auth=max (subscription)."
+                "auth=api but ANTHROPIC_API_KEY not set. Set the key or switch to auth=max (subscription)."
             )
         else:
             result.checks.append("ANTHROPIC_API_KEY present (api auth)")
     elif config.auth == "max":
         result.checks.append("auth=max (subscription — no API key needed)")
     else:
-        result.warnings.append(
-            f"Unknown auth mode '{config.auth}' — expected 'max' or 'api'"
-        )
+        result.warnings.append(f"Unknown auth mode '{config.auth}' — expected 'max' or 'api'")
 
 
 def _check_cc_version(result: PreflightResult, config: RondoConfig) -> None:
     """REQ-103 reqs 004, 017: detect CC version, warn if too old."""
     version = detect_cc_version(config.claude_binary)
     if version is None:
-        result.warnings.append(
-            "Could not detect Claude Code version — "
-            "some features (--bare) may not work"
-        )
+        result.warnings.append("Could not detect Claude Code version — some features (--bare) may not work")
     elif version < _BARE_MIN_VERSION:
         v_str = ".".join(str(x) for x in version)
-        result.warnings.append(
-            f"Claude Code {v_str} is old — "
-            f"need >= 2.1.81 for --bare flag"
-        )
+        result.warnings.append(f"Claude Code {v_str} is old — need >= 2.1.81 for --bare flag")
     else:
         v_str = ".".join(str(x) for x in version)
         result.checks.append(f"Claude Code version: {v_str}")
@@ -158,9 +162,7 @@ def _check_disk_space(result: PreflightResult) -> None:
         total, used, free = shutil.disk_usage(".")
         free_mb = free / (1024 * 1024)
         if free_mb < _MIN_DISK_MB:
-            result.warnings.append(
-                f"Low disk space: {free_mb:.0f}MB free (need {_MIN_DISK_MB}MB for worktrees)"
-            )
+            result.warnings.append(f"Low disk space: {free_mb:.0f}MB free (need {_MIN_DISK_MB}MB for worktrees)")
         else:
             result.checks.append(f"Disk space: {free_mb:.0f}MB free")
     except OSError:
@@ -172,9 +174,7 @@ def _check_git(result: PreflightResult) -> None:
     if shutil.which("git"):
         result.checks.append("git available")
     else:
-        result.warnings.append(
-            "git not found on PATH — worktree operations will fail"
-        )
+        result.warnings.append("git not found on PATH — worktree operations will fail")
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.82d3a1

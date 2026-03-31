@@ -215,4 +215,50 @@ class TestPreflightPerformance:
         assert elapsed < 3.0, f"Preflight took {elapsed:.1f}s (max 3s)"
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-103 req 025-026: Preflight caching (RONDO-60)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestPreflightCache:
+    """REQ-103 req 025-026: cache preflight results, version-keyed."""
+
+    def test_second_run_uses_cache(self):
+        """Consecutive runs with same version use cached result."""
+        from rondo.preflight import run_preflight, _preflight_cache
+
+        _preflight_cache.clear()
+        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
+             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)):
+            r1 = run_preflight()
+            r2 = run_preflight()
+        ## -- Same object if cached
+        assert r1.status == r2.status
+        assert len(_preflight_cache) == 1
+
+    def test_version_change_invalidates(self):
+        """Different CC version = cache miss = re-run."""
+        from rondo.preflight import run_preflight, _preflight_cache
+
+        _preflight_cache.clear()
+        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
+             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)):
+            r1 = run_preflight()
+        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
+             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 88)):
+            r2 = run_preflight()
+        ## -- Different versions = 2 cache entries
+        assert len(_preflight_cache) == 2
+
+    def test_cache_stores_version(self):
+        """Cache key includes CC version string."""
+        from rondo.preflight import run_preflight, _preflight_cache
+
+        _preflight_cache.clear()
+        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
+             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 90)):
+            run_preflight()
+        assert any("2.1.90" in str(k) for k in _preflight_cache)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.91c5f0

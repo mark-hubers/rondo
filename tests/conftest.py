@@ -24,6 +24,10 @@ def _clean_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+    # -- Clear preflight cache between tests (RONDO-60)
+    from rondo.preflight import _preflight_cache
+
+    _preflight_cache.clear()
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.conf01

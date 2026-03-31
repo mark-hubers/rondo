@@ -482,4 +482,44 @@ class TestMgHSignature:
         assert not missing, f"Missing mgh signature: {missing}"
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  STD-107 Security conventions (RONDO-56)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestNoSQLite:
+    """STD-107 req 005: Rondo is stateless — no sqlite3 imports."""
+
+    def test_no_sqlite3_in_source(self):
+        import re
+        for src_file in SRC_FILES:
+            content = src_file.read_text(encoding="utf-8")
+            matches = re.findall(r"^\s*import sqlite3|^\s*from sqlite3", content, re.MULTILINE)
+            assert not matches, f"{src_file.name} imports sqlite3 — Rondo is stateless (STD-107 req 005)"
+
+
+class TestNoHardcodedSecrets:
+    """STD-107 req 001: no API keys or secrets in source."""
+
+    def test_no_api_keys_in_source(self):
+        import re
+        api_key_pattern = re.compile(r"sk-[a-zA-Z0-9]{20,}|ANTHROPIC_API_KEY\s*=\s*['\"]")
+        for src_file in SRC_FILES:
+            content = src_file.read_text(encoding="utf-8")
+            matches = api_key_pattern.findall(content)
+            assert not matches, f"{src_file.name} has hardcoded secrets: {matches[:2]}"
+
+
+class TestNoHttpUrls:
+    """STD-107 req 003: no plain HTTP for external APIs."""
+
+    def test_no_plain_http_api_calls(self):
+        import re
+        for src_file in SRC_FILES:
+            content = src_file.read_text(encoding="utf-8")
+            ## -- Find http:// but allow localhost
+            matches = re.findall(r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)\S+', content)
+            assert not matches, f"{src_file.name} uses plain HTTP: {matches[:2]}"
+
+
 # -- sig: mgh-6201.cd.bd955f.6280.8f7324

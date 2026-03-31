@@ -355,6 +355,7 @@ Spec review cost tracked in `reports/ai-reviews/`. ~$0.10/review/body.
 | rev-0003 | 2026-03-22 | 84 | Added context_cost annotations to all 9 tools + Context Budget Summary table. |
 | rev-0004 | 2026-03-30 | 93 | MCP dispatch: rondo_run (dry-run + real + background), rondo_run_status, project/budget/timeout params. 7 new reqs (009-015). |
 | rev-0005 | 2026-03-30 | 93 | MCP resource: rondo://help for AI self-discovery. 3 new reqs (016-018). |
+| rev-0006 | 2026-03-31 | 93 | Tool inventory: 14 tools (was 6). Added: spool_consume, history, cost, retry, diff, summarize, templates. Multi-AI reviewed. |
 
 ---
 
@@ -383,8 +384,15 @@ The whole point of Rondo is "tell AI to do X, get back Y." MCP must support this
 | `rondo_metrics` | Monitor | Cost, reliability, latency |
 | `rondo_audit_summary` | Monitor | Recent dispatch records |
 | `rondo_dispatch_info` | Discovery | Version, commands, capabilities |
-| `rondo_run` | **Dispatch** | Run a round file (dry-run or real) |
-| `rondo_run_status` | **Dispatch** | Check background dispatch status |
+| `rondo_run` | **Dispatch** | Run round file or inline prompt (dry-run/real/background) |
+| `rondo_run_status` | **Dispatch** | Check progress (heartbeat/brief/full tiers) |
+| `rondo_spool_consume` | **Dispatch** | Drain overnight result mailbox |
+| `rondo_history` | **Query** | Dispatch history with model filter + aggregate |
+| `rondo_cost` | **Query** | Monthly spend by model with daily average |
+| `rondo_retry` | **Recovery** | Re-run failed tasks from previous dispatch |
+| `rondo_diff` | **Analysis** | Compare two dispatch results — new/changed/removed |
+| `rondo_summarize` | **Analysis** | Condense task results into one report via AI |
+| `rondo_templates` | **Discovery** | 5 pre-built round templates (code-review, security, etc.) |
 
 ### MCP Resources
 

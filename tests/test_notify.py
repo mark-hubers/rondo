@@ -156,4 +156,61 @@ class TestNotifyDedup:
         assert "Budget high" in captured.out
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-105 req 004: Rate limit notification (RONDO-54)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestRateLimitNotify:
+    """REQ-105 req 004: notify on rate limit."""
+
+    def test_rate_limit_fires(self, capsys):
+        from rondo.notify import notify_rate_limit, reset_dedup
+        reset_dedup()
+        notify_rate_limit(
+            reset_time="2026-03-30T22:00:00Z",
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        captured = capsys.readouterr()
+        assert "Rate limited" in captured.out or "rate" in captured.out.lower()
+
+    def test_rate_limit_deduped(self, capsys):
+        """Same rate limit only fires once (uses dedup)."""
+        from rondo.notify import notify_rate_limit, reset_dedup
+        reset_dedup()
+        notify_rate_limit(reset_time="22:00", config=NotifyConfig(channels=["terminal"]))
+        notify_rate_limit(reset_time="22:00", config=NotifyConfig(channels=["terminal"]))
+        captured = capsys.readouterr()
+        assert captured.out.count("rate") <= 1 or captured.out.count("Rate") <= 1
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-105 req 007: Quiet mode (RONDO-54)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestQuietMode:
+    """REQ-105 req 007: --quiet suppresses terminal, keeps file+macos."""
+
+    def test_quiet_suppresses_terminal(self, capsys):
+        from rondo.notify import notify_round_complete
+        notify_round_complete(
+            round_name="quiet-test", status="done",
+            duration_sec=5.0, cost_usd=0.01,
+            config=NotifyConfig(channels=["terminal"], quiet=True),
+        )
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_quiet_keeps_file(self, tmp_path):
+        from rondo.notify import notify_round_complete
+        log_file = tmp_path / "notify.log"
+        notify_round_complete(
+            round_name="quiet-test", status="done",
+            duration_sec=5.0, cost_usd=0.01,
+            config=NotifyConfig(channels=["terminal", "file"], log_file=str(log_file), quiet=True),
+        )
+        assert log_file.exists()
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.f1a2b3

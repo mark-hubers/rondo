@@ -26,6 +26,7 @@ class NotifyConfig:
 
     channels: list[str] = field(default_factory=lambda: ["terminal"])
     log_file: str = "reports/notifications.log"
+    quiet: bool = False  # -- REQ-105 req 007: suppress terminal, keep file+macos
 
 
 def notify_round_complete(
@@ -56,8 +57,10 @@ def notify_failure(
 
 
 def _send(msg: str, *, title: str, config: NotifyConfig) -> None:
-    """Send to all configured channels."""
+    """Send to all configured channels. Quiet mode skips terminal."""
     for channel in config.channels:
+        if channel == "terminal" and config.quiet:
+            continue  # -- REQ-105 req 007
         if channel == "terminal":
             _send_terminal(msg)
         elif channel == "file":
@@ -96,6 +99,17 @@ def _send_macos(msg: str, title: str) -> None:
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         logger.debug("macOS notification failed: %s", exc)
+
+
+def notify_rate_limit(
+    *,
+    reset_time: str,
+    config: NotifyConfig | None = None,
+) -> None:
+    """Notify on rate limit — Rondo-REQ-105 req 004. Uses dedup."""
+    config = config or NotifyConfig()
+    msg = f"Rate limited. Resets at: {reset_time}. Pausing dispatches."
+    notify_with_dedup("rate_limited", msg, config=config)
 
 
 def notify_budget_threshold(

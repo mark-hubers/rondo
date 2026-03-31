@@ -64,7 +64,7 @@ class ClaudeCLIAdapter(ProviderAdapter):
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Dispatch via claude -p (delegates to existing dispatch.py)."""
-        ## -- Delegate to existing dispatch pipeline
+        # -- Delegate to existing dispatch pipeline
         return TaskResult(
             task_name=kwargs.get("task_name", "claude-dispatch"),
             status="error",
@@ -173,11 +173,11 @@ class OllamaAdapter(ProviderAdapter):
 # --  REQ-109 req 012: Model → provider routing
 # -- ──────────────────────────────────────────────────────────────
 
-## -- Known model prefixes for routing
+# -- Known model prefixes for routing
 _CLAUDE_MODELS = {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}
 _OLLAMA_PREFIXES = {"llama", "qwen", "mistral", "phi", "gemma", "codellama", "deepseek"}
 
-## -- Singleton adapters
+# -- Singleton adapters
 _claude_adapter = ClaudeCLIAdapter()
 _ollama_adapter = OllamaAdapter()
 
@@ -190,14 +190,14 @@ def get_provider(model: str) -> ProviderAdapter:
     if model in _CLAUDE_MODELS:
         return _claude_adapter
 
-    ## -- Check Ollama prefixes: strip version (llama3.2→llama), tag (qwen:7b→qwen)
+    # -- Check Ollama prefixes: strip version (llama3.2→llama), tag (qwen:7b→qwen)
     import re
 
     model_base = re.sub(r"[\d.:]+.*$", "", model.split("-")[0].lower())
     if model_base in _OLLAMA_PREFIXES:
         return _ollama_adapter
 
-    ## -- Default: Claude (backward compat)
+    # -- Default: Claude (backward compat)
     return _claude_adapter
 
 
@@ -205,7 +205,7 @@ def get_provider(model: str) -> ProviderAdapter:
 # --  Task type → model recommendation
 # -- ──────────────────────────────────────────────────────────────
 
-## -- Best model per task type (local-first, Claude as fallback)
+# -- Best model per task type (local-first, Claude as fallback)
 _TASK_MODEL_MAP: dict[str, str] = {
     "code-review": "qwen2.5-coder:7b",
     "code-fix": "qwen2.5-coder:7b",

@@ -48,11 +48,11 @@ def _resolve_dir(default: str, subdir: str) -> str:
 _DEFAULT_AUDIT_DIR = "~/.rondo/audit"
 _DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 
-## -- Finding #183: cache metrics to avoid reading JSONL 3-4x on morning check-in
+# -- Finding #183: cache metrics to avoid reading JSONL 3-4x on morning check-in
 _metrics_cache: dict[str, Any] = {}
 _METRICS_CACHE_TTL = 30  # -- seconds
 
-## -- H-07 to H-11: MCP input limits (security hardening)
+# -- H-07 to H-11: MCP input limits (security hardening)
 _MAX_PROMPT_BYTES = 500_000  # -- 500KB
 _MAX_CHAIN_STEPS = 20
 _MAX_BENCHMARK_MODELS = 10
@@ -148,7 +148,7 @@ def rondo_dispatch_info() -> str:
     from rondo._version import get_version
     from rondo.cli import build_parser
 
-    ## -- U-55: derive command list from CLI parser (single source of truth)
+    # -- U-55: derive command list from CLI parser (single source of truth)
     commands: list[str] = []
     parser = build_parser()
     for action in parser._subparsers._actions:
@@ -176,7 +176,7 @@ def rondo_dispatch_info() -> str:
     )
 
 
-## -- Background dispatch tracking (RONDO-39)
+# -- Background dispatch tracking (RONDO-39)
 _background_results: dict[str, dict] = {}
 _MAX_BACKGROUND_ENTRIES = 100  # -- H-01
 
@@ -185,7 +185,7 @@ def _prune_background() -> None:
     """H-01/H-02: evict oldest completed entries when over max."""
     if len(_background_results) <= _MAX_BACKGROUND_ENTRIES:
         return
-    ## -- Sort by completion: running entries kept, oldest completed evicted
+    # -- Sort by completion: running entries kept, oldest completed evicted
     completed = [(k, v) for k, v in _background_results.items() if v.get("status") not in ("running", "dispatched")]
     completed.sort(key=lambda x: x[1].get("ts", 0))
     to_remove = len(_background_results) - _MAX_BACKGROUND_ENTRIES
@@ -260,7 +260,7 @@ def rondo_schedule_create(
 
     out_dir = Path.home() / "Library" / "LaunchAgents"
 
-    ## -- H-13: max 20 active schedules
+    # -- H-13: max 20 active schedules
     existing = list(out_dir.glob("com.rondo.*.plist")) if out_dir.exists() else []
     if len(existing) >= 20:
         return json.dumps({"status": "error", "error": "Too many schedules (max 20)", "code": "ERR_LIMIT_EXCEEDED"})
@@ -303,7 +303,7 @@ def rondo_benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> s
     except (json.JSONDecodeError, TypeError):
         return json.dumps({"status": "error", "error": "Invalid models JSON"})
 
-    ## -- H-09: benchmark model limit
+    # -- H-09: benchmark model limit
     if len(model_list) > _MAX_BENCHMARK_MODELS:
         return json.dumps(
             {
@@ -367,7 +367,7 @@ def rondo_chain(steps_json: str, dry_run: bool = False) -> str:
     except (json.JSONDecodeError, TypeError):
         return json.dumps({"status": "error", "error": "Invalid steps_json"})
 
-    ## -- H-08: chain step limit
+    # -- H-08: chain step limit
     if len(steps) > _MAX_CHAIN_STEPS:
         return json.dumps(
             {
@@ -721,7 +721,7 @@ def _dispatch_via_provider_or_claude(
         from rondo.audit import AuditConfig, AuditTrail
         from rondo.engine import RoundResult, TaskResult
 
-        ## -- Finding #188: provider dispatches must log to audit
+        # -- Finding #188: provider dispatches must log to audit
         audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
         audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
 
@@ -733,7 +733,7 @@ def _dispatch_via_provider_or_claude(
                     TaskResult(task_name=task.name, status="skipped", prompt_sent=task_prompt[:500], model=model)
                 )
             else:
-                ## -- Audit INTENT
+                # -- Audit INTENT
                 record = audit_trail.record_intent(
                     task_name=task.name,
                     round_name=round_def.name,
@@ -741,7 +741,7 @@ def _dispatch_via_provider_or_claude(
                     prompt=task_prompt,
                 )
                 tr = provider.dispatch(prompt=task_prompt, model=model, task_name=task.name)
-                ## -- Audit OUTCOME
+                # -- Audit OUTCOME
                 audit_trail.record_outcome(
                     dispatch_id=record.dispatch_id,
                     task_name=task.name,
@@ -780,7 +780,7 @@ def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str
     """Validate and resolve file_path + project. Returns (file_path, project, error_json)."""
     from pathlib import Path
 
-    ## -- H-07: prompt size limit
+    # -- H-07: prompt size limit
     if prompt and len(prompt.encode("utf-8")) > _MAX_PROMPT_BYTES:
         return (
             file_path,

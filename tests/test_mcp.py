@@ -558,6 +558,27 @@ class TestMCPDispatchE2E:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestRondoTemplates:
+    """Template library: pre-built round patterns."""
+
+    def test_templates_returns_list(self):
+        """rondo_templates lists available templates."""
+        from rondo.mcp_server import rondo_templates
+
+        result = json.loads(rondo_templates())
+        assert "templates" in result
+        assert len(result["templates"]) >= 3
+
+    def test_template_has_fields(self):
+        """Each template has name, description, usage."""
+        from rondo.mcp_server import rondo_templates
+
+        result = json.loads(rondo_templates())
+        for t in result["templates"]:
+            assert "name" in t
+            assert "description" in t
+
+
 class TestRondoSummarize:
     """Result summarizer: condense multiple task outputs."""
 

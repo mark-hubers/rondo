@@ -182,6 +182,51 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_templates() -> str:
+    """List pre-built round templates — reusable patterns for common tasks.
+
+    Templates are inline instructions that can be dispatched via rondo_run(prompt=).
+    """
+    templates = [
+        {
+            "name": "code-review",
+            "description": "Review code for bugs, security, and quality issues",
+            "prompt": "Review all Python files in the current directory. Report: bugs, security issues, missing error handling, code quality concerns. Format as numbered findings.",
+            "done_when": "All findings listed with file, line, and severity.",
+            "model": "sonnet",
+        },
+        {
+            "name": "test-gaps",
+            "description": "Find untested code — functions without matching test_* functions",
+            "prompt": "Scan src/ and tests/ directories. List every function in src/ that has no corresponding test. Report as: file:function → missing test.",
+            "done_when": "All untested functions listed.",
+            "model": "haiku",
+        },
+        {
+            "name": "doc-sweep",
+            "description": "Check documentation freshness — find stale or missing docs",
+            "prompt": "Check all .md files in the project. For each: is it current? Does it match the code? List stale docs with what needs updating.",
+            "done_when": "All docs reviewed. Stale items listed.",
+            "model": "haiku",
+        },
+        {
+            "name": "security-audit",
+            "description": "Scan for security vulnerabilities in code",
+            "prompt": "Scan all source files for: hardcoded secrets, SQL injection, command injection, path traversal, insecure defaults. Report each as CRITICAL/HIGH/MEDIUM with file and line.",
+            "done_when": "Security audit complete. All findings listed by severity.",
+            "model": "sonnet",
+        },
+        {
+            "name": "dependency-check",
+            "description": "Check for outdated or vulnerable dependencies",
+            "prompt": "Read pyproject.toml (or package.json or go.mod). For each dependency: check if there's a newer version. Flag any with known CVEs.",
+            "done_when": "All dependencies checked. Outdated and vulnerable items listed.",
+            "model": "haiku",
+        },
+    ]
+    return json.dumps({"templates": templates, "count": len(templates)}, indent=2)
+
+
 def rondo_summarize(dispatch_json: str, dry_run: bool = False, model: str = "haiku") -> str:
     """Condense multiple task results into one summary — via AI dispatch.
 
@@ -657,6 +702,13 @@ def create_mcp_server() -> Any:
     )
     def _history(model: str = "", status: str = "", limit: int = 20) -> str:
         return rondo_history(model=model, status=status, limit=limit)
+
+    @mcp.tool(
+        name="rondo_templates",
+        description="List pre-built round templates: code-review, test-gaps, doc-sweep, security-audit, dependency-check. Each has a ready-to-dispatch prompt.",
+    )
+    def _templates() -> str:
+        return rondo_templates()
 
     @mcp.tool(
         name="rondo_summarize",

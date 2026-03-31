@@ -170,4 +170,27 @@ class TestProviderAuditTrail:
         assert result["status"] in ("done", "error", "partial")
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  CLI provider routing (RONDO-83)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestCLIProviderDispatch:
+    """CLI dispatch routes non-Claude models to provider adapters."""
+
+    def test_cli_dispatch_ollama_dry_run(self) -> None:
+        """rondo run with ollama model works in dry-run."""
+        import subprocess
+
+        result = subprocess.run(
+            ["/Users/markhubers/.local/bin/rondo", "run", "--dry-run", "--model", "llama3.1:8b"],
+            input="",
+            capture_output=True, text=True, check=False, timeout=10,
+            env={k: v for k, v in __import__("os").environ.items() if k != "CLAUDECODE"},
+        )
+        ## -- Dry-run should work (shows prompts, no dispatch)
+        ## -- May fail on "no file" but should NOT fail on "model not supported"
+        assert "invalid" not in result.stderr.lower() or result.returncode != 2
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

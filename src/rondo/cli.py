@@ -327,6 +327,37 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_FAILURE
 
 
+def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
+    """REQ-109: route to provider adapter or Claude run_round."""
+    from rondo.providers import get_provider  # pylint: disable=import-outside-toplevel
+
+    provider = get_provider(config.default_model)
+    if provider.name != "claude":
+        from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+
+        task_results = []
+        for task in round_def.tasks:
+            if config.dry_run:
+                task_results.append(
+                    TaskResult(
+                        task_name=task.name,
+                        status="skipped",
+                        prompt_sent=(task.instruction or "")[:500],
+                        model=config.default_model,
+                    )
+                )
+            else:
+                tr = provider.dispatch(prompt=task.instruction, model=config.default_model, task_name=task.name)
+                task_results.append(tr)
+        ok = {"done", "skipped"}
+        return RoundResult(
+            round_name=round_def.name,
+            status="done" if all(t.status in ok for t in task_results) else "partial",
+            task_results=task_results,
+        )
+    return run_round(round_def, config=config)
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Execute 'rondo run <file>' subcommand."""
     try:
@@ -358,7 +389,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         for warn in preflight.warnings:
             print(f"  -WARNING- {warn}", file=sys.stderr)
 
-    result = run_round(round_def, config=config)
+    result = _dispatch_with_provider(round_def, config)
 
     # -- Print summary
     total_cost = sum(u.cost_usd for u in result.usage)

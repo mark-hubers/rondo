@@ -576,6 +576,36 @@ class TestRondoRetry:
         assert result["status"] == "error"
 
 
+class TestRondoDiff:
+    """U-59 to U-61: compare dispatch results — what's new."""
+
+    def test_diff_returns_json(self):
+        """rondo_diff returns valid JSON."""
+        from rondo.mcp_server import rondo_diff
+
+        current = json.dumps({"tasks": [{"name": "t1", "raw_output": "found A, B, C"}]})
+        previous = json.dumps({"tasks": [{"name": "t1", "raw_output": "found A, B"}]})
+        result = json.loads(rondo_diff(current, previous))
+        assert "changes" in result
+        assert result["changes"] >= 1
+
+    def test_diff_empty_previous(self):
+        """No previous = everything is new."""
+        from rondo.mcp_server import rondo_diff
+
+        current = json.dumps({"tasks": [{"name": "t1", "raw_output": "found A"}]})
+        result = json.loads(rondo_diff(current, ""))
+        assert result["status"] == "done"
+
+    def test_diff_same_results(self):
+        """Identical results = no diff."""
+        from rondo.mcp_server import rondo_diff
+
+        data = json.dumps({"tasks": [{"name": "t1", "raw_output": "same"}]})
+        result = json.loads(rondo_diff(data, data))
+        assert result["changes"] == 0
+
+
 class TestCursorP0ErrorCode:
     """U-52: error_code flows to audit OUTCOME."""
 

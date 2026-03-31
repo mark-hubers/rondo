@@ -182,6 +182,51 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
 
+def rondo_diff(current_json: str, previous_json: str = "") -> str:
+    """Compare two dispatch results — U-59 to U-61.
+
+    Shows what's new, changed, or removed between runs.
+    Useful for recurring scans (USH weekly) to spot deltas.
+    """
+    try:
+        current = json.loads(current_json) if current_json else {}
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid current_json"})
+
+    if not previous_json:
+        task_count = len(current.get("tasks", []))
+        return json.dumps(
+            {"status": "done", "diff": "No previous — all results are new", "changes": task_count, "new": task_count}
+        )
+
+    try:
+        previous = json.loads(previous_json) if previous_json else {}
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid previous_json"})
+
+    # -- Compare task outputs
+    curr_tasks = {t.get("name", ""): t.get("raw_output", "") for t in current.get("tasks", [])}
+    prev_tasks = {t.get("name", ""): t.get("raw_output", "") for t in previous.get("tasks", [])}
+
+    new_tasks = set(curr_tasks) - set(prev_tasks)
+    removed_tasks = set(prev_tasks) - set(curr_tasks)
+    changed_tasks = {n for n in curr_tasks if n in prev_tasks and curr_tasks[n] != prev_tasks[n]}
+
+    changes = len(new_tasks) + len(removed_tasks) + len(changed_tasks)
+
+    return json.dumps(
+        {
+            "status": "done",
+            "changes": changes,
+            "new": sorted(new_tasks),
+            "removed": sorted(removed_tasks),
+            "changed": sorted(changed_tasks),
+            "unchanged": len(curr_tasks) - len(changed_tasks) - len(new_tasks),
+        },
+        indent=2,
+    )
+
+
 def rondo_retry(dispatch_id: str, model: str = "") -> str:
     """Re-run failed tasks from a previous dispatch — U-56 to U-58.
 
@@ -579,6 +624,13 @@ def create_mcp_server() -> Any:
     )
     def _history(model: str = "", status: str = "", limit: int = 20) -> str:
         return rondo_history(model=model, status=status, limit=limit)
+
+    @mcp.tool(
+        name="rondo_diff",
+        description="Compare two dispatch results. Shows new/changed/removed tasks. Pass current + previous JSON.",
+    )
+    def _diff(current_json: str, previous_json: str = "") -> str:
+        return rondo_diff(current_json=current_json, previous_json=previous_json)
 
     @mcp.tool(
         name="rondo_retry",

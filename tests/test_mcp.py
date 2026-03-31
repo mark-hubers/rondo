@@ -18,6 +18,7 @@ from rondo.mcp_server import (
     rondo_run_file,
     rondo_run_status,
     rondo_spool_consume,
+    rondo_history,
 )
 
 
@@ -607,6 +608,28 @@ class TestCursorP1InlinePrePop:
         ))
         if result.get("dispatch_id"):
             assert "inline-task" in result.get("tasks", [])
+
+
+class TestRondoHistory:
+    """REQ-104: dispatch history via MCP."""
+
+    def test_history_returns_json(self):
+        """rondo_history returns valid JSON."""
+        result = json.loads(rondo_history())
+        assert "records" in result
+        assert isinstance(result["records"], list)
+
+    def test_history_with_model_filter(self):
+        """rondo_history(model='haiku') filters by model."""
+        result = json.loads(rondo_history(model="haiku"))
+        assert "records" in result
+        for r in result["records"]:
+            assert r.get("model") == "haiku"
+
+    def test_history_has_aggregate(self):
+        """rondo_history includes model aggregate stats."""
+        result = json.loads(rondo_history())
+        assert "aggregate" in result
 
 
 class TestCursorP2CommandSSoT:

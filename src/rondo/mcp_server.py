@@ -159,6 +159,29 @@ def rondo_dispatch_info() -> str:
 _background_results: dict[str, dict] = {}
 
 
+def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
+    """Query dispatch history — REQ-104 reqs 003-005.
+
+    Returns recent dispatch records with model aggregate stats.
+    Filterable by model and status.
+    """
+    try:
+        from rondo.history import aggregate_by_model, load_history, query_history
+
+        records = load_history(history_dir="reports")
+        if model or status:
+            records = query_history(
+                records,
+                model=model or None,
+                status=status or None,
+            )
+        recent = records[-limit:] if len(records) > limit else records
+        agg = aggregate_by_model(records)
+        return json.dumps({"records": recent, "aggregate": agg, "total": len(records)}, indent=2)
+    except (ImportError, OSError, TypeError) as exc:
+        return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
+
+
 def rondo_spool_consume() -> str:
     """Consume all pending spool results — mailbox drain.
 
@@ -519,6 +542,13 @@ def create_mcp_server() -> Any:
     )
     def _run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool = False) -> str:
         return rondo_run_status(dispatch_id=dispatch_id, brief=brief, heartbeat=heartbeat)
+
+    @mcp.tool(
+        name="rondo_history",
+        description="Query dispatch history. Filter by model= or status=. Returns records + model aggregate stats.",
+    )
+    def _history(model: str = "", status: str = "", limit: int = 20) -> str:
+        return rondo_history(model=model, status=status, limit=limit)
 
     @mcp.tool(
         name="rondo_spool_consume",

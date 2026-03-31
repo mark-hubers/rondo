@@ -225,4 +225,20 @@ class TestAiHelpProviders:
             assert "models" in p
 
 
+class TestAiHelpMCPTools:
+    """ai-help lists all 20 MCP tools."""
+
+    def test_mcp_tools_present(self):
+        data = get_ai_help()
+        assert "mcp_tools" in data
+        assert len(data["mcp_tools"]) >= 19
+
+    def test_mcp_tools_have_categories(self):
+        data = get_ai_help()
+        categories = {t["category"] for t in data["mcp_tools"]}
+        assert "monitor" in categories
+        assert "dispatch" in categories
+        assert "advanced" in categories
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.a1b2c5

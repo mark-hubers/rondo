@@ -37,6 +37,7 @@ def get_ai_help() -> dict[str, Any]:
         "result_schema": _get_result_schema(),
         "polling_tiers": _get_polling_tiers(),
         "providers": _get_providers(),
+        "mcp_tools": _get_mcp_tools(),
         "capabilities": get_capabilities(),
         "examples": _get_examples(),
         "example_round_file": _get_example_round_file(),
@@ -135,6 +136,35 @@ def _get_quick_examples() -> list[dict[str, str]]:
             "task": 'rondo_run(prompt="Search for new trials", dry_run=False, model="haiku")',
             "run": "Returns result directly — no polling needed for sync dispatch.",
         },
+    ]
+
+
+def _get_mcp_tools() -> list[dict[str, str]]:
+    """List all 20 MCP tools with category and description."""
+    return [
+        {"name": "rondo_health", "category": "monitor", "description": "GREEN/YELLOW/RED status"},
+        {"name": "rondo_metrics", "category": "monitor", "description": "Cost, reliability, latency"},
+        {"name": "rondo_audit_summary", "category": "monitor", "description": "Recent dispatch records"},
+        {"name": "rondo_cost", "category": "monitor", "description": "Monthly spend by model"},
+        {"name": "rondo_dispatch_info", "category": "discovery", "description": "Version + capabilities"},
+        {"name": "rondo_models", "category": "discovery", "description": "Available models + task recommendations"},
+        {"name": "rondo_templates", "category": "discovery", "description": "Pre-built round patterns"},
+        {
+            "name": "rondo_run",
+            "category": "dispatch",
+            "description": "Dispatch file or inline prompt (dry-run/real/background)",
+        },
+        {"name": "rondo_run_status", "category": "dispatch", "description": "Progress: heartbeat/brief/full tiers"},
+        {"name": "rondo_spool_consume", "category": "dispatch", "description": "Drain overnight result mailbox"},
+        {"name": "rondo_retry", "category": "recovery", "description": "Re-run failed tasks"},
+        {"name": "rondo_history", "category": "analysis", "description": "Query by model/status"},
+        {"name": "rondo_diff", "category": "analysis", "description": "Compare results — what's new"},
+        {"name": "rondo_summarize", "category": "analysis", "description": "Condense outputs via AI"},
+        {"name": "rondo_explain", "category": "qa", "description": "Local model reviews AI output ($0)"},
+        {"name": "rondo_chain", "category": "advanced", "description": "Pipeline: step N output → step N+1 input"},
+        {"name": "rondo_benchmark", "category": "advanced", "description": "Same prompt → N models → ranked"},
+        {"name": "rondo_schedule_list", "category": "scheduling", "description": "List installed schedules"},
+        {"name": "rondo_schedule_create", "category": "scheduling", "description": "Create recurring dispatch"},
     ]
 
 

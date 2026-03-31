@@ -670,6 +670,30 @@ class TestRondoDiff:
         assert result["changes"] == 0
 
 
+class TestMCPInputLimits:
+    """H-07 to H-11: input size caps on MCP tools."""
+
+    def test_prompt_too_large(self):
+        """H-07: prompt > 500KB rejected."""
+        result = json.loads(rondo_run_file(prompt="x" * 600_000, dry_run=True))
+        assert result["status"] == "error"
+        assert "ERR_INPUT_TOO_LARGE" in result.get("code", "") or "too large" in result.get("error", "").lower()
+
+    def test_chain_too_many_steps(self):
+        """H-08: chain > 20 steps rejected."""
+        from rondo.mcp_server import rondo_chain
+        steps = json.dumps([{"prompt": "x", "model": "haiku"}] * 25)
+        result = json.loads(rondo_chain(steps, dry_run=True))
+        assert result["status"] == "error"
+
+    def test_benchmark_too_many_models(self):
+        """H-09: benchmark > 10 models rejected."""
+        from rondo.mcp_server import rondo_benchmark
+        models = json.dumps([f"model{i}" for i in range(15)])
+        result = json.loads(rondo_benchmark(prompt="x", models=models, dry_run=True))
+        assert result["status"] == "error"
+
+
 class TestRondoScheduleMCP:
     """rondo_schedule MCP: manage scheduled dispatches."""
 

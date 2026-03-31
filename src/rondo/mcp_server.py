@@ -52,6 +52,12 @@ _DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 _metrics_cache: dict[str, Any] = {}
 _METRICS_CACHE_TTL = 30  # -- seconds
 
+## -- H-07 to H-11: MCP input limits (security hardening)
+_MAX_PROMPT_BYTES = 500_000  # -- 500KB
+_MAX_CHAIN_STEPS = 20
+_MAX_BENCHMARK_MODELS = 10
+_MAX_SUMMARIZE_BYTES = 1_000_000  # -- 1MB
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Tool functions (testable without MCP transport)
@@ -278,6 +284,16 @@ def rondo_benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> s
     except (json.JSONDecodeError, TypeError):
         return json.dumps({"status": "error", "error": "Invalid models JSON"})
 
+    ## -- H-09: benchmark model limit
+    if len(model_list) > _MAX_BENCHMARK_MODELS:
+        return json.dumps(
+            {
+                "status": "error",
+                "error": f"Too many models ({len(model_list)} > {_MAX_BENCHMARK_MODELS})",
+                "code": "ERR_INPUT_TOO_LARGE",
+            }
+        )
+
     if not model_list:
         model_list = ["llama3.1:8b", "qwen2.5:32b", "sonnet"]
 
@@ -331,6 +347,16 @@ def rondo_chain(steps_json: str, dry_run: bool = False) -> str:
         steps = json.loads(steps_json) if steps_json else []
     except (json.JSONDecodeError, TypeError):
         return json.dumps({"status": "error", "error": "Invalid steps_json"})
+
+    ## -- H-08: chain step limit
+    if len(steps) > _MAX_CHAIN_STEPS:
+        return json.dumps(
+            {
+                "status": "error",
+                "error": f"Too many steps ({len(steps)} > {_MAX_CHAIN_STEPS})",
+                "code": "ERR_INPUT_TOO_LARGE",
+            }
+        )
 
     if not steps:
         return json.dumps({"status": "done", "steps": [], "total_cost_usd": 0})
@@ -735,6 +761,13 @@ def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str
     """Validate and resolve file_path + project. Returns (file_path, project, error_json)."""
     from pathlib import Path
 
+    ## -- H-07: prompt size limit
+    if prompt and len(prompt.encode("utf-8")) > _MAX_PROMPT_BYTES:
+        return (
+            file_path,
+            project,
+            json.dumps({"status": "error", "error": "Prompt too large", "code": "ERR_INPUT_TOO_LARGE"}),
+        )
     if prompt:
         file_path = ""
     elif file_path:

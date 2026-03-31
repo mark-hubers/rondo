@@ -392,3 +392,31 @@ CORE-STD-012 (Requirement Readiness) treats infrastructure availability as a gat
 |---------|------|-------------|
 | 0.1 | 2026-03-18 | Initial draft. Matches CORE-STD-005 topics (persistence, concurrency, security) adapted for Rondo's stateless context. 26 requirements. Spool mailbox pattern, atomic writes, worktree isolation, subprocess environment control. No DB sections (Rondo has no database). |
 | 0.2 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |
+| 0.3 | 2026-03-31 | Session 93: ~/.rondo/ data directory layout. 6 new reqs (027-032). |
+
+---
+
+## ~/.rondo/ Data Directory Layout (Session 93)
+
+All persistent Rondo runtime data lives in `~/.rondo/`. Separate from project-level results.
+
+```
+~/.rondo/
+├── audit/                  # Dispatch audit trail (STD-113)
+│   ├── rondo_audit.jsonl   # Append-only JSONL
+│   ├── dsp_*.prompt.txt    # Saved prompts
+│   ├── dsp_*.result.json   # Saved results
+│   └── archive/            # Rotated monthly files
+├── spool/                  # Overnight mailbox (REQ-101)
+├── logs/                   # Scheduled run logs
+└── build-counter.json      # CalVer build number
+```
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| 027 | All persistent Rondo runtime data MUST be in `~/.rondo/` | MUST |
+| 028 | `~/.rondo/` auto-created on first write | MUST |
+| 029 | Subdirectories auto-created on first write | MUST |
+| 030 | Session-scoped temp data MAY use `/tmp/` | MAY |
+| 031 | Scheduled run logs MUST go to `~/.rondo/logs/`, NOT `/tmp/` | MUST |
+| 032 | `RONDO_TEST_DIR` redirects ALL `~/.rondo/` paths to test tmp | MUST |

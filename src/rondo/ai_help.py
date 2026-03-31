@@ -36,6 +36,7 @@ def get_ai_help() -> dict[str, Any]:
         "gate_schema": _get_gate_schema(),
         "result_schema": _get_result_schema(),
         "polling_tiers": _get_polling_tiers(),
+        "providers": _get_providers(),
         "capabilities": get_capabilities(),
         "examples": _get_examples(),
         "example_round_file": _get_example_round_file(),
@@ -133,6 +134,27 @@ def _get_quick_examples() -> list[dict[str, str]]:
             "name": "One-off inline task (no round file)",
             "task": 'rondo_run(prompt="Search for new trials", dry_run=False, model="haiku")',
             "run": "Returns result directly — no polling needed for sync dispatch.",
+        },
+    ]
+
+
+def _get_providers() -> list[dict[str, Any]]:
+    """REQ-109: list available AI providers with models and routing."""
+    return [
+        {
+            "name": "claude",
+            "description": "Claude Code via subprocess (default)",
+            "models": ["sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"],
+            "auth": "Max plan (free) or API key",
+            "routing": "Default for all Claude model names",
+        },
+        {
+            "name": "ollama",
+            "description": "Local LLM via Ollama (no API key, zero cost)",
+            "models": ["llama3.1:8b", "llama3.1:70b", "qwen2.5:32b", "mistral", "phi", "gemma", "deepseek"],
+            "auth": "None — runs locally",
+            "routing": "Auto-detected from model name prefix (llama, qwen, mistral, etc.)",
+            "endpoint": "http://localhost:11434",
         },
     ]
 

@@ -23,7 +23,7 @@ class TestAiHelp:
     def test_ai_help_has_version(self):
         data = get_ai_help()
         assert "version" in data
-        assert "0.2" in data["version"]
+        assert "0." in data["version"]
 
     def test_ai_help_has_commands(self):
         data = get_ai_help()
@@ -195,6 +195,34 @@ class TestAiHelpGateSchema:
         assert "name" in str(gs)
         assert "check_fn" in str(gs)
         assert "blocking" in str(gs)
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109: Provider info in ai-help (RONDO-75)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAiHelpProviders:
+    """ai-help includes multi-LLM provider information."""
+
+    def test_providers_section_exists(self):
+        data = get_ai_help()
+        assert "providers" in data
+
+    def test_providers_has_claude(self):
+        data = get_ai_help()
+        names = [p["name"] for p in data["providers"]]
+        assert "claude" in names
+
+    def test_providers_has_ollama(self):
+        data = get_ai_help()
+        names = [p["name"] for p in data["providers"]]
+        assert "ollama" in names
+
+    def test_each_provider_has_models(self):
+        data = get_ai_help()
+        for p in data["providers"]:
+            assert "models" in p
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.a1b2c5

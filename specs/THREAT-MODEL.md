@@ -9,6 +9,8 @@
 
 Rondo is designed for **macOS/*nix, single-user dev machines, Claude Code MCP stdio sessions.**
 
+Rondo is per-user infrastructure. Each developer runs their own Rondo instance on their own machine, spawned by Claude Code via MCP stdio or localhost services, with their own `~/.rondo` state (audit, history, spool, retry, config) and their own API keys. There is no shared or multi-tenant deployment mode for Rondo; running it as a long-lived daemon or shared network service is explicitly unsupported and out of scope.
+
 ## What Rondo Can Do
 
 - Execute `claude -p` as subprocess (local only)

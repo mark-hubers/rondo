@@ -6,6 +6,11 @@ Rondo-IFS-104: MCP Server.
 Claude Code starts this via stdio — no daemon, no port, no "always running."
 Same engine as CLI and Python import, just a different interface.
 
+Rondo is per-user infrastructure. Each developer runs their own Rondo instance
+on their own machine, spawned by Claude Code via MCP stdio, with their own
+~/.rondo state and API keys. There is no shared or multi-tenant deployment mode;
+running as a long-lived daemon or shared network service is explicitly unsupported.
+
 Three interfaces, one engine:
     1. Python:  from rondo import dispatch_task
     2. CLI:     rondo run / metrics / audit

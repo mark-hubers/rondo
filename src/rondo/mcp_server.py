@@ -890,7 +890,26 @@ def run_mcp() -> None:
 
     Called by `rondo mcp` CLI command.
     Claude Code spawns this process, talks via stdin/stdout.
+
+    RONDO-108: Guard against accidental daemon use. This server is
+    designed for stdio (single-user, single-process). Running it as
+    a long-lived daemon would expose unauthenticated tools to anyone
+    who can connect. The guard checks stdin is a pipe (not a terminal).
     """
+    import os
+    import sys
+
+    # -- RONDO-108: refuse to start if stdin is a terminal (not piped)
+    # -- MCP stdio servers are spawned by Claude Code with piped stdin.
+    # -- If someone runs `rondo mcp` interactively, warn and require --force.
+    if os.isatty(sys.stdin.fileno()) and "--force" not in sys.argv:
+        sys.stderr.write(
+            "Rondo MCP server is designed for stdio transport (piped by Claude Code).\n"
+            "Running interactively is not supported — no authN/authZ for direct access.\n"
+            "If you know what you're doing: rondo mcp --force\n"
+        )
+        sys.exit(1)
+
     logging.getLogger("mcp").setLevel(logging.WARNING)
     logging.getLogger("anyio").setLevel(logging.WARNING)
 

@@ -75,6 +75,52 @@ def _prune_background() -> None:
         del _background_results[k]
 
 
+def _get_retry_dir() -> str:
+    """RONDO-106: resolve retry directory path."""
+    return _resolve_dir("~/.rondo/retry", "retry")
+
+
+def _save_background_result(dispatch_id: str, result: dict) -> None:
+    """RONDO-106: persist background result to disk for cross-session retry.
+
+    Only saves if the result has failed tasks — successful dispatches
+    don't need retry. Files in ~/.rondo/retry/{dispatch_id}.json.
+    """
+    from pathlib import Path
+
+    tasks = result.get("tasks", [])
+    has_failures = any(t.get("status") in ("error", "blocked", "partial") for t in tasks)
+    if not has_failures:
+        return
+
+    retry_dir = Path(_get_retry_dir()).expanduser()
+    try:
+        retry_dir.mkdir(parents=True, exist_ok=True)
+        retry_path = retry_dir / f"{dispatch_id}.json"
+        retry_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+        retry_path.chmod(0o600)  # -- STD-110 S5: restrictive permissions
+        # -- Prune old retry files (keep max 50)
+        retry_files = sorted(retry_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        for old_file in retry_files[:-50]:
+            old_file.unlink(missing_ok=True)
+    except (OSError, TypeError) as exc:
+        logger.debug("Retry save failed (non-fatal): %s", exc)
+
+
+def _load_background_result(dispatch_id: str) -> dict | None:
+    """RONDO-106: load a background result from disk if not in memory."""
+    from pathlib import Path
+
+    retry_dir = Path(_get_retry_dir()).expanduser()
+    retry_path = retry_dir / f"{dispatch_id}.json"
+    if retry_path.is_file():
+        try:
+            return json.loads(retry_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+    return None
+
+
 def rondo_explain(
     output: str, question: str = "Is this correct?", model: str = "qwen2.5:32b", dry_run: bool = False
 ) -> str:
@@ -275,9 +321,13 @@ def rondo_summarize(dispatch_json: str, dry_run: bool = False, model: str = "hai
 def rondo_retry(dispatch_id: str, model: str = "") -> str:
     """Re-run failed tasks from a previous dispatch — U-56 to U-58.
 
-    Looks up the dispatch result, finds failed/error tasks, re-dispatches them.
+    RONDO-106: checks in-memory first, then disk (~/.rondo/retry/).
+    Works across sessions — failed dispatch results persist on disk.
     """
     result = _background_results.get(dispatch_id)
+    if not result:
+        # -- RONDO-106: fall back to disk-based retry
+        result = _load_background_result(dispatch_id)
     if not result:
         return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
 
@@ -572,6 +622,8 @@ def rondo_run_file(
             result = _dispatch()
             result["dispatch_id"] = dispatch_id
             _background_results[dispatch_id] = result
+            # -- RONDO-106: persist to disk for cross-session retry
+            _save_background_result(dispatch_id, result)
             _notify_completion(_session, dispatch_id, result)
 
         thread = threading.Thread(target=_bg_worker, daemon=True)

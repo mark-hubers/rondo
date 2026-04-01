@@ -927,4 +927,81 @@ class TestCursorP2CommandSSoT:
         assert not missing, f"Commands in CLI but not in dispatch_info: {missing}"
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-106: Disk-based retry
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestDiskBasedRetry:
+    """RONDO-106: retry persists to disk and loads across sessions."""
+
+    def test_save_only_on_failures(self, tmp_path, monkeypatch) -> None:
+        """Only save retry file when there are failed tasks."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        from rondo.mcp_server import _save_background_result
+
+        # -- Success result: no retry file
+        success = {"tasks": [{"name": "t1", "status": "done"}]}
+        _save_background_result("disp-ok", success)
+        retry_dir = tmp_path / "retry"
+        assert not (retry_dir / "disp-ok.json").exists()
+
+        # -- Failure result: retry file created
+        failure = {"tasks": [{"name": "t1", "status": "error", "error_message": "timeout"}]}
+        _save_background_result("disp-fail", failure)
+        assert (retry_dir / "disp-fail.json").exists()
+
+    def test_load_from_disk(self, tmp_path, monkeypatch) -> None:
+        """Load a retry record from disk when not in memory."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        from rondo.mcp_server import _load_background_result, _save_background_result
+
+        failure = {"tasks": [{"name": "t1", "status": "error"}], "dispatch_id": "disp-123"}
+        _save_background_result("disp-123", failure)
+        loaded = _load_background_result("disp-123")
+        assert loaded is not None
+        assert loaded["dispatch_id"] == "disp-123"
+
+    def test_load_missing_returns_none(self, tmp_path, monkeypatch) -> None:
+        """Missing dispatch_id returns None, not crash."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        from rondo.mcp_server import _load_background_result
+
+        assert _load_background_result("nonexistent") is None
+
+    def test_retry_checks_disk(self, tmp_path, monkeypatch) -> None:
+        """rondo_retry falls back to disk when not in memory."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        from rondo.mcp_server import _save_background_result, rondo_retry
+
+        # -- Save a failure to disk
+        failure = {
+            "tasks": [
+                {"name": "scan", "status": "error", "error_message": "timeout", "model": "sonnet"},
+            ],
+            "dispatch_id": "disk-retry-1",
+        }
+        _save_background_result("disk-retry-1", failure)
+
+        # -- rondo_retry should find it on disk (not in _background_results)
+        result = json.loads(rondo_retry("disk-retry-1", model="haiku"))
+        ## -- It will try to dispatch (which may fail in test env) but
+        ## -- the point is it FOUND the dispatch, not "Unknown dispatch_id"
+        assert result.get("status") != "error" or "Unknown dispatch_id" not in result.get("error", "")
+
+    def test_prune_old_retry_files(self, tmp_path, monkeypatch) -> None:
+        """Max 50 retry files — oldest pruned."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        from rondo.mcp_server import _save_background_result
+
+        failure = {"tasks": [{"name": "t", "status": "error"}]}
+        # -- Create 55 retry files
+        for i in range(55):
+            _save_background_result(f"disp-{i:03d}", failure)
+
+        retry_dir = tmp_path / "retry"
+        files = list(retry_dir.glob("*.json"))
+        assert len(files) <= 50
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

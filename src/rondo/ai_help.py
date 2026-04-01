@@ -27,6 +27,11 @@ def get_ai_help() -> dict[str, Any]:
         "version": _get_rondo_version(),
         "description": "AI dispatch layer — route tasks to any AI provider (Claude, Ollama, future), get structured results back.",
         "deployment": "Per-user, local infrastructure. Each user runs their own instance via Claude Code MCP stdio. No shared/multi-tenant mode.",
+        "important": {
+            "model_parameter": "Do NOT specify model= unless you need a DIFFERENT model than your current session. Omitting model= uses your current session model with zero overhead. Specifying a different model spawns a new process (slower).",
+            "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
+            "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') — $0 cost, ~2 seconds.",
+        },
         "providers": _get_providers(),
         "mcp_tools": _get_mcp_tools(),
         "commands": _get_commands(),

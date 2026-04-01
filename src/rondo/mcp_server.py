@@ -28,7 +28,6 @@ from typing import Any
 # -- Import tool functions from mcp_tools (Finding #195 split)
 from rondo.mcp_tools import (  # noqa: F401
     _DEFAULT_AUDIT_DIR,
-    _DEFAULT_SPOOL_DIR,
     _resolve_dir,
     rondo_audit_summary,
     rondo_cost,
@@ -405,7 +404,7 @@ def _dispatch_via_provider_or_claude(
     from rondo.providers import get_provider
 
     provider = get_provider(model)
-    if provider.name != "claude":
+    if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail
         from rondo.dispatch import _finalize_dispatch
         from rondo.engine import DispatchUsage, RoundResult, TaskResult

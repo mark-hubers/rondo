@@ -171,7 +171,7 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     try:
         from rondo.history import aggregate_by_model, load_history, query_history
 
-        records = load_history(history_dir="reports")
+        records = load_history(history_dir=_resolve_dir("~/.rondo/history", "history"))
         if model or status:
             records = query_history(
                 records,
@@ -234,7 +234,7 @@ def rondo_cost(days: int = 30) -> str:
 
 def rondo_models() -> str:
     """List available models with providers, benchmarks, and task recommendations."""
-    from rondo.providers import _ollama_adapter, load_task_models
+    from rondo.providers import get_ollama_adapter, load_task_models
 
     merged_models = load_task_models()
     providers = [
@@ -245,7 +245,7 @@ def rondo_models() -> str:
         },
         {
             "name": "ollama",
-            "models": _ollama_adapter.models() or ["(none — run: ollama pull llama3.1:8b)"],
+            "models": get_ollama_adapter().models() or ["(none — run: ollama pull llama3.1:8b)"],
             "cost": "$0 (local)",
         },
     ]

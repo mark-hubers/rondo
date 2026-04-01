@@ -77,15 +77,17 @@ class TestProviderRouting:
     """REQ-109 req 012: model → provider routing."""
 
     def test_route_claude_models(self) -> None:
+        """Claude models return None (use dispatch_task directly)."""
         from rondo.providers import get_provider
 
-        assert get_provider("sonnet").name == "claude"
-        assert get_provider("opus").name == "claude"
-        assert get_provider("haiku").name == "claude"
+        assert get_provider("sonnet") is None
+        assert get_provider("opus") is None
+        assert get_provider("haiku") is None
 
     def test_route_ollama_models(self) -> None:
         from rondo.providers import get_provider
 
+        assert get_provider("llama3.1:8b") is not None
         assert get_provider("llama3.1:8b").name == "ollama"
         assert get_provider("qwen2.5:32b").name == "ollama"
         assert get_provider("qwen2.5-coder:7b").name == "ollama"
@@ -94,11 +96,11 @@ class TestProviderRouting:
         assert get_provider("phi4:14b").name == "ollama"
         assert get_provider("mistral").name == "ollama"
 
-    def test_unknown_model_returns_claude(self) -> None:
-        """Unknown models default to Claude (backward compat)."""
+    def test_unknown_model_returns_none(self) -> None:
+        """Unknown models default to None (Claude path, backward compat)."""
         from rondo.providers import get_provider
 
-        assert get_provider("unknown-model-xyz").name == "claude"
+        assert get_provider("unknown-model-xyz") is None
 
     def test_recommend_model_for_task(self) -> None:
         """recommend_model returns best local model for task type."""

@@ -345,7 +345,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     from rondo.providers import get_provider  # pylint: disable=import-outside-toplevel
 
     provider = get_provider(config.default_model)
-    if provider.name != "claude":
+    if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
         from rondo.dispatch import _finalize_dispatch  # pylint: disable=import-outside-toplevel
         from rondo.engine import DispatchUsage, RoundResult, TaskResult  # pylint: disable=import-outside-toplevel

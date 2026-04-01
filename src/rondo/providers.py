@@ -50,24 +50,12 @@ class ProviderAdapter(ABC):
 
 
 # -- ──────────────────────────────────────────────────────────────
-# --  REQ-109 D6: Claude routing marker (not an adapter)
-# --  Claude dispatch uses dispatch_task() directly — the proven
-# --  path with 1168+ tests. This marker exists only for
-# --  get_provider() routing: callers check .name == "claude"
-# --  to decide which path to take. No dispatch logic here.
+# --  REQ-109 D6: Claude uses dispatch_task() directly.
+# --  get_provider() returns None for Claude models.
+# --  Callers check: if provider is not None → use adapter.dispatch()
+# --                 else → use dispatch_task() (proven path, 1178 tests)
 # --  Phase 2 will extract Claude transport into a real adapter.
 # -- ──────────────────────────────────────────────────────────────
-
-
-class _ClaudeRoute:
-    """Routing marker for Claude models — NOT a ProviderAdapter.
-
-    Callers check get_provider(model).name to decide:
-    - "claude" → use dispatch_task() directly (proven path)
-    - anything else → use adapter.dispatch() + shared finalization
-    """
-
-    name: str = "claude"
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -165,20 +153,24 @@ class OllamaAdapter(ProviderAdapter):
 _CLAUDE_MODELS = {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}
 _OLLAMA_PREFIXES = {"llama", "qwen", "mistral", "phi", "gemma", "codellama", "deepseek"}
 
-# -- Singleton instances
-_claude_route = _ClaudeRoute()
+# -- Singleton adapter
 _ollama_adapter = OllamaAdapter()
 
 
-def get_provider(model: str) -> ProviderAdapter | _ClaudeRoute:
-    """Route model name to the correct provider — REQ-109 req 012.
+def get_ollama_adapter() -> OllamaAdapter:
+    """Public accessor for OllamaAdapter singleton — avoids _private import."""
+    return _ollama_adapter
 
-    Returns _ClaudeRoute for Claude models (callers use dispatch_task directly).
+
+def get_provider(model: str) -> ProviderAdapter | None:
+    """Route model name to provider adapter — REQ-109 req 012.
+
+    Returns None for Claude models (callers use dispatch_task directly).
     Returns OllamaAdapter for local models (callers use adapter.dispatch).
-    Returns _ClaudeRoute as default for unknown models (backward compat).
+    Returns None as default for unknown models (Claude, backward compat).
     """
     if model in _CLAUDE_MODELS:
-        return _claude_route
+        return None
 
     # -- Check Ollama prefixes: strip version (llama3.2→llama), tag (qwen:7b→qwen)
     import re
@@ -188,7 +180,7 @@ def get_provider(model: str) -> ProviderAdapter | _ClaudeRoute:
         return _ollama_adapter
 
     # -- Default: Claude (backward compat)
-    return _claude_route
+    return None
 
 
 # -- ──────────────────────────────────────────────────────────────

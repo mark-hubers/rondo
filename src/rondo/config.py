@@ -77,7 +77,7 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     project: str = ""  # -- empty = CWD, set = subprocess runs in this dir
 
     # -- flags
-    bare: bool = False  # -- REQ-100 req 071: add --bare for automated dispatch
+    bare: bool = True  # -- REQ-100 req 071: --bare for automated dispatch (default ON — skip hooks/CLAUDE.md)
     dry_run: bool = False
     verbose: bool = False
 

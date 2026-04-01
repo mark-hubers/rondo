@@ -455,9 +455,10 @@ class TestRelationshipValidation:
 class TestNewConfigFields:
     """Session 91 fields in RondoConfig."""
 
-    def test_bare_default_false(self):
+    def test_bare_default_true(self):
+        """RONDO-110: bare=True by default (skip hooks/CLAUDE.md for automated dispatch)."""
         config = RondoConfig()
-        assert config.bare is False
+        assert config.bare is True
 
     def test_json_schema_default_empty(self):
         config = RondoConfig()
@@ -509,7 +510,7 @@ class TestConfigFromToml:
         toml_file.write_text('json_schema = "auto"\n')
         config = load_config(config_path=str(toml_file))
         assert config.json_schema == "auto"
-        assert config.bare is False  # default preserved
+        assert config.bare is True  # RONDO-110: default is now True
 
 
 class TestConfigPermissionModes:
@@ -561,10 +562,10 @@ class TestConfigDefaults:
         config = RondoConfig()
         assert config.workers == 4
 
-    def test_default_bare_is_false(self):
-        """Bare is off by default (safety — preserves Caliber guards)."""
+    def test_default_bare_is_true(self):
+        """RONDO-110: Bare is ON by default (skip hooks/CLAUDE.md startup overhead)."""
         config = RondoConfig()
-        assert config.bare is False
+        assert config.bare is True
 
     def test_default_dry_run_is_false(self):
         """Dry run is off by default."""

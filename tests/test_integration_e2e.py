@@ -62,8 +62,12 @@ class TestE2EVersion:
     """Docs say: 'rondo --version' shows version."""
 
     def test_version_output(self):
+        import re
         result = _run(["--version"])
-        assert "0.5" in result.stdout
+        assert result.returncode == 0
+        assert re.match(r"rondo \d+\.\d+", result.stdout.strip()), (
+            f"Expected 'rondo X.Y...' but got: {result.stdout!r}"
+        )
 
 
 @skip_no_rondo
@@ -1205,13 +1209,22 @@ class TestRealDispatchSmoke:
 
     def test_real_ollama_dispatch(self) -> None:
         """Ollama dispatch: real HTTP call to local model."""
-        result = _run(
-            ["run", "--model", "llama3.1:8b", "--dry-run=false"],
-            timeout=30,
+        import tempfile, textwrap
+        round_src = textwrap.dedent("""
+            from rondo.engine import Round, Task
+            def build_round():
+                return Round(name="smoke", tasks=[
+                    Task(name="t1", instruction="Say hello.", done_when="Said hello.")
+                ])
+        """)
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write(round_src)
+            round_file = f.name
+        result = _run(["run", round_file, "--model", "local:llama3.1:8b"], timeout=30)
+        ## -- 0=success, 1=Ollama down or dispatch error — both are valid PATH outcomes
+        assert result.returncode in (0, 1), (
+            f"Unexpected returncode {result.returncode}: {result.stderr[:200]}"
         )
-        ## -- May fail if Ollama not running, but should NOT timeout silently
-        ## -- We're testing the dispatch PATH works, not that Ollama is up
-        assert result.returncode in (0, 1)  ## 0=success, 1=Ollama down
 
     def test_real_claude_dispatch(self) -> None:
         """Claude dispatch: real subprocess via claude -p (with --bare).

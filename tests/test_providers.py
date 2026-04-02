@@ -506,4 +506,171 @@ class TestFinalizationGuard:
                 break
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 reqs 041-045: Provider tier resolution
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestTierResolution:
+    """REQ-109 reqs 041-045: provider:tier → actual model name from config."""
+
+    def setup_method(self) -> None:
+        from rondo.providers import _providers_config
+
+        _providers_config.clear()
+        _providers_config.update(
+            {
+                "gemini": {
+                    "cheap_model": "gemini-2.0-flash-lite",
+                    "default_model": "gemini-2.5-flash",
+                    "best_model": "gemini-2.5-pro",
+                },
+                "openai": {
+                    "cheap_model": "gpt-4.1-mini",
+                    "default_model": "gpt-4.1",
+                    "best_model": "o3",
+                },
+                "grok": {
+                    "cheap_model": "grok-3-mini",
+                    "default_model": "grok-3",
+                    "best_model": "grok-3",
+                },
+            }
+        )
+
+    def teardown_method(self) -> None:
+        from rondo.providers import _providers_config
+
+        _providers_config.clear()
+
+    def test_resolve_tier_high(self) -> None:
+        """req 042: gemini:high → best_model."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("gemini", "high") == "gemini-2.5-pro"
+
+    def test_resolve_tier_default(self) -> None:
+        """req 042: gemini:default → default_model."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("gemini", "default") == "gemini-2.5-flash"
+
+    def test_resolve_tier_low(self) -> None:
+        """req 042: gemini:low → cheap_model."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("gemini", "low") == "gemini-2.0-flash-lite"
+
+    def test_resolve_tier_openai(self) -> None:
+        """req 042: works for all providers."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("openai", "high") == "o3"
+        assert resolve_tier("openai", "low") == "gpt-4.1-mini"
+
+    def test_resolve_tier_same_model(self) -> None:
+        """req 045: provider with fewer models can point tiers to same model."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("grok", "high") == "grok-3"
+        assert resolve_tier("grok", "default") == "grok-3"
+
+    def test_resolve_tier_unknown_provider(self) -> None:
+        """Unknown provider returns empty string."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("unknown", "high") == ""
+
+    def test_resolve_tier_unknown_tier(self) -> None:
+        """Unknown tier name returns empty string."""
+        from rondo.providers import resolve_tier
+
+        assert resolve_tier("gemini", "ultra") == ""
+
+    def test_parse_model_tier_high(self) -> None:
+        """req 042: parse_model resolves gemini:high to actual model."""
+        from rondo.providers import parse_model
+
+        provider, model = parse_model("gemini:high")
+        assert provider == "gemini"
+        assert model == "gemini-2.5-pro"
+
+    def test_parse_model_tier_low(self) -> None:
+        """req 042: parse_model resolves openai:low."""
+        from rondo.providers import parse_model
+
+        provider, model = parse_model("openai:low")
+        assert provider == "openai"
+        assert model == "gpt-4.1-mini"
+
+    def test_parse_model_exact_beats_tier(self) -> None:
+        """req 043: exact model name beats tier — flash is not a tier."""
+        from rondo.providers import parse_model
+
+        provider, model = parse_model("gemini:flash")
+        assert provider == "gemini"
+        assert model == "flash"
+
+    def test_parse_model_exact_model_unchanged(self) -> None:
+        """req 043: gpt-4.1 is not a tier name, passes through."""
+        from rondo.providers import parse_model
+
+        provider, model = parse_model("openai:gpt-4.1")
+        assert provider == "openai"
+        assert model == "gpt-4.1"
+
+    def test_parse_model_tier_default(self) -> None:
+        """req 042: gemini:default → default_model."""
+        from rondo.providers import parse_model
+
+        provider, model = parse_model("gemini:default")
+        assert provider == "gemini"
+        assert model == "gemini-2.5-flash"
+
+    def test_parse_model_no_config_tier_passthrough(self) -> None:
+        """When no config, tier name passes through as model name."""
+        from rondo.providers import _providers_config, parse_model
+
+        _providers_config.clear()
+        provider, model = parse_model("gemini:high")
+        assert provider == "gemini"
+        ## With no config, "high" can't resolve — passes through as model name
+        assert model == "high"
+
+
+class TestLoadProvidersConfig:
+    """REQ-109 req 041: config loading for tier resolution."""
+
+    def teardown_method(self) -> None:
+        from rondo.providers import _providers_config
+
+        _providers_config.clear()
+
+    def test_load_from_dict(self) -> None:
+        from rondo.providers import _providers_config, load_providers_config
+
+        _providers_config.clear()
+        toml = {
+            "providers": {
+                "gemini": {"best_model": "gemini-pro"},
+            }
+        }
+        load_providers_config(toml)
+        assert _providers_config["gemini"]["best_model"] == "gemini-pro"
+
+    def test_load_empty_dict(self) -> None:
+        from rondo.providers import _providers_config, load_providers_config
+
+        _providers_config.clear()
+        load_providers_config({})
+        assert _providers_config == {}
+
+    def test_load_no_providers_key(self) -> None:
+        from rondo.providers import _providers_config, load_providers_config
+
+        _providers_config.clear()
+        load_providers_config({"other": "stuff"})
+        assert _providers_config == {}
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

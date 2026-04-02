@@ -68,6 +68,48 @@ class ProviderAdapter(ABC):
 _CLAUDE_MODELS = {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}
 _OLLAMA_PREFIXES = {"llama", "qwen", "mistral", "phi", "gemma", "codellama", "deepseek"}
 
+# -- REQ-109 reqs 041-045: Provider tiers
+_TIER_NAMES = {"high", "default", "low"}
+_TIER_MAP = {"high": "best_model", "default": "default_model", "low": "cheap_model"}
+
+## Cached provider config from TOML (populated by load_providers_config)
+_providers_config: dict[str, dict[str, str]] = {}
+
+
+def load_providers_config(toml_data: dict | None = None) -> None:
+    """Load [providers] section from TOML into tier resolution cache.
+
+    Called at startup. If no TOML provided, tries ~/.rondo/config.toml.
+    """
+    global _providers_config  # noqa: PLW0603
+    if toml_data is not None:
+        _providers_config.update(toml_data.get("providers", {}))
+        return
+    ## Fallback: load from default config path
+    from pathlib import Path
+
+    config_path = Path.home() / ".rondo" / "config.toml"
+    if config_path.is_file():
+        import tomllib
+
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        _providers_config.update(data.get("providers", {}))
+
+
+def resolve_tier(provider: str, tier: str) -> str:
+    """Resolve provider:tier → actual model name from config.
+
+    REQ-109 req 042: gemini:high → [providers.gemini].best_model
+    REQ-109 req 043: exact model name beats tier (caller checks first).
+    Returns empty string if provider/tier not configured.
+    """
+    provider_cfg = _providers_config.get(provider, {})
+    config_key = _TIER_MAP.get(tier, "")
+    if config_key:
+        return provider_cfg.get(config_key, "")
+    return ""
+
 # -- Singleton adapter (lazy to avoid circular import)
 _ollama_adapter: ProviderAdapter | None = None
 
@@ -83,21 +125,36 @@ def get_ollama_adapter() -> ProviderAdapter:
 
 
 def parse_model(model: str) -> tuple[str, str]:
-    """Parse provider:model format — REQ-100 req 409.
+    """Parse provider:model format with tier resolution — REQ-100 req 409, REQ-109 reqs 041-045.
 
     Returns (provider_name, model_name):
-        "" + "sonnet"          → Claude
-        "" + ""                → current session (inline plan)
-        "local" + "llama3.1:8b" → Ollama
-        "gemini" + "flash"     → future Gemini adapter
+        "" + "sonnet"              → Claude
+        "" + ""                    → current session (inline plan)
+        "local" + "llama3.1:8b"   → Ollama
+        "gemini" + "flash"         → Gemini (exact model)
+        "gemini" + "gemini-2.5-pro" → Gemini (tier resolved: gemini:high)
+
+    Tier resolution (REQ-109 req 042-043):
+        provider:high   → best_model from config
+        provider:low    → cheap_model from config
+        provider:default → default_model from config
+        provider:flash  → exact model (not a tier — exact beats tier)
     """
     if not model:
         return "", ""
     # -- Check for provider prefix (local:model, gemini:model, etc.)
     # -- Split on first : when preceded by a known provider name
-    for prefix in ("local", "gemini", "openai", "anthropic"):
+    for prefix in ("local", "gemini", "openai", "anthropic", "grok", "mistral"):
         if model.startswith(f"{prefix}:"):
-            return prefix, model[len(prefix) + 1 :]
+            model_part = model[len(prefix) + 1 :]
+            # -- REQ-109 req 042: check if model_part is a tier name
+            if model_part in _TIER_NAMES:
+                resolved = resolve_tier(prefix, model_part)
+                if resolved:
+                    return prefix, resolved
+                # -- Tier not configured — fall through with tier as model name
+                logger.warning("Tier '%s' not configured for provider '%s'", model_part, prefix)
+            return prefix, model_part
     # -- No prefix → Claude model name or legacy Ollama name
     return "", model
 

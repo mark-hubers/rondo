@@ -1163,7 +1163,7 @@ class TestMultiReview:
         providers = [p["provider"] for p in result["per_provider"]]
         assert "local:qwen2.5:32b" in providers
         assert "gemini:flash" in providers
-        assert "openai:gpt-4.1" in providers
+        assert "grok:grok-3" in providers
 
     def test_invalid_json_returns_error(self) -> None:
         from rondo.mcp_server import rondo_multi_review

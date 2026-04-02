@@ -153,7 +153,7 @@ def _get_quick_examples() -> list[dict[str, str]]:
         },
         {
             "name": "Multi-provider parallel review (get consensus)",
-            "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers=['gemini', 'openai'], dry_run=False)",
+            "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini:flash\", \"grok:grok-3\"]', dry_run=False)",
             "run": "Returns list of per-provider results. Each has provider, status, raw_output.",
             "note": "Use for cross-validation — catches issues one model might miss.",
         },

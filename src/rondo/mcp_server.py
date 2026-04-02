@@ -221,8 +221,8 @@ def rondo_multi_review(
     """Multi-provider review: same prompt → N providers → per-provider + merged findings.
 
     REQ-109 req 033. Replaces ai-review --all-providers --compare.
-    Pass providers as JSON array: ["local:qwen2.5:32b", "gemini:flash", "openai:gpt-4.1"]
-    Default: local + gemini + openai (if keys available).
+    Pass providers as JSON array: ["local:qwen2.5:32b", "gemini:flash", "grok:grok-3"]
+    Default: local + gemini + grok (if keys available).
     """
     try:
         provider_list = json.loads(providers) if providers else []
@@ -239,7 +239,7 @@ def rondo_multi_review(
         )
 
     if not provider_list:
-        provider_list = ["local:qwen2.5:32b", "gemini:flash", "openai:gpt-4.1"]
+        provider_list = ["local:qwen2.5:32b", "gemini:flash", "grok:grok-3"]
 
     per_provider: list[dict] = []
     all_findings: list[str] = []
@@ -1003,7 +1003,7 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_multi_review",
-        description="Multi-provider review: same prompt to N providers, returns per-provider findings + merged. Pass providers as JSON array. Default: local+gemini+openai.",
+        description="Multi-provider review: same prompt to N providers, returns per-provider findings + merged. Pass providers as JSON array. Default: local+gemini+grok.",
     )
     def _multi_review(prompt: str, providers: str = "[]", dry_run: bool = False) -> str:
         return rondo_multi_review(prompt=prompt, providers=providers, dry_run=dry_run)

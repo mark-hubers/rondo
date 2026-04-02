@@ -140,10 +140,11 @@ class TestProviderRouting:
         from rondo.providers import recommend_model
 
         assert recommend_model("code-review") == "gemini:flash"
-        assert recommend_model("reasoning") == "openai:gpt-4.1"
+        assert recommend_model("reasoning") == "gemini:flash"
         assert recommend_model("classify") == "llama3.1:8b"
         assert recommend_model("structured-json") == "gemini:flash"
-        assert recommend_model("general") == "openai:gpt-4.1"
+        assert recommend_model("general") == "gemini:flash"
+        assert recommend_model("security") == "mistral:mistral-large-latest"
         assert recommend_model("unknown-type") == "sonnet"  ## default to Claude
 
     def test_recommend_model_config_override(self, tmp_path) -> None:

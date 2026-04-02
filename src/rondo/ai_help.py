@@ -25,12 +25,15 @@ def get_ai_help() -> dict[str, Any]:
     return {
         "name": "rondo",
         "version": _get_rondo_version(),
-        "description": "AI dispatch layer — route tasks to any AI provider (Claude, Ollama, future), get structured results back.",
+        "description": "AI dispatch layer — route tasks to any AI provider (Claude, Gemini, OpenAI, Grok, Mistral, Anthropic API, Ollama) and get structured results back. Supports single-provider dispatch, multi-provider parallel review (rondo_cloud), and automatic health-based fallback.",
         "deployment": "Per-user, local infrastructure. Each user runs their own instance via Claude Code MCP stdio. No shared/multi-tenant mode.",
         "important": {
             "model_parameter": "Do NOT specify model= unless you need a DIFFERENT model than your current session. Omitting model= uses your current session model with zero overhead. Specifying a different model spawns a new process (slower).",
             "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
             "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') — $0 cost, ~2 seconds.",
+            "cloud_providers": "Use provider:model syntax for cloud providers: 'gemini:flash', 'openai:gpt-4.1', 'grok:grok-3', 'mistral:large', 'anthropic:claude-sonnet-4-6'. Configure API keys in ~/.rondo/config.toml or env vars.",
+            "multi_provider": "rondo_cloud() dispatches the same prompt to multiple providers in parallel and returns all results. Use for consensus reviews or cross-validation.",
+            "health_fallback": "Providers with health checks auto-fallback when down. Configure fallback= in [providers.<name>] section of config.toml. Check status with: rondo providers",
         },
         "providers": _get_providers(),
         "mcp_tools": _get_mcp_tools(),
@@ -142,6 +145,23 @@ def _get_quick_examples() -> list[dict[str, str]]:
             "task": 'rondo_run(prompt="Search for new trials", dry_run=False, model="haiku")',
             "run": "Returns result directly — no polling needed for sync dispatch.",
         },
+        {
+            "name": "Dispatch to Gemini instead of Claude",
+            "task": 'Task(name="gemini-review", instruction="Review this code.", context_files=["src/main.py"], done_when="Findings listed.")',
+            "run": "rondo_run(file_path='review.py', model='gemini:flash')",
+            "note": "Requires GEMINI_API_KEY or [providers.gemini] in ~/.rondo/config.toml",
+        },
+        {
+            "name": "Multi-provider parallel review (get consensus)",
+            "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers=['gemini', 'openai'], dry_run=False)",
+            "run": "Returns list of per-provider results. Each has provider, status, raw_output.",
+            "note": "Use for cross-validation — catches issues one model might miss.",
+        },
+        {
+            "name": "Check provider health before dispatching",
+            "task": "rondo providers --json",
+            "run": "Shows all configured providers: UP/DOWN status + latency. Healthy fallback auto-selected if primary is DOWN.",
+        },
     ]
 
 
@@ -169,6 +189,16 @@ def _get_mcp_tools() -> list[dict[str, str]]:
         {"name": "rondo_explain", "category": "qa", "description": "Local model reviews AI output ($0)"},
         {"name": "rondo_chain", "category": "advanced", "description": "Pipeline: step N output → step N+1 input"},
         {"name": "rondo_benchmark", "category": "advanced", "description": "Same prompt → N models → ranked"},
+        {
+            "name": "rondo_cloud",
+            "category": "cloud",
+            "description": "Dispatch to cloud providers (Gemini/OpenAI/Grok/Mistral/Anthropic) with profile + tier + cost cap",
+        },
+        {
+            "name": "rondo_multi_review",
+            "category": "cloud",
+            "description": "Send same prompt to N providers in parallel — returns per-provider results + merged findings",
+        },
         {"name": "rondo_schedule_list", "category": "scheduling", "description": "List installed schedules"},
         {"name": "rondo_schedule_create", "category": "scheduling", "description": "Create recurring dispatch"},
     ]
@@ -182,15 +212,62 @@ def _get_providers() -> list[dict[str, Any]]:
             "description": "Claude Code via subprocess (default)",
             "models": ["sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"],
             "auth": "Max plan (free) or API key",
-            "routing": "Default for all Claude model names",
+            "routing": "Default for all Claude model names (no prefix needed)",
+            "example": "model='sonnet'",
+        },
+        {
+            "name": "gemini",
+            "description": "Google Gemini via REST API (REQ-109)",
+            "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+            "tiers": {"high": "gemini-2.5-pro", "default": "gemini-2.5-flash", "low": "gemini-2.0-flash"},
+            "auth": "GEMINI_API_KEY env var or ~/.rondo/config.toml",
+            "routing": "Use 'gemini:' prefix",
+            "examples": ["model='gemini:flash'", "model='gemini:high'", "model='gemini:gemini-2.5-pro'"],
+        },
+        {
+            "name": "openai",
+            "description": "OpenAI via Chat Completions API",
+            "models": ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini"],
+            "tiers": {"high": "gpt-4.1", "default": "gpt-4o", "low": "gpt-4o-mini"},
+            "auth": "OPENAI_API_KEY env var or ~/.rondo/config.toml",
+            "routing": "Use 'openai:' prefix",
+            "examples": ["model='openai:gpt-4.1'", "model='openai:high'"],
+        },
+        {
+            "name": "grok",
+            "description": "xAI Grok via Chat Completions-compatible API",
+            "models": ["grok-3", "grok-3-mini"],
+            "tiers": {"high": "grok-3", "default": "grok-3", "low": "grok-3-mini"},
+            "auth": "XAI_API_KEY env var or ~/.rondo/config.toml",
+            "routing": "Use 'grok:' prefix",
+            "examples": ["model='grok:grok-3'", "model='grok:high'"],
+        },
+        {
+            "name": "mistral",
+            "description": "Mistral AI via Chat Completions-compatible API",
+            "models": ["mistral-large-latest", "mistral-small-latest", "codestral-latest"],
+            "tiers": {"high": "mistral-large-latest", "default": "mistral-small-latest", "low": "mistral-small-latest"},
+            "auth": "MISTRAL_API_KEY env var or ~/.rondo/config.toml",
+            "routing": "Use 'mistral:' prefix",
+            "examples": ["model='mistral:large'", "model='mistral:high'"],
+        },
+        {
+            "name": "anthropic",
+            "description": "Anthropic API directly (not Claude Code subprocess) — for API key billing, cost caps",
+            "models": ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
+            "tiers": {"high": "claude-opus-4-6", "default": "claude-sonnet-4-6", "low": "claude-haiku-4-5-20251001"},
+            "auth": "ANTHROPIC_API_KEY env var or ~/.rondo/config.toml",
+            "routing": "Use 'anthropic:' prefix (distinct from default 'claude' subprocess path)",
+            "examples": ["model='anthropic:claude-sonnet-4-6'", "model='anthropic:high'"],
         },
         {
             "name": "ollama",
             "description": "Local LLM via Ollama (no API key, zero cost)",
             "models": ["llama3.1:8b", "llama3.1:70b", "qwen2.5:32b", "mistral", "phi", "gemma", "deepseek"],
             "auth": "None — runs locally",
-            "routing": "Auto-detected from model name prefix (llama, qwen, mistral, etc.)",
+            "routing": "Use 'local:' prefix OR auto-detected from model name (llama, qwen, etc.)",
             "endpoint": "http://localhost:11434",
+            "examples": ["model='local:llama3.1:8b'", "model='llama3.1:8b'"],
         },
     ]
 
@@ -243,6 +320,23 @@ def get_capabilities() -> dict[str, Any]:
         "overnight": {
             "description": "Batch automation with phase scheduling",
             "features": ["preflight_gate", "usage_gating", "phase_modes"],
+        },
+        "cloud_dispatch": {
+            "description": "Dispatch to cloud AI providers with health check + automatic fallback (REQ-109)",
+            "providers": ["gemini", "openai", "grok", "mistral", "anthropic"],
+            "routing": "Use provider:model syntax — 'gemini:flash', 'openai:gpt-4.1', 'grok:grok-3'",
+            "tiers": "provider:high → best_model, provider:default → default_model, provider:low → cheap_model (from config)",
+            "fallback": "If primary provider is down, auto-routes to fallback= from config.toml",
+            "multi_provider": "rondo_cloud() dispatches in parallel to N providers, returns per-provider results",
+            "check": "rondo providers — show all configured providers with health status + latency",
+        },
+        "provider_health": {
+            "description": "Per-provider health checks with 5-min TTL cache (REQ-109 reqs 017-019)",
+            "checks": ["api_key_present", "api_reachable", "latency_measured"],
+            "cache_ttl_seconds": 300,
+            "on_provider_down": "logs WARNING, routes to fallback provider, never falls back to Claude interactive",
+            "cli": "rondo providers [--json]",
+            "mcp": "rondo_health (includes provider status when providers configured)",
         },
     }
 

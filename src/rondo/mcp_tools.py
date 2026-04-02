@@ -1,16 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Rondo MCP tool implementations — read-only and management tools.
+"""Rondo MCP tool implementations — query, management, and cloud dispatch tools.
 
 IFS-104: Extracted from mcp_server.py (Finding #195 — god object split).
-These tools query data (metrics, health, audit, history, cost) or manage
-schedules/spool. They do NOT dispatch to AI providers.
+These tools query data (metrics, health, audit, history, cost), manage
+schedules/spool, and handle cloud provider dispatch (rondo_cloud).
 
-Dispatch + composition tools (run, explain, benchmark, chain, summarize,
-retry) stay in mcp_server.py because they depend on rondo_run_file.
+Single-model dispatch + composition tools (run, explain, benchmark, chain,
+summarize, retry) stay in mcp_server.py because they depend on rondo_run_file.
 
 Import direction:
-    mcp_tools.py → imports metrics, history, spool, providers, schedule
+    mcp_tools.py → imports metrics, history, spool, providers, schedule, health
     mcp_server.py → imports mcp_tools (tool functions + _resolve_dir)
 """
 
@@ -80,20 +80,32 @@ def rondo_metrics() -> str:
 
 
 def rondo_health() -> str:
-    """Quick health check — GREEN/YELLOW/RED with key numbers.
+    """Quick health check — GREEN/YELLOW/RED with key numbers + per-provider status.
 
     IFS-104 req 005: lightweight status for preflight decisions.
+    REQ-109 req 020: include per-provider health when providers configured.
     """
     report = _get_cached_metrics()
-    return json.dumps(
-        {
-            "health": report.health,
-            "total_dispatches": report.total_dispatches,
-            "success_rate": report.success_rate,
-            "total_cost_usd": report.total_cost_usd,
-            "spool_pending": report.spool_pending,
-        }
-    )
+    result: dict = {
+        "health": report.health,
+        "total_dispatches": report.total_dispatches,
+        "success_rate": report.success_rate,
+        "total_cost_usd": report.total_cost_usd,
+        "spool_pending": report.spool_pending,
+    }
+    # -- REQ-109 req 020: per-provider health status
+    try:
+        from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
+
+        health_map = get_all_providers_health()
+        if health_map:
+            result["providers"] = {
+                name: {"healthy": s.healthy, "latency_ms": s.latency_ms, "error": s.error}
+                for name, s in health_map.items()
+            }
+    except Exception:  # noqa: BLE001, S110
+        result["providers_error"] = "health check unavailable"
+    return json.dumps(result)
 
 
 def rondo_audit_summary(limit: int = 10) -> str:
@@ -485,9 +497,7 @@ def rondo_cloud(
         provider_names = profile_cfg.get("providers", [])
     else:
         # -- All enabled providers
-        provider_names = [
-            name for name, cfg in providers_cfg.items() if cfg.get("enabled", True)
-        ]
+        provider_names = [name for name, cfg in providers_cfg.items() if cfg.get("enabled", True)]
 
     # -- Trim to count
     selected = provider_names[:use_count]

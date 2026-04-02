@@ -346,9 +346,30 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     Claude goes through run_round() → dispatch_task() (proven path).
     Both paths get the full ALWAYS-ON pipeline: audit, sanitize, spool, history, metrics.
     """
-    from rondo.providers import get_provider  # pylint: disable=import-outside-toplevel
+    from rondo.providers import get_provider_with_fallback, parse_model  # pylint: disable=import-outside-toplevel
 
-    provider = get_provider(config.default_model)
+    provider, resolved_model = get_provider_with_fallback(config.default_model)
+
+    # -- REQ-109 req 016: all providers down + no fallback → error, NOT Claude
+    provider_name, _ = parse_model(config.default_model)
+    if provider is None and provider_name and not resolved_model:
+        from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+
+        print(f"  -ERROR- Provider '{provider_name}' is down and no healthy fallback configured", file=sys.stderr)
+        return RoundResult(
+            round_name=round_def.name,
+            status="error",
+            task_results=[
+                TaskResult(
+                    task_name="dispatch",
+                    status="error",
+                    error_code="ERR_PROVIDER_DOWN",
+                    error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
+                    model=config.default_model,
+                )
+            ],
+        )
+
     if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
         from rondo.dispatch import _finalize_dispatch  # pylint: disable=import-outside-toplevel

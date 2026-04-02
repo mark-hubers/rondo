@@ -159,7 +159,7 @@ class TestImportLayering:
         "_version.py": set(),
         "metrics.py": set(),
         "mcp_server.py": {"metrics", "_version", "cli", "config", "dispatch", "runner", "ai_help", "engine", "spool", "notify", "history", "providers", "audit", "schedule", "mcp_tools"},
-        "mcp_tools.py": {"metrics", "_version", "cli", "config", "engine", "spool", "history", "providers", "schedule", "mcp_server"},  # mcp_server: lazy import in rondo_cloud() only — not a circular load
+        "mcp_tools.py": {"metrics", "_version", "cli", "config", "engine", "spool", "history", "providers", "schedule", "mcp_server", "health"},  # mcp_server: lazy import in rondo_cloud() only; health: lazy import in rondo_health() only
         "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit", "spool", "metrics"},
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},

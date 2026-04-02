@@ -32,7 +32,7 @@ def get_ai_help() -> dict[str, Any]:
             "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
             "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') — $0 cost, ~2 seconds.",
             "cloud_providers": "Use provider:model syntax for cloud providers: 'gemini:flash', 'openai:gpt-4.1', 'grok:grok-3', 'mistral:large', 'anthropic:claude-sonnet-4-6'. Configure API keys in ~/.rondo/config.toml or env vars.",
-            "multi_provider": "rondo_cloud() dispatches the same prompt to multiple providers in parallel and returns all results. Use for consensus reviews or cross-validation.",
+            "multi_provider": "rondo_cloud() dispatches the same prompt to multiple providers sequentially and returns all results. Use for consensus reviews or cross-validation.",
             "health_fallback": "Providers with health checks auto-fallback when down. Configure fallback= in [providers.<name>] section of config.toml. Check status with: rondo providers",
         },
         "providers": _get_providers(),
@@ -197,7 +197,7 @@ def _get_mcp_tools() -> list[dict[str, str]]:
         {
             "name": "rondo_multi_review",
             "category": "cloud",
-            "description": "Send same prompt to N providers in parallel — returns per-provider results + merged findings",
+            "description": "Send same prompt to N providers sequentially — returns per-provider results + merged findings",
         },
         {"name": "rondo_schedule_list", "category": "scheduling", "description": "List installed schedules"},
         {"name": "rondo_schedule_create", "category": "scheduling", "description": "Create recurring dispatch"},

@@ -489,18 +489,37 @@ def _dispatch_via_provider_or_claude(
     Claude goes through run_round() → dispatch_task() (proven path).
     Both paths get the full ALWAYS-ON pipeline: audit, sanitize, spool, history, metrics.
     """
-    from rondo.providers import get_provider
+    from rondo.providers import get_provider_with_fallback, parse_model
 
-    provider = get_provider(model)
+    provider, resolved_model = get_provider_with_fallback(model)
+
+    # -- REQ-109 req 016: all providers down + no fallback → error, NOT Claude
+    provider_name, _ = parse_model(model)
+    if provider is None and provider_name and not resolved_model:
+        from rondo.engine import RoundResult, TaskResult
+
+        return RoundResult(
+            round_name=round_def.name if hasattr(round_def, "name") else "dispatch",
+            status="error",
+            task_results=[
+                TaskResult(
+                    task_name="dispatch",
+                    status="error",
+                    error_code="ERR_PROVIDER_DOWN",
+                    error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
+                    model=model,
+                )
+            ],
+        )
+
     if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail
         from rondo.dispatch import _finalize_dispatch
         from rondo.engine import DispatchUsage, RoundResult, TaskResult
-        from rondo.providers import parse_model
 
         # -- Strip provider prefix for adapter dispatch (local:llama → llama)
-        _, adapter_model = parse_model(model)
-        model = adapter_model or model
+        _, adapter_model = parse_model(resolved_model)
+        model = adapter_model or resolved_model
 
         # -- REQ-109 req 026: shared finalization for ALL providers
         audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
@@ -993,9 +1012,7 @@ def create_mcp_server() -> Any:
         name="rondo_cloud",
         description="Cloud AI dispatch: pick providers by profile (review/coding/research), tier (high/default/low), count (1-4). Cost-capped. dry_run=True to preview.",
     )
-    def _cloud(
-        prompt: str, profile: str = "", tier: str = "default", count: int = 0, dry_run: bool = False
-    ) -> str:
+    def _cloud(prompt: str, profile: str = "", tier: str = "default", count: int = 0, dry_run: bool = False) -> str:
         return rondo_cloud(prompt=prompt, profile=profile, tier=tier, count=count, dry_run=dry_run)
 
     @mcp.tool(

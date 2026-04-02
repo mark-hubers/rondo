@@ -87,6 +87,9 @@ def run_preflight(
     # -- REQ-103 req 009: git available
     _check_git(result)
 
+    # -- REQ-109 req 017: provider health (key present + API reachable)
+    _check_provider_health(result)
+
     # -- Calculate final status
     if result.errors:
         result.status = "RED"
@@ -175,6 +178,23 @@ def _check_git(result: PreflightResult) -> None:
         result.checks.append("git available")
     else:
         result.warnings.append("git not found on PATH — worktree operations will fail")
+
+
+def _check_provider_health(result: PreflightResult) -> None:
+    """REQ-109 req 017: check all configured providers — key present + API reachable."""
+    try:
+        from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
+
+        health_map = get_all_providers_health()
+        if not health_map:
+            return  # -- No providers configured — not an error
+        for name, status in health_map.items():
+            if status.healthy:
+                result.checks.append(f"provider {name}: UP ({status.latency_ms:.0f}ms)")
+            else:
+                result.warnings.append(f"provider {name}: DOWN — {status.error or 'health check failed'}")
+    except Exception as exc:  # noqa: BLE001
+        result.warnings.append(f"Provider health check failed: {exc}")
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.82d3a1

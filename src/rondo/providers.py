@@ -301,4 +301,71 @@ def recommend_model(task_type: str) -> str:
     return _DEFAULT_TASK_MODELS.get(key, "sonnet")
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Fallback chain — REQ-109 reqs 015, 016, 019
+# -- ──────────────────────────────────────────────────────────────
+
+
+def _get_fallback_provider(provider_name: str) -> str | None:
+    """Return configured fallback provider name, or None if not set.
+
+    REQ-109 req 015: reads [providers.<name>] fallback from config.toml.
+    """
+    try:
+        import tomllib
+        from pathlib import Path
+
+        path = Path.home() / ".rondo" / "config.toml"
+        if not path.is_file():
+            return None
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        provider_cfg = data.get("providers", {}).get(provider_name, {})
+        fallback = provider_cfg.get("fallback", "")
+        return str(fallback) if fallback else None
+    except (OSError, KeyError, TypeError):
+        return None
+
+
+def get_provider_with_fallback(model: str) -> tuple[object | None, str]:
+    """Route to provider adapter with health check + fallback — REQ-109 reqs 015, 016, 019.
+
+    Checks if primary provider is healthy. If down, uses configured fallback.
+    REQ-109 req 016: NEVER falls back to Claude interactive (returns None).
+
+    Args:
+        model: Provider:model string (e.g. 'gemini:flash', 'openai:gpt-4.1').
+
+    Returns:
+        (adapter, model_string) — adapter is None if no healthy provider found.
+    """
+    from rondo.adapters.health import is_provider_healthy  # pylint: disable=import-outside-toplevel
+
+    provider_name, model_name = parse_model(model)
+
+    # -- No provider prefix → Claude path, not handled here
+    if not provider_name:
+        return get_provider(model), model
+
+    # -- Check primary provider health
+    if is_provider_healthy(provider_name):
+        adapter = get_provider(model)
+        return adapter, model
+
+    # -- REQ-109 req 019: log WARNING, try fallback
+    logger.warning("Provider '%s' is unhealthy — trying fallback", provider_name)
+
+    fallback_name = _get_fallback_provider(provider_name)
+    if fallback_name:
+        fallback_model = f"{fallback_name}:{model_name}" if model_name else fallback_name
+        if is_provider_healthy(fallback_name):
+            adapter = get_provider(fallback_model)
+            logger.info("Using fallback provider '%s' for '%s'", fallback_name, provider_name)
+            return adapter, fallback_model
+
+    # -- REQ-109 req 016: no fallback available — return None (NOT Claude interactive)
+    logger.warning("No healthy fallback for provider '%s' — dispatch aborted", provider_name)
+    return None, ""
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.b10901

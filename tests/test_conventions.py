@@ -165,7 +165,7 @@ class TestImportLayering:
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner", "preflight", "spool"},
         "live.py": {"engine"},
-        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live", "preflight", "history", "ai_help", "audit", "flaky", "sanitize", "spool", "_version", "metrics", "mcp_server", "providers", "schedule"},
+        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live", "preflight", "history", "ai_help", "audit", "flaky", "sanitize", "spool", "_version", "metrics", "mcp_server", "providers", "schedule", "health"},  # health: lazy import in _cmd_providers() only
         "report.py": {"engine", "config", "overnight"},
         "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "__main__.py": {"cli"},

@@ -137,6 +137,10 @@ def build_parser() -> argparse.ArgumentParser:
     sched_parser.add_argument("--model", default=None, help="Model override")
     sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
 
+    # -- providers subcommand (REQ-109 req 020)
+    prov_parser = subparsers.add_parser("providers", help="Show all configured providers with health status")
+    prov_parser.add_argument("--json", action="store_true", help="JSON output")
+
     return parser
 
 
@@ -1012,6 +1016,46 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_providers(args: argparse.Namespace) -> int:
+    """Show all configured providers with health status — REQ-109 req 020."""
+    import json as _json  # pylint: disable=import-outside-toplevel
+
+    from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
+
+    health_map = get_all_providers_health()
+
+    if not health_map:
+        if getattr(args, "json", False):
+            print(_json.dumps({"providers": []}))
+        else:
+            print("  No providers configured. Add [providers] to ~/.rondo/config.toml")
+        return EXIT_SUCCESS
+
+    if getattr(args, "json", False):
+        providers_list = [
+            {
+                "provider": name,
+                "healthy": status.healthy,
+                "latency_ms": status.latency_ms,
+                "error": status.error,
+                "checked_at": status.checked_at,
+            }
+            for name, status in sorted(health_map.items())
+        ]
+        print(_json.dumps({"providers": providers_list}, indent=2))
+        return EXIT_SUCCESS
+
+    # -- Human-readable table
+    print(f"\n  {'Provider':<12}  {'Status':<8}  {'Latency':>10}")
+    print(f"  {'─' * 12}  {'─' * 8}  {'─' * 10}")
+    for name, status in sorted(health_map.items()):
+        health_label = "UP" if status.healthy else "DOWN"
+        latency = f"{status.latency_ms:.0f}ms" if status.healthy else "—"
+        print(f"  {name:<12}  {health_label:<8}  {latency:>10}")
+    print()
+    return EXIT_SUCCESS
+
+
 # -- Populate command dispatch table
 _COMMANDS.update(
     {
@@ -1028,6 +1072,7 @@ _COMMANDS.update(
         "mcp": _cmd_mcp,
         "init": _cmd_init,
         "schedule": _cmd_schedule,
+        "providers": _cmd_providers,
     }
 )
 

@@ -881,4 +881,73 @@ class TestFailureNotification:
             mock_notify.assert_called_once()
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  rondo providers — REQ-109 req 020
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestProvidersSubcommand:
+    """rondo providers shows all configured providers with health status."""
+
+    def test_no_providers_configured(self, capsys) -> None:
+        """Returns 0 and message when no providers configured."""
+        with patch("rondo.adapters.health.get_all_providers_health", return_value={}):
+            exit_code = main(["providers"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        assert "No providers" in captured.out
+
+    def test_shows_healthy_provider(self, capsys) -> None:
+        """Healthy provider shows UP in output."""
+        import time
+        from rondo.adapters.health import HealthStatus
+
+        mock_map = {"gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=55.0, checked_at=time.time())}
+        with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
+            exit_code = main(["providers"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        assert "gemini" in captured.out
+        assert "UP" in captured.out
+
+    def test_shows_unhealthy_provider(self, capsys) -> None:
+        """Unhealthy provider shows DOWN in output."""
+        import time
+        from rondo.adapters.health import HealthStatus
+
+        mock_map = {"openai": HealthStatus(provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout")}
+        with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
+            exit_code = main(["providers"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        assert "openai" in captured.out
+        assert "DOWN" in captured.out
+
+    def test_json_output(self, capsys) -> None:
+        """--json returns valid JSON with providers list."""
+        import json
+        import time
+        from rondo.adapters.health import HealthStatus
+
+        mock_map = {"gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=30.0, checked_at=time.time())}
+        with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
+            exit_code = main(["providers", "--json"])
+        assert exit_code == EXIT_SUCCESS
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert "providers" in data
+        assert data["providers"][0]["provider"] == "gemini"
+        assert data["providers"][0]["healthy"] is True
+
+    def test_json_empty_when_no_providers(self, capsys) -> None:
+        """--json returns empty list when no providers configured."""
+        import json
+
+        with patch("rondo.adapters.health.get_all_providers_health", return_value={}):
+            main(["providers", "--json"])
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data == {"providers": []}
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

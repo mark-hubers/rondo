@@ -261,4 +261,54 @@ class TestPreflightCache:
         assert any("2.1.90" in str(k) for k in _preflight_cache)
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 req 017: provider health in preflight
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestPreflightProviderHealth:
+    """REQ-109 req 017: preflight checks all configured providers."""
+
+    def test_healthy_provider_in_checks(self) -> None:
+        from rondo.preflight import _check_provider_health, PreflightResult
+        from rondo.adapters.health import HealthStatus
+        import time
+
+        result = PreflightResult()
+        mock_map = {"gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=42.0, checked_at=time.time())}
+        with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
+            _check_provider_health(result)
+        assert any("gemini" in c and "UP" in c for c in result.checks)
+
+    def test_unhealthy_provider_in_warnings(self) -> None:
+        from rondo.preflight import _check_provider_health, PreflightResult
+        from rondo.adapters.health import HealthStatus
+        import time
+
+        result = PreflightResult()
+        mock_map = {
+            "openai": HealthStatus(provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout")
+        }
+        with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
+            _check_provider_health(result)
+        assert any("openai" in w and "DOWN" in w for w in result.warnings)
+
+    def test_no_providers_no_change(self) -> None:
+        from rondo.preflight import _check_provider_health, PreflightResult
+
+        result = PreflightResult()
+        with patch("rondo.adapters.health.get_all_providers_health", return_value={}):
+            _check_provider_health(result)
+        assert result.checks == []
+        assert result.warnings == []
+
+    def test_exception_becomes_warning(self) -> None:
+        from rondo.preflight import _check_provider_health, PreflightResult
+
+        result = PreflightResult()
+        with patch("rondo.adapters.health.get_all_providers_health", side_effect=OSError("network down")):
+            _check_provider_health(result)
+        assert any("Provider health check failed" in w for w in result.warnings)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.91c5f0

@@ -1025,13 +1025,14 @@ class TestInlineDispatchPlan:
         assert "prompt" in result
         assert "done_when" in result
 
-    def test_claude_model_returns_inline_plan(self) -> None:
-        """Claude models (sonnet/opus/haiku) return inline plan — use current session."""
+    def test_named_claude_model_dispatches_normally(self) -> None:
+        """Named Claude models (sonnet/opus/haiku) dispatch via subprocess — caller wants THAT model."""
         from rondo.mcp_server import rondo_run_file
 
-        for model in ("sonnet", "opus", "haiku"):
-            result = json.loads(rondo_run_file(prompt="Say hello", model=model, dry_run=True))
-            assert result["kind"] == "inline_dispatch_plan", f"{model} should return inline plan"
+        for model_name in ("sonnet", "opus", "haiku"):
+            result = json.loads(rondo_run_file(prompt="Say hello", model=model_name, dry_run=True))
+            assert result.get("kind") != "inline_dispatch_plan", f"{model_name} should dispatch, not plan"
+            assert result.get("status") in ("done", "skipped")
 
     def test_force_new_subprocess(self) -> None:
         """model='sonnet:new' forces subprocess dispatch (clean context)."""

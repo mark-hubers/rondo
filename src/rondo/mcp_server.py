@@ -548,8 +548,10 @@ def rondo_run_file(
     # -- To force subprocess: use model="sonnet:new" or model="opus:new"
     _force_new = model.endswith(":new")
     _clean_model = model.removesuffix(":new") if _force_new else model
-    _is_claude = _clean_model in ("", "sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]")
-    if _is_claude and prompt and not _force_new:
+    # -- Inline plan ONLY when model is empty (use current session)
+    # -- Named Claude models (sonnet/opus/haiku) → subprocess (caller wants THAT model)
+    # -- Exception: model:new always forces subprocess
+    if not model and prompt:
         return json.dumps(
             {
                 "kind": "inline_dispatch_plan",

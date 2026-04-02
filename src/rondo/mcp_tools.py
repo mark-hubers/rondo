@@ -245,7 +245,10 @@ def rondo_cost(days: int = 30) -> str:
 
 
 def rondo_models() -> str:
-    """List available models with providers, benchmarks, and task recommendations."""
+    """List available models with providers, tiers, and task recommendations.
+
+    REQ-109: unified discovery — same provider catalog as --ai-help.
+    """
     from rondo.providers import get_ollama_adapter, load_task_models
 
     merged_models = load_task_models()
@@ -253,11 +256,48 @@ def rondo_models() -> str:
         {
             "name": "claude",
             "models": ["sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"],
+            "routing": "Default (no prefix needed)",
             "cost": "Max plan or API key",
+        },
+        {
+            "name": "gemini",
+            "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+            "tiers": {"high": "gemini-2.5-pro", "default": "gemini-2.5-flash", "low": "gemini-2.0-flash"},
+            "routing": "gemini:<model|tier>",
+            "cost": "GEMINI_API_KEY",
+        },
+        {
+            "name": "openai",
+            "models": ["gpt-4.1", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini"],
+            "tiers": {"high": "gpt-4.1", "default": "gpt-4o", "low": "gpt-4o-mini"},
+            "routing": "openai:<model|tier>",
+            "cost": "OPENAI_API_KEY",
+        },
+        {
+            "name": "grok",
+            "models": ["grok-3", "grok-3-mini"],
+            "tiers": {"high": "grok-3", "default": "grok-3", "low": "grok-3-mini"},
+            "routing": "grok:<model|tier>",
+            "cost": "XAI_API_KEY",
+        },
+        {
+            "name": "mistral",
+            "models": ["mistral-large-latest", "mistral-small-latest", "codestral-latest"],
+            "tiers": {"high": "mistral-large-latest", "default": "mistral-small-latest", "low": "mistral-small-latest"},
+            "routing": "mistral:<model|tier>",
+            "cost": "MISTRAL_API_KEY",
+        },
+        {
+            "name": "anthropic",
+            "models": ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
+            "tiers": {"high": "claude-opus-4-6", "default": "claude-sonnet-4-6", "low": "claude-haiku-4-5-20251001"},
+            "routing": "anthropic:<model|tier>",
+            "cost": "ANTHROPIC_API_KEY",
         },
         {
             "name": "ollama",
             "models": get_ollama_adapter().models() or ["(none — run: ollama pull llama3.1:8b)"],
+            "routing": "local:<model>",
             "cost": "$0 (local)",
         },
     ]

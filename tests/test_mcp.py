@@ -819,6 +819,33 @@ class TestRondoModels:
         assert "recommendations" in result
         assert len(result["recommendations"]) >= 5
 
+    def test_models_lists_all_cloud_providers(self) -> None:
+        """REQ-109: rondo_models() matches --ai-help provider catalog."""
+        from rondo.mcp_server import rondo_models
+
+        result = json.loads(rondo_models())
+        names = [p["name"] for p in result["providers"]]
+        for expected in ("claude", "gemini", "openai", "grok", "mistral", "anthropic", "ollama"):
+            assert expected in names, f"rondo_models() missing provider: {expected}"
+
+    def test_cloud_providers_have_tiers(self) -> None:
+        """Cloud providers expose high/default/low tier mapping."""
+        from rondo.mcp_server import rondo_models
+
+        result = json.loads(rondo_models())
+        cloud = [p for p in result["providers"] if p["name"] not in ("claude", "ollama")]
+        for p in cloud:
+            assert "tiers" in p, f"{p['name']} missing tiers"
+            assert "high" in p["tiers"]
+
+    def test_providers_have_routing(self) -> None:
+        """Every provider shows its routing syntax."""
+        from rondo.mcp_server import rondo_models
+
+        result = json.loads(rondo_models())
+        for p in result["providers"]:
+            assert "routing" in p, f"{p['name']} missing routing"
+
 
 class TestCursorP0ErrorCode:
     """U-52: error_code flows to audit OUTCOME."""

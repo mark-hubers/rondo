@@ -1064,5 +1064,39 @@ class TestInlineDispatchPlan:
         ))
         assert result.get("kind") != "inline_dispatch_plan"
 
+    def test_background_with_no_model_returns_plan(self) -> None:
+        """Cursor review: background=True + model="" still returns plan (not background job)."""
+        from rondo.mcp_server import _background_results, rondo_run_file
+
+        before = len(_background_results)
+        result = json.loads(rondo_run_file(
+            prompt="Check code", model="", background=True, dry_run=True,
+        ))
+        assert result["kind"] == "inline_dispatch_plan"
+        assert len(_background_results) == before  ## no background job created
+
+    def test_file_path_never_returns_plan(self, tmp_path) -> None:
+        """Cursor review: round files always dispatch normally, never return plan."""
+        from rondo.mcp_server import rondo_run_file
+
+        round_file = tmp_path / "test_round.py"
+        round_file.write_text(
+            'from rondo.engine import Round, Task\n'
+            'def build_round():\n'
+            '    return Round(name="test", tasks=[Task(name="t", instruction="x", done_when="y")])\n'
+        )
+        result = json.loads(rondo_run_file(
+            file_path=str(round_file), model="", dry_run=True,
+        ))
+        ## -- file_path mode: should NOT return plan (file needs actual dispatch)
+        assert result.get("kind") != "inline_dispatch_plan"
+
+    def test_empty_prompt_and_model_is_error(self) -> None:
+        """No prompt + no model + no file = error, not plan."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(prompt="", model="", dry_run=True))
+        assert result["status"] == "error"
+
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

@@ -1103,4 +1103,63 @@ class TestInlineDispatchPlan:
         assert result["status"] == "error"
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 req 033 — rondo_multi_review
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestMultiReview:
+    """REQ-109 req 033: multi-provider review tool."""
+
+    def test_dry_run_returns_skipped(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["local:qwen2.5:32b", "gemini:flash"]',
+                dry_run=True,
+            )
+        )
+        assert result["status"] == "done"
+        assert result["provider_count"] == 2
+        assert all(p["status"] == "skipped" for p in result["per_provider"])
+        assert result["total_cost_usd"] == 0
+
+    def test_default_providers_on_empty(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(prompt="Review this", providers="[]", dry_run=True)
+        )
+        assert result["provider_count"] == 3
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert "local:qwen2.5:32b" in providers
+        assert "gemini:flash" in providers
+        assert "openai:gpt-4.1" in providers
+
+    def test_invalid_json_returns_error(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(rondo_multi_review(prompt="test", providers="not json"))
+        assert result["status"] == "error"
+
+    def test_too_many_providers_rejected(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        many = json.dumps([f"provider{i}" for i in range(15)])
+        result = json.loads(rondo_multi_review(prompt="test", providers=many))
+        assert result["status"] == "error"
+        assert "ERR_INPUT_TOO_LARGE" in result.get("code", "")
+
+    def test_prompt_truncated_in_response(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        long_prompt = "x" * 500
+        result = json.loads(
+            rondo_multi_review(prompt=long_prompt, providers="[]", dry_run=True)
+        )
+        assert len(result["prompt"]) <= 200
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

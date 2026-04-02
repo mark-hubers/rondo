@@ -212,6 +212,88 @@ def rondo_benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> s
     )
 
 
+def rondo_multi_review(
+    prompt: str,
+    providers: str = "[]",
+    dry_run: bool = False,
+) -> str:
+    """Multi-provider review: same prompt → N providers → per-provider + merged findings.
+
+    REQ-109 req 033. Replaces ai-review --all-providers --compare.
+    Pass providers as JSON array: ["local:qwen2.5:32b", "gemini:flash", "openai:gpt-4.1"]
+    Default: local + gemini + openai (if keys available).
+    """
+    try:
+        provider_list = json.loads(providers) if providers else []
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid providers JSON"})
+
+    if len(provider_list) > _MAX_BENCHMARK_MODELS:
+        return json.dumps(
+            {
+                "status": "error",
+                "error": f"Too many providers ({len(provider_list)} > {_MAX_BENCHMARK_MODELS})",
+                "code": "ERR_INPUT_TOO_LARGE",
+            }
+        )
+
+    if not provider_list:
+        provider_list = ["local:qwen2.5:32b", "gemini:flash", "openai:gpt-4.1"]
+
+    per_provider: list[dict] = []
+    all_findings: list[str] = []
+
+    for provider in provider_list:
+        if dry_run:
+            per_provider.append(
+                {
+                    "provider": provider,
+                    "status": "skipped",
+                    "findings": [],
+                    "cost_usd": 0,
+                    "duration_sec": 0,
+                }
+            )
+            continue
+
+        raw = rondo_run_file(
+            prompt=prompt,
+            model=provider,
+            dry_run=False,
+            done_when="Review complete. List specific findings as bullet points.",
+        )
+        r = json.loads(raw)
+        tasks = r.get("tasks", [])
+        task = tasks[0] if tasks else {}
+        output = task.get("raw_output", "")
+
+        per_provider.append(
+            {
+                "provider": provider,
+                "status": r.get("status", "error"),
+                "output": output,
+                "cost_usd": r.get("total_cost_usd", 0),
+                "duration_sec": task.get("duration_sec", 0),
+            }
+        )
+        if output:
+            all_findings.append(f"[{provider}]: {output}")
+
+    total_cost = sum(p.get("cost_usd", 0) for p in per_provider)
+
+    return json.dumps(
+        {
+            "status": "done",
+            "prompt": prompt[:200],
+            "provider_count": len(provider_list),
+            "per_provider": per_provider,
+            "merged_findings": "\n\n---\n\n".join(all_findings),
+            "total_cost_usd": total_cost,
+        },
+        indent=2,
+    )
+
+
 def rondo_chain(steps_json: str, dry_run: bool = False) -> str:
     """Chain dispatch: output of step N feeds as context to step N+1.
 
@@ -898,6 +980,13 @@ def create_mcp_server() -> Any:
     )
     def _benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> str:
         return rondo_benchmark(prompt=prompt, models=models, dry_run=dry_run)
+
+    @mcp.tool(
+        name="rondo_multi_review",
+        description="Multi-provider review: same prompt to N providers, returns per-provider findings + merged. Pass providers as JSON array. Default: local+gemini+openai.",
+    )
+    def _multi_review(prompt: str, providers: str = "[]", dry_run: bool = False) -> str:
+        return rondo_multi_review(prompt=prompt, providers=providers, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_chain",

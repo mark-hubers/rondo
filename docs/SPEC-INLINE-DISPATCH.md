@@ -61,10 +61,41 @@ For Agent dispatch: Rondo includes relevant context via `context_files` paramete
 
 ---
 
-## Questions for AI Review
+## Cursor Review Results (2026-04-01)
 
-1. Can an MCP tool signal "the current session should do this work" — or can it only return data?
-2. Is Agent(model="sonnet") from an Opus session reliable? Any known issues?
-3. Is there a way to detect the current session's model from MCP ctx?
-4. Should inline dispatch be opt-in (flag) or automatic (detect and decide)?
-5. What happens if inline dispatch fails — should it fall back to subprocess?
+1. **MCP tools return data only** — cannot tell host "run this inline." Solution: return a "dispatch plan" that Claude Code interprets and executes.
+2. **Agent(model="sonnet") from Opus works** but loses conversation context. Viable tier 2, not inline replacement.
+3. **No standard way to detect current model** from MCP ctx. Don't auto-detect — remove "current session model" from COALESCE chain.
+4. **Design is sound conceptually** but inline tier requires a CC host-level convention (not standard MCP).
+5. **Simplest implementation:** `rondo_run(dry_run=True)` returns `{"kind": "inline_dispatch_plan", ...}` — Claude reads the plan, executes it itself, passes result back.
+
+## Revised Design
+
+```
+rondo_run(prompt=...) called from MCP
+    │
+    ├── model not specified + dry_run?
+    │   → Return dispatch PLAN (prompt + done_when + context)
+    │   → Claude Code executes it inline (zero subprocess)
+    │
+    ├── model = local (Ollama)?
+    │   → Rondo dispatches via HTTP (already works)
+    │
+    ├── model = different Claude model?
+    │   → Rondo dispatches via subprocess --bare (5s)
+    │   → OR Agent(model=X) if available
+    │
+    └── CLI/Python (no MCP)?
+        → Subprocess --bare (fallback)
+```
+
+## Updated Requirements
+
+| # | Requirement | Status |
+|---|-------------|--------|
+| 403 | ~~Current session model in COALESCE~~ REMOVED — not detectable via MCP | Dropped |
+| 404 | When dry_run=True and no model specified, return `inline_dispatch_plan` JSON for host to execute | NEW |
+| 405 | Agent(model=X) is tier 2 for different Claude model dispatch | Kept |
+| 406 | Subprocess --bare is tier 3 fallback | Kept |
+| 407 | ai_help MUST document: "omit model= to use current session, avoid subprocess" | DONE |
+| 408 | inline_dispatch_plan schema: `{kind, prompt, done_when, context_files}` | NEW |

@@ -1004,4 +1004,65 @@ class TestDiskBasedRetry:
         assert len(files) <= 50
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-111: Inline dispatch plan
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestInlineDispatchPlan:
+    """RONDO-111: when model omitted from MCP, return dispatch plan for host."""
+
+    def test_no_model_returns_dispatch_plan(self) -> None:
+        """Omitting model returns inline_dispatch_plan, not a subprocess result."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Check this code for issues",
+            model="",
+            dry_run=True,
+        ))
+        assert result.get("kind") == "inline_dispatch_plan"
+        assert "prompt" in result
+        assert "done_when" in result
+
+    def test_explicit_model_dispatches_normally(self) -> None:
+        """Explicit model= still dispatches via subprocess (existing behavior)."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Say hello",
+            model="sonnet",
+            dry_run=True,
+        ))
+        ## -- Should be normal dispatch result, NOT a dispatch plan
+        assert result.get("kind") != "inline_dispatch_plan"
+        assert result.get("status") in ("done", "skipped")
+
+    def test_dispatch_plan_has_schema(self) -> None:
+        """Dispatch plan includes all fields host needs to execute inline."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Review src/main.py",
+            model="",
+            dry_run=True,
+            done_when="List all findings as JSON",
+        ))
+        assert result["kind"] == "inline_dispatch_plan"
+        assert result["prompt"] == "Review src/main.py"
+        assert result["done_when"] == "List all findings as JSON"
+        assert "model" in result  ## should say "current" or similar
+
+    def test_ollama_model_dispatches_directly(self) -> None:
+        """Local model always dispatches directly, never returns plan."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(
+            prompt="Say hello",
+            model="llama3.1:8b",
+            dry_run=True,
+        ))
+        assert result.get("kind") != "inline_dispatch_plan"
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

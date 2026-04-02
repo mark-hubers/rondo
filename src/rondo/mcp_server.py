@@ -541,6 +541,22 @@ def rondo_run_file(
     if err:
         return err
 
+    # -- RONDO-111: inline dispatch plan — when model is empty/omitted,
+    # -- return a plan for the host (Claude Code) to execute inline.
+    # -- MCP tools return data only (Cursor review confirmed).
+    # -- This avoids spawning a subprocess when the current session can do the work.
+    if not model and prompt:
+        return json.dumps(
+            {
+                "kind": "inline_dispatch_plan",
+                "prompt": prompt,
+                "done_when": done_when,
+                "model": "current",
+                "project": project,
+                "note": "No model specified — execute this inline in your current session. No subprocess needed.",
+            }
+        )
+
     def _dispatch() -> dict:
         """Run the dispatch (called directly or in background thread)."""
         try:

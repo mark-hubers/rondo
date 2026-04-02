@@ -772,8 +772,9 @@ class TestVersionFlag:
 class TestCostDisplay:
     """Sprint 25: cost appears in CLI output."""
 
-    def test_verbose_shows_cost(self, capsys):
+    def test_verbose_shows_cost(self, tmp_path, capsys):
         """Verbose run output includes cost line."""
+        round_file = _write_round_file(tmp_path)
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
             patch("rondo.runner.dispatch_task") as mock_disp,
@@ -784,7 +785,7 @@ class TestCostDisplay:
                 TaskResult(task_name="t1", status="done", model="sonnet", auth_mode="max"),
                 DispatchUsage(task_name="t1", model="sonnet", cost_usd=0.05),
             )
-            exit_code = main(["run", "/tmp/test-round-e2e.py", "--verbose"])
+            exit_code = main(["run", round_file, "--verbose"])
         captured = capsys.readouterr()
         assert "$" in captured.out or "Cost" in captured.out
 

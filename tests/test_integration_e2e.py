@@ -1009,12 +1009,14 @@ class TestE2EAlwaysOnInfrastructure:
 
 # -- ──────────────────────────────────────────────────────────────
 # --  E2E: rondo spool CLI (REQ-101 reqs 047-049)
+# --  Class name MUST differ from TestE2ESpoolCLI below — duplicate class names
+# --  shadow earlier definitions and pytest would never collect the first suite.
 # -- ──────────────────────────────────────────────────────────────
 
 
 @skip_no_rondo
-class TestE2ESpoolCLI:
-    """rondo spool — real CLI, real spool management."""
+class TestE2ESpoolCLIReq101:
+    """rondo spool — real CLI, real spool management (REQ-101)."""
 
     def test_spool_list(self):
         """rondo spool list shows pending or empty."""
@@ -1234,15 +1236,28 @@ class TestRealDispatchSmoke:
         Timeout 120s to allow for cold start.
         """
         import json as _json
+        import tempfile, textwrap
 
+        round_src = textwrap.dedent("""
+            from rondo.engine import Round, Task
+            def build_round():
+                return Round(name="claude-smoke", tasks=[
+                    Task(name="t1", instruction="Reply with exactly: OK", done_when="Replied OK.")
+                ])
+        """)
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write(round_src)
+            round_file = f.name
         result = _run(
-            ["run", "--model", "haiku", "--bare"],
+            ["run", round_file, "--model", "haiku", "--bare"],
             timeout=120,
         )
         ## -- If Claude binary not available or auth fails, skip gracefully
         if result.returncode != 0:
             if "not found" in result.stderr.lower() or "auth" in result.stderr.lower():
                 pytest.skip("Claude binary not available or auth failed")
+            ## -- Returncode 2 = argparse error (should not happen with round file)
+            assert result.returncode != 2, f"Argparse error: {result.stderr[:200]}"
         ## -- If it ran, verify we got valid output
         if result.returncode == 0 and result.stdout.strip():
             try:
@@ -1250,6 +1265,51 @@ class TestRealDispatchSmoke:
                 assert data.get("status") in ("done", "partial", "error", "skipped")
             except _json.JSONDecodeError:
                 pass  ## -- Non-JSON output is acceptable (old CC versions)
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: rondo providers CLI — REQ-109 req 020
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2EProvidersCLI:
+    """rondo providers — show configured provider health status."""
+
+    def test_providers_returns_success(self) -> None:
+        """rondo providers exits 0 regardless of provider config."""
+        result = _run(["providers"])
+        assert result.returncode == 0
+
+    def test_providers_json_valid(self) -> None:
+        """rondo providers --json returns valid JSON with providers key."""
+        result = _run(["providers", "--json"])
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert "providers" in data
+        assert isinstance(data["providers"], list)
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  E2E: version consistency — installed binary matches repo
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2EVersionConsistency:
+    """Installed rondo binary should match the repo source version."""
+
+    def test_installed_matches_repo_version(self) -> None:
+        """Catch stale installs: installed binary version == repo _version.py."""
+        from rondo._version import get_version
+
+        repo_version = get_version()
+        result = _run(["--version"])
+        installed_version = result.stdout.strip().replace("rondo ", "")
+        assert installed_version == repo_version, (
+            f"Stale install: binary={installed_version}, repo={repo_version}. "
+            f"Run: uv tool install --editable ~/git/mhubers/ace2/rondo"
+        )
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.e2e001

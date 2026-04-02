@@ -376,6 +376,30 @@ class TestChatCompletionsAdapter:
         assert result.status in ("done", "error")
 
 
+class TestAnthropicAPIAdapter:
+    """RONDO-119: AnthropicAPIAdapter for Claude via API."""
+
+    def test_adapter_exists(self) -> None:
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test")
+        assert adapter.name == "anthropic"
+
+    def test_dispatch_no_key_returns_error(self) -> None:
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        result = AnthropicAPIAdapter(api_key="").dispatch(prompt="hello", model="claude-sonnet-4-6")
+        assert result.status == "error"
+        assert result.error_code == "ERR_AUTH"
+
+    def test_routing_anthropic_prefix(self) -> None:
+        from rondo.providers import get_provider
+
+        provider = get_provider("anthropic:claude-sonnet-4-6")
+        assert provider is not None
+        assert provider.name == "anthropic"
+
+
 class TestGeminiAdapter:
     """RONDO-118: GeminiAdapter for Google Gemini API."""
 

@@ -150,6 +150,33 @@ def _get_chat_completions_adapter(provider_name: str, model_name: str) -> Provid
     )
 
 
+def _get_anthropic_adapter(model_name: str) -> ProviderAdapter:
+    """Create an AnthropicAPIAdapter — lazy import."""
+    from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+    api_key = ""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["security", "find-generic-password", "-s", "ace2-anthropic", "-w"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            api_key = result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    if not api_key:
+        import os
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    return AnthropicAPIAdapter(api_key=api_key, default_model=model_name or "claude-sonnet-4-6")
+
+
 def _get_gemini_adapter(model_name: str) -> ProviderAdapter:
     """Create a GeminiAdapter — lazy import."""
     from rondo.adapters.gemini import GeminiAdapter
@@ -194,6 +221,8 @@ def get_provider(model: str) -> ProviderAdapter | None:
         return _get_chat_completions_adapter(provider_name, model_name)
     if provider_name == "gemini":
         return _get_gemini_adapter(model_name)
+    if provider_name == "anthropic":
+        return _get_anthropic_adapter(model_name)
 
     # -- Claude models
     if model_name in _CLAUDE_MODELS or not model_name:

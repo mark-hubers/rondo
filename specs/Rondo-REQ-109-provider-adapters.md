@@ -83,16 +83,22 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 029 | Anti-pattern guard: if a new dispatch path is added that bypasses `_finalize_dispatch`, tests MUST fail. The pipeline is mandatory, not optional. | MUST | Guard test |
 
 
-### Credential Management
+### Credential Management (updated Session 94 — KeyBackend interface)
 
 | ID | Requirement | Priority | Verified By |
 |----|-------------|----------|-------------|
-| 006 | API keys stored in macOS Keychain (`security` command). Service name pattern: `ace2-<provider>` | MUST | Keychain test |
-| 007 | Keys retrieved at dispatch time via `ai-keys.py get <provider>` or direct Keychain query | MUST | Retrieval test |
-| 008 | Keys NEVER in config files, env files, or git. Keychain only. (CORE-STD-008) | MUST | Security test |
-| 009 | Multiple accounts for same provider supported (different Keychain entries): `ace2-claude-api` + `ace2-claude-batch` | MUST | Multi-account test |
+| 006 | API keys stored in macOS Keychain (`security` command). Service name: `ace.ai-key.<provider>` (matches ai-keys.py). Account: `markhubers`. | MUST | Keychain test |
+| 007 | Keys retrieved via `adapters/auth.py load_api_key(provider)` — shared by all adapters AND ai_review.py. Single source of truth. | MUST | Retrieval test |
+| 008 | Keys NEVER in config files, env files, or git. Only references (vault name, item name) in config.toml. (CORE-STD-008) | MUST | Security test |
+| 009 | Multiple accounts for same provider supported (different Keychain entries): `ace.ai-key.claude-api` + `ace.ai-key.claude-batch` | MUST | Multi-account test |
 | 010 | `ai-keys.py status` shows all configured providers with masked keys | MUST | Status test |
 | 011 | `ai-keys.py test` calls each provider's health endpoint, shows models + latency | MUST | Health test |
+| 035 | `load_api_key(provider)` MUST follow precedence: env var → macOS Keychain → 1Password CLI (if configured). First non-empty value wins. | MUST | Precedence test |
+| 036 | `KeyBackend` interface: `get_key(provider) → str`. Implementations: `EnvBackend`, `KeychainBackend`, `OnePasswordBackend`. Backend selected via `[auth] backend = "auto"` in config.toml. | SHOULD | Interface test |
+| 037 | `auto` mode tries backends in order: env → keychain → 1password. Stops at first success. | MUST | Auto test |
+| 038 | 1Password integration: use `op read "op://vault/item/password"` CLI. Requires `op` binary on PATH. If not installed, skip silently. | SHOULD | 1P test |
+| 039 | Config.toml `[auth]` section: `backend = "auto"`, `onepassword_vault = "AI Keys"`. Only metadata — NEVER secret values. | MUST | Config test |
+| 040 | Keys MAY be cached per-process with 5-minute TTL. Cache invalidated on error (key might have rotated). | SHOULD | Cache test |
 
 
 ### Model Routing
@@ -598,3 +604,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-31 | **Split-brain fix (Session 94).** Removed ClaudeCLIAdapter (D6). Added shared finalization pipeline reqs 026-029 (D7). Phased approach: Phase 1 fixes pipeline gap, Phase 2 extracts Claude into real adapter (D8). recommend_model to TOML config (D9). New architecture diagram: two transports, one finalization. Risk added: split-brain anti-pattern. Feature maturity updated to reflect built state. AI body review: Qwen 32B (architectural) + DeepSeek-R1 8B (contrarian). Cross-product verified: CORE-ADR-001 already mandates this design, no changes needed to OB/Caliber/ACE specs. |
 | 1.3 | 2026-04-01 | **Multi-provider adapter architecture (Session 94 continued).** Updated req 002: 3 adapter classes not 6 (ChatCompletions handles OpenAI+Grok+Mistral). Updated req 005: TOML config schema with per-provider subtables. Added reqs 030-034: adapters/ directory structure, ChatCompletionsAdapter, provider:model routing (parse_model), rondo_multi_review MCP tool, Keychain auth. Based on analysis of ai_review.py (1260 lines, 5 providers) + Cursor design review. v0.7 roadmap: 9 sprints (RONDO-114 to RONDO-122). |
+| 1.4 | 2026-04-02 | **KeyBackend interface (Session 94 final).** Fixed req 006: Keychain service name `ace.ai-key.<provider>` (was `ace2-<provider>`, mismatched ai-keys.py). Updated req 007: shared `load_api_key()` in `adapters/auth.py`. Added reqs 035-040: precedence (env→keychain→1password), KeyBackend interface, auto mode, 1Password CLI integration, config metadata only, key caching with TTL. 3 AI body reviews (DeepSeek + Qwen + Cursor) confirmed pluggable design. |

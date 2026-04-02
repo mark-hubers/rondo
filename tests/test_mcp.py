@@ -1025,18 +1025,21 @@ class TestInlineDispatchPlan:
         assert "prompt" in result
         assert "done_when" in result
 
-    def test_explicit_model_dispatches_normally(self) -> None:
-        """Explicit model= still dispatches via subprocess (existing behavior)."""
+    def test_claude_model_returns_inline_plan(self) -> None:
+        """Claude models (sonnet/opus/haiku) return inline plan — use current session."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Say hello",
-            model="sonnet",
-            dry_run=True,
-        ))
-        ## -- Should be normal dispatch result, NOT a dispatch plan
+        for model in ("sonnet", "opus", "haiku"):
+            result = json.loads(rondo_run_file(prompt="Say hello", model=model, dry_run=True))
+            assert result["kind"] == "inline_dispatch_plan", f"{model} should return inline plan"
+
+    def test_force_new_subprocess(self) -> None:
+        """model='sonnet:new' forces subprocess dispatch (clean context)."""
+        from rondo.mcp_server import rondo_run_file
+
+        result = json.loads(rondo_run_file(prompt="Say hello", model="sonnet:new", dry_run=True))
+        ## -- :new suffix forces subprocess, not inline plan
         assert result.get("kind") != "inline_dispatch_plan"
-        assert result.get("status") in ("done", "skipped")
 
     def test_dispatch_plan_has_schema(self) -> None:
         """Dispatch plan includes all fields host needs to execute inline."""

@@ -541,11 +541,15 @@ def rondo_run_file(
     if err:
         return err
 
-    # -- RONDO-111: inline dispatch plan — when model is empty/omitted,
-    # -- return a plan for the host (Claude Code) to execute inline.
+    # -- RONDO-111: inline dispatch plan — when model is a Claude model
+    # -- (or empty), return a plan for the host to execute inline.
     # -- MCP tools return data only (Cursor review confirmed).
-    # -- This avoids spawning a subprocess when the current session can do the work.
-    if not model and prompt:
+    # -- 90% case: caller wants current session context, not a new process.
+    # -- To force subprocess: use model="sonnet:new" or model="opus:new"
+    _force_new = model.endswith(":new")
+    _clean_model = model.removesuffix(":new") if _force_new else model
+    _is_claude = _clean_model in ("", "sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]")
+    if _is_claude and prompt and not _force_new:
         return json.dumps(
             {
                 "kind": "inline_dispatch_plan",
@@ -575,7 +579,7 @@ def rondo_run_file(
 
                 round_def = load_round_file(file_path)
             config_kwargs: dict = {
-                "default_model": model,
+                "default_model": _clean_model or model,
                 "dry_run": dry_run,
                 "task_timeout_sec": timeout_sec,
             }

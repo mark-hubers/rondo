@@ -222,3 +222,5 @@ class TestCaching:
     def test_invalidate_nonexistent_is_safe(self) -> None:
         _KEY_CACHE.clear()
         invalidate_key("nonexistent")  ## Should not raise
+
+# -- sig: mgh-6201.cd.bd955f.33a5.3551c3

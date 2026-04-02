@@ -439,7 +439,7 @@ def rondo_cloud(
     import tomllib
     from pathlib import Path
 
-    ## Load cloud config
+    # -- Load cloud config
     config_path = Path.home() / ".rondo" / "config.toml"
     cloud_cfg: dict = {}
     providers_cfg: dict = {}
@@ -454,7 +454,7 @@ def rondo_cloud(
     max_cost = cloud_cfg.get("max_cost_per_dispatch", 0.50)
     config_tier = cloud_cfg.get("default_tier", "default")
 
-    ## Resolve count
+    # -- Resolve count
     use_count = count if count > 0 else default_count
     if use_count > max_count:
         return json.dumps(
@@ -465,11 +465,11 @@ def rondo_cloud(
             }
         )
 
-    ## Resolve tier
+    # -- Resolve tier
     use_tier = tier if tier != "default" else config_tier
     tier_key = {"high": "best_model", "low": "cheap_model"}.get(use_tier, "default_model")
 
-    ## Select providers from profile
+    # -- Select providers from profile
     if profile:
         profiles = cloud_cfg.get("profiles", {})
         profile_cfg = profiles.get(profile, {})
@@ -484,15 +484,15 @@ def rondo_cloud(
             )
         provider_names = profile_cfg.get("providers", [])
     else:
-        ## All enabled providers
+        # -- All enabled providers
         provider_names = [
             name for name, cfg in providers_cfg.items() if cfg.get("enabled", True)
         ]
 
-    ## Trim to count
+    # -- Trim to count
     selected = provider_names[:use_count]
 
-    ## Resolve tier → actual model per provider
+    # -- Resolve tier → actual model per provider
     provider_models = []
     for name in selected:
         pcfg = providers_cfg.get(name, {})
@@ -502,7 +502,7 @@ def rondo_cloud(
         else:
             provider_models.append(name)
 
-    ## Cost estimate (rough: count x tier factor)
+    # -- Cost estimate (rough: count x tier factor)
     tier_cost_factor = {"high": 0.15, "default": 0.05, "low": 0.01}.get(use_tier, 0.05)
     estimated_cost = len(provider_models) * tier_cost_factor
     if estimated_cost > max_cost and not dry_run:
@@ -516,7 +516,7 @@ def rondo_cloud(
             }
         )
 
-    ## Lazy import to avoid circular dependency (mcp_server imports mcp_tools)
+    # -- Lazy import: mcp_server depends on mcp_tools at module level; this call is deferred to avoid circular load
     from rondo.mcp_server import rondo_multi_review
 
     result_raw = rondo_multi_review(
@@ -526,7 +526,7 @@ def rondo_cloud(
     )
     result = json.loads(result_raw)
 
-    ## Enrich result with cloud metadata
+    # -- Enrich result with cloud metadata
     result["cloud"] = {
         "profile": profile or "(all enabled)",
         "tier": use_tier,

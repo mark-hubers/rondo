@@ -513,6 +513,64 @@ def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str
     return file_path, project, None
 
 
+def _build_round_and_config(
+    prompt: str,
+    done_when: str,
+    file_path: str,
+    model: str,
+    dry_run: bool,
+    timeout_sec: int,
+    project: str,
+    max_budget: float,
+) -> tuple:
+    """Build Round + RondoConfig for dispatch — extracted for complexity."""
+    from rondo.config import RondoConfig
+    from rondo.engine import Round, Task
+
+    if prompt:
+        round_def = Round(
+            name="inline",
+            tasks=[Task(name="inline-task", instruction=prompt, done_when=done_when)],
+        )
+    else:
+        from rondo.cli import load_round_file
+
+        round_def = load_round_file(file_path)
+
+    config_kwargs: dict = {
+        "default_model": model,
+        "dry_run": dry_run,
+        "task_timeout_sec": timeout_sec,
+    }
+    if project:
+        config_kwargs["project"] = project
+    if max_budget > 0:
+        config_kwargs["max_budget_usd"] = max_budget
+
+    return round_def, RondoConfig(**config_kwargs)
+
+
+def _check_inline_dispatch(model: str, prompt: str, done_when: str, project: str) -> str | None:
+    """RONDO-111: return inline dispatch plan if model is empty + prompt provided.
+
+    MCP tools return data only (Cursor confirmed). When no model specified,
+    return a plan for the host to execute inline — no subprocess needed.
+    Returns None if normal dispatch should proceed.
+    """
+    if not model and prompt:
+        return json.dumps(
+            {
+                "kind": "inline_dispatch_plan",
+                "prompt": prompt,
+                "done_when": done_when,
+                "model": "current",
+                "project": project,
+                "note": "No model specified — execute this inline in your current session.",
+            }
+        )
+    return None
+
+
 def rondo_run_file(
     file_path: str = "",
     dry_run: bool = True,
@@ -541,55 +599,27 @@ def rondo_run_file(
     if err:
         return err
 
-    # -- RONDO-111: inline dispatch plan — when model is a Claude model
-    # -- (or empty), return a plan for the host to execute inline.
-    # -- MCP tools return data only (Cursor review confirmed).
-    # -- 90% case: caller wants current session context, not a new process.
-    # -- To force subprocess: use model="sonnet:new" or model="opus:new"
-    _force_new = model.endswith(":new")
-    _clean_model = model.removesuffix(":new") if _force_new else model
-    # -- Inline plan ONLY when model is empty (use current session)
-    # -- Named Claude models (sonnet/opus/haiku) → subprocess (caller wants THAT model)
-    # -- Exception: model:new always forces subprocess
-    if not model and prompt:
-        return json.dumps(
-            {
-                "kind": "inline_dispatch_plan",
-                "prompt": prompt,
-                "done_when": done_when,
-                "model": "current",
-                "project": project,
-                "note": "No model specified — execute this inline in your current session. No subprocess needed.",
-            }
-        )
+    # -- RONDO-111/112: inline dispatch + model resolution
+    plan = _check_inline_dispatch(model, prompt, done_when, project)
+    if plan:
+        return plan
+    _clean_model = model.removesuffix(":new") if model.endswith(":new") else model
 
     def _dispatch() -> dict:
         """Run the dispatch (called directly or in background thread)."""
         try:
-            from rondo.config import RondoConfig
-            from rondo.engine import Round, Task
             from rondo.runner import run_round
 
-            # -- U-33: inline prompt → in-memory round
-            if prompt:
-                round_def = Round(
-                    name="inline",
-                    tasks=[Task(name="inline-task", instruction=prompt, done_when=done_when)],
-                )
-            else:
-                from rondo.cli import load_round_file
-
-                round_def = load_round_file(file_path)
-            config_kwargs: dict = {
-                "default_model": _clean_model or model,
-                "dry_run": dry_run,
-                "task_timeout_sec": timeout_sec,
-            }
-            if project:
-                config_kwargs["project"] = project
-            if max_budget > 0:
-                config_kwargs["max_budget_usd"] = max_budget
-            config = RondoConfig(**config_kwargs)
+            round_def, config = _build_round_and_config(
+                prompt,
+                done_when,
+                file_path,
+                _clean_model or model,
+                dry_run,
+                timeout_sec,
+                project,
+                max_budget,
+            )
 
             # -- REQ-109: route to provider adapter or Claude dispatch
             result = _dispatch_via_provider_or_claude(

@@ -93,8 +93,8 @@ def parse_model(model: str) -> tuple[str, str]:
     """
     if not model:
         return "", ""
-    # -- Check for provider: prefix (local:xxx, gemini:xxx, etc.)
-    # -- Use first occurrence of : that's preceded by a known prefix
+    # -- Check for provider prefix (local:model, gemini:model, etc.)
+    # -- Split on first : when preceded by a known provider name
     for prefix in ("local", "gemini", "openai", "anthropic"):
         if model.startswith(f"{prefix}:"):
             return prefix, model[len(prefix) + 1 :]

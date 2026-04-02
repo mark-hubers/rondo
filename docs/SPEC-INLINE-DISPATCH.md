@@ -89,13 +89,28 @@ rondo_run(prompt=...) called from MCP
         → Subprocess --bare (fallback)
 ```
 
+## Final API Design (Cursor + Mark consensus)
+
+```
+model=""                    → inline plan (current session, instant)
+model="sonnet"/"opus"       → Claude subprocess with --bare (caller wants THAT model)
+model="local:llama3.1:8b"   → Ollama HTTP direct ($0)
+model="local:qwen2.5:32b"   → Ollama HTTP direct ($0)
+model="gemini:flash"        → Future: Gemini API adapter
+model="openai:gpt-4.1"      → Future: OpenAI API adapter
+```
+
+**Routing rule:** Split on first `:`. No prefix → Claude. `local:` → Ollama. Other prefix → future adapter.
+**Legacy:** Plain names like `llama3.1:8b` (no `local:` prefix) still work via prefix fallback until callers migrate.
+
 ## Updated Requirements
 
 | # | Requirement | Status |
 |---|-------------|--------|
 | 403 | ~~Current session model in COALESCE~~ REMOVED — not detectable via MCP | Dropped |
-| 404 | When dry_run=True and no model specified, return `inline_dispatch_plan` JSON for host to execute | NEW |
-| 405 | Agent(model=X) is tier 2 for different Claude model dispatch | Kept |
-| 406 | Subprocess --bare is tier 3 fallback | Kept |
+| 404 | When model is empty and prompt is provided, return `inline_dispatch_plan` for host to execute inline | BUILT |
+| 405 | Named Claude models (sonnet/opus/haiku) dispatch via subprocess with --bare | BUILT |
+| 406 | `local:MODEL` prefix routes to Ollama adapter with MODEL as the model name | TODO |
 | 407 | ai_help MUST document: "omit model= to use current session, avoid subprocess" | DONE |
-| 408 | inline_dispatch_plan schema: `{kind, prompt, done_when, context_files}` | NEW |
+| 408 | inline_dispatch_plan schema: `{kind, prompt, done_when, model: "current", project}` | BUILT |
+| 409 | Provider routing by prefix: split on first `:`. No prefix → Claude. `local:` → Ollama. Other → future adapter. Legacy plain names (llama/qwen) still work via prefix fallback. | TODO |

@@ -376,6 +376,44 @@ class TestChatCompletionsAdapter:
         assert result.status in ("done", "error")
 
 
+class TestGeminiAdapter:
+    """RONDO-118: GeminiAdapter for Google Gemini API."""
+
+    def test_adapter_exists(self) -> None:
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="test")
+        assert adapter.name == "gemini"
+
+    def test_dispatch_no_key_returns_error(self) -> None:
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="")
+        result = adapter.dispatch(prompt="hello", model="gemini-2.5-flash")
+        assert result.status == "error"
+        assert result.error_code == "ERR_AUTH"
+
+    def test_health_no_key_returns_false(self) -> None:
+        from rondo.adapters.gemini import GeminiAdapter
+
+        assert GeminiAdapter(api_key="").health() is False
+
+    def test_routing_gemini_prefix(self) -> None:
+        """gemini:flash routes to GeminiAdapter."""
+        from rondo.providers import get_provider
+
+        provider = get_provider("gemini:flash")
+        assert provider is not None
+        assert provider.name == "gemini"
+
+    def test_routing_gemini_pro(self) -> None:
+        from rondo.providers import get_provider
+
+        provider = get_provider("gemini:gemini-2.5-pro")
+        assert provider is not None
+        assert provider.name == "gemini"
+
+
 class TestFinalizationGuard:
     """REQ-109 req 029: every non-Claude dispatch path must use _finalize_dispatch."""
 

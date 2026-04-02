@@ -150,6 +150,33 @@ def _get_chat_completions_adapter(provider_name: str, model_name: str) -> Provid
     )
 
 
+def _get_gemini_adapter(model_name: str) -> ProviderAdapter:
+    """Create a GeminiAdapter — lazy import."""
+    from rondo.adapters.gemini import GeminiAdapter
+
+    api_key = ""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["security", "find-generic-password", "-s", "ace2-gemini", "-w"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            api_key = result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    if not api_key:
+        import os
+
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+
+    return GeminiAdapter(api_key=api_key, default_model=model_name or "gemini-2.5-flash")
+
+
 def get_provider(model: str) -> ProviderAdapter | None:
     """Route model name to provider adapter — REQ-109 req 012, REQ-100 req 409.
 
@@ -165,6 +192,8 @@ def get_provider(model: str) -> ProviderAdapter | None:
         return get_ollama_adapter()
     if provider_name in ("openai", "grok", "mistral"):
         return _get_chat_completions_adapter(provider_name, model_name)
+    if provider_name == "gemini":
+        return _get_gemini_adapter(model_name)
 
     # -- Claude models
     if model_name in _CLAUDE_MODELS or not model_name:

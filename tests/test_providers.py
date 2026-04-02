@@ -326,6 +326,56 @@ class TestCLIProviderDispatch:
 # -- ──────────────────────────────────────────────────────────────
 
 
+class TestChatCompletionsAdapter:
+    """RONDO-117: ChatCompletionsAdapter for OpenAI/Grok/Mistral."""
+
+    def test_adapter_exists(self) -> None:
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="test")
+        assert adapter is not None
+        assert adapter.name == "openai"
+
+    def test_dispatch_no_key_returns_error(self) -> None:
+        """No API key → ERR_AUTH, not crash."""
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="")
+        result = adapter.dispatch(prompt="hello", model="gpt-4.1")
+        assert result.status == "error"
+        assert result.error_code == "ERR_AUTH"
+
+    def test_different_providers_same_adapter(self) -> None:
+        """OpenAI, Grok, Mistral all use ChatCompletionsAdapter."""
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        for name, url in [
+            ("openai", "https://api.openai.com/v1"),
+            ("grok", "https://api.x.ai/v1"),
+            ("mistral", "https://api.mistral.ai/v1"),
+        ]:
+            adapter = ChatCompletionsAdapter(provider_name=name, base_url=url, api_key="test")
+            assert adapter.name == name
+            assert adapter.base_url == url
+
+    def test_health_no_key_returns_false(self) -> None:
+        """No API key → health returns False."""
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(api_key="")
+        assert adapter.health() is False
+
+    def test_returns_task_result(self) -> None:
+        """Dispatch always returns TaskResult (even on error)."""
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+        from rondo.engine import TaskResult
+
+        adapter = ChatCompletionsAdapter(api_key="fake-key-for-test")
+        result = adapter.dispatch(prompt="hello", model="gpt-4.1")
+        assert isinstance(result, TaskResult)
+        assert result.status in ("done", "error")
+
+
 class TestFinalizationGuard:
     """REQ-109 req 029: every non-Claude dispatch path must use _finalize_dispatch."""
 

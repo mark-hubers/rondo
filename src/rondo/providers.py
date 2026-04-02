@@ -102,6 +102,54 @@ def parse_model(model: str) -> tuple[str, str]:
     return "", model
 
 
+def _get_chat_completions_adapter(provider_name: str, model_name: str) -> ProviderAdapter:
+    """Create a ChatCompletionsAdapter for the given provider — lazy import."""
+    from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+    # -- Provider config: base URLs for known providers
+    provider_urls = {
+        "openai": "https://api.openai.com/v1",
+        "grok": "https://api.x.ai/v1",
+        "mistral": "https://api.mistral.ai/v1",
+    }
+    base_url = provider_urls.get(provider_name, "https://api.openai.com/v1")
+
+    # -- Try Keychain for API key
+    api_key = ""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["security", "find-generic-password", "-s", f"ace2-{provider_name}", "-w"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            api_key = result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # -- Fallback to env var
+    if not api_key:
+        import os
+
+        env_names = {
+            "openai": "OPENAI_API_KEY",
+            "grok": "XAI_API_KEY",
+            "mistral": "MISTRAL_API_KEY",
+        }
+        api_key = os.environ.get(env_names.get(provider_name, ""), "")
+
+    return ChatCompletionsAdapter(
+        provider_name=provider_name,
+        base_url=base_url,
+        api_key=api_key,
+        default_model=model_name or "gpt-4.1",
+    )
+
+
 def get_provider(model: str) -> ProviderAdapter | None:
     """Route model name to provider adapter — REQ-109 req 012, REQ-100 req 409.
 
@@ -111,10 +159,12 @@ def get_provider(model: str) -> ProviderAdapter | None:
 
     Supports provider:model prefix (local:llama3.1:8b) and legacy prefix matching.
     """
-    # -- New: provider prefix routing
+    # -- New: provider prefix routing (REQ-100 req 409)
     provider_name, model_name = parse_model(model)
     if provider_name == "local":
         return get_ollama_adapter()
+    if provider_name in ("openai", "grok", "mistral"):
+        return _get_chat_completions_adapter(provider_name, model_name)
 
     # -- Claude models
     if model_name in _CLAUDE_MODELS or not model_name:

@@ -162,20 +162,48 @@ def get_ollama_adapter() -> OllamaAdapter:
     return _ollama_adapter
 
 
+def parse_model(model: str) -> tuple[str, str]:
+    """Parse provider:model format — REQ-100 req 409.
+
+    Returns (provider_name, model_name):
+        "" + "sonnet"          → Claude
+        "" + ""                → current session (inline plan)
+        "local" + "llama3.1:8b" → Ollama
+        "gemini" + "flash"     → future Gemini adapter
+    """
+    if not model:
+        return "", ""
+    # -- Check for provider: prefix (local:xxx, gemini:xxx, etc.)
+    # -- Use first occurrence of : that's preceded by a known prefix
+    for prefix in ("local", "gemini", "openai", "anthropic"):
+        if model.startswith(f"{prefix}:"):
+            return prefix, model[len(prefix) + 1 :]
+    # -- No prefix → Claude model name or legacy Ollama name
+    return "", model
+
+
 def get_provider(model: str) -> ProviderAdapter | None:
-    """Route model name to provider adapter — REQ-109 req 012.
+    """Route model name to provider adapter — REQ-109 req 012, REQ-100 req 409.
 
     Returns None for Claude models (callers use dispatch_task directly).
     Returns OllamaAdapter for local models (callers use adapter.dispatch).
     Returns None as default for unknown models (Claude, backward compat).
+
+    Supports provider:model prefix (local:llama3.1:8b) and legacy prefix matching.
     """
-    if model in _CLAUDE_MODELS:
+    # -- New: provider prefix routing
+    provider_name, model_name = parse_model(model)
+    if provider_name == "local":
+        return _ollama_adapter
+
+    # -- Claude models
+    if model_name in _CLAUDE_MODELS or not model_name:
         return None
 
-    # -- Check Ollama prefixes: strip version (llama3.2→llama), tag (qwen:7b→qwen)
+    # -- Legacy: Ollama prefix matching (backward compat)
     import re
 
-    model_base = re.sub(r"[\d.:]+.*$", "", model.split("-")[0].lower())
+    model_base = re.sub(r"[\d.:]+.*$", "", model_name.split("-")[0].lower())
     if model_base in _OLLAMA_PREFIXES:
         return _ollama_adapter
 

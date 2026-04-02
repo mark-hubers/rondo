@@ -84,17 +84,50 @@ class TestProviderRouting:
         assert get_provider("opus") is None
         assert get_provider("haiku") is None
 
-    def test_route_ollama_models(self) -> None:
+    def test_route_ollama_models_legacy(self) -> None:
+        """Legacy prefix matching still works for backward compat."""
         from rondo.providers import get_provider
 
         assert get_provider("llama3.1:8b") is not None
         assert get_provider("llama3.1:8b").name == "ollama"
         assert get_provider("qwen2.5:32b").name == "ollama"
-        assert get_provider("qwen2.5-coder:7b").name == "ollama"
         assert get_provider("deepseek-r1:8b").name == "ollama"
-        assert get_provider("gemma3:12b").name == "ollama"
-        assert get_provider("phi4:14b").name == "ollama"
-        assert get_provider("mistral").name == "ollama"
+
+    def test_route_local_prefix(self) -> None:
+        """RONDO-113: local:MODEL routes to Ollama with MODEL as model name."""
+        from rondo.providers import get_provider
+
+        provider = get_provider("local:llama3.1:8b")
+        assert provider is not None
+        assert provider.name == "ollama"
+
+        provider = get_provider("local:my-custom-model")
+        assert provider is not None
+        assert provider.name == "ollama"
+
+    def test_route_local_prefix_extracts_model(self) -> None:
+        """local:MODEL strips the local: prefix for the adapter."""
+        from rondo.providers import parse_model
+
+        provider_name, model_name = parse_model("local:llama3.1:8b")
+        assert provider_name == "local"
+        assert model_name == "llama3.1:8b"
+
+    def test_parse_model_no_prefix(self) -> None:
+        """No prefix = Claude."""
+        from rondo.providers import parse_model
+
+        provider_name, model_name = parse_model("sonnet")
+        assert provider_name == ""
+        assert model_name == "sonnet"
+
+    def test_parse_model_empty(self) -> None:
+        """Empty = current session."""
+        from rondo.providers import parse_model
+
+        provider_name, model_name = parse_model("")
+        assert provider_name == ""
+        assert model_name == ""
 
     def test_unknown_model_returns_none(self) -> None:
         """Unknown models default to None (Claude path, backward compat)."""

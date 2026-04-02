@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rondo"
-version = "0.5.0"
+version = "0.6.0"
 description = "AI dispatch layer — route tasks to any AI provider, get structured results back."
 requires-python = ">=3.12"
 license = "MIT"

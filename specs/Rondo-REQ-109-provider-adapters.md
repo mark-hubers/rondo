@@ -57,10 +57,20 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | ID | Requirement | Priority | Verified By |
 |----|-------------|----------|-------------|
 | 001 | `ProviderAdapter` abstract base class with: `dispatch(prompt, model, config) → DispatchResult`, `health() → bool`, `models() → list[str]` | MUST | Interface test |
-| 002 | One adapter class per non-Claude provider: `OllamaAdapter`, plus future `GeminiAdapter`, `OpenAIAdapter`, `ContainerAdapter`. Claude dispatch uses `dispatch_task()` directly (Phase 1). Phase 2: extract Claude transport into a real `ClaudeCLIAdapter`. | MUST | Adapter test |
-| 003 | Adding a new provider = implement one adapter class. NO changes to OB, Caliber, ACE, or any other code. | MUST | Isolation test |
+| 002 | **3 adapter classes** (not per-provider): `ChatCompletionsAdapter` (OpenAI + Grok + Mistral — same API), `GeminiAdapter` (unique API), `AnthropicAPIAdapter` (unique API). Plus existing `OllamaAdapter` for local models. Claude subprocess dispatch uses `dispatch_task()` directly. | MUST | Adapter test |
+| 003 | Adding a new provider = implement one adapter class OR configure an existing one (ChatCompletions providers only need config). NO changes to OB, Caliber, ACE. | MUST | Isolation test |
 | 004 | All adapters return the same `TaskResult` format regardless of provider (model-agnostic output) | MUST | Format test |
-| 005 | Adapter config via TOML: `[providers.<name>] type, api_key_env, endpoint, default_model` | MUST | Config test |
+| 005 | Adapter config via TOML `[providers.<name>]` with: `enabled`, `base_url`, `model`, `keychain_item`, `temperature`, `max_tokens`. Per-provider subtables. | MUST | Config test |
+
+### Adapter Architecture (Session 94 — Cursor design review)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 030 | Adapters MUST live in `rondo/src/rondo/adapters/` directory: `chat_completions.py`, `gemini.py`, `anthropic_api.py`, `ollama.py`. `providers.py` stays small (routing + interface only). | MUST | Structure test |
+| 031 | `ChatCompletionsAdapter` handles OpenAI, Grok, Mistral via config (different `base_url`, same API shape). One class, three providers. | MUST | Multi-provider test |
+| 032 | Provider routing via `provider:model` prefix: `openai:gpt-4.1`, `gemini:flash`, `local:llama3.1:8b`. `parse_model()` splits on first `:`. No prefix → Claude. | MUST | Routing test |
+| 033 | `rondo_multi_review` MCP tool: dispatch same prompt to N providers, return per-provider findings + merged findings + cost/latency stats. Replaces `ai-review --all-providers`. | SHOULD | MCP test |
+| 034 | API keys loaded from macOS Keychain via `keychain_item` field in config. Fallback to env var. Never in files or git. | MUST | Auth test |
 
 
 ### Shared Finalization Pipeline (Session 94 — split-brain fix)
@@ -587,3 +597,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | 1.0 | 2026-03-20 | Initial. Provider adapter interface, credential management, model routing, affinity tracking. 25 requirements. Session 83: 3 providers proven live. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-31 | **Split-brain fix (Session 94).** Removed ClaudeCLIAdapter (D6). Added shared finalization pipeline reqs 026-029 (D7). Phased approach: Phase 1 fixes pipeline gap, Phase 2 extracts Claude into real adapter (D8). recommend_model to TOML config (D9). New architecture diagram: two transports, one finalization. Risk added: split-brain anti-pattern. Feature maturity updated to reflect built state. AI body review: Qwen 32B (architectural) + DeepSeek-R1 8B (contrarian). Cross-product verified: CORE-ADR-001 already mandates this design, no changes needed to OB/Caliber/ACE specs. |
+| 1.3 | 2026-04-01 | **Multi-provider adapter architecture (Session 94 continued).** Updated req 002: 3 adapter classes not 6 (ChatCompletions handles OpenAI+Grok+Mistral). Updated req 005: TOML config schema with per-provider subtables. Added reqs 030-034: adapters/ directory structure, ChatCompletionsAdapter, provider:model routing (parse_model), rondo_multi_review MCP tool, Keychain auth. Based on analysis of ai_review.py (1260 lines, 5 providers) + Cursor design review. v0.7 roadmap: 9 sprints (RONDO-114 to RONDO-122). |

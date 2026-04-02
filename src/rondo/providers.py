@@ -110,6 +110,7 @@ def resolve_tier(provider: str, tier: str) -> str:
         return provider_cfg.get(config_key, "")
     return ""
 
+
 # -- Singleton adapter (lazy to avoid circular import)
 _ollama_adapter: ProviderAdapter | None = None
 
@@ -239,23 +240,38 @@ def get_provider(model: str) -> ProviderAdapter | None:
 # -- ──────────────────────────────────────────────────────────────
 
 # -- Default model map (used when no TOML config overrides)
+# -- REQ-109 D9: cloud providers are first-class defaults for review/analysis
 _DEFAULT_TASK_MODELS: dict[str, str] = {
-    "code-review": "qwen2.5-coder:7b",
-    "code-fix": "qwen2.5-coder:7b",
-    "code-generate": "qwen2.5-coder:7b",
-    "reasoning": "deepseek-r1:8b",
-    "math": "deepseek-r1:8b",
-    "logic": "deepseek-r1:8b",
+    "code-review": "gemini:flash",
+    "code-fix": "gemini:flash",
+    "code-generate": "gemini:flash",
+    "reasoning": "openai:gpt-4.1",
+    "math": "openai:gpt-4.1",
+    "logic": "openai:gpt-4.1",
     "classify": "llama3.1:8b",
     "scan": "llama3.1:8b",
     "filter": "llama3.1:8b",
-    "structured-json": "phi4:14b",
-    "extract": "phi4:14b",
-    "summarize": "gemma3:12b",
-    "general": "qwen2.5:32b",
-    "research": "qwen2.5:32b",
-    "analysis": "qwen2.5:32b",
+    "structured-json": "gemini:flash",
+    "extract": "gemini:flash",
+    "summarize": "gemini:flash",
+    "general": "openai:gpt-4.1",
+    "research": "openai:gpt-4.1",
+    "analysis": "openai:gpt-4.1",
+    "security": "openai:gpt-4.1",
 }
+
+# -- REQ-109 reqs 021-023: multi-provider defaults for review tasks
+# -- At least 2 cloud AIs by default, more if requested
+_DEFAULT_MULTI_REVIEW: dict[str, list[str]] = {
+    "code-review": ["gemini:flash", "openai:gpt-4.1"],
+    "security": ["gemini:flash", "openai:gpt-4.1", "mistral:large"],
+    "analysis": ["gemini:flash", "openai:gpt-4.1"],
+    "research": ["gemini:flash", "openai:gpt-4.1"],
+    "reasoning": ["openai:gpt-4.1", "gemini:pro"],
+}
+
+# -- Config-loaded multi-review overrides
+_multi_review_overrides: dict[str, list[str]] = {}
 
 # -- Config-loaded overrides (populated by load_task_models)
 _task_model_overrides: dict[str, str] = {}
@@ -280,6 +296,12 @@ def load_task_models(config_path: str = "") -> dict[str, str]:
             overrides = routing.get("task_models", {})
             if isinstance(overrides, dict):
                 _task_model_overrides = {k: str(v) for k, v in overrides.items()}
+            # -- REQ-109 reqs 021-023: multi-review provider lists
+            multi = routing.get("multi_review", {})
+            if isinstance(multi, dict):
+                for k, v in multi.items():
+                    if isinstance(v, list):
+                        _multi_review_overrides[k] = [str(x) for x in v]
         except (tomllib.TOMLDecodeError, OSError):
             pass
 
@@ -299,6 +321,30 @@ def recommend_model(task_type: str) -> str:
     if key in _task_model_overrides:
         return _task_model_overrides[key]
     return _DEFAULT_TASK_MODELS.get(key, "sonnet")
+
+
+def recommend_review_providers(task_type: str, count: int = 2) -> list[str]:
+    """Recommend multiple cloud providers for review tasks — REQ-109 reqs 021-023.
+
+    Returns up to `count` provider:model strings for multi-AI review.
+    COALESCE: config [routing.multi_review] → defaults → single recommend_model fallback.
+
+    Args:
+        task_type: Task category (code-review, security, analysis, etc.).
+        count:     Max providers to return (default 2, more if requested).
+
+    Returns:
+        List of provider:model strings, e.g. ['gemini:flash', 'openai:gpt-4.1'].
+    """
+    key = task_type.lower()
+    # -- Config overrides win (req 024: manual override always wins)
+    if key in _multi_review_overrides:
+        return _multi_review_overrides[key][:count]
+    # -- Default multi-review list
+    if key in _DEFAULT_MULTI_REVIEW:
+        return _DEFAULT_MULTI_REVIEW[key][:count]
+    # -- Fallback: single model recommendation as a list
+    return [recommend_model(key)]
 
 
 # -- ──────────────────────────────────────────────────────────────

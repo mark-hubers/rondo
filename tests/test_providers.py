@@ -136,14 +136,14 @@ class TestProviderRouting:
         assert get_provider("unknown-model-xyz") is None
 
     def test_recommend_model_for_task(self) -> None:
-        """recommend_model returns best local model for task type."""
+        """recommend_model returns best model for task type — cloud providers are defaults."""
         from rondo.providers import recommend_model
 
-        assert recommend_model("code-review") == "qwen2.5-coder:7b"
-        assert recommend_model("reasoning") == "deepseek-r1:8b"
+        assert recommend_model("code-review") == "gemini:flash"
+        assert recommend_model("reasoning") == "openai:gpt-4.1"
         assert recommend_model("classify") == "llama3.1:8b"
-        assert recommend_model("structured-json") == "phi4:14b"
-        assert recommend_model("general") == "qwen2.5:32b"
+        assert recommend_model("structured-json") == "gemini:flash"
+        assert recommend_model("general") == "openai:gpt-4.1"
         assert recommend_model("unknown-type") == "sonnet"  ## default to Claude
 
     def test_recommend_model_config_override(self, tmp_path) -> None:
@@ -176,7 +176,58 @@ class TestProviderRouting:
         # -- Non-existent file should return defaults, not crash
         result = load_task_models("/tmp/nonexistent-rondo-config.toml")
         assert "code-review" in result
-        assert result["code-review"] == "qwen2.5-coder:7b"
+        assert result["code-review"] == "gemini:flash"
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 reqs 021-023: Multi-provider review recommendations
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestRecommendReviewProviders:
+    """recommend_review_providers() returns multiple cloud AIs for review tasks."""
+
+    def test_code_review_returns_two_providers(self) -> None:
+        from rondo.providers import recommend_review_providers
+
+        result = recommend_review_providers("code-review")
+        assert len(result) == 2
+        assert all(":" in m for m in result)  # -- all are provider:model format
+
+    def test_security_returns_three_providers(self) -> None:
+        from rondo.providers import recommend_review_providers
+
+        result = recommend_review_providers("security", count=3)
+        assert len(result) == 3
+
+    def test_count_limits_results(self) -> None:
+        from rondo.providers import recommend_review_providers
+
+        result = recommend_review_providers("security", count=1)
+        assert len(result) == 1
+
+    def test_unknown_task_falls_back_to_single(self) -> None:
+        from rondo.providers import recommend_review_providers
+
+        result = recommend_review_providers("unknown-task-type")
+        assert len(result) == 1
+        assert result[0] == "sonnet"  # -- fallback via recommend_model
+
+    def test_config_override_wins(self, tmp_path) -> None:
+        from rondo.providers import _multi_review_overrides, recommend_review_providers
+
+        _multi_review_overrides["code-review"] = ["grok:grok-3", "mistral:large"]
+        result = recommend_review_providers("code-review")
+        assert result == ["grok:grok-3", "mistral:large"]
+        _multi_review_overrides.clear()  # -- cleanup
+
+    def test_default_two_minimum_for_review(self) -> None:
+        """Default count=2 ensures at least 2 opinions for review tasks."""
+        from rondo.providers import recommend_review_providers
+
+        for task in ("code-review", "analysis", "research"):
+            result = recommend_review_providers(task)
+            assert len(result) >= 2, f"{task} should default to 2+ providers"
 
 
 # -- ──────────────────────────────────────────────────────────────

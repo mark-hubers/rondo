@@ -301,11 +301,25 @@ def rondo_models() -> str:
             "cost": "$0 (local)",
         },
     ]
-    recommendations = [
-        {"task": k, "model": v, "provider": "ollama" if ":" in v or v.startswith("llama") else "claude"}
-        for k, v in merged_models.items()
-    ]
-    return json.dumps({"providers": providers, "recommendations": recommendations}, indent=2)
+    # -- REQ-109 reqs 021-023: recommendations include cloud providers + multi-review defaults
+    from rondo.providers import recommend_review_providers  # pylint: disable=import-outside-toplevel
+
+    def _provider_for(model: str) -> str:
+        if ":" in model:
+            return model.split(":")[0]
+        if any(model.startswith(p) for p in ("llama", "qwen", "phi", "gemma", "deepseek")):
+            return "ollama"
+        return "claude"
+
+    recommendations = [{"task": k, "model": v, "provider": _provider_for(v)} for k, v in merged_models.items()]
+    # -- Multi-review defaults for review-type tasks
+    multi_defaults = {}
+    for task_type in ("code-review", "security", "analysis", "research", "reasoning"):
+        multi_defaults[task_type] = recommend_review_providers(task_type)
+    return json.dumps(
+        {"providers": providers, "recommendations": recommendations, "multi_review_defaults": multi_defaults},
+        indent=2,
+    )
 
 
 def rondo_templates() -> str:

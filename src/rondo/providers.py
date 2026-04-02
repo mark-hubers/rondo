@@ -104,48 +104,19 @@ def parse_model(model: str) -> tuple[str, str]:
 
 def _get_chat_completions_adapter(provider_name: str, model_name: str) -> ProviderAdapter:
     """Create a ChatCompletionsAdapter for the given provider — lazy import."""
+    from rondo.adapters.auth import load_api_key
     from rondo.adapters.chat_completions import ChatCompletionsAdapter
 
-    # -- Provider config: base URLs for known providers
     provider_urls = {
         "openai": "https://api.openai.com/v1",
         "grok": "https://api.x.ai/v1",
         "mistral": "https://api.mistral.ai/v1",
     }
-    base_url = provider_urls.get(provider_name, "https://api.openai.com/v1")
-
-    # -- Try Keychain for API key
-    api_key = ""
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            ["security", "find-generic-password", "-s", f"ace2-{provider_name}", "-w"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            api_key = result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    # -- Fallback to env var
-    if not api_key:
-        import os
-
-        env_names = {
-            "openai": "OPENAI_API_KEY",
-            "grok": "XAI_API_KEY",
-            "mistral": "MISTRAL_API_KEY",
-        }
-        api_key = os.environ.get(env_names.get(provider_name, ""), "")
 
     return ChatCompletionsAdapter(
         provider_name=provider_name,
-        base_url=base_url,
-        api_key=api_key,
+        base_url=provider_urls.get(provider_name, "https://api.openai.com/v1"),
+        api_key=load_api_key(provider_name),
         default_model=model_name or "gpt-4.1",
     )
 
@@ -153,53 +124,20 @@ def _get_chat_completions_adapter(provider_name: str, model_name: str) -> Provid
 def _get_anthropic_adapter(model_name: str) -> ProviderAdapter:
     """Create an AnthropicAPIAdapter — lazy import."""
     from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+    from rondo.adapters.auth import load_api_key
 
-    api_key = ""
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            ["security", "find-generic-password", "-s", "ace2-anthropic", "-w"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            api_key = result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    if not api_key:
-        import os
-
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-
-    return AnthropicAPIAdapter(api_key=api_key, default_model=model_name or "claude-sonnet-4-6")
+    return AnthropicAPIAdapter(
+        api_key=load_api_key("anthropic"),
+        default_model=model_name or "claude-sonnet-4-6",
+    )
 
 
 def _get_gemini_adapter(model_name: str) -> ProviderAdapter:
     """Create a GeminiAdapter — lazy import."""
+    from rondo.adapters.auth import load_api_key
     from rondo.adapters.gemini import GeminiAdapter
 
-    api_key = ""
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            ["security", "find-generic-password", "-s", "ace2-gemini", "-w"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            api_key = result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    if not api_key:
-        import os
-
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+    api_key = load_api_key("gemini")
 
     return GeminiAdapter(api_key=api_key, default_model=model_name or "gemini-2.5-flash")
 

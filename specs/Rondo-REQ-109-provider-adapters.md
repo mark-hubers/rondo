@@ -4,9 +4,9 @@
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-03-20 | **Updated:** 2026-03-31 | **Status:** DESIGNED
+**Created:** 2026-03-20 | **Updated:** 2026-04-02 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.2
+**Version:** 1.5
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -100,6 +100,54 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 039 | Config.toml `[auth]` section: `backend = "auto"`, `onepassword_vault = "AI Keys"`. Only metadata — NEVER secret values. | MUST | Config test |
 | 040 | Keys MAY be cached per-process with 5-minute TTL. Cache invalidated on error (key might have rotated). | SHOULD | Cache test |
 
+
+### Provider Tiers (Session 96 — 4 AI body consensus)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 041 | Each provider config MUST define 3 model tiers: `cheap_model` (fast/lowest cost), `default_model` (balanced), `best_model` (highest quality). Exact model names per provider. | MUST | Config test |
+| 042 | Tier resolution: `provider:tier` syntax resolves via config lookup. `gemini:high` → `[providers.gemini].best_model`. `gemini:low` → `cheap_model`. `gemini:default` or `gemini:` → `default_model`. | MUST | Tier test |
+| 043 | Exact model name ALWAYS beats tier. `gemini:flash` → literal model "flash", not a tier lookup. Precedence: exact model > tier > default. | MUST | Precedence test |
+| 044 | Tier names are fixed: `high`, `default`, `low`. No custom tier names in v1 (simplicity — 4 AI bodies agreed 3 tiers is right starting point). | MUST | Validation test |
+| 045 | If a provider has fewer than 3 distinct models, tiers MAY point to the same model (e.g., Grok: `best_model = "grok-3"`, `default_model = "grok-3"`). | SHOULD | Config test |
+
+### Cloud Dispatch (Session 96 — `--cloud` flag)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 046 | `--cloud` flag (CLI) and `cloud=True` (MCP/Python): dispatch same prompt to N cloud providers in parallel, return per-provider results + merged findings. | MUST | Cloud test |
+| 047 | `[cloud] default_count = 2` in config.toml: how many providers `--cloud` uses by default. User override: `--cloud 3` or `--cloud 1`. | MUST | Count test |
+| 048 | `[cloud] max_count = 4`: hard cap on parallel cloud dispatches. Prevents accidental cost spikes. | MUST | Cap test |
+| 049 | Cloud profiles in config: `[cloud.profiles.review]`, `[cloud.profiles.coding]`, `[cloud.profiles.research]`. Each has a `providers` list and `description`. | MUST | Profile test |
+| 050 | Profile selection: `--cloud review` uses review profile. `--cloud` with no profile uses all enabled providers. Future: auto-detect task type from prompt keywords. | MUST | Selection test |
+| 051 | Cloud tier: `--cloud high` dispatches to all selected providers at `best_model` tier. `--cloud low` uses `cheap_model`. Default: `default_model`. Combinable: `--cloud high 3` = 3 providers at best tier. | MUST | Tier flag test |
+| 052 | Parallel dispatch: cloud providers are called concurrently (not sequentially). Results collected and merged after all complete or timeout. | SHOULD | Parallel test |
+
+### Cloud Cost Controls (all 4 AI bodies flagged as critical)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 053 | `[cloud] max_cost_per_dispatch = 0.50`: abort cloud dispatch if estimated cost exceeds cap. Estimate based on prompt token count × provider pricing. | MUST | Cost cap test |
+| 054 | Per-provider monthly budget: `[providers.<name>] budget_monthly_usd = 50.00`. Track cumulative spend. Warn at 80%, block at 100%. | SHOULD | Budget test |
+| 055 | Cost estimate shown before dispatch when `dry_run=True`. Shows per-provider estimated cost + total. | MUST | Estimate test |
+| 056 | Cloud dispatch result includes `total_cost_usd` and per-provider `cost_usd` in response. | MUST | Cost report test |
+
+### Cloud Failure Policy (Cursor identified as gap)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 057 | Default failure policy: **partial result**. If 1 of N providers fails, return results from providers that succeeded + error detail for failed provider. Do NOT fail the whole dispatch. | MUST | Partial test |
+| 058 | Failed provider marked in result with `status: "error"` and `error_code`. Successful providers have `status: "done"`. | MUST | Status test |
+| 059 | If ALL providers fail, return `status: "error"` with per-provider error details. | MUST | All-fail test |
+| 060 | Timeout per cloud provider: respect `timeout_sec` from dispatch config. Provider that exceeds timeout returns `status: "timeout"`, others continue. | MUST | Timeout test |
+
+### Cloud Security (OpenAI + Gemini flagged)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 061 | Data sensitivity flag per task: `sensitivity = "public" | "internal" | "private"`. `public` = any provider. `internal` = skip untrusted providers. `private` = local only (Ollama). | SHOULD | Sensitivity test |
+| 062 | Provider trust level in config: `[providers.<name>] trust = "trusted" | "untrusted"`. `internal` tasks skip `untrusted` providers. | SHOULD | Trust test |
+| 063 | Cloud dispatch MUST NOT send prompts containing file paths, API keys, or credential-like strings to untrusted providers. Sanitization before dispatch. | MUST | Sanitize test |
 
 ### Model Routing
 
@@ -219,14 +267,49 @@ The anti-pattern this prevents: "two paths to the same outcome where one path ge
 ### Provider Config (TOML)
 
 ```toml
-[providers.<name>]
-type = "rest" | "claude-cli"
-api_key_env = "KEYCHAIN_SERVICE_NAME"
-endpoint = "https://..."           # REST providers only
-default_model = "model-name"
-best_model = "model-name"
-cheap_model = "model-name"
+[providers.gemini]
+enabled = true
+base_url = "https://generativelanguage.googleapis.com/v1beta"
+keychain_item = "ace.ai-key.gemini"
+cheap_model = "gemini-2.0-flash-lite"       ## fast, lowest cost
+default_model = "gemini-2.5-flash"           ## balanced
+best_model = "gemini-2.5-pro"               ## highest quality
+budget_monthly_usd = 50.00
+trust = "trusted"
+
+[providers.openai]
+enabled = true
+base_url = "https://api.openai.com/v1"
+keychain_item = "ace.ai-key.openai"
+cheap_model = "gpt-4.1-mini"
+default_model = "gpt-4.1"
+best_model = "o3"
+budget_monthly_usd = 50.00
+trust = "trusted"
+
+[providers.grok]
+enabled = true
+base_url = "https://api.x.ai/v1"
+keychain_item = "ace.ai-key.grok"
+cheap_model = "grok-3-mini"
+default_model = "grok-3"
+best_model = "grok-3"
+budget_monthly_usd = 30.00
+trust = "untrusted"                          ## Chinese-owned — internal tasks skip
+
+[providers.anthropic]
+enabled = true
+base_url = "https://api.anthropic.com/v1"
+keychain_item = "ace.ai-key.anthropic"
+cheap_model = "claude-haiku-4-5"
+default_model = "claude-sonnet-4-6"
+best_model = "claude-opus-4-6"
 budget_monthly_usd = 100.00
+trust = "trusted"
+
+[auth]
+backend = "auto"                             ## env → keychain → 1password (REQ-109 req 037)
+onepassword_vault = "AI Keys"                ## metadata only — never secrets
 ```
 
 ### Routing Table (TOML)
@@ -236,6 +319,28 @@ budget_monthly_usd = 100.00
 build = "claude-api"
 review_forward = "gemini"
 overnight_build = "claude-batch"
+```
+
+### Cloud Config (TOML)
+
+```toml
+[cloud]
+default_count = 2                            ## --cloud uses 2 providers
+max_count = 4                                ## --cloud 4 max
+max_cost_per_dispatch = 0.50                 ## abort if estimated cost exceeds
+default_tier = "default"                     ## high | default | low
+
+[cloud.profiles.review]
+providers = ["gemini", "openai", "grok"]
+description = "Code review, bug finding, spec analysis"
+
+[cloud.profiles.coding]
+providers = ["openai", "anthropic"]
+description = "Code generation, refactoring"
+
+[cloud.profiles.research]
+providers = ["gemini", "openai"]
+description = "Analysis, summarization, literature review"
 ```
 
 ---
@@ -264,9 +369,20 @@ overnight_build = "claude-batch"
 
 ## 7. MCP / API Interface
 
-Future: an MCP tool per CORE-STD-021 could expose provider health and routing table,
-enabling AI agents to query available models and their status before requesting dispatch.
-Example: "Which providers are healthy?" → returns provider list with health + model count.
+### Existing MCP Tools (BUILT)
+
+| Tool | Purpose | Status |
+|------|---------|--------|
+| `rondo_multi_review` | Dispatch same prompt to N providers, per-provider + merged findings | BUILT (Session 96) |
+| `rondo_models` | List available models across all providers | BUILT |
+| `rondo_benchmark` | Speed/cost comparison across models | BUILT |
+
+### Planned MCP Tools
+
+| Tool | Purpose | Status |
+|------|---------|--------|
+| `rondo_cloud` | Cloud dispatch with profiles + tiers (MCP equivalent of `--cloud`) | PLANNED |
+| Provider health query | "Which providers are healthy?" → provider list + health + model count | PLANNED |
 
 ---
 
@@ -393,33 +509,41 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 
 ## 18. Build Notes / Estimate
 
-| Item | Estimate |
-|------|----------|
-| ProviderAdapter ABC + DispatchResult | 0.5 day |
-| ClaudeCLIAdapter + ClaudeAPIAdapter | 2 days |
-| GeminiAdapter | 1 day |
-| OpenAIAdapter | 1 day |
-| OllamaAdapter | 0.5 day |
-| ContainerAdapter | 1 day |
-| Router + routing table | 1 day |
-| Keychain integration (ai-keys.py) | 1 day |
-| Health checking + caching | 0.5 day |
-| Affinity tracking | 1.5 days |
-| Tests | 2 days |
-| Total | ~12 days |
+| Item | Estimate | Status |
+|------|----------|--------|
+| ProviderAdapter ABC + DispatchResult | 0.5 day | **DONE** |
+| 4 adapters (Ollama, ChatCompletions, Gemini, Anthropic) | 2 days | **DONE** |
+| Router + routing table (get_provider) | 1 day | **DONE** |
+| KeyBackend (env→keychain→1password) | 0.5 day | **DONE** |
+| rondo_multi_review MCP tool | 0.5 day | **DONE** |
+| Tier resolution (parse_model + config lookup) | 1 day | Sprint B |
+| Cloud orchestration (--cloud, profiles, parallel) | 2 days | Sprint C |
+| Cloud cost controls (caps, budget, estimates) | 1 day | Sprint C |
+| Data sensitivity + trust filtering | 0.5 day | Sprint C |
+| Cloud failure policy (partial result) | 0.5 day | Sprint C |
+| Health checking + caching | 0.5 day | Sprint D |
+| Affinity tracking (learned routing) | 1.5 days | Sprint E |
+| Tests (all new features) | 2 days | Across sprints |
+| **Total** | **~13 days** | **~5 days DONE, ~8 days remaining** |
 
 ---
 
 ## 19. Test Categories
 
-| Category | What | Count (est.) |
-|----------|------|-------------|
-| Unit | Each adapter (mock provider API), router, health check | 18 |
-| Integration | End-to-end dispatch through adapter to mock API | 6 |
-| Credential | Keychain store/retrieve/mask/multi-account | 6 |
-| Routing | Task type → provider resolution, fallback, override | 8 |
-| Health | Health check, caching, down detection, recovery | 6 |
-| Affinity | Score tracking, suggestion generation | 4 |
+| Category | What | Count (est.) | Status |
+|----------|------|-------------|--------|
+| Unit | Each adapter (mock provider API), router, health check | 18 | Partial (adapters done) |
+| Integration | End-to-end dispatch through adapter to mock API | 6 | Partial |
+| Credential | KeyBackend chain, Keychain, 1Password, env, cache, invalidate | 24 | **DONE** |
+| Routing | Task type → provider resolution, fallback, override | 8 | Partial |
+| Health | Health check, caching, down detection, recovery | 6 | Planned |
+| Affinity | Score tracking, suggestion generation | 4 | Planned |
+| Tier | Tier resolution, config lookup, precedence, validation | 8 | Sprint B |
+| Cloud | --cloud flag, profiles, count, parallel dispatch, merge | 12 | Sprint C |
+| Cost | Cost caps, budget tracking, estimates, abort | 6 | Sprint C |
+| Failure | Partial result, all-fail, timeout, status codes | 6 | Sprint C |
+| Security | Sensitivity flag, trust filter, prompt sanitization | 4 | Sprint C |
+| Multi-review | MCP tool, dry run, provider list, error handling | 5 | **DONE** |
 
 ---
 
@@ -434,6 +558,10 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | Affinity data misleading | Bad routing suggestion | Manual override always wins |
 | Claude Code CLI flags change | `--output-format stream-json` or other flags removed/renamed | Rondo-REQ-103 smoke test catches before dispatch. Version compatibility matrix tracks known-good flag sets. |
 | Claude Code CLI update breaks overnight | Silent failures in batch runs | Rondo-REQ-103 preflight re-validates on version change (req 020). Detailed debug logging (req 024). |
+| Cloud dispatch 1 of N fails | Partial results | Default: return successful results + error for failed provider. All-fail: return error with per-provider details. (Reqs 057-059) |
+| Cloud cost exceeds cap | Unexpected bill | Pre-dispatch cost estimate; abort if over cap. Monthly budget tracking per provider. (Reqs 053-056) |
+| Sensitive data to untrusted provider | Data leak | Sensitivity flag + trust level filtering. Prompt sanitization strips paths/keys. (Reqs 061-063) |
+| Tier name collides with model name | Wrong model dispatched | Tier names are reserved words (high/default/low). Exact model always wins. (Req 043, D12) |
 
 ---
 
@@ -470,6 +598,11 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | D7 | Shared finalization pipeline for ALL providers | 2026-03-31 | Ollama CLI path was missing audit, sanitize, spool, history, metrics — half the ALWAYS-ON pipeline. Fix: all providers pass results through `_finalize_dispatch()`. Session 94: Cursor identified split-brain, DeepSeek-R1 validated fix. |
 | D8 | Phased approach: fix pipeline now, pure adapters later | 2026-03-31 | DeepSeek-R1 argued for full unification (all providers through adapter pattern). Deferred to Phase 2 — refactoring 300+ lines of proven Claude transport code risks regressions with only 2 providers. Phase 2 triggers when 3rd provider arrives. |
 | D9 | Move recommend_model() from hardcoded dict to TOML config | 2026-03-31 | Cursor critique: "hardcoded strategy map pretending to be future-proof." Config-driven routing lets Mark update model preferences without code changes. Affinity tracking (req 021-023) can suggest, config decides. |
+| D10 | 3 fixed tiers (high/default/low), no custom tiers in v1 | 2026-04-02 | 4 AI bodies (Qwen, Gemini, OpenAI, Cursor) all agreed 3 is the right starting point. Custom tiers add complexity without proven need. Exact model override covers edge cases. |
+| D11 | Partial result on cloud failure (not fail-whole) | 2026-04-02 | Cursor identified failure policy as gap. Partial results are more useful — 2 of 3 answers is better than 0. Failed provider clearly marked in result. |
+| D12 | Exact model name beats tier in resolution | 2026-04-02 | All 4 AI bodies flagged syntax ambiguity (provider:tier vs provider:model). Resolution: exact model always wins. If "flash" isn't a tier name, it's a model name. Tier names are reserved words: high, default, low. |
+| D13 | Cost caps are mandatory (not optional) | 2026-04-02 | All 4 AI bodies independently flagged cost caps as missing/critical. Multi-cloud = N× cost. Default cap: $0.50/dispatch. Per-provider monthly budget. |
+| D14 | Data sensitivity flag for cloud security | 2026-04-02 | OpenAI + Gemini flagged multi-cloud attack surface. Sensitivity levels (public/internal/private) + provider trust levels prevent sending sensitive data to untrusted providers. |
 
 ---
 
@@ -587,13 +720,21 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 | Feature | Maturity | Evidence | Retest |
 |---------|----------|----------|--------|
-| Provider adapter interface | BUILT | ABC + OllamaAdapter live, 1168 tests | After new provider added |
+| Provider adapter interface | BUILT | ABC + 4 adapters live (Ollama, ChatCompletions, Gemini, Anthropic) | After new provider added |
 | Claude dispatch (dispatch_task) | BUILT | Proven path, 1168 tests, 74 sprints | After Claude CLI changes |
 | Ollama adapter | BUILT | Live dispatch to 8 local models | After Ollama API changes |
-| Shared finalization pipeline | DESIGNED | Session 94 — spec done, code pending | Phase 1 sprint |
-| recommend_model config-driven | DESIGNED | Session 94 — spec done, code pending | Phase 1 sprint |
-| Multi-model routing (get_provider) | BUILT | Routes Claude vs Ollama by model name | After 3rd provider |
-| Phase 2: Claude as real adapter | THEORY | DeepSeek-R1 validated architecture | When 3rd provider arrives |
+| ChatCompletions adapter | BUILT | Session 94 — OpenAI+Grok+Mistral in one adapter | After API changes |
+| Gemini adapter | BUILT | Session 94 — generateContent API | After API changes |
+| Anthropic API adapter | BUILT | Session 94 — Messages API | After API changes |
+| KeyBackend (3 backends) | BUILT | Session 96 — env→keychain→1password, 24 tests | After new backend added |
+| rondo_multi_review MCP tool | BUILT | Session 96 — 3 providers dispatched live, 5 tests | After provider changes |
+| Shared finalization pipeline | BUILT | Session 94 — all providers through _finalize_dispatch | Phase 1 sprint |
+| Multi-model routing (get_provider) | BUILT | Routes 6 providers by prefix | After new provider |
+| Provider tiers (3-tier config) | DESIGNED | Session 96 — 4 AI body consensus | Sprint B |
+| Cloud dispatch (--cloud flag) | DESIGNED | Session 96 — reqs 046-063 | Sprint C |
+| Cloud cost controls | DESIGNED | Session 96 — reqs 053-056 | Sprint C |
+| Data sensitivity / trust | DESIGNED | Session 96 — reqs 061-063 | Sprint C |
+| Phase 2: Claude as real adapter | THEORY | DeepSeek-R1 validated architecture | When beneficial |
 
 
 ## 35. Change History
@@ -604,4 +745,5 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-31 | **Split-brain fix (Session 94).** Removed ClaudeCLIAdapter (D6). Added shared finalization pipeline reqs 026-029 (D7). Phased approach: Phase 1 fixes pipeline gap, Phase 2 extracts Claude into real adapter (D8). recommend_model to TOML config (D9). New architecture diagram: two transports, one finalization. Risk added: split-brain anti-pattern. Feature maturity updated to reflect built state. AI body review: Qwen 32B (architectural) + DeepSeek-R1 8B (contrarian). Cross-product verified: CORE-ADR-001 already mandates this design, no changes needed to OB/Caliber/ACE specs. |
 | 1.3 | 2026-04-01 | **Multi-provider adapter architecture (Session 94 continued).** Updated req 002: 3 adapter classes not 6 (ChatCompletions handles OpenAI+Grok+Mistral). Updated req 005: TOML config schema with per-provider subtables. Added reqs 030-034: adapters/ directory structure, ChatCompletionsAdapter, provider:model routing (parse_model), rondo_multi_review MCP tool, Keychain auth. Based on analysis of ai_review.py (1260 lines, 5 providers) + Cursor design review. v0.7 roadmap: 9 sprints (RONDO-114 to RONDO-122). |
+| 1.5 | 2026-04-02 | **Cloud dispatch + tiers + cost controls (Session 96).** Added 23 requirements (041-063): provider tiers (3 per provider), cloud dispatch (`--cloud` flag + profiles + count), cost controls (per-dispatch cap, monthly budget), failure policy (partial result default), data sensitivity + provider trust. Updated config TOML with full provider examples, cloud profiles, auth section. Updated MCP section (rondo_multi_review BUILT). Updated feature maturity (8 features BUILT, 4 DESIGNED). 6 new decisions (D10-D14). 4 new failure modes. Reviewed by 4 AI bodies (Qwen 32B, Gemini 2.5 Flash, OpenAI GPT-4.1, Cursor). Sprint plan: B (tiers), C (cloud orchestration), D (health), E (affinity). |
 | 1.4 | 2026-04-02 | **KeyBackend interface (Session 94 final).** Fixed req 006: Keychain service name `ace.ai-key.<provider>` (was `ace2-<provider>`, mismatched ai-keys.py). Updated req 007: shared `load_api_key()` in `adapters/auth.py`. Added reqs 035-040: precedence (env→keychain→1password), KeyBackend interface, auto mode, 1Password CLI integration, config metadata only, key caching with TTL. 3 AI body reviews (DeepSeek + Qwen + Cursor) confirmed pluggable design. |

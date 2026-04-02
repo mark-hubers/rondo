@@ -111,6 +111,16 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 | 072 | Flag precedence: `--output-format stream-json` is mandatory (req 015), `--bare` is additive. `--bare` skips hooks/plugins for speed but does not replace stream-json. The full command for automated dispatch is: `claude -p --output-format stream-json --bare --model M` | MUST |
 | 073 | When `--bare` is used, Caliber guards (Check/Block/Brief) are bypassed — only use `--bare` for automated/read-only tasks. Tasks requiring Caliber enforcement MUST NOT use `--bare`. Task definition MAY include `bare: false` to opt out. Violation ID: `REQ100-BARE-CALIBER` | MUST |
 
+### Dispatch — Inline Plan (Session 94 — MCP optimization)
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 082 | When `rondo_run` is called via MCP with `model=""` (empty/omitted) and `prompt` is provided, Rondo MUST return an `inline_dispatch_plan` JSON instead of spawning a subprocess. The host (Claude Code) executes the plan inline. | MUST |
+| 083 | `inline_dispatch_plan` schema: `{kind: "inline_dispatch_plan", prompt, done_when, model: "current", project, note}`. Host reads this and does the work in the current session. | MUST |
+| 084 | When `model=""` and `file_path` is provided (round file mode), Rondo MUST dispatch normally (not return a plan). Round files need real dispatch infrastructure. | MUST |
+| 085 | `background=True` is ignored when model is omitted — inline plans execute in the foreground by the host. No background job is created. | MUST |
+| 086 | Inline dispatch plans skip audit/history/metrics (Rondo didn't do the work — the host did). The ai_help documentation MUST state this clearly. | MUST |
+| 087 | `bare=True` is the default for subprocess dispatch (Session 94 — Finding #198). Subprocess startup drops from 70s to ~5s. Tasks requiring Caliber hooks MUST set `bare=False`. | MUST |
+
 ### Dispatch — Model Routing
 | ID | Requirement | Priority |
 |----|-------------|----------|

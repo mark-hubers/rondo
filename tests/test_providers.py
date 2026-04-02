@@ -45,13 +45,13 @@ class TestOllamaAdapter:
     """REQ-109 req 002: OllamaAdapter for local LLM dispatch."""
 
     def test_ollama_adapter_exists(self) -> None:
-        from rondo.providers import OllamaAdapter
+        from rondo.adapters.ollama import OllamaAdapter
 
         adapter = OllamaAdapter()
         assert adapter is not None
 
     def test_ollama_models_returns_list(self) -> None:
-        from rondo.providers import OllamaAdapter
+        from rondo.adapters.ollama import OllamaAdapter
 
         adapter = OllamaAdapter()
         result = adapter.models()
@@ -59,7 +59,7 @@ class TestOllamaAdapter:
 
     def test_ollama_dispatch_returns_task_result(self) -> None:
         """Dispatch returns TaskResult even if Ollama not running."""
-        from rondo.providers import OllamaAdapter
+        from rondo.adapters.ollama import OllamaAdapter
 
         adapter = OllamaAdapter()
         result = adapter.dispatch(prompt="Say hello", model="llama3.2")

@@ -35,6 +35,7 @@ from rondo.mcp_tools import (  # noqa: F401
     _DEFAULT_AUDIT_DIR,
     _resolve_dir,
     rondo_audit_summary,
+    rondo_cloud,
     rondo_cost,
     rondo_diff,
     rondo_dispatch_info,
@@ -987,6 +988,15 @@ def create_mcp_server() -> Any:
     )
     def _multi_review(prompt: str, providers: str = "[]", dry_run: bool = False) -> str:
         return rondo_multi_review(prompt=prompt, providers=providers, dry_run=dry_run)
+
+    @mcp.tool(
+        name="rondo_cloud",
+        description="Cloud AI dispatch: pick providers by profile (review/coding/research), tier (high/default/low), count (1-4). Cost-capped. dry_run=True to preview.",
+    )
+    def _cloud(
+        prompt: str, profile: str = "", tier: str = "default", count: int = 0, dry_run: bool = False
+    ) -> str:
+        return rondo_cloud(prompt=prompt, profile=profile, tier=tier, count=count, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_chain",

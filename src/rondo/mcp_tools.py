@@ -412,4 +412,131 @@ def rondo_spool_consume() -> str:
         return json.dumps({"consumed": [], "count": 0, "error": str(exc)})
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 reqs 046-063: Cloud dispatch orchestration
+# -- ──────────────────────────────────────────────────────────────
+
+
+def rondo_cloud(
+    prompt: str,
+    profile: str = "",
+    tier: str = "default",
+    count: int = 0,
+    dry_run: bool = False,
+) -> str:
+    """Cloud dispatch: pick providers from profile, resolve tiers, enforce cost caps.
+
+    REQ-109 reqs 046-063. This is the --cloud flag as a function.
+    Delegates actual dispatch to rondo_multi_review.
+
+    Args:
+        prompt: Task prompt.
+        profile: Cloud profile name (review, coding, research). Empty = all enabled.
+        tier: Model tier (high, default, low). Resolves via config.
+        count: Number of providers (0 = use config default_count).
+        dry_run: Preview without dispatching.
+    """
+    import tomllib
+    from pathlib import Path
+
+    ## Load cloud config
+    config_path = Path.home() / ".rondo" / "config.toml"
+    cloud_cfg: dict = {}
+    providers_cfg: dict = {}
+    if config_path.is_file():
+        with open(config_path, "rb") as f:
+            toml_data = tomllib.load(f)
+        cloud_cfg = toml_data.get("cloud", {})
+        providers_cfg = toml_data.get("providers", {})
+
+    default_count = cloud_cfg.get("default_count", 2)
+    max_count = cloud_cfg.get("max_count", 4)
+    max_cost = cloud_cfg.get("max_cost_per_dispatch", 0.50)
+    config_tier = cloud_cfg.get("default_tier", "default")
+
+    ## Resolve count
+    use_count = count if count > 0 else default_count
+    if use_count > max_count:
+        return json.dumps(
+            {
+                "status": "error",
+                "error": f"count {use_count} exceeds max_count {max_count}",
+                "code": "ERR_INPUT_TOO_LARGE",
+            }
+        )
+
+    ## Resolve tier
+    use_tier = tier if tier != "default" else config_tier
+    tier_key = {"high": "best_model", "low": "cheap_model"}.get(use_tier, "default_model")
+
+    ## Select providers from profile
+    if profile:
+        profiles = cloud_cfg.get("profiles", {})
+        profile_cfg = profiles.get(profile, {})
+        if not profile_cfg:
+            available = list(profiles.keys())
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error": f"Unknown profile '{profile}'. Available: {available}",
+                    "code": "ERR_INVALID_PROFILE",
+                }
+            )
+        provider_names = profile_cfg.get("providers", [])
+    else:
+        ## All enabled providers
+        provider_names = [
+            name for name, cfg in providers_cfg.items() if cfg.get("enabled", True)
+        ]
+
+    ## Trim to count
+    selected = provider_names[:use_count]
+
+    ## Resolve tier → actual model per provider
+    provider_models = []
+    for name in selected:
+        pcfg = providers_cfg.get(name, {})
+        model = pcfg.get(tier_key, pcfg.get("default_model", ""))
+        if model:
+            provider_models.append(f"{name}:{model}")
+        else:
+            provider_models.append(name)
+
+    ## Cost estimate (rough: count x tier factor)
+    tier_cost_factor = {"high": 0.15, "default": 0.05, "low": 0.01}.get(use_tier, 0.05)
+    estimated_cost = len(provider_models) * tier_cost_factor
+    if estimated_cost > max_cost and not dry_run:
+        return json.dumps(
+            {
+                "status": "error",
+                "error": f"Estimated cost ${estimated_cost:.2f} exceeds cap ${max_cost:.2f}",
+                "code": "ERR_COST_CAP",
+                "estimated_cost_usd": estimated_cost,
+                "max_cost_per_dispatch": max_cost,
+            }
+        )
+
+    ## Lazy import to avoid circular dependency (mcp_server imports mcp_tools)
+    from rondo.mcp_server import rondo_multi_review
+
+    result_raw = rondo_multi_review(
+        prompt=prompt,
+        providers=json.dumps(provider_models),
+        dry_run=dry_run,
+    )
+    result = json.loads(result_raw)
+
+    ## Enrich result with cloud metadata
+    result["cloud"] = {
+        "profile": profile or "(all enabled)",
+        "tier": use_tier,
+        "count_requested": use_count,
+        "count_dispatched": len(provider_models),
+        "estimated_cost_usd": estimated_cost,
+        "max_cost_per_dispatch": max_cost,
+    }
+
+    return json.dumps(result, indent=2)
+
+
 # -- sig: mgh-6201.cd.bd955f.a104.d19501

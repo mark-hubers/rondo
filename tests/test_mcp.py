@@ -1162,4 +1162,75 @@ class TestMultiReview:
         assert len(result["prompt"]) <= 200
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 reqs 046-063 — rondo_cloud
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestCloudDispatch:
+    """REQ-109 reqs 046-063: cloud dispatch with profiles, tiers, cost caps."""
+
+    def test_dry_run_returns_cloud_metadata(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="Review this", dry_run=True))
+        assert result["status"] == "done"
+        assert "cloud" in result
+        assert result["cloud"]["tier"] == "default"
+        assert result["cloud"]["count_requested"] == 2
+
+    def test_profile_review(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="Review this", profile="review", dry_run=True))
+        assert result["status"] == "done"
+        assert result["cloud"]["profile"] == "review"
+
+    def test_profile_coding(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="Fix this", profile="coding", dry_run=True))
+        assert result["status"] == "done"
+        assert result["cloud"]["profile"] == "coding"
+
+    def test_invalid_profile_returns_error(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="test", profile="nonexistent", dry_run=True))
+        assert result["status"] == "error"
+        assert "ERR_INVALID_PROFILE" in result.get("code", "")
+
+    def test_count_override(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="test", count=3, dry_run=True))
+        assert result["cloud"]["count_requested"] == 3
+
+    def test_count_exceeds_max(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="test", count=10, dry_run=True))
+        assert result["status"] == "error"
+        assert "ERR_INPUT_TOO_LARGE" in result.get("code", "")
+
+    def test_tier_high(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="test", tier="high", dry_run=True))
+        assert result["cloud"]["tier"] == "high"
+
+    def test_tier_low(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="test", tier="low", dry_run=True))
+        assert result["cloud"]["tier"] == "low"
+
+    def test_estimated_cost_in_metadata(self) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        result = json.loads(rondo_cloud(prompt="test", dry_run=True))
+        assert "estimated_cost_usd" in result["cloud"]
+        assert result["cloud"]["estimated_cost_usd"] >= 0
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b8

@@ -1,6 +1,6 @@
 # Rondo Reference — Complete System Guide
 
-**Product:** Rondo v0.6 | **Updated:** 2026-04-03 | **Tests:** 1,347 | **MCP Tools:** 21
+**Product:** Rondo v0.6 | **Updated:** 2026-04-03 | **Tests:** 1,363 | **MCP Tools:** 21
 
 *Define AI tasks in Python. Send them to any provider. Get structured results back.*
 
@@ -242,7 +242,7 @@ Health cached 5 minutes. Provider down = log WARNING + use fallback.
 
 | Category | File(s) | Tests | What they prove |
 |----------|---------|-------|----------------|
-| **E2E** | test_integration_e2e.py | 105 | Real CLI binary works end-to-end |
+| **E2E** | test_integration_e2e.py | 113 | Real CLI binary + real cloud provider dispatch |
 | **MCP** | test_mcp.py | 109 | All 21 MCP tools return correct schemas |
 | **Dispatch** | test_dispatch.py | 203 | Prompt building, model resolution, subprocess, JSON parsing |
 | **Engine** | test_engine.py | 126 | Round/Task data model, validation, gates, state |
@@ -324,6 +324,36 @@ rondo_chain(steps_json='[{"prompt": "Find issues", "model": "gemini:flash"}, {"p
 result = rondo_run(prompt="Long analysis", background=True)
 status = rondo_run_status(dispatch_id=result["dispatch_id"], heartbeat=True)
 ```
+
+### Real Cloud E2E Tests (living proof the adapters work)
+
+These tests make **real API calls** to cloud providers. They prove the full chain:
+key loading → adapter → HTTP → response parsing → TaskResult.
+
+| Test | Provider | What it proves | Cost |
+|------|----------|---------------|------|
+| `test_real_gemini_dispatch` | Gemini | generateContent API works | ~$0.001 |
+| `test_real_grok_dispatch` | Grok (xAI) | Chat Completions API works | ~$0.003 |
+| `test_real_mistral_dispatch` | Mistral (EU) | Chat Completions API works | ~$0.002 |
+| `test_real_gemini_grok_review` | Gemini + Grok | Two providers review same code | ~$0.004 |
+| `test_real_gemini_mistral_review` | Gemini + Mistral | Both detect SQL injection | ~$0.003 |
+| `test_gemini_health` | Gemini | Live health check returns True | free |
+| `test_grok_health` | Grok | Live health check returns True | free |
+| `test_mistral_health` | Mistral | Live health check returns True | free |
+
+Run them:
+```bash
+## All cloud tests (~$0.02 total)
+pytest rondo/tests/test_integration_e2e.py -k "RealCloud or RealMulti or RealProvider" -v
+
+## Just Gemini
+pytest rondo/tests/test_integration_e2e.py -k "gemini" -v
+
+## Just multi-provider reviews
+pytest rondo/tests/test_integration_e2e.py -k "RealMulti" -v
+```
+
+Each test auto-skips if the provider's API key isn't configured.
 
 ### Example Round Files
 
@@ -414,7 +444,7 @@ rondo/
 | Cloud adapters | 5 (Gemini, ChatCompletions, Anthropic, Ollama, Claude CLI) |
 | Cloud providers | 7 (Gemini, Grok, Mistral, OpenAI, Anthropic, Ollama, Claude) |
 | Tests | 1,347 |
-| E2E tests | 105 |
+| E2E tests | 113 (8 real cloud dispatch) |
 | Example rounds | 12 |
 | Lines of code | ~8,000 (rondo/src/) |
 | Specs | REQ-100 through REQ-109 (10 specs) |

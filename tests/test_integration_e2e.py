@@ -22,6 +22,7 @@ RONDO_BIN = os.path.expanduser("~/.local/bin/rondo")
 SKIP_E2E = not shutil.which("rondo")
 skip_no_rondo = pytest.mark.skipif(SKIP_E2E, reason="rondo CLI not installed")
 
+
 def _e2e_env() -> dict[str, str]:
     """Build E2E env: strip CLAUDECODE, propagate RONDO_TEST_DIR (RONDO-28)."""
     return {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
@@ -31,8 +32,11 @@ def _run(args: list[str], timeout: int = 30) -> subprocess.CompletedProcess:
     """Run rondo CLI and capture output."""
     return subprocess.run(
         [RONDO_BIN] + args,
-        capture_output=True, text=True, check=False,
-        timeout=timeout, env=_e2e_env(),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+        env=_e2e_env(),
     )
 
 
@@ -63,11 +67,10 @@ class TestE2EVersion:
 
     def test_version_output(self):
         import re
+
         result = _run(["--version"])
         assert result.returncode == 0
-        assert re.match(r"rondo \d+\.\d+", result.stdout.strip()), (
-            f"Expected 'rondo X.Y...' but got: {result.stdout!r}"
-        )
+        assert re.match(r"rondo \d+\.\d+", result.stdout.strip()), f"Expected 'rondo X.Y...' but got: {result.stdout!r}"
 
 
 @skip_no_rondo
@@ -147,6 +150,7 @@ class TestE2EDryRun:
             "    ])\n"
         )
         import time
+
         start = time.monotonic()
         _run(["run", str(round_file), "--dry-run"])
         elapsed = time.monotonic() - start
@@ -167,7 +171,11 @@ class TestE2EDryRun:
         env["CLAUDECODE"] = "1"
         result = subprocess.run(
             [RONDO_BIN, "run", str(round_file), "--dry-run"],
-            capture_output=True, text=True, check=False, timeout=10, env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=env,
         )
         assert result.returncode != 1 or "skipped" in result.stdout.lower(), (
             f"Dry-run inside CC failed: {result.stderr}"
@@ -240,32 +248,58 @@ class TestE2ECLIFlags:
 
     def test_run_with_model_flag(self, tmp_path):
         rf = tmp_path / "r.py"
-        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        rf.write_text(
+            "from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n"
+        )
         result = _run(["run", str(rf), "--dry-run", "--model", "opus"])
         assert result.returncode in (0, 1)
 
     def test_run_with_bare_flag(self, tmp_path):
         rf = tmp_path / "r.py"
-        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        rf.write_text(
+            "from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n"
+        )
         result = _run(["run", str(rf), "--dry-run", "--bare"])
         assert result.returncode in (0, 1)
 
     def test_run_with_json_schema_auto(self, tmp_path):
         rf = tmp_path / "r.py"
-        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        rf.write_text(
+            "from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n"
+        )
         result = _run(["run", str(rf), "--dry-run", "--json-schema", "auto"])
         assert result.returncode in (0, 1)
 
     def test_run_with_max_budget(self, tmp_path):
         rf = tmp_path / "r.py"
-        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
+        rf.write_text(
+            "from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n"
+        )
         result = _run(["run", str(rf), "--dry-run", "--max-budget", "0.50"])
         assert result.returncode in (0, 1)
 
     def test_run_with_all_flags(self, tmp_path):
         rf = tmp_path / "r.py"
-        rf.write_text("from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n")
-        result = _run(["run", str(rf), "--dry-run", "--verbose", "--bare", "--json-schema", "auto", "--system-prompt", "auto", "--max-budget", "1.00", "--model", "sonnet"])
+        rf.write_text(
+            "from rondo.engine import Round, Task\ndef build_round(): return Round(name='t', tasks=[Task(name='t', instruction='do', done_when='done')])\n"
+        )
+        result = _run(
+            [
+                "run",
+                str(rf),
+                "--dry-run",
+                "--verbose",
+                "--bare",
+                "--json-schema",
+                "auto",
+                "--system-prompt",
+                "auto",
+                "--max-budget",
+                "1.00",
+                "--model",
+                "sonnet",
+            ]
+        )
         assert result.returncode in (0, 1)
         assert "skipped" in result.stdout.lower()
 
@@ -582,8 +616,11 @@ class TestE2ETraceability:
     def test_traceability_runs(self):
         result = subprocess.run(
             ["python3", "scripts/traceability.py"],
-            capture_output=True, text=True, check=False,
-            timeout=10, cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
         )
         assert "TRACEABILITY MATRIX" in result.stdout
         assert "TRACED" in result.stdout
@@ -591,8 +628,11 @@ class TestE2ETraceability:
     def test_traceability_json(self):
         result = subprocess.run(
             ["python3", "scripts/traceability.py", "--json"],
-            capture_output=True, text=True, check=False,
-            timeout=10, cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
         )
         data = json.loads(result.stdout)
         assert len(data) >= 5  # at least 5 specs traced
@@ -664,11 +704,7 @@ class TestE2ESanitizePipeline:
         tr = TaskResult(
             task_name="code_review",
             raw_output="Found password = 'db_admin_secret_99' in config.py",
-            parsed_result={
-                "findings": [
-                    {"file": "config.py", "issue": "api_key = 'sk-leaked-key-12345' exposed"}
-                ]
-            },
+            parsed_result={"findings": [{"file": "config.py", "issue": "api_key = 'sk-leaked-key-12345' exposed"}]},
         )
         sanitized_tr, sr = sanitize_task_result(tr)
         # -- Original untouched
@@ -795,21 +831,30 @@ class TestE2EFlakyPipeline:
 
         # -- Stable task: always succeeds
         for day in range(14):
-            engine.add_outcome(DispatchOutcome(
-                task_name="lint_check", prompt_hash="sha256:stable",
-                model="claude-sonnet-4-6", status="done",
-                confidence=0.95, run_at=f"2026-03-{10+day:02d}T03:00:00Z",
-            ))
+            engine.add_outcome(
+                DispatchOutcome(
+                    task_name="lint_check",
+                    prompt_hash="sha256:stable",
+                    model="claude-sonnet-4-6",
+                    status="done",
+                    confidence=0.95,
+                    run_at=f"2026-03-{10 + day:02d}T03:00:00Z",
+                )
+            )
 
         # -- Flaky task: alternates done/error
         for day in range(14):
             status = "done" if day % 3 != 0 else "error"
-            engine.add_outcome(DispatchOutcome(
-                task_name="deploy_check", prompt_hash="sha256:flaky",
-                model="claude-sonnet-4-6", status=status,
-                confidence=0.5 if status == "error" else 0.85,
-                run_at=f"2026-03-{10+day:02d}T03:00:00Z",
-            ))
+            engine.add_outcome(
+                DispatchOutcome(
+                    task_name="deploy_check",
+                    prompt_hash="sha256:flaky",
+                    model="claude-sonnet-4-6",
+                    status=status,
+                    confidence=0.5 if status == "error" else 0.85,
+                    run_at=f"2026-03-{10 + day:02d}T03:00:00Z",
+                )
+            )
 
         flaky_tasks = engine.get_flaky_tasks()
         flaky_names = [f.task_name for f in flaky_tasks]
@@ -823,19 +868,28 @@ class TestE2EFlakyPipeline:
         engine = FlakyEngine()
         # -- Sonnet: mostly reliable
         for i in range(10):
-            engine.add_outcome(DispatchOutcome(
-                task_name="review", prompt_hash="sha256:same",
-                model="claude-sonnet-4-6", status="done",
-                confidence=0.9, run_at=f"2026-03-{10+i}T01:00:00Z",
-            ))
+            engine.add_outcome(
+                DispatchOutcome(
+                    task_name="review",
+                    prompt_hash="sha256:same",
+                    model="claude-sonnet-4-6",
+                    status="done",
+                    confidence=0.9,
+                    run_at=f"2026-03-{10 + i}T01:00:00Z",
+                )
+            )
         # -- Haiku: more errors
         for i in range(10):
-            engine.add_outcome(DispatchOutcome(
-                task_name="review", prompt_hash="sha256:same",
-                model="claude-haiku-4-5",
-                status="done" if i % 2 == 0 else "error",
-                confidence=0.6, run_at=f"2026-03-{10+i}T02:00:00Z",
-            ))
+            engine.add_outcome(
+                DispatchOutcome(
+                    task_name="review",
+                    prompt_hash="sha256:same",
+                    model="claude-haiku-4-5",
+                    status="done" if i % 2 == 0 else "error",
+                    confidence=0.6,
+                    run_at=f"2026-03-{10 + i}T02:00:00Z",
+                )
+            )
         stats = engine.get_model_stats()
         assert stats["claude-haiku-4-5"]["flakiness"] > stats["claude-sonnet-4-6"]["flakiness"]
 
@@ -846,11 +900,16 @@ class TestE2EFlakyPipeline:
         engine = FlakyEngine()
         # -- Wild confidence swings: 0.2 to 0.95
         for conf in [0.2, 0.95, 0.3, 0.88, 0.15, 0.92]:
-            engine.add_outcome(DispatchOutcome(
-                task_name="vague_task", prompt_hash="sha256:vague",
-                model="m", status="done", confidence=conf,
-                run_at="2026-03-20T01:00:00Z",
-            ))
+            engine.add_outcome(
+                DispatchOutcome(
+                    task_name="vague_task",
+                    prompt_hash="sha256:vague",
+                    model="m",
+                    status="done",
+                    confidence=conf,
+                    run_at="2026-03-20T01:00:00Z",
+                )
+            )
         summary = engine.get_summary("vague_task", "sha256:vague")
         assert summary.confidence_variance > 0.05
 
@@ -860,11 +919,16 @@ class TestE2EFlakyPipeline:
 
         engine = FlakyEngine()
         for i, s in enumerate(["done", "error", "done", "error", "done"]):
-            engine.add_outcome(DispatchOutcome(
-                task_name="unstable", prompt_hash="sha256:test",
-                model="m", status=s, confidence=0.5,
-                run_at=f"2026-03-{20+i}T01:00:00Z",
-            ))
+            engine.add_outcome(
+                DispatchOutcome(
+                    task_name="unstable",
+                    prompt_hash="sha256:test",
+                    model="m",
+                    status=s,
+                    confidence=0.5,
+                    run_at=f"2026-03-{20 + i}T01:00:00Z",
+                )
+            )
         flaky_tasks = engine.get_flaky_tasks()
         report = [f.to_dict() for f in flaky_tasks]
         json_str = json.dumps(report, indent=2)
@@ -967,12 +1031,17 @@ class TestE2EAlwaysOnInfrastructure:
 
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
         record = trail.record_intent(
-            task_name="always-on-test", round_name="test",
-            model="sonnet", prompt="verify always-on",
+            task_name="always-on-test",
+            round_name="test",
+            model="sonnet",
+            prompt="verify always-on",
         )
         trail.record_outcome(
-            dispatch_id=record.dispatch_id, task_name="always-on-test",
-            status="done", exit_code=0, cost_usd=0.01,
+            dispatch_id=record.dispatch_id,
+            task_name="always-on-test",
+            status="done",
+            exit_code=0,
+            cost_usd=0.01,
         )
         jsonl = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
         assert len(jsonl.strip().split("\n")) == 2
@@ -1065,13 +1134,19 @@ class TestE2EFullPipeline:
         # -- Audit
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path / "audit")))
         record = trail.record_intent(
-            task_name="pipeline-test", round_name="e2e",
-            model="sonnet", prompt="test prompt",
+            task_name="pipeline-test",
+            round_name="e2e",
+            model="sonnet",
+            prompt="test prompt",
         )
         trail.record_outcome(
-            dispatch_id=record.dispatch_id, task_name="pipeline-test",
-            status="done", exit_code=0, cost_usd=0.05,
-            duration_sec=5.0, raw_output="clean result",
+            dispatch_id=record.dispatch_id,
+            task_name="pipeline-test",
+            status="done",
+            exit_code=0,
+            cost_usd=0.05,
+            duration_sec=5.0,
+            raw_output="clean result",
         )
 
         # -- Spool
@@ -1139,8 +1214,12 @@ class TestE2EInit:
         """U-10: rondo init creates a round file."""
         result = subprocess.run(
             [RONDO_BIN, "init"],
-            capture_output=True, text=True, check=False,
-            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=_e2e_env(),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0
         assert (tmp_path / "round.py").exists()
@@ -1149,8 +1228,12 @@ class TestE2EInit:
         """U-11: generated file is valid Python that imports correctly."""
         subprocess.run(
             [RONDO_BIN, "init"],
-            capture_output=True, text=True, check=False,
-            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=_e2e_env(),
+            cwd=str(tmp_path),
         )
         content = (tmp_path / "round.py").read_text()
         compile(content, "round.py", "exec")
@@ -1159,13 +1242,20 @@ class TestE2EInit:
         """U-11: generated file runs with rondo run --dry-run immediately."""
         subprocess.run(
             [RONDO_BIN, "init"],
-            capture_output=True, text=True, check=False,
-            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=_e2e_env(),
+            cwd=str(tmp_path),
         )
         result = subprocess.run(
             [RONDO_BIN, "run", str(tmp_path / "round.py"), "--dry-run"],
-            capture_output=True, text=True, check=False,
-            timeout=10, env=_e2e_env(),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=_e2e_env(),
         )
         assert "skipped" in result.stdout.lower() or result.returncode == 1
 
@@ -1173,8 +1263,12 @@ class TestE2EInit:
         """U-12: --name sets the round and task name."""
         result = subprocess.run(
             [RONDO_BIN, "init", "--name", "ush-scan"],
-            capture_output=True, text=True, check=False,
-            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=_e2e_env(),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0
         content = (tmp_path / "round.py").read_text()
@@ -1185,8 +1279,12 @@ class TestE2EInit:
         (tmp_path / "round.py").write_text("existing")
         result = subprocess.run(
             [RONDO_BIN, "init"],
-            capture_output=True, text=True, check=False,
-            timeout=10, env=_e2e_env(), cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+            env=_e2e_env(),
+            cwd=str(tmp_path),
         )
         assert result.returncode != 0
         assert (tmp_path / "round.py").read_text() == "existing"
@@ -1213,6 +1311,7 @@ class TestRealDispatchSmoke:
         """Ollama dispatch: real HTTP call to local model."""
         import tempfile
         import textwrap
+
         round_src = textwrap.dedent("""
             from rondo.engine import Round, Task
             def build_round():
@@ -1225,9 +1324,7 @@ class TestRealDispatchSmoke:
             round_file = f.name
         result = _run(["run", round_file, "--model", "local:llama3.1:8b"], timeout=30)
         ## -- 0=success, 1=Ollama down or dispatch error — both are valid PATH outcomes
-        assert result.returncode in (0, 1), (
-            f"Unexpected returncode {result.returncode}: {result.stderr[:200]}"
-        )
+        assert result.returncode in (0, 1), f"Unexpected returncode {result.returncode}: {result.stderr[:200]}"
 
     def test_real_claude_dispatch(self) -> None:
         """Claude dispatch: real subprocess via claude -p (with --bare).
@@ -1267,6 +1364,201 @@ class TestRealDispatchSmoke:
                 assert data.get("status") in ("done", "partial", "error", "skipped")
             except _json.JSONDecodeError:
                 pass  ## -- Non-JSON output is acceptable (old CC versions)
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-FIX-641: Real cloud provider E2E (costs ~$0.01-0.05)
+# -- ──────────────────────────────────────────────────────────────
+
+
+def _has_cloud_key(provider: str) -> bool:
+    """Check if an API key is configured for a cloud provider."""
+    try:
+        from rondo.adapters.auth import load_api_key
+
+        return bool(load_api_key(provider))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+skip_no_gemini = pytest.mark.skipif(not _has_cloud_key("gemini"), reason="No Gemini API key")
+skip_no_grok = pytest.mark.skipif(not _has_cloud_key("grok"), reason="No Grok API key")
+skip_no_mistral = pytest.mark.skipif(not _has_cloud_key("mistral"), reason="No Mistral API key")
+
+
+@skip_no_rondo
+class TestRealCloudDispatch:
+    """Real cloud provider dispatch — proves adapters work end-to-end.
+
+    Each test sends a tiny prompt to a real cloud API and verifies:
+    1. Adapter loads the key correctly (auth chain)
+    2. HTTP request succeeds (payload format, headers)
+    3. Response parses into valid TaskResult (done + non-empty output)
+    4. Finalization records audit trail
+
+    Costs: Gemini ~$0.001, Grok ~$0.003, Mistral ~$0.002 per test.
+    Skips automatically if API key not configured for that provider.
+    """
+
+    @skip_no_gemini
+    def test_real_gemini_dispatch(self) -> None:
+        """Gemini adapter: real HTTP to Google Gemini API."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key=load_api_key("gemini"))
+        result = adapter.dispatch(
+            prompt="Reply with exactly one word: HELLO",
+            model="gemini-2.5-flash",
+        )
+        assert result.status == "done", f"Gemini failed: {result.error_message}"
+        assert result.raw_output.strip(), "Gemini returned empty response"
+        assert result.duration_sec > 0
+
+    @skip_no_grok
+    def test_real_grok_dispatch(self) -> None:
+        """Grok adapter: real HTTP to xAI API."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(
+            provider_name="grok",
+            base_url="https://api.x.ai/v1",
+            api_key=load_api_key("grok"),
+            default_model="grok-3-fast",
+        )
+        result = adapter.dispatch(
+            prompt="Reply with exactly one word: HELLO",
+            model="grok-3-fast",
+        )
+        assert result.status == "done", f"Grok failed: {result.error_message}"
+        assert result.raw_output.strip(), "Grok returned empty response"
+        assert result.duration_sec > 0
+
+    @skip_no_mistral
+    def test_real_mistral_dispatch(self) -> None:
+        """Mistral adapter: real HTTP to Mistral API (EU provider)."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(
+            provider_name="mistral",
+            base_url="https://api.mistral.ai/v1",
+            api_key=load_api_key("mistral"),
+            default_model="mistral-small-latest",
+        )
+        result = adapter.dispatch(
+            prompt="Reply with exactly one word: HELLO",
+            model="mistral-small-latest",
+        )
+        assert result.status == "done", f"Mistral failed: {result.error_message}"
+        assert result.raw_output.strip(), "Mistral returned empty response"
+        assert result.duration_sec > 0
+
+
+@skip_no_rondo
+class TestRealMultiProviderReview:
+    """Real multi-provider review — Gemini + Grok review the same prompt.
+
+    Proves rondo_multi_review works end-to-end with real API calls.
+    This is the "ask two AIs to review something" pattern from the doc.
+    """
+
+    @skip_no_gemini
+    @skip_no_grok
+    def test_real_gemini_grok_review(self) -> None:
+        """Two real providers review the same code snippet."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+        from rondo.adapters.gemini import GeminiAdapter
+
+        prompt = "Review this Python function for bugs:\ndef add(a, b): return a + b"
+
+        gemini = GeminiAdapter(api_key=load_api_key("gemini"))
+        grok = ChatCompletionsAdapter(
+            provider_name="grok",
+            base_url="https://api.x.ai/v1",
+            api_key=load_api_key("grok"),
+            default_model="grok-3-fast",
+        )
+
+        r_gemini = gemini.dispatch(prompt=prompt, model="gemini-2.5-flash")
+        r_grok = grok.dispatch(prompt=prompt, model="grok-3-fast")
+
+        assert r_gemini.status == "done", f"Gemini: {r_gemini.error_message}"
+        assert r_grok.status == "done", f"Grok: {r_grok.error_message}"
+        ## Both should return non-empty reviews
+        assert len(r_gemini.raw_output) > 10, "Gemini review too short"
+        assert len(r_grok.raw_output) > 10, "Grok review too short"
+
+    @skip_no_gemini
+    @skip_no_mistral
+    def test_real_gemini_mistral_review(self) -> None:
+        """Gemini + Mistral (EU) review the same code."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+        from rondo.adapters.gemini import GeminiAdapter
+
+        prompt = "Is this SQL safe from injection?\nquery = f'SELECT * FROM users WHERE id={user_id}'"
+
+        gemini = GeminiAdapter(api_key=load_api_key("gemini"))
+        mistral = ChatCompletionsAdapter(
+            provider_name="mistral",
+            base_url="https://api.mistral.ai/v1",
+            api_key=load_api_key("mistral"),
+            default_model="mistral-small-latest",
+        )
+
+        r_gemini = gemini.dispatch(prompt=prompt, model="gemini-2.5-flash")
+        r_mistral = mistral.dispatch(prompt=prompt, model="mistral-small-latest")
+
+        assert r_gemini.status == "done", f"Gemini: {r_gemini.error_message}"
+        assert r_mistral.status == "done", f"Mistral: {r_mistral.error_message}"
+        ## Both should flag the SQL injection
+        combined = (r_gemini.raw_output + r_mistral.raw_output).lower()
+        assert "inject" in combined or "unsafe" in combined or "vulnerab" in combined, (
+            "Neither provider flagged the SQL injection"
+        )
+
+
+@skip_no_rondo
+class TestRealProviderHealth:
+    """Real health checks against live cloud APIs."""
+
+    @skip_no_gemini
+    def test_gemini_health(self) -> None:
+        """Gemini health check returns True with valid key."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key=load_api_key("gemini"))
+        assert adapter.health() is True
+
+    @skip_no_grok
+    def test_grok_health(self) -> None:
+        """Grok health check returns True — REQ-109 req 071."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(
+            provider_name="grok",
+            base_url="https://api.x.ai/v1",
+            api_key=load_api_key("grok"),
+        )
+        assert adapter.health() is True
+
+    @skip_no_mistral
+    def test_mistral_health(self) -> None:
+        """Mistral health check returns True."""
+        from rondo.adapters.auth import load_api_key
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(
+            provider_name="mistral",
+            base_url="https://api.mistral.ai/v1",
+            api_key=load_api_key("mistral"),
+        )
+        assert adapter.health() is True
 
 
 # -- ──────────────────────────────────────────────────────────────

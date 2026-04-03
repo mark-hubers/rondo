@@ -48,7 +48,7 @@ rondo run examples/round_hello.py --model gemini:flash
 ## 5. Multi-provider review — from Claude Code (MCP) or Cursor (MCP)
 ## rondo_multi_review(prompt="Review this code", providers='["gemini:flash", "grok:grok-3"]')
 ##
-## Or from CLI (sequential, same result):
+## Or approximate from CLI (sequential, no merged findings):
 ## rondo run round.py --model gemini:flash && rondo run round.py --model grok:grok-3
 ```
 

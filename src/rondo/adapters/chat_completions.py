@@ -11,8 +11,8 @@ Based on ai_review.py call_openai/call_grok/call_mistral (proven patterns).
 Health strategy (REQ-109 req 073):
     OpenAI: GET /v1/models (supported, returns model list)
     Mistral: GET /v1/models (OpenAI-compatible, supported)
-    Grok (xAI): GET /v1/models attempted; falls back to HEAD /v1/chat/completions
-    if /models returns non-200.
+    Grok (xAI): GET /v1/models attempted; any non-5xx HTTP error (404, 401)
+    treated as "reachable" since it proves network path works.
 """
 
 from __future__ import annotations

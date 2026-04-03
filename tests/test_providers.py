@@ -964,21 +964,23 @@ class TestLoadProvidersConfig:
     """REQ-109 req 041: config loading for tier resolution."""
 
     def teardown_method(self) -> None:
-        from rondo.providers import _providers_config
+        import rondo.providers as _p
 
-        _providers_config.clear()
+        _p._providers_config.clear()
+        _p._providers_loaded = False
 
     def test_load_from_dict(self) -> None:
-        from rondo.providers import _providers_config, load_providers_config
+        import rondo.providers as _p
 
-        _providers_config.clear()
+        _p._providers_config.clear()
+        _p._providers_loaded = False
         toml = {
             "providers": {
                 "gemini": {"best_model": "gemini-pro"},
             }
         }
-        load_providers_config(toml)
-        assert _providers_config["gemini"]["best_model"] == "gemini-pro"
+        _p.load_providers_config(toml)
+        assert _p._providers_config["gemini"]["best_model"] == "gemini-pro"
 
     def test_load_empty_dict(self) -> None:
         from rondo.providers import _providers_config, load_providers_config
@@ -993,6 +995,67 @@ class TestLoadProvidersConfig:
         _providers_config.clear()
         load_providers_config({"other": "stuff"})
         assert _providers_config == {}
+
+    def test_load_idempotent(self) -> None:
+        """Second call without toml_data is a no-op (uses _providers_loaded flag)."""
+        import rondo.providers as _p
+
+        _p._providers_config.clear()
+        _p._providers_loaded = False
+        _p.load_providers_config({"providers": {"gemini": {"best_model": "pro"}}})
+        assert _p._providers_config["gemini"]["best_model"] == "pro"
+        # -- Second call: no toml_data, _providers_loaded=True → no-op
+        _p.load_providers_config()
+        assert _p._providers_config["gemini"]["best_model"] == "pro"
+
+    def test_load_toml_data_always_merges(self) -> None:
+        """Explicit toml_data always merges, even if already loaded."""
+        import rondo.providers as _p
+
+        _p._providers_config.clear()
+        _p._providers_loaded = False
+        _p.load_providers_config({"providers": {"gemini": {"best_model": "flash"}}})
+        _p.load_providers_config({"providers": {"grok": {"best_model": "grok-3"}}})
+        assert "gemini" in _p._providers_config
+        assert "grok" in _p._providers_config
+
+
+class TestProviderConfigWiring:
+    """REQ-109: load_providers_config called from CLI and MCP startup."""
+
+    def teardown_method(self) -> None:
+        import rondo.providers as _p
+
+        _p._providers_config.clear()
+        _p._providers_loaded = False
+
+    def test_cli_main_calls_load_providers(self) -> None:
+        """CLI main() calls load_providers_config before dispatch."""
+        from unittest.mock import patch
+
+        import rondo.providers as _p
+
+        _p._providers_config.clear()
+        _p._providers_loaded = False
+        with patch("rondo.providers.load_providers_config", wraps=_p.load_providers_config) as mock_load:
+            from rondo.cli import main
+
+            main(["preflight"])
+            mock_load.assert_called()
+
+    def test_mcp_server_calls_load_providers(self) -> None:
+        """create_mcp_server() calls load_providers_config."""
+        from unittest.mock import patch
+
+        import rondo.providers as _p
+
+        _p._providers_config.clear()
+        _p._providers_loaded = False
+        with patch("rondo.providers.load_providers_config", wraps=_p.load_providers_config) as mock_load:
+            from rondo.mcp_server import create_mcp_server
+
+            create_mcp_server()
+            mock_load.assert_called()
 
 
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

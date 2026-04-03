@@ -4,9 +4,9 @@
 
 Each adapter handles one API pattern:
 - ollama.py: Local LLM via Ollama HTTP API
-- chat_completions.py: OpenAI + Grok + Mistral (same API shape) [TODO]
-- gemini.py: Google Gemini generateContent API [TODO]
-- anthropic_api.py: Anthropic Messages API [TODO]
+- chat_completions.py: OpenAI + Grok + Mistral (same API shape)
+- gemini.py: Google Gemini generateContent API
+- anthropic_api.py: Anthropic Messages API
 
 Import adapters directly: from rondo.adapters.ollama import OllamaAdapter
 """

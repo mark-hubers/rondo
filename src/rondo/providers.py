@@ -74,18 +74,24 @@ _TIER_MAP = {"high": "best_model", "default": "default_model", "low": "cheap_mod
 
 ## Cached provider config from TOML (populated by load_providers_config)
 _providers_config: dict[str, dict[str, str]] = {}
+_providers_loaded: bool = False
 
 
 def load_providers_config(toml_data: dict | None = None) -> None:
     """Load [providers] section from TOML into tier resolution cache.
 
-    Called at startup. If no TOML provided, tries ~/.rondo/config.toml.
+    Called at startup (CLI main, MCP server create) and idempotent.
+    If no TOML provided, tries ~/.rondo/config.toml.
+    Graceful: missing config file = empty config (no error).
     """
-    global _providers_config  # noqa: PLW0603
+    global _providers_config, _providers_loaded  # noqa: PLW0603
     if toml_data is not None:
         _providers_config.update(toml_data.get("providers", {}))
+        _providers_loaded = True
         return
-    ## Fallback: load from default config path
+    if _providers_loaded:
+        return
+    ## Load from default config path
     from pathlib import Path
 
     config_path = Path.home() / ".rondo" / "config.toml"
@@ -95,6 +101,7 @@ def load_providers_config(toml_data: dict | None = None) -> None:
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
         _providers_config.update(data.get("providers", {}))
+    _providers_loaded = True
 
 
 def resolve_tier(provider: str, tier: str) -> str:

@@ -311,6 +311,11 @@ def main(argv: list[str] | None = None) -> int:
         parser = build_parser()
         args = parser.parse_args(argv)
 
+        # -- REQ-109: load provider config for tier resolution
+        from rondo.providers import load_providers_config  # pylint: disable=import-outside-toplevel
+
+        load_providers_config()
+
         # -- CORE-STD-023: --ai-help outputs JSON capability description
         if getattr(args, "ai_help", False):
             import json as _json  # pylint: disable=import-outside-toplevel

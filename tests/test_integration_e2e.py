@@ -1514,10 +1514,22 @@ class TestRealMultiProviderReview:
 
         assert r_gemini.status == "done", f"Gemini: {r_gemini.error_message}"
         assert r_mistral.status == "done", f"Mistral: {r_mistral.error_message}"
-        ## Both should flag the SQL injection
+        ## Both should flag the SQL injection — check broad keyword set
+        ## (models may rephrase: "injection", "parameterize", "sanitize", etc.)
         combined = (r_gemini.raw_output + r_mistral.raw_output).lower()
-        assert "inject" in combined or "unsafe" in combined or "vulnerab" in combined, (
-            "Neither provider flagged the SQL injection"
+        security_keywords = (
+            "inject",
+            "unsafe",
+            "vulnerab",
+            "sanitiz",
+            "parameteriz",
+            "f-string",
+            "sqli",
+            "untrust",
+            "escap",
+        )
+        assert any(kw in combined for kw in security_keywords), (
+            f"Neither provider flagged the SQL injection. Combined output: {combined[:200]}"
         )
 
 

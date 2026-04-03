@@ -1,10 +1,11 @@
 # Rondo
 
-**Define AI tasks in Python. Send them to Claude. Get structured results back.**
+**Define AI tasks in Python. Send them to any AI — Claude, Gemini, Grok, Mistral. Get structured results back.**
 
-Rondo is a task automation framework for Claude Code. You write round definitions
-in plain Python — tasks, gates, config — and Rondo handles dispatch, parallelism,
-error recovery, usage tracking, and overnight scheduling.
+Rondo is a multi-provider AI dispatch engine. Write round definitions in plain
+Python — tasks, gates, config — and Rondo handles routing to 7 providers,
+parallel dispatch, error recovery, cost tracking, and overnight scheduling.
+Use it from CLI, MCP (Claude Code), or Python import.
 
 ```python
 from rondo import Round, Task, run_round
@@ -25,11 +26,35 @@ print(f"{result.status}: {result.summary}")
 
 ---
 
+## 5 Minutes to Your First Review
+
+```bash
+## 1. Install
+cd rondo && uv tool install --editable .
+
+## 2. Dry-run an example (no AI calls, free)
+rondo run examples/round_hello.py --dry-run
+
+## 3. Run it for real (Claude, ~$0.01)
+rondo run examples/round_hello.py
+
+## 4. Try a cloud provider (Gemini, ~$0.001)
+rondo run examples/round_hello.py --model gemini:flash
+
+## 5. Multi-provider review (Gemini + Grok, ~$0.005)
+## (From Claude Code — via MCP)
+## rondo_multi_review(prompt="Review this code for bugs", providers='["gemini:flash", "grok:grok-3"]')
+```
+
+That's it. `--dry-run` shows prompts without calling AI. Remove it to dispatch for real.
+
+---
+
 ## What Rondo Does
 
 | You write | Rondo handles |
 |-----------|---------------|
-| Tasks with instructions | Dispatch to Claude via `claude -p` |
+| Tasks with instructions | Dispatch to Claude, Gemini, Grok, Mistral, or Ollama |
 | Gates (pre/post checks) | Blocking vs advisory gate logic |
 | Config (model, workers) | COALESCE resolution (CLI > config > defaults) |
 | Round definitions | Sequential or parallel execution |

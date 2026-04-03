@@ -28,25 +28,34 @@ print(f"{result.status}: {result.summary}")
 
 ## 5 Minutes to Your First Review
 
-```bash
-## 1. Install
-cd rondo && uv tool install --editable .
+**Prerequisites:** `claude` on PATH (Claude Code installed) OR a cloud API key
+(`GEMINI_API_KEY`, `XAI_API_KEY`, etc.) in env or macOS Keychain.
 
-## 2. Dry-run an example (no AI calls, free)
+```bash
+## 1. Install (from repo root)
+cd rondo && uv tool install --editable .
+## Or: pip install -e ~/git/mhubers/ace2/rondo
+
+## 2. Dry-run an example (no AI calls, free, always works)
 rondo run examples/round_hello.py --dry-run
 
-## 3. Run it for real (Claude, ~$0.01)
+## 3. Run with Claude (~$0.01, requires claude on PATH)
 rondo run examples/round_hello.py
 
-## 4. Try a cloud provider (Gemini, ~$0.001)
+## 4. Run with Gemini instead (~$0.001, requires GEMINI_API_KEY)
 rondo run examples/round_hello.py --model gemini:flash
 
-## 5. Multi-provider review (Gemini + Grok, ~$0.005)
-## (From Claude Code — via MCP)
-## rondo_multi_review(prompt="Review this code for bugs", providers='["gemini:flash", "grok:grok-3"]')
+## 5. Multi-provider review — from Claude Code (MCP) or Cursor (MCP)
+## rondo_multi_review(prompt="Review this code", providers='["gemini:flash", "grok:grok-3"]')
+##
+## Or from CLI (sequential, same result):
+## rondo run round.py --model gemini:flash && rondo run round.py --model grok:grok-3
 ```
 
-That's it. `--dry-run` shows prompts without calling AI. Remove it to dispatch for real.
+`--dry-run` shows prompts without calling AI. Remove it to dispatch for real.
+`gemini:flash` is a literal model ID, not a tier. Tiers (`gemini:high`) require `~/.rondo/config.toml`.
+
+**Note:** `round_code_review.py` requires staged git changes (`git add`). Start with `round_hello.py`.
 
 ---
 
@@ -80,7 +89,7 @@ Rondo follows the Unix philosophy: **do one thing well, compose with pipes.**
 ```
 grep does one thing:    match patterns
 sort does one thing:    order lines
-rondo does one thing:   run Claude tasks and give you JSON back
+rondo does one thing:   run AI tasks and give you JSON back
 ```
 
 The power isn't in any single tool — it's in how you chain them.

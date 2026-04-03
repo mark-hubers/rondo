@@ -16,7 +16,7 @@
                           │  rondo run        rondo_run()   Round() │
                           │  rondo providers  rondo_cloud() Task()  │
                           │  rondo metrics    + 16 more     run()   │
-                          │  14 commands      18 tools      import  │
+                          │  14 commands      21 tools      import  │
                           └────────┬──────────┬──────────┬──────────┘
                                    │          │          │
                           ┌────────┴──────────┴──────────┴──────────┐

@@ -154,9 +154,7 @@ class TestProviderRouting:
         # -- Write a TOML config with overrides
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            '[routing.task_models]\n'
-            '"code-review" = "my-custom-model:latest"\n'
-            '"reasoning" = "my-reasoning:7b"\n'
+            '[routing.task_models]\n"code-review" = "my-custom-model:latest"\n"reasoning" = "my-reasoning:7b"\n'
         )
         # -- Load and verify overrides win
         load_task_models(str(config_file))
@@ -243,11 +241,13 @@ class TestMCPProviderRouting:
         """rondo_run_file with ollama model uses OllamaAdapter."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Say hello",
-            model="llama3.2",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Say hello",
+                model="llama3.2",
+                dry_run=True,
+            )
+        )
         ## -- Dry-run with non-Claude model: should still return valid result
         assert result["status"] in ("done", "skipped", "error")
 
@@ -255,11 +255,13 @@ class TestMCPProviderRouting:
         """rondo_run_file with sonnet uses existing Claude dispatch."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Say hello",
-            model="sonnet",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Say hello",
+                model="sonnet",
+                dry_run=True,
+            )
+        )
         assert result["status"] in ("done", "skipped")
 
 
@@ -277,9 +279,13 @@ class TestProviderAuditTrail:
         (tmp_path / "audit").mkdir()
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Say hello", model="llama3.1:8b", dry_run=False,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Say hello",
+                model="llama3.1:8b",
+                dry_run=False,
+            )
+        )
         ## -- Check audit file exists and has records
         audit_file = tmp_path / "audit" / "rondo_audit.jsonl"
         if audit_file.exists():
@@ -304,8 +310,10 @@ class TestScheduleSafeguards:
         ## -- Create 20 schedules (should work)
         for i in range(20):
             rondo_schedule_create(
-                file_path="/tmp/test.py", name=f"test-{i}",
-                interval="weekly", dry_run=True,
+                file_path="/tmp/test.py",
+                name=f"test-{i}",
+                interval="weekly",
+                dry_run=True,
             )
         ## -- 21st should fail (but only when installing, not dry-run)
         ## -- Dry-run always works since it doesn't check installed count
@@ -316,12 +324,14 @@ class TestSafeParallel:
 
     def test_task_has_safe_parallel(self) -> None:
         from rondo.engine import Task
+
         t = Task(name="t", instruction="x", done_when="y")
         assert hasattr(t, "safe_parallel")
         assert t.safe_parallel is False  ## default: not safe for parallel
 
     def test_safe_parallel_true(self) -> None:
         from rondo.engine import Task
+
         t = Task(name="t", instruction="x", done_when="y", safe_parallel=True)
         assert t.safe_parallel is True
 
@@ -365,7 +375,10 @@ class TestCLIProviderDispatch:
         result = subprocess.run(
             ["/Users/markhubers/.local/bin/rondo", "run", "--dry-run", "--model", "llama3.1:8b"],
             input="",
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
             env={k: v for k, v in __import__("os").environ.items() if k != "CLAUDECODE"},
         )
         ## -- Dry-run should work (shows prompts, no dispatch)
@@ -488,6 +501,263 @@ class TestGeminiAdapter:
         provider = get_provider("gemini:gemini-2.5-pro")
         assert provider is not None
         assert provider.name == "gemini"
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  Error handling hardening — REQ-109 reqs 068, 069, 070, 071, 072
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAdapterErrorCodes:
+    """REQ-109 req 068: adapters MUST return distinct error codes for HTTP status."""
+
+    def test_chat_completions_401_returns_err_auth(self) -> None:
+        """401 from provider → ERR_AUTH, not ERR_PROVIDER."""
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="bad-key")
+        exc = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            result = adapter.dispatch(prompt="hello", model="gpt-4.1")
+        assert result.error_code == "ERR_AUTH"
+        assert "401" in result.error_message
+
+    def test_chat_completions_429_returns_err_rate_limit(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="key")
+        exc = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            result = adapter.dispatch(prompt="hello", model="gpt-4.1")
+        assert result.error_code == "ERR_RATE_LIMIT"
+
+    def test_chat_completions_500_returns_err_provider_down(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="key")
+        exc = urllib.error.HTTPError("url", 500, "Internal Server Error", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            result = adapter.dispatch(prompt="hello", model="gpt-4.1")
+        assert result.error_code == "ERR_PROVIDER_DOWN"
+
+    def test_gemini_401_returns_err_auth(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="bad-key")
+        exc = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            result = adapter.dispatch(prompt="hello", model="gemini-2.5-flash")
+        assert result.error_code == "ERR_AUTH"
+
+    def test_anthropic_429_returns_err_rate_limit(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="key")
+        exc = urllib.error.HTTPError("url", 429, "Rate Limited", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            result = adapter.dispatch(prompt="hello", model="claude-sonnet-4-6")
+        assert result.error_code == "ERR_RATE_LIMIT"
+
+    def test_anthropic_500_returns_err_provider_down(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="key")
+        exc = urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            result = adapter.dispatch(prompt="hello", model="claude-sonnet-4-6")
+        assert result.error_code == "ERR_PROVIDER_DOWN"
+
+
+class TestAdapterKeyInvalidation:
+    """REQ-109 req 069: ERR_AUTH must call invalidate_key()."""
+
+    def test_chat_completions_401_invalidates_key(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="grok", api_key="expired")
+        exc = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            with patch("rondo.adapters.auth.invalidate_key") as mock_inv:
+                adapter.dispatch(prompt="hello", model="grok-3")
+        mock_inv.assert_called_once_with("grok")
+
+    def test_gemini_403_invalidates_key(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="revoked")
+        exc = urllib.error.HTTPError("url", 403, "Forbidden", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            with patch("rondo.adapters.auth.invalidate_key") as mock_inv:
+                adapter.dispatch(prompt="hello", model="gemini-2.5-flash")
+        mock_inv.assert_called_once_with("gemini")
+
+    def test_anthropic_401_invalidates_key(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="expired")
+        exc = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            with patch("rondo.adapters.auth.invalidate_key") as mock_inv:
+                adapter.dispatch(prompt="hello", model="claude-sonnet-4-6")
+        mock_inv.assert_called_once_with("anthropic")
+
+    def test_429_does_not_invalidate_key(self) -> None:
+        """Rate limit is not an auth error — key should stay cached."""
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="valid")
+        exc = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            with patch("rondo.adapters.auth.invalidate_key") as mock_inv:
+                adapter.dispatch(prompt="hello", model="gpt-4.1")
+        mock_inv.assert_not_called()
+
+
+class TestAdapterEmptyResponse:
+    """REQ-109 req 070: empty response body = error, not success."""
+
+    def test_chat_completions_empty_choices(self) -> None:
+        """Provider returns 200 with empty choices → ERR_EMPTY_RESPONSE."""
+        import io
+        import json
+        from unittest.mock import MagicMock, patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="key")
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"choices": []}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            result = adapter.dispatch(prompt="hello", model="gpt-4.1")
+        assert result.status == "error"
+        assert result.error_code == "ERR_EMPTY_RESPONSE"
+
+    def test_gemini_missing_candidates(self) -> None:
+        """Gemini returns 200 but no candidates → ERR_EMPTY_RESPONSE."""
+        import json
+        from unittest.mock import MagicMock, patch
+
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="key")
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"candidates": []}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            result = adapter.dispatch(prompt="hello", model="gemini-2.5-flash")
+        assert result.status == "error"
+        assert result.error_code == "ERR_EMPTY_RESPONSE"
+
+    def test_anthropic_empty_content(self) -> None:
+        """Anthropic returns 200 with empty content → ERR_EMPTY_RESPONSE."""
+        import json
+        from unittest.mock import MagicMock, patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="key")
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"content": []}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            result = adapter.dispatch(prompt="hello", model="claude-sonnet-4-6")
+        assert result.status == "error"
+        assert result.error_code == "ERR_EMPTY_RESPONSE"
+
+
+class TestAdapterHealthStrategy:
+    """REQ-109 reqs 071, 072: provider-appropriate health checks."""
+
+    def test_anthropic_health_checks_reachability(self) -> None:
+        """Anthropic health must verify network, not just key presence."""
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test-key")
+        # -- 405 from HEAD = reachable
+        exc = urllib.error.HTTPError("url", 405, "Method Not Allowed", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            assert adapter.health() is True
+
+    def test_anthropic_health_500_is_down(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test-key")
+        exc = urllib.error.HTTPError("url", 500, "Internal Server Error", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            assert adapter.health() is False
+
+    def test_anthropic_health_network_error_is_down(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test-key")
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("no route")):
+            assert adapter.health() is False
+
+    def test_chat_completions_health_404_still_reachable(self) -> None:
+        """If /models returns 404 (Grok), provider is still reachable — REQ-109 req 071."""
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="grok", api_key="key", base_url="https://api.x.ai/v1")
+        exc = urllib.error.HTTPError("url", 404, "Not Found", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            assert adapter.health() is True
+
+    def test_chat_completions_health_500_is_down(self) -> None:
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="grok", api_key="key")
+        exc = urllib.error.HTTPError("url", 500, "Server Error", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            assert adapter.health() is False
 
 
 class TestFinalizationGuard:

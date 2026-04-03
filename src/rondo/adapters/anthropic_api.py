@@ -9,8 +9,13 @@ Based on ai_review.py call_claude (proven pattern).
 Key differences from Chat Completions:
 - Auth: x-api-key header (not Bearer)
 - Required: anthropic-version header
-- Payload: system field + messages (not messages-only)
+- Payload: messages array (system prompt supported via separate field if needed)
 - Response: content[0].text (not choices[0].message.content)
+
+Health strategy (REQ-109 req 073):
+    HEAD request to base_url/messages — returns 405 (Method Not Allowed)
+    which proves API is reachable. Key-present-only is NOT sufficient
+    per REQ-109 req 072. Any non-timeout response = healthy.
 """
 
 from __future__ import annotations
@@ -98,6 +103,17 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 if block.get("type") == "text":
                     text += block.get("text", "")
 
+            # -- REQ-109 req 070: empty response = error
+            if not text:
+                return TaskResult(
+                    task_name=task_name,
+                    status="error",
+                    error_code="ERR_EMPTY_RESPONSE",
+                    error_message="Anthropic returned empty response body",
+                    model=use_model,
+                    duration_sec=duration,
+                )
+
             return TaskResult(
                 task_name=task_name,
                 status="done",
@@ -106,6 +122,29 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 duration_sec=duration,
                 auth_mode="api",
                 cost_usd=0.0,
+            )
+        except urllib.error.HTTPError as exc:
+            # -- REQ-109 req 068: distinct error codes by HTTP status
+            duration = time.monotonic() - start
+            if exc.code in (401, 403):
+                error_code = "ERR_AUTH"
+                # -- REQ-109 req 069: invalidate cached key on auth failure
+                from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
+
+                invalidate_key("anthropic")
+            elif exc.code == 429:
+                error_code = "ERR_RATE_LIMIT"
+            elif exc.code >= 500:
+                error_code = "ERR_PROVIDER_DOWN"
+            else:
+                error_code = "ERR_PROVIDER"
+            return TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code=error_code,
+                error_message=f"Anthropic HTTP {exc.code}: {exc.reason}",
+                model=use_model,
+                duration_sec=duration,
             )
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             duration = time.monotonic() - start
@@ -119,10 +158,34 @@ class AnthropicAPIAdapter(ProviderAdapter):
             )
 
     def health(self) -> bool:
-        """Check if Anthropic API is reachable."""
+        """Check if Anthropic API is reachable — REQ-109 req 072.
+
+        HEAD to /v1/messages — any non-timeout response (even 405) proves
+        the API is up and network path is clear. Key-only is insufficient.
+        """
+        import urllib.error
+        import urllib.request
+
         if not self.api_key:
             return False
-        return True  # -- No lightweight health endpoint; key presence is enough
+        try:
+            req = urllib.request.Request(
+                f"{self.base_url}/messages",
+                headers={
+                    "x-api-key": self.api_key,
+                    "anthropic-version": "2023-06-01",
+                    "User-Agent": "rondo/0.6",
+                },
+                method="HEAD",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+                return resp.status < 500
+        except urllib.error.HTTPError as exc:
+            # -- 405 Method Not Allowed = API is reachable (HEAD not supported)
+            # -- 401/403 = reachable but bad key — still "up"
+            return exc.code < 500
+        except (urllib.error.URLError, OSError):
+            return False
 
     def models(self) -> list[str]:
         """Available Claude models via API."""

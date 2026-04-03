@@ -9,6 +9,10 @@ Key differences from Chat Completions:
 - Auth: API key in URL query param (?key=), not Bearer header
 - Payload: systemInstruction + contents, not messages array
 - Response: candidates[0].content.parts[0].text, not choices[0].message.content
+
+Health strategy (REQ-109 req 073):
+    GET /v1beta/models?key=KEY — Gemini exposes a models endpoint.
+    Returns 200 with model list if reachable and key valid.
 """
 
 from __future__ import annotations
@@ -88,6 +92,17 @@ class GeminiAdapter(ProviderAdapter):
             except (KeyError, IndexError):
                 text = ""
 
+            # -- REQ-109 req 070: empty response = error
+            if not text:
+                return TaskResult(
+                    task_name=task_name,
+                    status="error",
+                    error_code="ERR_EMPTY_RESPONSE",
+                    error_message="Gemini returned empty response body",
+                    model=use_model,
+                    duration_sec=duration,
+                )
+
             return TaskResult(
                 task_name=task_name,
                 status="done",
@@ -96,6 +111,29 @@ class GeminiAdapter(ProviderAdapter):
                 duration_sec=duration,
                 auth_mode="api",
                 cost_usd=0.0,
+            )
+        except urllib.error.HTTPError as exc:
+            # -- REQ-109 req 068: distinct error codes by HTTP status
+            duration = time.monotonic() - start
+            if exc.code in (401, 403):
+                error_code = "ERR_AUTH"
+                # -- REQ-109 req 069: invalidate cached key on auth failure
+                from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
+
+                invalidate_key("gemini")
+            elif exc.code == 429:
+                error_code = "ERR_RATE_LIMIT"
+            elif exc.code >= 500:
+                error_code = "ERR_PROVIDER_DOWN"
+            else:
+                error_code = "ERR_PROVIDER"
+            return TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code=error_code,
+                error_message=f"Gemini HTTP {exc.code}: {exc.reason}",
+                model=use_model,
+                duration_sec=duration,
             )
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             duration = time.monotonic() - start

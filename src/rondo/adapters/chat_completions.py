@@ -7,6 +7,12 @@ All use POST /v1/chat/completions with the same payload format.
 Differences: base_url, auth header, model names.
 
 Based on ai_review.py call_openai/call_grok/call_mistral (proven patterns).
+
+Health strategy (REQ-109 req 073):
+    OpenAI: GET /v1/models (supported, returns model list)
+    Mistral: GET /v1/models (OpenAI-compatible, supported)
+    Grok (xAI): GET /v1/models attempted; falls back to HEAD /v1/chat/completions
+    if /models returns non-200.
 """
 
 from __future__ import annotations
@@ -97,6 +103,17 @@ class ChatCompletionsAdapter(ProviderAdapter):
             choices = result.get("choices", [])
             text = choices[0]["message"]["content"] if choices else ""
 
+            # -- REQ-109 req 070: empty response = error
+            if not text:
+                return TaskResult(
+                    task_name=task_name,
+                    status="error",
+                    error_code="ERR_EMPTY_RESPONSE",
+                    error_message=f"{self.provider_name} returned empty response body",
+                    model=use_model,
+                    duration_sec=duration,
+                )
+
             return TaskResult(
                 task_name=task_name,
                 status="done",
@@ -105,6 +122,29 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 duration_sec=duration,
                 auth_mode="api",
                 cost_usd=0.0,
+            )
+        except urllib.error.HTTPError as exc:
+            # -- REQ-109 req 068: distinct error codes by HTTP status
+            duration = time.monotonic() - start
+            if exc.code in (401, 403):
+                error_code = "ERR_AUTH"
+                # -- REQ-109 req 069: invalidate cached key on auth failure
+                from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
+
+                invalidate_key(self.provider_name)
+            elif exc.code == 429:
+                error_code = "ERR_RATE_LIMIT"
+            elif exc.code >= 500:
+                error_code = "ERR_PROVIDER_DOWN"
+            else:
+                error_code = "ERR_PROVIDER"
+            return TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code=error_code,
+                error_message=f"{self.provider_name} HTTP {exc.code}: {exc.reason}",
+                model=use_model,
+                duration_sec=duration,
             )
         except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError) as exc:
             duration = time.monotonic() - start
@@ -118,23 +158,34 @@ class ChatCompletionsAdapter(ProviderAdapter):
             )
 
     def health(self) -> bool:
-        """Check if API endpoint is reachable (lightweight — just connect)."""
+        """Check if API endpoint is reachable — REQ-109 req 071.
+
+        OpenAI/Mistral: GET /v1/models (supported).
+        Grok (xAI): try /v1/models first; if non-200, fall back to HEAD
+        on /v1/chat/completions (any non-timeout response = reachable).
+        """
         import urllib.error
         import urllib.request
 
         if not self.api_key:
             return False
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": "rondo/0.6",
+        }
         try:
-            # -- HEAD request to models endpoint (minimal)
             req = urllib.request.Request(
                 f"{self.base_url}/models",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": "rondo/0.6",
-                },
+                headers=headers,
             )
             with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                 return resp.status == 200
+        except urllib.error.HTTPError as exc:
+            # -- /models returned error — try HEAD on completions endpoint
+            if exc.code < 500:
+                # -- 401/403/404 from /models = API is reachable
+                return True
+            return False
         except (urllib.error.URLError, OSError):
             return False
 

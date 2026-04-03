@@ -267,8 +267,8 @@ _DEFAULT_MULTI_REVIEW: dict[str, list[str]] = {
     "code-review": ["gemini:flash", "grok:grok-3"],
     "security": ["gemini:flash", "grok:grok-3", "mistral:mistral-large-latest"],
     "analysis": ["gemini:flash", "grok:grok-3"],
-    "research": ["gemini:flash", "mistral:mistral-large-latest"],
-    # -- Deep cognitive pair (explicit IDs — no tier-cache dependency at import time)
+    "research": ["gemini:flash", "grok:grok-3"],
+    # -- Deep cognitive pair — gemini-2.5-pro ≈ doc shorthand "gemini:pro"; mistral large = third-body perspective
     "reasoning": ["gemini:gemini-2.5-pro", "mistral:mistral-large-latest"],
 }
 

@@ -1,9 +1,9 @@
 # Rondo Morning Report
 
 **Mode:** all
-**Started:** 2026-04-02T21:20:05.324812+00:00
-**Completed:** 2026-04-02T21:20:08.144377+00:00
-**Duration:** 2.8s
+**Started:** 2026-04-02T22:15:01.651911+00:00
+**Completed:** 2026-04-02T22:15:04.331481+00:00
+**Duration:** 2.7s
 **Status:** done
 
 ## Summary
@@ -14,7 +14,7 @@
 | Done | 0 |
 | Errors | 0 |
 | Blocked | 0 |
-| Duration | 2.8s (2.8s) |
+| Duration | 2.7s (2.7s) |
 | Health | FAIL |
 
 ## Usage

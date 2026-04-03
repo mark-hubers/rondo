@@ -25,14 +25,14 @@ def get_ai_help() -> dict[str, Any]:
     return {
         "name": "rondo",
         "version": _get_rondo_version(),
-        "description": "AI dispatch layer — route tasks to any AI provider (Claude, Gemini, OpenAI, Grok, Mistral, Anthropic API, Ollama) and get structured results back. Supports single-provider dispatch, multi-provider parallel review (rondo_cloud), and automatic health-based fallback.",
+        "description": "AI dispatch layer — route tasks to any AI provider (Claude, Gemini, Grok, Mistral, Anthropic API, OpenAI, Ollama) and get structured results back. Supports single-provider dispatch, multi-provider sequential review (rondo_cloud / rondo_multi_review), and automatic health-based fallback.",
         "deployment": "Per-user, local infrastructure. Each user runs their own instance via Claude Code MCP stdio. No shared/multi-tenant mode.",
         "important": {
             "model_parameter": "Do NOT specify model= unless you need a DIFFERENT model than your current session. Omitting model= uses your current session model with zero overhead. Specifying a different model spawns a new process (slower).",
             "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
             "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') — $0 cost, ~2 seconds.",
-            "cloud_providers": "Use provider:model syntax for cloud providers: 'gemini:flash', 'openai:gpt-4.1', 'grok:grok-3', 'mistral:large', 'anthropic:claude-sonnet-4-6'. Configure API keys in ~/.rondo/config.toml or env vars.",
-            "multi_provider": "rondo_cloud() dispatches the same prompt to multiple providers sequentially and returns all results. Use for consensus reviews or cross-validation.",
+            "cloud_providers": "Prefer Gemini + Grok + Mistral (core trio). Syntax: 'gemini:flash', 'grok:grok-3', 'mistral:large' or tier 'mistral:high'. OpenAI is optional, not a default. Keys: ~/.rondo/config.toml or env.",
+            "multi_provider": "Default multi-review pairs: Gemini + Grok (mid); security adds Mistral; reasoning uses Gemini 2.5 Pro + Mistral Large. rondo_cloud() and rondo_multi_review() run providers sequentially. Override with [routing.multi_review] in config.",
             "health_fallback": "Providers with health checks auto-fallback when down. Configure fallback= in [providers.<name>] section of config.toml. Check status with: rondo providers",
         },
         "providers": _get_providers(),
@@ -192,7 +192,7 @@ def _get_mcp_tools() -> list[dict[str, str]]:
         {
             "name": "rondo_cloud",
             "category": "cloud",
-            "description": "Dispatch to cloud providers (Gemini/OpenAI/Grok/Mistral/Anthropic) with profile + tier + cost cap",
+            "description": "Dispatch to cloud providers (Gemini/Grok/Mistral/Anthropic/OpenAI optional) with profile + tier + cost cap",
         },
         {
             "name": "rondo_multi_review",
@@ -324,10 +324,10 @@ def get_capabilities() -> dict[str, Any]:
         "cloud_dispatch": {
             "description": "Dispatch to cloud AI providers with health check + automatic fallback (REQ-109)",
             "providers": ["gemini", "openai", "grok", "mistral", "anthropic"],
-            "routing": "Use provider:model syntax — 'gemini:flash', 'openai:gpt-4.1', 'grok:grok-3'",
+            "routing": "Use provider:model syntax — 'gemini:flash', 'grok:grok-3', 'mistral:large'; OpenAI optional",
             "tiers": "provider:high → best_model, provider:default → default_model, provider:low → cheap_model (from config)",
             "fallback": "If primary provider is down, auto-routes to fallback= from config.toml",
-            "multi_provider": "rondo_cloud() dispatches in parallel to N providers, returns per-provider results",
+            "multi_provider": "rondo_cloud() dispatches sequentially to N providers; default trio preference Gemini + Grok (+ Mistral for security)",
             "check": "rondo providers — show all configured providers with health status + latency",
         },
         "provider_health": {

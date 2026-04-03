@@ -13,8 +13,8 @@ NASA validation testing: prove the tool works as documented.
 
 import json
 import os
-import subprocess
 import shutil
+import subprocess
 
 import pytest
 
@@ -728,7 +728,7 @@ class TestE2EAuditPipeline:
 
         # -- Verify JSONL has both records
         jsonl = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
-        lines = [json.loads(l) for l in jsonl.strip().split("\n")]
+        lines = [json.loads(line) for line in jsonl.strip().split("\n")]
         assert len(lines) == 2
         assert lines[0]["status"] == "INTENT"
         assert lines[1]["status"] == "done"
@@ -885,36 +885,36 @@ class TestE2EAuditCLI:
     """rondo audit — real CLI, real audit data."""
 
     def test_audit_list(self):
-        """rondo audit shows records and cost."""
+        """Rondo audit shows records and cost."""
         result = _run(["audit"])
         assert "Audit Trail" in result.stdout or "No audit data" in result.stdout
 
     def test_audit_cost(self):
-        """rondo audit --cost shows total."""
+        """Rondo audit --cost shows total."""
         result = _run(["audit", "--cost"])
         assert "$" in result.stdout or "No audit data" in result.stdout
 
     def test_audit_failed(self):
-        """rondo audit --failed shows or reports none."""
+        """Rondo audit --failed shows or reports none."""
         result = _run(["audit", "--failed"])
         assert "Failed" in result.stdout or "No failed" in result.stdout or "No audit" in result.stdout
 
     def test_audit_json(self):
-        """rondo audit --json returns valid JSON array."""
+        """Rondo audit --json returns valid JSON array."""
         result = _run(["audit", "--json"])
         if "No audit data" not in result.stdout:
             data = json.loads(result.stdout)
             assert isinstance(data, list)
 
     def test_audit_cost_json(self):
-        """rondo audit --cost --json returns total."""
+        """Rondo audit --cost --json returns total."""
         result = _run(["audit", "--cost", "--json"])
         if "No audit data" not in result.stdout:
             data = json.loads(result.stdout)
             assert "total_cost_usd" in data
 
     def test_audit_nonexistent_id(self):
-        """rondo audit <bad_id> returns error or 'no data' message."""
+        """Rondo audit <bad_id> returns error or 'no data' message."""
         result = _run(["audit", "nonexistent-dispatch-id"])
         assert result.returncode != 0 or "No records" in result.stdout or "No audit data" in result.stdout
 
@@ -929,24 +929,24 @@ class TestE2EFlakyCLI:
     """rondo flaky — real CLI, real flakiness detection."""
 
     def test_flaky_default(self):
-        """rondo flaky shows flaky tasks or none."""
+        """Rondo flaky shows flaky tasks or none."""
         result = _run(["flaky"])
         assert "flaky" in result.stdout.lower() or "No audit data" in result.stdout
 
     def test_flaky_json(self):
-        """rondo flaky --json returns valid JSON array."""
+        """Rondo flaky --json returns valid JSON array."""
         result = _run(["flaky", "--json"])
         if "No audit data" not in result.stdout:
             data = json.loads(result.stdout)
             assert isinstance(data, list)
 
     def test_flaky_custom_threshold(self):
-        """rondo flaky --threshold 0.50 uses custom threshold."""
+        """Rondo flaky --threshold 0.50 uses custom threshold."""
         result = _run(["flaky", "--threshold", "0.50"])
         assert result.returncode == 0
 
     def test_flaky_model_reliability(self):
-        """rondo flaky shows model reliability when data exists."""
+        """Rondo flaky shows model reliability when data exists."""
         result = _run(["flaky"])
         # -- If no flaky tasks, should show model reliability
         if "No flaky tasks" in result.stdout:
@@ -1019,30 +1019,30 @@ class TestE2ESpoolCLIReq101:
     """rondo spool — real CLI, real spool management (REQ-101)."""
 
     def test_spool_list(self):
-        """rondo spool list shows pending or empty."""
+        """Rondo spool list shows pending or empty."""
         result = _run(["spool", "list"])
         assert "Pending" in result.stdout or "empty" in result.stdout
 
     def test_spool_list_json(self):
-        """rondo spool list --json returns valid JSON."""
+        """Rondo spool list --json returns valid JSON."""
         result = _run(["spool", "list", "--json"])
         data = json.loads(result.stdout)
         assert isinstance(data, list)
 
     def test_spool_clean(self):
-        """rondo spool clean runs without error."""
+        """Rondo spool clean runs without error."""
         result = _run(["spool", "clean"])
         assert "Cleaned" in result.stdout
         assert result.returncode == 0
 
     def test_spool_export(self):
-        """rondo spool export returns JSON array."""
+        """Rondo spool export returns JSON array."""
         result = _run(["spool", "export", "--since", "2026-01-01"])
         data = json.loads(result.stdout)
         assert isinstance(data, list)
 
     def test_spool_help(self):
-        """rondo spool --help shows actions."""
+        """Rondo spool --help shows actions."""
         result = _run(["spool", "--help"])
         assert "list" in result.stdout
         assert "clean" in result.stdout
@@ -1102,24 +1102,24 @@ class TestE2ESpoolCLI:
     """rondo spool — manage result spool from CLI."""
 
     def test_spool_list_empty(self):
-        """rondo spool list on empty spool returns clean message."""
+        """Rondo spool list on empty spool returns clean message."""
         result = _run(["spool", "list"])
         assert result.returncode == 0
         assert "empty" in result.stdout.lower() or "0" in result.stdout
 
     def test_spool_consume_empty(self):
-        """rondo spool consume on empty spool shows no results."""
+        """Rondo spool consume on empty spool shows no results."""
         result = _run(["spool", "consume"])
         assert result.returncode == 0
         assert "No results" in result.stdout or "[]" in result.stdout
 
     def test_spool_clean_empty(self):
-        """rondo spool clean on empty spool is a no-op."""
+        """Rondo spool clean on empty spool is a no-op."""
         result = _run(["spool", "clean"])
         assert result.returncode == 0
 
     def test_spool_list_json(self):
-        """rondo spool list --json returns valid JSON."""
+        """Rondo spool list --json returns valid JSON."""
         result = _run(["spool", "list", "--json"])
         if result.returncode == 0 and result.stdout.strip():
             data = json.loads(result.stdout)
@@ -1211,7 +1211,8 @@ class TestRealDispatchSmoke:
 
     def test_real_ollama_dispatch(self) -> None:
         """Ollama dispatch: real HTTP call to local model."""
-        import tempfile, textwrap
+        import tempfile
+        import textwrap
         round_src = textwrap.dedent("""
             from rondo.engine import Round, Task
             def build_round():
@@ -1236,7 +1237,8 @@ class TestRealDispatchSmoke:
         Timeout 120s to allow for cold start.
         """
         import json as _json
-        import tempfile, textwrap
+        import tempfile
+        import textwrap
 
         round_src = textwrap.dedent("""
             from rondo.engine import Round, Task
@@ -1277,12 +1279,12 @@ class TestE2EProvidersCLI:
     """rondo providers — show configured provider health status."""
 
     def test_providers_returns_success(self) -> None:
-        """rondo providers exits 0 regardless of provider config."""
+        """Rondo providers exits 0 regardless of provider config."""
         result = _run(["providers"])
         assert result.returncode == 0
 
     def test_providers_json_valid(self) -> None:
-        """rondo providers --json returns valid JSON with providers key."""
+        """Rondo providers --json returns valid JSON with providers key."""
         result = _run(["providers", "--json"])
         assert result.returncode == 0
         data = json.loads(result.stdout)

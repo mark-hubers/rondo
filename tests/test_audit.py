@@ -8,17 +8,11 @@ prompt/result file preservation, credential scrubbing, immutability.
 
 import hashlib
 import json
-import time
-from pathlib import Path
-
-import pytest
 
 from rondo.audit import (
     AuditConfig,
-    AuditRecord,
     AuditTrail,
 )
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  STD-113 req 001 — Audit record BEFORE dispatch (intent)

@@ -11,7 +11,6 @@ import pytest
 
 from rondo.engine import TaskResult
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 req 001: ProviderAdapter interface
 # -- ──────────────────────────────────────────────────────────────
@@ -369,7 +368,7 @@ class TestCLIProviderDispatch:
     """CLI dispatch routes non-Claude models to provider adapters."""
 
     def test_cli_dispatch_ollama_dry_run(self) -> None:
-        """rondo run with ollama model works in dry-run."""
+        """Rondo run with ollama model works in dry-run."""
         import subprocess
 
         result = subprocess.run(
@@ -648,7 +647,6 @@ class TestAdapterEmptyResponse:
 
     def test_chat_completions_empty_choices(self) -> None:
         """Provider returns 200 with empty choices → ERR_EMPTY_RESPONSE."""
-        import io
         import json
         from unittest.mock import MagicMock, patch
 
@@ -866,32 +864,32 @@ class TestTierResolution:
         _providers_config.clear()
 
     def test_resolve_tier_high(self) -> None:
-        """req 042: gemini:high → best_model."""
+        """Req 042: gemini:high → best_model."""
         from rondo.providers import resolve_tier
 
         assert resolve_tier("gemini", "high") == "gemini-2.5-pro"
 
     def test_resolve_tier_default(self) -> None:
-        """req 042: gemini:default → default_model."""
+        """Req 042: gemini:default → default_model."""
         from rondo.providers import resolve_tier
 
         assert resolve_tier("gemini", "default") == "gemini-2.5-flash"
 
     def test_resolve_tier_low(self) -> None:
-        """req 042: gemini:low → cheap_model."""
+        """Req 042: gemini:low → cheap_model."""
         from rondo.providers import resolve_tier
 
         assert resolve_tier("gemini", "low") == "gemini-2.0-flash-lite"
 
     def test_resolve_tier_openai(self) -> None:
-        """req 042: works for all providers."""
+        """Req 042: works for all providers."""
         from rondo.providers import resolve_tier
 
         assert resolve_tier("openai", "high") == "o3"
         assert resolve_tier("openai", "low") == "gpt-4.1-mini"
 
     def test_resolve_tier_same_model(self) -> None:
-        """req 045: provider with fewer models can point tiers to same model."""
+        """Req 045: provider with fewer models can point tiers to same model."""
         from rondo.providers import resolve_tier
 
         assert resolve_tier("grok", "high") == "grok-3"
@@ -910,7 +908,7 @@ class TestTierResolution:
         assert resolve_tier("gemini", "ultra") == ""
 
     def test_parse_model_tier_high(self) -> None:
-        """req 042: parse_model resolves gemini:high to actual model."""
+        """Req 042: parse_model resolves gemini:high to actual model."""
         from rondo.providers import parse_model
 
         provider, model = parse_model("gemini:high")
@@ -918,7 +916,7 @@ class TestTierResolution:
         assert model == "gemini-2.5-pro"
 
     def test_parse_model_tier_low(self) -> None:
-        """req 042: parse_model resolves openai:low."""
+        """Req 042: parse_model resolves openai:low."""
         from rondo.providers import parse_model
 
         provider, model = parse_model("openai:low")
@@ -926,7 +924,7 @@ class TestTierResolution:
         assert model == "gpt-4.1-mini"
 
     def test_parse_model_exact_beats_tier(self) -> None:
-        """req 043: exact model name beats tier — flash is not a tier."""
+        """Req 043: exact model name beats tier — flash is not a tier."""
         from rondo.providers import parse_model
 
         provider, model = parse_model("gemini:flash")
@@ -934,7 +932,7 @@ class TestTierResolution:
         assert model == "flash"
 
     def test_parse_model_exact_model_unchanged(self) -> None:
-        """req 043: gpt-4.1 is not a tier name, passes through."""
+        """Req 043: gpt-4.1 is not a tier name, passes through."""
         from rondo.providers import parse_model
 
         provider, model = parse_model("openai:gpt-4.1")
@@ -942,7 +940,7 @@ class TestTierResolution:
         assert model == "gpt-4.1"
 
     def test_parse_model_tier_default(self) -> None:
-        """req 042: gemini:default → default_model."""
+        """Req 042: gemini:default → default_model."""
         from rondo.providers import parse_model
 
         provider, model = parse_model("gemini:default")

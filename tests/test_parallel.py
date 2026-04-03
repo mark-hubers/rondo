@@ -14,7 +14,6 @@ import time
 from unittest.mock import patch
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.config import RondoConfig
 from rondo.engine import (
     DispatchUsage,
@@ -513,7 +512,7 @@ class TestParallelDeep:
     """REQ-101: parallel dispatch deep coverage."""
 
     def test_req001_uses_thread_pool(self):
-        """req 001: parallel dispatch uses ThreadPoolExecutor."""
+        """Req 001: parallel dispatch uses ThreadPoolExecutor."""
         from rondo.parallel import run_parallel
 
         round_def = Round(name="par", tasks=[
@@ -525,7 +524,7 @@ class TestParallelDeep:
         assert result.parallelism == 2
 
     def test_req004_results_collected_as_completed(self):
-        """req 004: results collected as futures complete."""
+        """Req 004: results collected as futures complete."""
         from rondo.parallel import run_parallel
 
         round_def = Round(name="par", tasks=[
@@ -538,7 +537,7 @@ class TestParallelDeep:
         assert len(result.task_results) == 2
 
     def test_req007_reports_speedup_ratio(self):
-        """req 007: parallel report includes done/error/wall time."""
+        """Req 007: parallel report includes done/error/wall time."""
         from rondo.parallel import run_parallel
 
         round_def = Round(name="par", tasks=[
@@ -552,7 +551,7 @@ class TestParallelDeep:
         assert len(done) == 2
 
     def test_req008_single_failure_doesnt_crash_others(self):
-        """req 008: single task failure doesn't affect others."""
+        """Req 008: single task failure doesn't affect others."""
         from rondo.parallel import run_parallel
 
         call_order = []
@@ -576,7 +575,7 @@ class TestParallelDeep:
         assert len(result.task_results) == 3
 
     def test_req005_conflict_detection(self):
-        """req 005: detect file conflicts between concurrent tasks."""
+        """Req 005: detect file conflicts between concurrent tasks."""
         from rondo.parallel import detect_conflicts
 
         results = [

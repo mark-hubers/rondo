@@ -10,10 +10,8 @@ These tests call the REAL claude CLI (not mocked) so they verify actual
 CC behavior. They're marked slow and can be skipped with -m "not slow".
 """
 
-import json
 import shutil
 import subprocess
-
 
 import pytest
 
@@ -100,9 +98,9 @@ class TestCCFlagSpikes:
 
     def test_s9_rondo_can_load_round(self):
         """S9: Rondo can load and dry-run its own round definitions."""
+        from rondo.config import RondoConfig
         from rondo.engine import Round, Task
         from rondo.runner import run_round
-        from rondo.config import RondoConfig
 
         r = Round(
             name="self-test",

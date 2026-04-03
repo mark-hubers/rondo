@@ -7,16 +7,12 @@ VER-001 verification matrix: secret detection, scrubbing, audit.
 
 import json
 
-import pytest
-
 from rondo.sanitize import (
-    SanitizeConfig,
-    SanitizeResult,
-    sanitize_text,
-    sanitize_task_result,
     DEFAULT_PATTERNS,
+    SanitizeConfig,
+    sanitize_task_result,
+    sanitize_text,
 )
-
 
 # ──────────────────────────────────────────────────────────────────
 #  STD-114 req 001 — Scan all AI output for secret patterns

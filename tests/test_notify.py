@@ -7,8 +7,7 @@ VER-001 verification matrix: notification channels + triggers.
 
 from unittest.mock import patch
 
-
-from rondo.notify import notify_round_complete, notify_failure, NotifyConfig
+from rondo.notify import NotifyConfig, notify_failure, notify_round_complete
 
 
 class TestNotifyRoundComplete:
@@ -37,7 +36,7 @@ class TestNotifyRoundComplete:
         assert "test-round" in log_file.read_text()
 
     def test_macos_notification(self):
-        """macOS notification calls osascript."""
+        """MacOS notification calls osascript."""
         with patch("subprocess.run") as mock_run:
             notify_round_complete(
                 round_name="test-round", status="done",

@@ -9,9 +9,6 @@ TDD: tests written BEFORE preflight.py exists.
 import os
 from unittest.mock import patch
 
-
-import pytest
-
 from rondo.preflight import PreflightResult, run_preflight
 
 
@@ -147,13 +144,13 @@ class TestGitCheck:
     """REQ-103 req 009: git available."""
 
     def test_git_available(self):
-        """git on PATH = passes."""
+        """Git on PATH = passes."""
         with patch("shutil.which", side_effect=lambda x: "/usr/bin/git" if x == "git" else "/usr/local/bin/claude"):
             result = run_preflight()
         assert not any("git" in w.lower() for w in result.warnings)
 
     def test_git_missing(self):
-        """git not on PATH = YELLOW warning (not RED — git is SHOULD, not MUST)."""
+        """Git not on PATH = YELLOW warning (not RED — git is SHOULD, not MUST)."""
         def _which(name: str) -> str | None:
             if name == "git":
                 return None
@@ -225,7 +222,7 @@ class TestPreflightCache:
 
     def test_second_run_uses_cache(self):
         """Consecutive runs with same version use cached result."""
-        from rondo.preflight import run_preflight, _preflight_cache
+        from rondo.preflight import _preflight_cache, run_preflight
 
         _preflight_cache.clear()
         with patch("shutil.which", return_value="/usr/local/bin/claude"), \
@@ -238,21 +235,21 @@ class TestPreflightCache:
 
     def test_version_change_invalidates(self):
         """Different CC version = cache miss = re-run."""
-        from rondo.preflight import run_preflight, _preflight_cache
+        from rondo.preflight import _preflight_cache, run_preflight
 
         _preflight_cache.clear()
         with patch("shutil.which", return_value="/usr/local/bin/claude"), \
              patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)):
-            r1 = run_preflight()
+            run_preflight()
         with patch("shutil.which", return_value="/usr/local/bin/claude"), \
              patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 88)):
-            r2 = run_preflight()
+            run_preflight()
         ## -- Different versions = 2 cache entries
         assert len(_preflight_cache) == 2
 
     def test_cache_stores_version(self):
         """Cache key includes CC version string."""
-        from rondo.preflight import run_preflight, _preflight_cache
+        from rondo.preflight import _preflight_cache, run_preflight
 
         _preflight_cache.clear()
         with patch("shutil.which", return_value="/usr/local/bin/claude"), \
@@ -270,9 +267,10 @@ class TestPreflightProviderHealth:
     """REQ-109 req 017: preflight checks all configured providers."""
 
     def test_healthy_provider_in_checks(self) -> None:
-        from rondo.preflight import _check_provider_health, PreflightResult
-        from rondo.adapters.health import HealthStatus
         import time
+
+        from rondo.adapters.health import HealthStatus
+        from rondo.preflight import PreflightResult, _check_provider_health
 
         result = PreflightResult()
         mock_map = {"gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=42.0, checked_at=time.time())}
@@ -281,9 +279,10 @@ class TestPreflightProviderHealth:
         assert any("gemini" in c and "UP" in c for c in result.checks)
 
     def test_unhealthy_provider_in_warnings(self) -> None:
-        from rondo.preflight import _check_provider_health, PreflightResult
-        from rondo.adapters.health import HealthStatus
         import time
+
+        from rondo.adapters.health import HealthStatus
+        from rondo.preflight import PreflightResult, _check_provider_health
 
         result = PreflightResult()
         mock_map = {
@@ -294,7 +293,7 @@ class TestPreflightProviderHealth:
         assert any("openai" in w and "DOWN" in w for w in result.warnings)
 
     def test_no_providers_no_change(self) -> None:
-        from rondo.preflight import _check_provider_health, PreflightResult
+        from rondo.preflight import PreflightResult, _check_provider_health
 
         result = PreflightResult()
         with patch("rondo.adapters.health.get_all_providers_health", return_value={}):
@@ -303,7 +302,7 @@ class TestPreflightProviderHealth:
         assert result.warnings == []
 
     def test_exception_becomes_warning(self) -> None:
-        from rondo.preflight import _check_provider_health, PreflightResult
+        from rondo.preflight import PreflightResult, _check_provider_health
 
         result = PreflightResult()
         with patch("rondo.adapters.health.get_all_providers_health", side_effect=OSError("network down")):

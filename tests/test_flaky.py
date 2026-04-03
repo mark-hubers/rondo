@@ -6,9 +6,6 @@ VER-001 verification matrix: flip detection, scoring, grouping, thresholds.
 """
 
 import json
-from datetime import UTC, datetime, timedelta
-
-import pytest
 
 from rondo.flaky import (
     DispatchOutcome,
@@ -18,7 +15,6 @@ from rondo.flaky import (
     compute_flakiness_score,
     detect_flips,
 )
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-107 req 001 — Track per-task-template results

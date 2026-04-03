@@ -16,7 +16,6 @@ from unittest.mock import patch
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.config import RondoConfig
 from rondo.engine import (
     DispatchUsage,

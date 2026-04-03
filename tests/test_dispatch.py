@@ -6,14 +6,12 @@ VER-001 verification matrix: every test maps to a numbered requirement.
 TDD: these tests are written BEFORE dispatch.py exists.
 """
 
-from pathlib import Path
-
 import json
 import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # -- Add rondo/src to path so we can import rondo
-
 import pytest
 
 from rondo.config import RondoConfig
@@ -1014,7 +1012,7 @@ class TestBuildSubprocessCmd:
     def test_bare_flag_present_by_default(self):
         """RONDO-110: --bare added by default (skip hooks/CLAUDE.md startup overhead)."""
         config = RondoConfig()
-        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        _build_subprocess_cmd(config, "test", "sonnet")
         ## -- bare is True by default, but only added if CC version >= 2.1.81
         ## -- In test env, CC version may not be detected → bare skipped
         ## -- Just verify the config is True
@@ -1102,8 +1100,8 @@ class TestCCVersionDetection:
 
     def test_detect_cc_version(self):
         """Parses 'X.Y.Z' from claude --version output."""
-        from rondo.dispatch import detect_cc_version
         import rondo.dispatch
+        from rondo.dispatch import detect_cc_version
 
         rondo.dispatch._cc_version_cache = None  # -- reset cache
         with patch("subprocess.run") as mock_run:
@@ -1114,8 +1112,8 @@ class TestCCVersionDetection:
 
     def test_detect_cc_version_missing(self):
         """Returns None when claude not available."""
-        from rondo.dispatch import detect_cc_version
         import rondo.dispatch
+        from rondo.dispatch import detect_cc_version
 
         rondo.dispatch._cc_version_cache = None  # -- reset cache
         with patch("subprocess.run", side_effect=FileNotFoundError):
@@ -1316,7 +1314,7 @@ class TestNotifyAllChannels:
     """REQ-105 req 005: all 3 channels fire together."""
 
     def test_all_channels_fire(self, tmp_path):
-        from rondo.notify import notify_round_complete, NotifyConfig
+        from rondo.notify import NotifyConfig, notify_round_complete
 
         log_file = tmp_path / "notify.log"
         with patch("subprocess.run"):
@@ -1333,6 +1331,7 @@ class TestPreflightSerialization:
 
     def test_result_serializable(self):
         import json as _json
+
         from rondo.preflight import run_preflight
 
         with patch("shutil.which", return_value="/usr/local/bin/claude"):
@@ -1345,7 +1344,7 @@ class TestHistoryWithRealData:
     """History works with real dispatch records."""
 
     def test_query_by_round_and_model(self, tmp_path):
-        from rondo.history import DispatchRecord, log_dispatch, load_history, query_history
+        from rondo.history import DispatchRecord, load_history, log_dispatch, query_history
 
         for rn, model in [("r1", "sonnet"), ("r1", "opus"), ("r2", "sonnet")]:
             log_dispatch(DispatchRecord(
@@ -1356,7 +1355,7 @@ class TestHistoryWithRealData:
         assert len(r1_sonnet) == 1
 
     def test_aggregate_includes_duration(self, tmp_path):
-        from rondo.history import DispatchRecord, log_dispatch, load_history, aggregate_by_model
+        from rondo.history import DispatchRecord, aggregate_by_model, load_history, log_dispatch
 
         log_dispatch(DispatchRecord(
             round_name="r", task_name="t", model="opus", status="done",
@@ -1519,7 +1518,6 @@ class TestResultSavingDeep:
         result = TaskResult(task_name="perm-test", status="done", model="sonnet", auth_mode="max")
         usage = DispatchUsage(task_name="perm-test")
         filepath = save_result(result, usage, str(tmp_path))
-        import stat
         mode = Path(filepath).stat().st_mode
         assert mode & 0o777 == 0o600
 
@@ -1668,7 +1666,8 @@ class TestRoundValidation:
     """REQ-100: round validation before execution."""
 
     def test_duplicate_task_names_rejected(self):
-        from rondo.engine import Round as _Round, validate_round
+        from rondo.engine import Round as _Round
+        from rondo.engine import validate_round
 
         r = _Round(name="dup", tasks=[
             Task(name="t1", instruction="do", done_when="done"),
@@ -1678,7 +1677,8 @@ class TestRoundValidation:
         assert any("duplicate" in e.lower() for e in errors)
 
     def test_valid_round_no_errors(self):
-        from rondo.engine import Round as _Round, validate_round
+        from rondo.engine import Round as _Round
+        from rondo.engine import validate_round
 
         r = _Round(name="good", tasks=[
             Task(name="t1", instruction="do", done_when="done"),
@@ -1688,7 +1688,7 @@ class TestRoundValidation:
         assert errors == []
 
 
-class TestFileExtraction:
+class TestFileExtractionSTD108:
     """STD-108: file path extraction from output."""
 
     def test_extracts_python_files(self):

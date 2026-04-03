@@ -9,7 +9,6 @@ TDD: these tests are written BEFORE engine.py exists.
 import json
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.engine import (
     TERMINAL_STATES,
     Gate,
@@ -718,9 +717,10 @@ class TestNewFieldsSerialization:
         """DispatchUsage.budget_exceeded survives JSON round-trip."""
         import json
         from dataclasses import asdict
-        from rondo.engine import DispatchUsage as _DU
 
-        u = _DU(task_name="t", budget_exceeded=True, cost_usd=0.05)
+        from rondo.engine import DispatchUsage
+
+        u = DispatchUsage(task_name="t", budget_exceeded=True, cost_usd=0.05)
         data = asdict(u)
         json_str = json.dumps(data)
         parsed = json.loads(json_str)
@@ -778,7 +778,7 @@ class TestIsTerminal:
     """REQ-100 req 008: terminal state detection."""
 
     def test_all_terminal_states(self):
-        from rondo.engine import is_terminal, TERMINAL_STATES
+        from rondo.engine import TERMINAL_STATES, is_terminal
         for s in TERMINAL_STATES:
             assert is_terminal(s), f"{s} should be terminal"
 
@@ -857,7 +857,7 @@ class TestTaskResultFields:
         assert tr.dispatch_id == "dsp_abc123"
 
     def test_command_sent_field(self):
-        """req 015: command_sent shows what CLI was invoked."""
+        """Req 015: command_sent shows what CLI was invoked."""
         tr = TaskResult(task_name="t", command_sent=["claude", "-p", "hello"])
         assert tr.command_sent == ["claude", "-p", "hello"]
 
@@ -877,7 +877,7 @@ class TestTaskResultFields:
         assert tr.cost_usd == 0.042
 
     def test_all_status_values_valid(self):
-        """req 008: all task statuses are valid."""
+        """Req 008: all task statuses are valid."""
         for status in ["done", "blocked", "partial", "error", "skipped", "pending"]:
             tr = TaskResult(task_name="t", status=status)
             assert tr.status == status

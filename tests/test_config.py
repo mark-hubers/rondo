@@ -12,7 +12,6 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.config import (
     RondoConfig,
     load_config,

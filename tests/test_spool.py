@@ -8,8 +8,6 @@ VER-001 verification matrix: spool write, TTL cleanup, CLI commands.
 import json
 import os
 import time
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 
@@ -18,7 +16,6 @@ from rondo.spool import (
     SpoolManager,
     spool_result,
 )
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-101 req 042 — Spool directory
@@ -34,7 +31,7 @@ class TestSpoolDirectory:
         assert "custom" in str(spool.spool_dir)
 
     def test_req051_auto_create(self, tmp_path):
-        """req 051: spool dir auto-created on first write."""
+        """Req 051: spool dir auto-created on first write."""
         spool_dir = tmp_path / "new" / "spool"
         spool = SpoolManager(config=SpoolConfig(spool_dir=str(spool_dir)))
         spool.write_result(task_name="test", result={"status": "done"})
@@ -320,8 +317,6 @@ class TestSpoolPermissions:
 
     def test_spool_dir_created_700(self, tmp_path):
         """New spool dir has owner-only permissions."""
-        import stat
-
         spool_dir = tmp_path / "new-spool"
         spool = SpoolManager(config=SpoolConfig(spool_dir=str(spool_dir)))
         spool.write_result(task_name="t", result={"status": "done"})
@@ -330,8 +325,6 @@ class TestSpoolPermissions:
 
     def test_spool_files_600(self, tmp_path):
         """Spool files have owner-only read/write."""
-        import stat
-
         spool = SpoolManager(config=SpoolConfig(spool_dir=str(tmp_path)))
         path = spool.write_result(task_name="t", result={"status": "done"})
         mode = path.stat().st_mode & 0o777

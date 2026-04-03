@@ -240,13 +240,27 @@ Health cached 5 minutes. Provider down = log WARNING + use fallback.
 
 ### Overview
 
-| Category | Tests | What they prove |
-|----------|-------|----------------|
-| **E2E** | 105 | Real CLI binary works end-to-end |
-| **MCP** | 109 | All 21 MCP tools return correct schemas |
-| **Integration** | 483 | Dispatch, engine, runner, parallel, overnight |
-| **Unit** | 650 | Individual modules in isolation |
-| **TOTAL** | **1,347** | |
+| Category | File(s) | Tests | What they prove |
+|----------|---------|-------|----------------|
+| **E2E** | test_integration_e2e.py | 105 | Real CLI binary works end-to-end |
+| **MCP** | test_mcp.py | 109 | All 21 MCP tools return correct schemas |
+| **Dispatch** | test_dispatch.py | 203 | Prompt building, model resolution, subprocess, JSON parsing |
+| **Engine** | test_engine.py | 126 | Round/Task data model, validation, gates, state |
+| **Runner** | test_runner.py | 41 | Execution orchestration, task states, timeouts |
+| **Parallel** | test_parallel.py | 34 | Thread pool, worker config, conflict detection |
+| **Overnight** | test_overnight.py | 48 | Phase sequencing, rate limiting, watchdog |
+| **Examples** | test_examples.py | 25 | Example rounds are valid + spec-compliant |
+| **Live mode** | test_live.py | 23 | Interactive execution, human input |
+| **Providers** | test_providers.py | 85 | Adapters, routing, tiers, error codes, health |
+| **Config** | test_config.py | 85 | TOML loading, validation, COALESCE resolution |
+| **CLI** | test_cli.py | 85 | Subcommands, flags, arg parsing |
+| **AI Help** | test_ai_help.py | 50 | AI discovery schema, capabilities |
+| **Auth** | test_auth.py | 24 | Key backends (env, keychain, 1Password) |
+| **Health** | test_health.py | 22 | Provider health, caching, fallback |
+| **Conventions** | test_conventions.py | 21 | Code standards (SPDX, docstrings, imports) |
+| **Audit** | test_audit.py | 34 | Audit trail recording, scrubbing |
+| **Other** | 11 more files | ~131 | Sanitize, preflight, spool, metrics, history, report, flaky, notify |
+| **TOTAL** | **28 files** | **1,347** | |
 
 ### E2E Tests as Usage Examples
 

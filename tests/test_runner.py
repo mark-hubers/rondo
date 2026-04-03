@@ -12,7 +12,6 @@ without invoking real subprocesses.
 from unittest.mock import patch
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.config import RondoConfig
 from rondo.engine import (
     DispatchUsage,
@@ -594,8 +593,8 @@ class TestRoundTimeout:
             result = run_sequential(round_def, config)
 
         # -- With round_timeout_sec=0, should skip tasks after first
-        skipped = [tr for tr in result.task_results if tr.status == "skipped"]
-        done = [tr for tr in result.task_results if tr.status == "done"]
+        [tr for tr in result.task_results if tr.status == "skipped"]
+        [tr for tr in result.task_results if tr.status == "done"]
         # -- At least some tasks should complete, some may skip
         assert len(result.task_results) == 3
 

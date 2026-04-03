@@ -12,15 +12,14 @@ from unittest.mock import patch
 import pytest
 
 from rondo.adapters.auth import (
+    _KEY_CACHE,
     EnvBackend,
     KeyBackend,
     KeychainBackend,
     OnePasswordBackend,
-    _KEY_CACHE,
     invalidate_key,
     load_api_key,
 )
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 req 036: KeyBackend interface

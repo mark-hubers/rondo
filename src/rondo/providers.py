@@ -286,13 +286,20 @@ _multi_review_overrides: dict[str, list[str]] = {}
 _task_model_overrides: dict[str, str] = {}
 
 
+_task_models_loaded: bool = False
+
+
 def load_task_models(config_path: str = "") -> dict[str, str]:
     """Load task→model map from TOML config — REQ-109 req 028.
 
     COALESCE: config file → defaults. Config wins for any key it specifies.
     Reads [routing.task_models] section from ~/.rondo/config.toml or given path.
+    Called at startup (CLI, MCP) and idempotent.
     """
-    global _task_model_overrides  # noqa: PLW0603
+    global _task_model_overrides, _task_models_loaded  # noqa: PLW0603
+    if _task_models_loaded and not config_path:
+        merged = {**_DEFAULT_TASK_MODELS, **_task_model_overrides}
+        return merged
     import tomllib
     from pathlib import Path
 
@@ -314,6 +321,7 @@ def load_task_models(config_path: str = "") -> dict[str, str]:
         except (tomllib.TOMLDecodeError, OSError):
             pass
 
+    _task_models_loaded = True
     # -- Return merged: overrides win over defaults
     merged = {**_DEFAULT_TASK_MODELS, **_task_model_overrides}
     return merged

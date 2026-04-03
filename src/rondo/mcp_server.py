@@ -871,10 +871,11 @@ def create_mcp_server() -> Any:
     """
     from mcp.server import FastMCP
 
-    # -- REQ-109: load provider config for tier resolution
-    from rondo.providers import load_providers_config
+    # -- REQ-109: load provider + routing config for tier resolution
+    from rondo.providers import load_providers_config, load_task_models
 
     load_providers_config()
+    load_task_models()
 
     mcp = FastMCP(name="rondo", log_level="WARNING")
 

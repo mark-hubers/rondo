@@ -15,7 +15,6 @@ from unittest.mock import patch
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.cli import (
     EXIT_FAILURE,
     EXIT_INTERRUPTED,
@@ -700,7 +699,7 @@ class TestMainModule:
 # -- Rondo-REQ-103 req 015: preflight standalone command
 class TestPreflightSubcommand:
     def test_preflight_returns_success_when_green(self, capsys):
-        """rondo preflight returns 0 when all checks pass."""
+        """Rondo preflight returns 0 when all checks pass."""
         with patch("shutil.which", return_value="/usr/local/bin/claude"):
             exit_code = main(["preflight"])
         assert exit_code == EXIT_SUCCESS
@@ -708,7 +707,7 @@ class TestPreflightSubcommand:
         assert "GREEN" in captured.out
 
     def test_preflight_returns_failure_when_red(self, capsys):
-        """rondo preflight returns 1 when critical check fails."""
+        """Rondo preflight returns 1 when critical check fails."""
         with patch("shutil.which", return_value=None):
             exit_code = main(["preflight"])
         assert exit_code == EXIT_FAILURE
@@ -724,7 +723,7 @@ class TestPreflightSubcommand:
 
 
     def test_preflight_json_output(self, capsys):
-        """rondo preflight --json returns valid JSON."""
+        """Rondo preflight --json returns valid JSON."""
         import json
 
         with patch("shutil.which", return_value="/usr/local/bin/claude"):
@@ -739,14 +738,14 @@ class TestPreflightSubcommand:
 
 class TestHistorySubcommand:
     def test_history_empty(self, capsys):
-        """rondo history with no data shows message."""
+        """Rondo history with no data shows message."""
         exit_code = main(["history", "--results-dir", "/tmp/nonexistent-rondo"])
         assert exit_code == EXIT_SUCCESS
         captured = capsys.readouterr()
         assert "no dispatch" in captured.out.lower() or "No dispatch" in captured.out
 
     def test_history_json_empty(self, capsys):
-        """rondo history --json with no data returns empty array."""
+        """Rondo history --json with no data returns empty array."""
         import json
 
         exit_code = main(["history", "--json", "--results-dir", "/tmp/nonexistent-rondo"])
@@ -758,7 +757,7 @@ class TestHistorySubcommand:
 
 class TestVersionFlag:
     def test_version_output(self, capsys):
-        """rondo --version shows version string."""
+        """Rondo --version shows version string."""
         from rondo.cli import build_parser
 
         parser = build_parser()
@@ -779,13 +778,13 @@ class TestCostDisplay:
             patch("shutil.which", return_value="/usr/local/bin/claude"),
             patch("rondo.runner.dispatch_task") as mock_disp,
         ):
-            from rondo.engine import Round, Task, TaskResult, DispatchUsage
+            from rondo.engine import DispatchUsage, TaskResult
 
             mock_disp.return_value = (
                 TaskResult(task_name="t1", status="done", model="sonnet", auth_mode="max"),
                 DispatchUsage(task_name="t1", model="sonnet", cost_usd=0.05),
             )
-            exit_code = main(["run", round_file, "--verbose"])
+            main(["run", round_file, "--verbose"])
         captured = capsys.readouterr()
         assert "$" in captured.out or "Cost" in captured.out
 
@@ -852,7 +851,7 @@ class TestExpensiveSort:
     """Sprint 27: --expensive sorts by cost."""
 
     def test_expensive_flag_accepted(self):
-        """rondo history --expensive doesn't error."""
+        """Rondo history --expensive doesn't error."""
         exit_code = main(["history", "--expensive", "--results-dir", "/tmp/nonexistent-rondo"])
         assert exit_code == EXIT_SUCCESS
 
@@ -867,9 +866,9 @@ class TestFailureNotification:
             patch("rondo.runner.dispatch_task") as mock_disp,
             patch("rondo.runner._notify_failure") as mock_notify,
         ):
-            from rondo.engine import Round, Task, TaskResult, DispatchUsage
-            from rondo.runner import run_round
             from rondo.config import RondoConfig
+            from rondo.engine import DispatchUsage, Round, Task, TaskResult
+            from rondo.runner import run_round
 
             mock_disp.return_value = (
                 TaskResult(task_name="t1", status="error", error_code="ERR_AUTH",
@@ -900,6 +899,7 @@ class TestProvidersSubcommand:
     def test_shows_healthy_provider(self, capsys) -> None:
         """Healthy provider shows UP in output."""
         import time
+
         from rondo.adapters.health import HealthStatus
 
         mock_map = {"gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=55.0, checked_at=time.time())}
@@ -913,6 +913,7 @@ class TestProvidersSubcommand:
     def test_shows_unhealthy_provider(self, capsys) -> None:
         """Unhealthy provider shows DOWN in output."""
         import time
+
         from rondo.adapters.health import HealthStatus
 
         mock_map = {"openai": HealthStatus(provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout")}
@@ -927,6 +928,7 @@ class TestProvidersSubcommand:
         """--json returns valid JSON with providers list."""
         import json
         import time
+
         from rondo.adapters.health import HealthStatus
 
         mock_map = {"gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=30.0, checked_at=time.time())}

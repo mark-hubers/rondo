@@ -10,9 +10,6 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # -- ──────────────────────────────────────────────────────────────
 # --  HealthStatus dataclass
 # -- ──────────────────────────────────────────────────────────────
@@ -132,7 +129,7 @@ class TestGetProviderHealth:
         assert mock_adapter.health.call_count == 1
 
     def test_stale_cache_rechecks(self) -> None:
-        from rondo.adapters.health import HealthStatus, _HEALTH_CACHE, _HEALTH_TTL_SECONDS
+        from rondo.adapters.health import _HEALTH_CACHE, _HEALTH_TTL_SECONDS, HealthStatus
 
         # -- Inject a stale cache entry
         _HEALTH_CACHE["gemini"] = HealthStatus(
@@ -288,7 +285,7 @@ class TestClearHealthCache:
     """clear_health_cache() empties the in-process cache."""
 
     def test_clear_removes_entries(self) -> None:
-        from rondo.adapters.health import HealthStatus, _HEALTH_CACHE, clear_health_cache
+        from rondo.adapters.health import _HEALTH_CACHE, HealthStatus, clear_health_cache
 
         _HEALTH_CACHE["gemini"] = HealthStatus(provider="gemini", healthy=True, latency_ms=10.0, checked_at=time.time())
         clear_health_cache()

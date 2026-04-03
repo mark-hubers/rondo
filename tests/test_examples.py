@@ -10,14 +10,12 @@ Two categories:
   - Practical examples (round_code_review, etc.): real-world patterns, no size limit
 """
 
-from pathlib import Path
-
 import importlib.util
+from pathlib import Path
 
 import pytest
 
 # -- Add rondo/src to path so we can import rondo
-
 from rondo.engine import Round
 
 # -- Example directory

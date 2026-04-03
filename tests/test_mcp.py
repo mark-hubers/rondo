@@ -8,19 +8,16 @@ Tests the tool functions directly (not the MCP transport layer).
 
 import json
 
-import pytest
-
 from rondo.mcp_server import (
-    rondo_metrics,
     rondo_audit_summary,
-    rondo_health,
     rondo_dispatch_info,
+    rondo_health,
+    rondo_history,
+    rondo_metrics,
     rondo_run_file,
     rondo_run_status,
     rondo_spool_consume,
-    rondo_history,
 )
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  IFS-104 req 003 — Query tools
@@ -181,7 +178,6 @@ class TestMcpResource:
 
     def test_help_resource_returns_json(self):
         """rondo://help returns valid JSON with schemas."""
-        from rondo.mcp_server import create_mcp_server
         from rondo.ai_help import get_ai_help
 
         data = get_ai_help()

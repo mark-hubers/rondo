@@ -12,10 +12,8 @@ from pathlib import Path
 import pytest
 
 from rondo.metrics import (
-    MetricsReport,
     compute_metrics,
 )
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Helper: write fake audit JSONL for testing

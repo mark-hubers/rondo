@@ -7,12 +7,8 @@ TDD: tests written BEFORE history.py exists.
 """
 
 import json
-from datetime import UTC, datetime
 
-
-import pytest
-
-from rondo.history import DispatchRecord, log_dispatch, load_history, query_history
+from rondo.history import DispatchRecord, load_history, log_dispatch, query_history
 
 
 class TestDispatchRecord:

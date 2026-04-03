@@ -221,7 +221,7 @@ def rondo_multi_review(
     """Multi-provider review: same prompt → N providers → per-provider + merged findings.
 
     REQ-109 req 033. Replaces ai-review --all-providers --compare.
-    Pass providers as JSON array: ["local:qwen2.5:32b", "gemini:flash", "grok:grok-3"]
+    Pass providers as JSON array: ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
     Default: local + gemini + grok (if keys available).
     """
     try:
@@ -239,7 +239,7 @@ def rondo_multi_review(
         )
 
     if not provider_list:
-        provider_list = ["local:qwen2.5:32b", "gemini:flash", "grok:grok-3"]
+        provider_list = ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
 
     per_provider: list[dict] = []
     all_findings: list[str] = []

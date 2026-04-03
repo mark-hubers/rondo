@@ -237,7 +237,7 @@ class TestProviderFallback:
         with patch("rondo.adapters.health.is_provider_healthy", return_value=True):
             with patch("rondo.providers.get_provider") as mock_gp:
                 mock_gp.return_value = MagicMock()
-                adapter, model = get_provider_with_fallback("gemini:flash")
+                adapter, model = get_provider_with_fallback("gemini:gemini-2.5-flash")
         assert adapter is not None
 
     def test_uses_fallback_when_primary_down(self) -> None:
@@ -251,7 +251,7 @@ class TestProviderFallback:
             with patch("rondo.providers.get_provider") as mock_gp:
                 mock_gp.return_value = MagicMock()
                 with patch("rondo.providers._get_fallback_provider", return_value="openai"):
-                    adapter, model = get_provider_with_fallback("gemini:flash")
+                    adapter, model = get_provider_with_fallback("gemini:gemini-2.5-flash")
         # -- Fallback used — adapter should be non-None
         assert adapter is not None
 
@@ -260,7 +260,7 @@ class TestProviderFallback:
 
         with patch("rondo.adapters.health.is_provider_healthy", return_value=False):
             with patch("rondo.providers._get_fallback_provider", return_value=None):
-                adapter, model = get_provider_with_fallback("gemini:flash")
+                adapter, model = get_provider_with_fallback("gemini:gemini-2.5-flash")
         assert adapter is None
 
     def test_never_falls_back_to_interactive_claude(self) -> None:
@@ -269,7 +269,7 @@ class TestProviderFallback:
 
         with patch("rondo.adapters.health.is_provider_healthy", return_value=False):
             with patch("rondo.providers._get_fallback_provider", return_value=None):
-                adapter, model = get_provider_with_fallback("gemini:flash")
+                adapter, model = get_provider_with_fallback("gemini:gemini-2.5-flash")
         # -- Result must not be Claude-CLI dispatch (adapter=None means Claude — NOT allowed as fallback)
         # -- The function returns (None, "") to signal "no provider available"
         assert model != "claude"

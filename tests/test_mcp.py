@@ -1140,7 +1140,7 @@ class TestMultiReview:
         result = json.loads(
             rondo_multi_review(
                 prompt="Review this code",
-                providers='["local:qwen2.5:32b", "gemini:flash"]',
+                providers='["local:qwen2.5:32b", "gemini:gemini-2.5-flash"]',
                 dry_run=True,
             )
         )
@@ -1158,7 +1158,7 @@ class TestMultiReview:
         assert result["provider_count"] == 3
         providers = [p["provider"] for p in result["per_provider"]]
         assert "local:qwen2.5:32b" in providers
-        assert "gemini:flash" in providers
+        assert "gemini:gemini-2.5-flash" in providers
         assert "grok:grok-3" in providers
 
     def test_invalid_json_returns_error(self) -> None:

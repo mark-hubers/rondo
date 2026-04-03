@@ -138,11 +138,11 @@ class TestProviderRouting:
         """recommend_model returns best model for task type — cloud providers are defaults."""
         from rondo.providers import recommend_model
 
-        assert recommend_model("code-review") == "gemini:flash"
-        assert recommend_model("reasoning") == "gemini:flash"
+        assert recommend_model("code-review") == "gemini:gemini-2.5-flash"
+        assert recommend_model("reasoning") == "gemini:gemini-2.5-flash"
         assert recommend_model("classify") == "llama3.1:8b"
-        assert recommend_model("structured-json") == "gemini:flash"
-        assert recommend_model("general") == "gemini:flash"
+        assert recommend_model("structured-json") == "gemini:gemini-2.5-flash"
+        assert recommend_model("general") == "gemini:gemini-2.5-flash"
         assert recommend_model("security") == "mistral:mistral-large-latest"
         assert recommend_model("unknown-type") == "sonnet"  ## default to Claude
 
@@ -174,7 +174,7 @@ class TestProviderRouting:
         # -- Non-existent file should return defaults, not crash
         result = load_task_models("/tmp/nonexistent-rondo-config.toml")
         assert "code-review" in result
-        assert result["code-review"] == "gemini:flash"
+        assert result["code-review"] == "gemini:gemini-2.5-flash"
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -487,10 +487,10 @@ class TestGeminiAdapter:
         assert GeminiAdapter(api_key="").health() is False
 
     def test_routing_gemini_prefix(self) -> None:
-        """gemini:flash routes to GeminiAdapter."""
+        """gemini:gemini-2.5-flash routes to GeminiAdapter."""
         from rondo.providers import get_provider
 
-        provider = get_provider("gemini:flash")
+        provider = get_provider("gemini:gemini-2.5-flash")
         assert provider is not None
         assert provider.name == "gemini"
 
@@ -924,12 +924,12 @@ class TestTierResolution:
         assert model == "gpt-4.1-mini"
 
     def test_parse_model_exact_beats_tier(self) -> None:
-        """Req 043: exact model name beats tier — flash is not a tier."""
+        """Req 043: exact model name beats tier — gemini-2.5-flash is not a tier."""
         from rondo.providers import parse_model
 
-        provider, model = parse_model("gemini:flash")
+        provider, model = parse_model("gemini:gemini-2.5-flash")
         assert provider == "gemini"
-        assert model == "flash"
+        assert model == "gemini-2.5-flash"
 
     def test_parse_model_exact_model_unchanged(self) -> None:
         """Req 043: gpt-4.1 is not a tier name, passes through."""

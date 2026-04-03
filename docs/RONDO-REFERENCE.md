@@ -59,7 +59,7 @@ Model strings route to adapters automatically:
 
 | Prefix | Provider | Adapter | Example |
 |--------|----------|---------|---------|
-| `gemini:` | Google Gemini | GeminiAdapter | `gemini:flash`, `gemini:gemini-2.5-pro` |
+| `gemini:` | Google Gemini | GeminiAdapter | `gemini:gemini-2.5-flash`, `gemini:gemini-2.5-pro` |
 | `grok:` | xAI Grok | ChatCompletionsAdapter | `grok:grok-3` |
 | `mistral:` | Mistral | ChatCompletionsAdapter | `mistral:mistral-large-latest` |
 | `openai:` | OpenAI | ChatCompletionsAdapter | `openai:gpt-4.1` |
@@ -108,7 +108,7 @@ Also exposes `rondo://help` resource for AI agent discovery (version, commands, 
 | Tool | Parameters | What it does |
 |------|-----------|-------------|
 | **rondo_cloud** | `prompt`, `profile`, `tier`, `count`, `dry_run` | Cloud AI dispatch — pick providers by profile (review/coding/research), tier (high/default/low), count (1-4). Cost-capped at $0.50/dispatch. |
-| **rondo_multi_review** | `prompt`, `providers` (JSON array), `dry_run` | Same prompt to N providers, returns per-provider findings + merged summary. Default: local:qwen2.5:32b + gemini:flash + grok:grok-3. |
+| **rondo_multi_review** | `prompt`, `providers` (JSON array), `dry_run` | Same prompt to N providers, returns per-provider findings + merged summary. Default: local:qwen2.5:32b + gemini:gemini-2.5-flash + grok:grok-3. |
 | **rondo_chain** | `steps_json`, `dry_run` | Pipeline — output of step N feeds into step N+1. Max 20 steps. |
 | **rondo_benchmark** | `prompt`, `models` (JSON array), `dry_run` | Same prompt to multiple models, ranked by speed + cost. Max 10 models. |
 | **rondo_explain** | `output`, `question`, `model`, `dry_run` | Second opinion from local model ($0 cost). Default: qwen2.5:32b. |
@@ -150,7 +150,7 @@ Also exposes `rondo://help` resource for AI agent discovery (version, commands, 
 |---------|-------------|
 | `rondo run <file>` | Execute a round definition file |
 | `rondo run <file> --dry-run` | Preview prompts without dispatching |
-| `rondo run <file> --model gemini:flash` | Override model for all tasks |
+| `rondo run <file> --model gemini:gemini-2.5-flash` | Override model for all tasks |
 | `rondo live <file>` | Interactive mode — human reviews each task |
 | `rondo overnight <file>` | Multi-phase overnight dispatch + morning report |
 | `rondo report <results_dir>` | Generate morning report from saved results |
@@ -176,15 +176,15 @@ Recommended starter profiles:
 
 | Profile | Providers | Use for |
 |---------|-----------|---------|
-| **review** | gemini:flash + grok:grok-3 | Code reviews, spec reviews |
-| **coding** | gemini:flash + mistral:mistral-large | Implementation, refactoring |
+| **review** | gemini:gemini-2.5-flash + grok:grok-3 | Code reviews, spec reviews |
+| **coding** | gemini:gemini-2.5-flash + mistral:mistral-large | Implementation, refactoring |
 | **research** | gemini:gemini-2.5-pro + mistral:mistral-large | Deep analysis, architecture |
-| **security** | gemini:flash + grok:grok-3 + mistral:mistral-large | Security audit (3 providers) |
+| **security** | gemini:gemini-2.5-flash + grok:grok-3 + mistral:mistral-large | Security audit (3 providers) |
 
 Define profiles in `~/.rondo/config.toml`:
 ```toml
 [cloud.profiles.my-team]
-providers = ["gemini:flash", "anthropic:sonnet"]
+providers = ["gemini:gemini-2.5-flash", "anthropic:sonnet"]
 description = "Team default"
 ```
 
@@ -311,12 +311,12 @@ rondo_cloud(prompt="Review this code", profile="review", tier="high", count=2, d
 
 **Multi-provider review (TestMultiReview):**
 ```python
-rondo_multi_review(prompt="Analyze this", providers='["gemini:flash", "grok:grok-3"]', dry_run=True)
+rondo_multi_review(prompt="Analyze this", providers='["gemini:gemini-2.5-flash", "grok:grok-3"]', dry_run=True)
 ```
 
 **Pipeline chaining (TestRondoChain):**
 ```python
-rondo_chain(steps_json='[{"prompt": "Find issues", "model": "gemini:flash"}, {"prompt": "Fix them", "model": "sonnet"}]', dry_run=True)
+rondo_chain(steps_json='[{"prompt": "Find issues", "model": "gemini:gemini-2.5-flash"}, {"prompt": "Fix them", "model": "sonnet"}]', dry_run=True)
 ```
 
 **Background dispatch (TestRondoRunStatus):**

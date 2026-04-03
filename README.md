@@ -43,17 +43,17 @@ rondo run examples/round_hello.py --dry-run
 rondo run examples/round_hello.py
 
 ## 4. Run with Gemini instead (~$0.001, requires GEMINI_API_KEY)
-rondo run examples/round_hello.py --model gemini:flash
+rondo run examples/round_hello.py --model gemini:gemini-2.5-flash
 
 ## 5. Multi-provider review — from Claude Code (MCP) or Cursor (MCP)
-## rondo_multi_review(prompt="Review this code", providers='["gemini:flash", "grok:grok-3"]')
+## rondo_multi_review(prompt="Review this code", providers='["gemini:gemini-2.5-flash", "grok:grok-3"]')
 ##
 ## Or approximate from CLI (sequential, no merged findings):
-## rondo run round.py --model gemini:flash && rondo run round.py --model grok:grok-3
+## rondo run round.py --model gemini:gemini-2.5-flash && rondo run round.py --model grok:grok-3
 ```
 
 `--dry-run` shows prompts without calling AI. Remove it to dispatch for real.
-`gemini:flash` is a literal model ID, not a tier. Tiers (`gemini:high`) require `~/.rondo/config.toml`.
+`gemini:gemini-2.5-flash` is a literal model ID, not a tier. Tiers (`gemini:high`) require `~/.rondo/config.toml`.
 
 **Note:** `round_code_review.py` requires staged git changes (`git add`). Start with `round_hello.py`.
 

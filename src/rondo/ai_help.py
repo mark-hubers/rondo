@@ -31,7 +31,7 @@ def get_ai_help() -> dict[str, Any]:
             "model_parameter": "Do NOT specify model= unless you need a DIFFERENT model than your current session. Omitting model= uses your current session model with zero overhead. Specifying a different model spawns a new process (slower).",
             "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
             "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') — $0 cost, ~2 seconds.",
-            "cloud_providers": "Prefer Gemini + Grok + Mistral (core trio). Syntax: 'gemini:flash', 'grok:grok-3', 'mistral:large' or tier 'mistral:high'. OpenAI is optional, not a default. Keys: ~/.rondo/config.toml or env.",
+            "cloud_providers": "Prefer Gemini + Grok + Mistral (core trio). Syntax: 'gemini:gemini-2.5-flash', 'grok:grok-3', 'mistral:large' or tier 'mistral:high'. OpenAI is optional, not a default. Keys: ~/.rondo/config.toml or env.",
             "multi_provider": "Default multi-review pairs: Gemini + Grok (mid); security adds Mistral; reasoning uses Gemini 2.5 Pro + Mistral Large. rondo_cloud() and rondo_multi_review() run providers sequentially. Override with [routing.multi_review] in config.",
             "health_fallback": "Providers with health checks auto-fallback when down. Configure fallback= in [providers.<name>] section of config.toml. Check status with: rondo providers",
         },
@@ -148,12 +148,12 @@ def _get_quick_examples() -> list[dict[str, str]]:
         {
             "name": "Dispatch to Gemini instead of Claude",
             "task": 'Task(name="gemini-review", instruction="Review this code.", context_files=["src/main.py"], done_when="Findings listed.")',
-            "run": "rondo_run(file_path='review.py', model='gemini:flash')",
+            "run": "rondo_run(file_path='review.py', model='gemini:gemini-2.5-flash')",
             "note": "Requires GEMINI_API_KEY or [providers.gemini] in ~/.rondo/config.toml",
         },
         {
             "name": "Multi-provider parallel review (get consensus)",
-            "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini:flash\", \"grok:grok-3\"]', dry_run=False)",
+            "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini:gemini-2.5-flash\", \"grok:grok-3\"]', dry_run=False)",
             "run": "Returns list of per-provider results. Each has provider, status, raw_output.",
             "note": "Use for cross-validation — catches issues one model might miss.",
         },
@@ -222,7 +222,7 @@ def _get_providers() -> list[dict[str, Any]]:
             "tiers": {"high": "gemini-2.5-pro", "default": "gemini-2.5-flash", "low": "gemini-2.0-flash"},
             "auth": "GEMINI_API_KEY env var or ~/.rondo/config.toml",
             "routing": "Use 'gemini:' prefix",
-            "examples": ["model='gemini:flash'", "model='gemini:high'", "model='gemini:gemini-2.5-pro'"],
+            "examples": ["model='gemini:gemini-2.5-flash'", "model='gemini:high'", "model='gemini:gemini-2.5-pro'"],
         },
         {
             "name": "openai",
@@ -324,7 +324,7 @@ def get_capabilities() -> dict[str, Any]:
         "cloud_dispatch": {
             "description": "Dispatch to cloud AI providers with health check + automatic fallback (REQ-109)",
             "providers": ["gemini", "openai", "grok", "mistral", "anthropic"],
-            "routing": "Use provider:model syntax — 'gemini:flash', 'grok:grok-3', 'mistral:large'; OpenAI optional",
+            "routing": "Use provider:model syntax — 'gemini:gemini-2.5-flash', 'grok:grok-3', 'mistral:large'; OpenAI optional",
             "tiers": "provider:high → best_model, provider:default → default_model, provider:low → cheap_model (from config)",
             "fallback": "If primary provider is down, auto-routes to fallback= from config.toml",
             "multi_provider": "rondo_cloud() dispatches sequentially to N providers; default trio preference Gemini + Grok (+ Mistral for security)",

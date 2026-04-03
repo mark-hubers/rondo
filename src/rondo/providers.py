@@ -250,31 +250,31 @@ def get_provider(model: str) -> ProviderAdapter | None:
 # -- REQ-109 D9: cloud-first — Gemini mid-tier (flash) for daily work; Mistral for security (contrarian).
 # -- OpenAI is not a default here; override [routing.task_models] if you want it.
 _DEFAULT_TASK_MODELS: dict[str, str] = {
-    "code-review": "gemini:flash",
-    "code-fix": "gemini:flash",
-    "code-generate": "gemini:flash",
-    "reasoning": "gemini:flash",
-    "math": "gemini:flash",
-    "logic": "gemini:flash",
+    "code-review": "gemini:gemini-2.5-flash",
+    "code-fix": "gemini:gemini-2.5-flash",
+    "code-generate": "gemini:gemini-2.5-flash",
+    "reasoning": "gemini:gemini-2.5-flash",
+    "math": "gemini:gemini-2.5-flash",
+    "logic": "gemini:gemini-2.5-flash",
     "classify": "llama3.1:8b",
     "scan": "llama3.1:8b",
     "filter": "llama3.1:8b",
-    "structured-json": "gemini:flash",
-    "extract": "gemini:flash",
-    "summarize": "gemini:flash",
-    "general": "gemini:flash",
-    "research": "gemini:flash",
-    "analysis": "gemini:flash",
+    "structured-json": "gemini:gemini-2.5-flash",
+    "extract": "gemini:gemini-2.5-flash",
+    "summarize": "gemini:gemini-2.5-flash",
+    "general": "gemini:gemini-2.5-flash",
+    "research": "gemini:gemini-2.5-flash",
+    "analysis": "gemini:gemini-2.5-flash",
     "security": "mistral:mistral-large-latest",
 }
 
 # -- REQ-109 reqs 021-023: multi-provider defaults — Gemini + Grok + Mistral (no OpenAI in defaults).
 # -- Single-model tasks are "mid" (flash); use provider:high / rondo_cloud tier=high for Opus-like depth.
 _DEFAULT_MULTI_REVIEW: dict[str, list[str]] = {
-    "code-review": ["gemini:flash", "grok:grok-3"],
-    "security": ["gemini:flash", "grok:grok-3", "mistral:mistral-large-latest"],
-    "analysis": ["gemini:flash", "grok:grok-3"],
-    "research": ["gemini:flash", "grok:grok-3"],
+    "code-review": ["gemini:gemini-2.5-flash", "grok:grok-3"],
+    "security": ["gemini:gemini-2.5-flash", "grok:grok-3", "mistral:mistral-large-latest"],
+    "analysis": ["gemini:gemini-2.5-flash", "grok:grok-3"],
+    "research": ["gemini:gemini-2.5-flash", "grok:grok-3"],
     # -- Deep cognitive pair — gemini-2.5-pro ≈ doc shorthand "gemini:pro"; mistral large = third-body perspective
     "reasoning": ["gemini:gemini-2.5-pro", "mistral:mistral-large-latest"],
 }
@@ -351,7 +351,7 @@ def recommend_review_providers(task_type: str, count: int = 2) -> list[str]:
         count:     Max providers to return (default 2, more if requested).
 
     Returns:
-        List of provider:model strings, e.g. ['gemini:flash', 'grok:grok-3'].
+        List of provider:model strings, e.g. ['gemini:gemini-2.5-flash', 'grok:grok-3'].
     """
     key = task_type.lower()
     # -- Config overrides win (req 024: manual override always wins)
@@ -397,7 +397,7 @@ def get_provider_with_fallback(model: str) -> tuple[object | None, str]:
     REQ-109 req 016: NEVER falls back to Claude interactive (returns None).
 
     Args:
-        model: Provider:model string (e.g. 'gemini:flash', 'grok:grok-3').
+        model: Provider:model string (e.g. 'gemini:gemini-2.5-flash', 'grok:grok-3').
 
     Returns:
         (adapter, model_string) — adapter is None if no healthy provider found.

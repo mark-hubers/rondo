@@ -4,9 +4,9 @@
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-03-20 | **Updated:** 2026-04-02 | **Status:** DESIGNED
+**Created:** 2026-03-20 | **Updated:** 2026-04-03 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.5
+**Version:** 1.6
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -111,6 +111,17 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 044 | Tier names are fixed: `high`, `default`, `low`. No custom tier names in v1 (simplicity — 4 AI bodies agreed 3 tiers is right starting point). | MUST | Validation test |
 | 045 | If a provider has fewer than 3 distinct models, tiers MAY point to the same model (e.g., Grok: `best_model = "grok-3"`, `default_model = "grok-3"`). | SHOULD | Config test |
 
+### ai-review script (`scripts/ai_review.py`) — Rondo SSOT for tier models
+
+Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** three fields as Rondo: `best_model`, `default_model`, `cheap_model` per `[providers.<name>]` in `~/.rondo/config.toml`. Built-in model names in `TIERS_BUILTIN` apply only when config is missing, a provider is disabled, or merge fails.
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 064 | Module `rondo/review_tiers.py` SHALL provide `merge_ai_review_tiers(builtin)` returning a deep copy of `builtin` with per-provider models overridden from config. Mapping: `--tier best` → `best_model`, `standard` → `default_model`, `fast` → `cheap_model`. | MUST | `test_review_tiers.py` |
+| 065 | Optional env `RONDO_CONFIG_PATH` SHALL select the TOML file (for tests); default `~/.rondo/config.toml`. | SHOULD | `test_review_tiers.py` |
+| 066 | ai-review provider key `claude` SHALL read from `[providers.anthropic]` (same as Rondo routing). Keys `openai`, `gemini`, `mistral`, `grok` read from matching `[providers.*]` sections. | MUST | `test_review_tiers.py` |
+| 067 | `scripts/ai_review.py` SHALL call `merge_ai_review_tiers(TIERS_BUILTIN)` at import when `rondo/src` is on `sys.path` (repo checkout); on any failure, use `TIERS_BUILTIN` only. | MUST | Import smoke |
+
 ### Cloud Dispatch (Session 96 — `--cloud` flag)
 
 | ID | Requirement | Priority | Verified By |
@@ -121,7 +132,7 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 049 | Cloud profiles in config: `[cloud.profiles.review]`, `[cloud.profiles.coding]`, `[cloud.profiles.research]`. Each has a `providers` list and `description`. | MUST | Profile test |
 | 050 | Profile selection: `--cloud review` uses review profile. `--cloud` with no profile uses all enabled providers. Future: auto-detect task type from prompt keywords. | MUST | Selection test |
 | 051 | Cloud tier: `--cloud high` dispatches to all selected providers at `best_model` tier. `--cloud low` uses `cheap_model`. Default: `default_model`. Combinable: `--cloud high 3` = 3 providers at best tier. | MUST | Tier flag test |
-| 052 | Parallel dispatch: cloud providers are called concurrently (not sequentially). Results collected and merged after all complete or timeout. | SHOULD | Parallel test |
+| 052 | Cloud providers SHOULD be dispatched concurrently where possible. v1 implementation is sequential (acceptable for 2-3 providers). Future: `asyncio` or thread pool when provider count exceeds 3. Results collected and merged after all complete or timeout. | SHOULD | Parallel test |
 
 ### Cloud Cost Controls (all 4 AI bodies flagged as critical)
 
@@ -168,6 +179,23 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 018 | Provider health cached for 5 minutes (don't re-check on every dispatch) | SHOULD | Cache test |
 | 019 | Provider down → log WARNING, use fallback. Provider stays "down" until next health check. | MUST | Down test |
 | 020 | `rondo providers` CLI: show all providers with health status, model count, latency | SHOULD | CLI test |
+
+### Provider Health Strategy (Session 97 — Cursor deep review)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 071 | `ChatCompletionsAdapter.health()` MUST use a **provider-appropriate** endpoint. OpenAI and Mistral expose `GET /v1/models`; Grok (xAI) may not. If `/models` is unavailable, fall back to TCP connect or HEAD request to `base_url`. Do NOT assume all ChatCompletions providers share OpenAI's endpoint layout. | MUST | Per-provider health test |
+| 072 | `AnthropicAPIAdapter.health()` MUST verify network reachability, not just key presence. Acceptable methods: HEAD or GET to `base_url` (any non-timeout response proves connectivity), or TCP connect to host:443. Key-present-only does NOT satisfy req 017 ("API reachable"). | MUST | Anthropic health test |
+| 073 | Provider health strategy MUST be documented per adapter: which endpoint is checked, what constitutes "healthy", what constitutes "down". This goes in the adapter's module docstring. | SHOULD | Docstring review |
+
+
+### Error Handling & Resilience (Session 97 — Cursor deep review)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 068 | Adapter error codes MUST distinguish HTTP status categories: `ERR_AUTH` (401/403 — bad or expired key), `ERR_RATE_LIMIT` (429 — provider rate limit), `ERR_PROVIDER_DOWN` (5xx — server error), `ERR_PROVIDER` (network/timeout/other). Generic `ERR_PROVIDER` is NOT acceptable when the HTTP status code is available. | MUST | Error code test |
+| 069 | On `ERR_AUTH` (HTTP 401/403), the adapter MUST call `invalidate_key(provider)` to clear the cached key before returning the error result. Next dispatch re-fetches from the backend chain (req 037). This implements the cache-invalidation-on-error promise in req 040. | MUST | Invalidation test |
+| 070 | Empty or missing response body from a provider with HTTP 200 MUST be treated as `status="error"` with `error_code="ERR_EMPTY_RESPONSE"`, not `status="done"` with empty `raw_output`. A provider that returns nothing has not completed the task. | MUST | Empty response test |
 
 
 ### Affinity Tracking (learn which model is best)

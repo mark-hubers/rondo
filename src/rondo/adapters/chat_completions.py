@@ -160,9 +160,10 @@ class ChatCompletionsAdapter(ProviderAdapter):
     def health(self) -> bool:
         """Check if API endpoint is reachable — REQ-109 req 071.
 
-        OpenAI/Mistral: GET /v1/models (supported).
-        Grok (xAI): try /v1/models first; if non-200, fall back to HEAD
-        on /v1/chat/completions (any non-timeout response = reachable).
+        GET /v1/models for all providers. If /models returns non-5xx HTTP
+        error (404 for Grok, 401 for bad key), the provider is still
+        reachable — the network path works. Only 5xx or network errors
+        mean "down".
         """
         import urllib.error
         import urllib.request

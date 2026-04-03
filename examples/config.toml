@@ -8,8 +8,10 @@
 ## Create automatically: rondo init --config
 ## Validate all models:  pytest -m cloud_full -v -s
 ##
-## COALESCE: code defaults → this file → env vars
-## This file wins over hardcoded defaults. Env vars win over this file.
+## Resolution order:
+##   API keys:  env var → macOS Keychain → 1Password (NOT from this file)
+##   Models/tiers: code defaults → this file (this file wins)
+##   Config is loaded once at startup. Changes require restart.
 ## ═══════════════════════════════════════════════════════════════
 
 
@@ -25,9 +27,9 @@
 ## Use tiers: rondo run round.py --model gemini:high
 ## Use exact: rondo run round.py --model gemini:gemini-2.5-pro
 ##
-## trust = "trusted" | "untrusted"
-##   trusted:   receives any prompt
-##   untrusted: skipped for sensitivity="internal" tasks
+## trust = "trusted" | "untrusted"  (RESERVED — not enforced yet)
+##   Future: trusted receives any prompt, untrusted skipped for internal tasks.
+##   Currently: all providers receive all prompts regardless of trust setting.
 
 [providers.gemini]
 enabled = true

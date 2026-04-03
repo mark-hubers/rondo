@@ -80,9 +80,12 @@ _providers_loaded: bool = False
 def load_providers_config(toml_data: dict | None = None) -> None:
     """Load [providers] section from TOML into tier resolution cache.
 
-    Called at startup (CLI main, MCP server create) and idempotent.
-    If no TOML provided, tries ~/.rondo/config.toml.
-    Graceful: missing config file = empty config (no error).
+    Called at startup (CLI main, MCP server create).
+    Behavior:
+    - toml_data provided: merges into cache (additive, does not remove keys).
+    - toml_data=None: reads ~/.rondo/config.toml ONCE (one-shot, not hot-reload).
+    - Missing config file: empty config, no error — hardcoded defaults used.
+    - Second call without toml_data: no-op (already loaded from file).
     """
     global _providers_config, _providers_loaded  # noqa: PLW0603
     if toml_data is not None:

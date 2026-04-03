@@ -160,6 +160,16 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 062 | Provider trust level in config: `[providers.<name>] trust = "trusted" | "untrusted"`. `internal` tasks skip `untrusted` providers. | SHOULD | Trust test |
 | 063 | Cloud dispatch MUST NOT send prompts containing file paths, API keys, or credential-like strings to untrusted providers. Sanitization before dispatch. | MUST | Sanitize test |
 
+### E2E Test Modes (Session 97 — config-driven validation)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 074 | `pytest -m cloud` runs real cloud dispatch tests (existing adapter tests). Skips automatically if API key not configured. Cost: ~$0.02. | MUST | Marker test |
+| 075 | `pytest -m cloud_full` reads `~/.rondo/config.toml` `[providers]` and dispatches a minimal prompt to every enabled provider at every tier (cheap/default/best). Verifies each model ID is valid against the real API. Cost: ~$0.10-0.50 depending on provider count. | MUST | Config validation test |
+| 076 | `cloud_full` MUST report per-provider, per-tier results as a table: provider, tier, model ID, status (PASS/FAIL/SKIP), latency, error if any. | MUST | Output test |
+| 077 | `cloud_full` MUST also validate `_DEFAULT_TASK_MODELS` entries — every hardcoded model string must dispatch successfully. Catches stale model IDs (like `gemini:flash` → 404). | MUST | Default validation test |
+| 078 | Both `cloud` and `cloud_full` are opt-in markers. Normal `pytest rondo/tests/` MUST NOT run cloud tests. | MUST | Isolation test |
+
 ### Model Routing
 
 | ID | Requirement | Priority | Verified By |

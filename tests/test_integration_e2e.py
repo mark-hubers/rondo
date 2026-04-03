@@ -1386,6 +1386,7 @@ skip_no_grok = pytest.mark.skipif(not _has_cloud_key("grok"), reason="No Grok AP
 skip_no_mistral = pytest.mark.skipif(not _has_cloud_key("mistral"), reason="No Mistral API key")
 
 
+@pytest.mark.cloud
 @skip_no_rondo
 class TestRealCloudDispatch:
     """Real cloud provider dispatch — proves adapters work end-to-end.
@@ -1456,6 +1457,7 @@ class TestRealCloudDispatch:
         assert result.duration_sec > 0
 
 
+@pytest.mark.cloud
 @skip_no_rondo
 class TestRealMultiProviderReview:
     """Real multi-provider review — Gemini + Grok review the same prompt.
@@ -1533,6 +1535,7 @@ class TestRealMultiProviderReview:
         )
 
 
+@pytest.mark.cloud
 @skip_no_rondo
 class TestRealProviderHealth:
     """Real health checks against live cloud APIs."""

@@ -28,6 +28,11 @@ skips = ["B404", "B603"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "cloud: Real cloud API dispatch tests (~$0.02). Run: pytest -m cloud",
+    "cloud_full: Config-driven validation of ALL providers + tiers (~$0.10-0.50). Run: pytest -m cloud_full",
+]
+addopts = "-m 'not cloud and not cloud_full'"
 
 [tool.coverage.run]
 source = ["rondo"]

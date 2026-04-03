@@ -126,8 +126,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("mcp", help="Start MCP stdio server (for Claude Code integration)")
 
     # -- init subcommand (U-10 to U-14 scaffolding)
-    init_parser = subparsers.add_parser("init", help="Create a starter round file")
+    init_parser = subparsers.add_parser("init", help="Create a starter round file or config")
     init_parser.add_argument("--name", default="my-round", help="Round name (default: my-round)")
+    init_parser.add_argument("--config", action="store_true", help="Create ~/.rondo/config.toml from template")
 
     ## -- schedule subcommand (REQ-101 scheduling)
     sched_parser = subparsers.add_parser("schedule", help="Create launchd plist for recurring dispatch")
@@ -954,8 +955,28 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
-    """Create a starter round file — U-10 to U-14."""
+    """Create a starter round file or config — U-10 to U-14."""
+    import shutil  # pylint: disable=import-outside-toplevel
     from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+    # -- rondo init --config: create ~/.rondo/config.toml from template
+    if getattr(args, "config", False):
+        config_dir = Path.home() / ".rondo"
+        config_path = config_dir / "config.toml"
+        if config_path.exists():
+            print(f"Config already exists: {config_path}", file=sys.stderr)
+            print("  Edit it directly, or remove it first to regenerate.", file=sys.stderr)
+            return EXIT_FAILURE
+        config_dir.mkdir(parents=True, exist_ok=True)
+        # -- Copy template from examples/
+        template = Path(__file__).parent.parent.parent / "examples" / "config.toml"
+        if not template.exists():
+            print("Error: template not found at examples/config.toml", file=sys.stderr)
+            return EXIT_FAILURE
+        shutil.copy2(template, config_path)
+        print(f"Created {config_path}")
+        print("  Edit provider settings, then validate: pytest -m cloud_full -v -s")
+        return EXIT_SUCCESS
 
     name = getattr(args, "name", "my-round")
     output_path = Path.cwd() / "round.py"

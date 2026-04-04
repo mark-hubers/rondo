@@ -1271,6 +1271,92 @@ class TestMultiReview:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 req 052/088 — parallel dispatch
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestParallelDispatch:
+    """REQ-109 req 052: multi_review dispatches concurrently."""
+
+    def test_parallel_preserves_provider_order(self) -> None:
+        """Results come back in same order as input providers."""
+        from unittest.mock import patch
+
+        from rondo.mcp_server import rondo_multi_review
+
+        call_order: list[str] = []
+
+        def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
+            call_order.append(model)
+            return json.dumps(
+                {
+                    "status": "done",
+                    "tasks": [{"raw_output": f"Review from {model}", "duration_sec": 0.1}],
+                    "total_cost_usd": 0,
+                }
+            )
+
+        providers = '["provider_a:model_a", "provider_b:model_b", "provider_c:model_c"]'
+        with patch("rondo.mcp_server.rondo_run_file", side_effect=mock_run_file):
+            result = json.loads(rondo_multi_review(prompt="test", providers=providers, dry_run=False))
+
+        # -- Results must be in original order regardless of thread completion order
+        result_providers = [r["provider"] for r in result["per_provider"]]
+        assert result_providers == ["provider_a:model_a", "provider_b:model_b", "provider_c:model_c"]
+
+    def test_parallel_one_failure_others_succeed(self) -> None:
+        """REQ-109 req 088: one thread failure doesn't crash others."""
+        from unittest.mock import patch
+
+        from rondo.mcp_server import rondo_multi_review
+
+        call_count = 0
+
+        def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
+            nonlocal call_count
+            call_count += 1
+            if "bad" in model:
+                msg = "Simulated failure"
+                raise ConnectionError(msg)
+            return json.dumps(
+                {"status": "done", "tasks": [{"raw_output": "OK", "duration_sec": 0.1}], "total_cost_usd": 0}
+            )
+
+        providers = '["good:model_a", "bad:model_b", "good:model_c"]'
+        with patch("rondo.mcp_server.rondo_run_file", side_effect=mock_run_file):
+            result = json.loads(rondo_multi_review(prompt="test", providers=providers, dry_run=False))
+
+        # -- All 3 dispatched
+        assert call_count == 3
+        # -- 2 succeeded, 1 failed
+        statuses = [r["status"] for r in result["per_provider"]]
+        assert statuses.count("done") == 2
+        assert statuses.count("error") == 1
+
+    def test_parallel_uses_threads(self) -> None:
+        """Verify ThreadPoolExecutor is used (not sequential loop)."""
+        import threading
+        from unittest.mock import patch
+
+        from rondo.mcp_server import rondo_multi_review
+
+        threads_seen: set[int] = set()
+
+        def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
+            threads_seen.add(threading.current_thread().ident)
+            return json.dumps(
+                {"status": "done", "tasks": [{"raw_output": "OK", "duration_sec": 0.1}], "total_cost_usd": 0}
+            )
+
+        providers = '["a:m1", "b:m2", "c:m3"]'
+        with patch("rondo.mcp_server.rondo_run_file", side_effect=mock_run_file):
+            rondo_multi_review(prompt="test", providers=providers, dry_run=False)
+
+        # -- With 3 providers, should use multiple threads (not all on main thread)
+        assert len(threads_seen) >= 2, f"Expected multiple threads, got {len(threads_seen)}"
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 req 081 — dry-run prompt_length field
 # -- ──────────────────────────────────────────────────────────────
 

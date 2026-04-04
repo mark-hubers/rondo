@@ -1,7 +1,8 @@
 # Rondo Refactoring Plan — DRY + Module Split
 
-**Date:** 2026-04-04 | **Session:** 97 | **Status:** PROPOSAL (needs review)
+**Date:** 2026-04-04 | **Session:** 97 | **Status:** APPROVED (reviewed by Gemini + Grok + Mistral + Cursor)
 **Codebase:** 10,662 lines across 25 source files, 1,370+ tests
+**Cursor review:** Accepted 5 of 6 challenges. Reordered, moved factory, deferred URLs.
 
 ---
 
@@ -160,16 +161,23 @@ error_code = ERR_AUTH
 
 ---
 
-## Execution Order
+## Execution Order (REVISED per Cursor review)
 
-| Order | Change | Why this order |
-|-------|--------|---------------|
-| 1 | **Adapter Factory** (#1) | Highest value DRY fix. Enables changes 3-5. |
-| 2 | **Config Reader** (#2) | Second highest DRY fix. Used by factory. |
-| 3 | **URL Registry** (#3) | Depends on config reader. |
-| 4 | **Error Imports** (#6) | Standalone, low risk, do anytime. |
-| 5 | **Split cli.py** (#4) | Depends on factory being done (review command uses it). |
-| 6 | **Split mcp_server.py** (#5) | Last — biggest risk, most import path changes. |
+| Order | Sprint | Change | Why this order |
+|-------|--------|--------|---------------|
+| 1 | FIX-650 | **Error Imports** (#6) | Zero deps, cleans up noise before big changes. |
+| 2 | FIX-651 | **Config Reader** (#2) | Foundation for factory — write factory once against clean config. |
+| 3 | FIX-652 | **Adapter Factory** (#1) in `adapters/factory.py` | Cursor: providers.py is already a god module. Separate file. |
+| 4 | FIX-653 | **Split cli.py** (#4) → `cli_commands.py` | Phase 1: flat file. Phase 2 (later): cli/commands/*.py package. |
+| 5 | FIX-654 | **Split mcp_server.py** (#5) + update mcp_tools.py | Must update: mcp_tools.py, cli.py, test_mcp.py import paths. |
+| *(deferred)* | — | **URL Registry** (#3) | Cursor: scope creep. Factory hardcodes URLs first. Config override later. |
+
+**Cursor changes from original plan:**
+- Reordered: error imports first (was 4th), config reader before factory (was 2nd after factory)
+- Factory moved from providers.py → adapters/factory.py (separation of concerns)
+- URL registry deferred to phase 2 (limit scope)
+- mcp_tools.py added to split files list (was missing — has lazy import coupling)
+- cli split: flat phase 1, package phase 2 (pragmatic)
 
 ---
 

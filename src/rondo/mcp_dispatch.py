@@ -1,27 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Rondo MCP server — stdio transport for Claude Code integration.
+"""Rondo dispatch — AI composition functions (multi-review, chain, benchmark, cloud).
 
-Rondo-IFS-104: MCP Server.
-Claude Code starts this via stdio — no daemon, no port, no "always running."
-Same engine as CLI and Python import, just a different interface.
+Rondo-IFS-104, Rondo-REQ-109.
+Split from mcp_server.py (Session 97): this file has dispatch logic,
+mcp_server.py has tool registration + MCP stdio transport.
 
-Rondo is per-user infrastructure. Each developer runs their own Rondo instance
-on their own machine, spawned by Claude Code via MCP stdio, with their own
-~/.rondo state and API keys. There is no shared or multi-tenant deployment mode;
-running as a long-lived daemon or shared network service is explicitly unsupported.
-
-Three interfaces, one engine:
-    1. Python:  from rondo import dispatch_task
-    2. CLI:     rondo run / metrics / audit
-    3. MCP:     rondo mcp (this file — stdio transport)
-
-Session 94 split (Finding #195): Read-only/management tools extracted to mcp_tools.py.
-This file keeps: dispatch core, AI composition tools, server registration.
+Functions here are called by MCP tools AND by CLI (rondo review).
+Thread-safe: _background_results protected by _background_lock.
 
 Import direction:
-    mcp_tools.py → imports metrics, history, spool, providers (reads data)
-    mcp_server.py → imports mcp_tools (tool functions), dispatch (finalization)
+    mcp_dispatch.py → imports runner, dispatch, engine, config (does work)
+    mcp_server.py   → imports mcp_dispatch (re-exports for backward compat)
+    mcp_tools.py    → imports mcp_dispatch.rondo_multi_review (lazy, for rondo_cloud)
 """
 
 from __future__ import annotations

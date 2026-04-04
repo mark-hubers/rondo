@@ -16,7 +16,7 @@
                           │  rondo run        rondo_run()   Round() │
                           │  rondo providers  rondo_cloud() Task()  │
                           │  rondo metrics    + 16 more     run()   │
-                          │  14 commands      21 tools      import  │
+                          │  15 commands      21 tools      import  │
                           └────────┬──────────┬──────────┬──────────┘
                                    │          │          │
                           ┌────────┴──────────┴──────────┴──────────┐
@@ -144,7 +144,7 @@ Also exposes `rondo://help` resource for AI agent discovery (version, commands, 
 
 ---
 
-## CLI Commands (14)
+## CLI Commands (15)
 
 | Command | What it does |
 |---------|-------------|

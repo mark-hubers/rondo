@@ -572,6 +572,48 @@ class TestMgHSignature:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  Doc/spec sync — catch count drift automatically
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestDocSpecSync:
+    """Verify RONDO-REFERENCE.md counts match actual code."""
+
+    def test_mcp_tool_count_matches(self) -> None:
+        """Reference doc tool count matches @mcp.tool() registrations."""
+        import re
+
+        server_path = SRC_DIR / "mcp_server.py"
+        tool_count = len(re.findall(r"@mcp\.tool\(", server_path.read_text(encoding="utf-8")))
+        ref_path = SRC_DIR.parent.parent / "docs" / "RONDO-REFERENCE.md"
+        if not ref_path.exists():
+            pytest.skip("RONDO-REFERENCE.md not found")
+        ref_text = ref_path.read_text(encoding="utf-8")
+        # -- Find "MCP Tools (N)" in reference
+        match = re.search(r"MCP Tools \((\d+)\)", ref_text)
+        if not match:
+            pytest.skip("MCP tool count not found in reference")
+        doc_count = int(match.group(1))
+        assert tool_count == doc_count, f"MCP tool count drift: code has {tool_count}, doc says {doc_count}"
+
+    def test_cli_command_count_matches(self) -> None:
+        """Reference doc CLI count matches add_parser() calls."""
+        import re
+
+        cli_path = SRC_DIR / "cli.py"
+        parser_count = len(re.findall(r"add_parser\(", cli_path.read_text(encoding="utf-8")))
+        ref_path = SRC_DIR.parent.parent / "docs" / "RONDO-REFERENCE.md"
+        if not ref_path.exists():
+            pytest.skip("RONDO-REFERENCE.md not found")
+        ref_text = ref_path.read_text(encoding="utf-8")
+        match = re.search(r"CLI Commands \((\d+)\)", ref_text)
+        if not match:
+            pytest.skip("CLI command count not found in reference")
+        doc_count = int(match.group(1))
+        assert parser_count == doc_count, f"CLI command count drift: code has {parser_count}, doc says {doc_count}"
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  STD-107 Security conventions (RONDO-56)
 # -- ──────────────────────────────────────────────────────────────
 

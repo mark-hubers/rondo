@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-## -- Provider → base URL mapping (hardcoded defaults, config override in phase 2)
+## -- Provider → base URL mapping (hardcoded defaults; config [providers.X.base_url] override future)
 _PROVIDER_URLS: dict[str, str] = {
     "openai": "https://api.openai.com/v1",
     "grok": "https://api.x.ai/v1",

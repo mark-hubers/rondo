@@ -66,7 +66,7 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 
 | ID | Requirement | Priority | Verified By |
 |----|-------------|----------|-------------|
-| 030 | Adapters MUST live in `rondo/src/rondo/adapters/` directory: `chat_completions.py`, `gemini.py`, `anthropic_api.py`, `ollama.py`. `providers.py` stays small (routing + interface only). | MUST | Structure test |
+| 030 | Adapters MUST live in `rondo/src/rondo/adapters/` directory: `chat_completions.py`, `gemini.py`, `anthropic_api.py`, `ollama.py`, `factory.py` (construction), `auth.py` (keys), `health.py` (probes). `providers.py` handles routing + tiers + task model config. | MUST | Structure test |
 | 031 | `ChatCompletionsAdapter` handles OpenAI, Grok, Mistral via config (different `base_url`, same API shape). One class, three providers. | MUST | Multi-provider test |
 | 032 | Provider routing via `provider:model` prefix: `openai:gpt-4.1`, `gemini:flash`, `local:llama3.1:8b`. `parse_model()` splits on first `:`. No prefix → Claude. | MUST | Routing test |
 | 033 | `rondo_multi_review` MCP tool: dispatch same prompt to N providers, return per-provider findings + merged findings + cost/latency stats. Replaces `ai-review --all-providers`. | SHOULD | MCP test |

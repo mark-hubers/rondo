@@ -76,7 +76,7 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "live.py", "__main__.py", "notify.py"}
+    EXEMPT = {"cli.py", "cli_commands.py", "live.py", "__main__.py", "notify.py"}
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""
@@ -158,14 +158,95 @@ class TestImportLayering:
         "spool.py": set(),
         "_version.py": set(),
         "metrics.py": set(),
-        "mcp_server.py": {"metrics", "_version", "cli", "config", "dispatch", "runner", "ai_help", "engine", "spool", "notify", "history", "providers", "audit", "schedule", "mcp_tools"},
-        "mcp_tools.py": {"metrics", "_version", "cli", "config", "engine", "spool", "history", "providers", "schedule", "mcp_server", "health"},  # mcp_server: lazy import in rondo_cloud() only; health: lazy import in rondo_health() only
-        "dispatch.py": {"engine", "config", "history", "dispatch_prompt", "dispatch_parse", "sanitize", "audit", "spool", "metrics"},
+        "mcp_server.py": {
+            "metrics",
+            "_version",
+            "cli",
+            "config",
+            "dispatch",
+            "runner",
+            "ai_help",
+            "engine",
+            "spool",
+            "notify",
+            "history",
+            "providers",
+            "audit",
+            "schedule",
+            "mcp_tools",
+        },
+        "mcp_tools.py": {
+            "metrics",
+            "_version",
+            "cli",
+            "config",
+            "engine",
+            "spool",
+            "history",
+            "providers",
+            "schedule",
+            "mcp_server",
+            "health",
+        },  # mcp_server: lazy import in rondo_cloud() only; health: lazy import in rondo_health() only
+        "dispatch.py": {
+            "engine",
+            "config",
+            "history",
+            "dispatch_prompt",
+            "dispatch_parse",
+            "sanitize",
+            "audit",
+            "spool",
+            "metrics",
+        },
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner", "preflight", "spool"},
         "live.py": {"engine"},
-        "cli.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live", "preflight", "history", "ai_help", "audit", "flaky", "sanitize", "spool", "_version", "metrics", "mcp_server", "providers", "schedule", "health"},  # health: lazy import in _cmd_providers() only
+        "cli.py": {
+            "engine",
+            "config",
+            "dispatch",
+            "runner",
+            "parallel",
+            "overnight",
+            "report",
+            "live",
+            "preflight",
+            "history",
+            "ai_help",
+            "audit",
+            "flaky",
+            "sanitize",
+            "spool",
+            "_version",
+            "metrics",
+            "mcp_server",
+            "providers",
+            "schedule",
+            "health",
+            "cli_commands",
+        },
+        "cli_commands.py": {
+            "cli",
+            "config",
+            "live",
+            "overnight",
+            "report",
+            "preflight",
+            "history",
+            "audit",
+            "flaky",
+            "spool",
+            "sanitize",
+            "metrics",
+            "mcp_server",
+            "schedule",
+            "providers",
+            "_version",
+            "adapters",
+            "health",
+        },  # command handlers import from cli + domain modules
         "report.py": {"engine", "config", "overnight"},
         "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "__main__.py": {"cli"},
@@ -272,7 +353,7 @@ class TestErrorHandlingInCli:
 
     def test_cmd_run_has_error_handling(self):
         """_cmd_run wraps load_round_file in try/except."""
-        content = (SRC_DIR / "cli.py").read_text(encoding="utf-8")
+        content = (SRC_DIR / "cli_commands.py").read_text(encoding="utf-8")
         in_cmd_run = False
         has_try = False
         for line in content.splitlines():
@@ -287,7 +368,7 @@ class TestErrorHandlingInCli:
 
     def test_cmd_overnight_has_error_handling(self):
         """_cmd_overnight wraps load_phases_file in try/except."""
-        content = (SRC_DIR / "cli.py").read_text(encoding="utf-8")
+        content = (SRC_DIR / "cli_commands.py").read_text(encoding="utf-8")
         in_cmd = False
         has_try = False
         for line in content.splitlines():
@@ -493,6 +574,7 @@ class TestNoSQLite:
 
     def test_no_sqlite3_in_source(self):
         import re
+
         for src_file in SRC_FILES:
             content = src_file.read_text(encoding="utf-8")
             matches = re.findall(r"^\s*import sqlite3|^\s*from sqlite3", content, re.MULTILINE)
@@ -504,6 +586,7 @@ class TestNoHardcodedSecrets:
 
     def test_no_api_keys_in_source(self):
         import re
+
         api_key_pattern = re.compile(r"sk-[a-zA-Z0-9]{20,}|ANTHROPIC_API_KEY\s*=\s*['\"]")
         for src_file in SRC_FILES:
             content = src_file.read_text(encoding="utf-8")
@@ -516,10 +599,11 @@ class TestNoHttpUrls:
 
     def test_no_plain_http_api_calls(self):
         import re
+
         for src_file in SRC_FILES:
             content = src_file.read_text(encoding="utf-8")
             ## -- Find http:// but allow localhost + Apple DTD (plist standard)
-            matches = re.findall(r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0|www\.apple\.com/DTDs)\S+', content)
+            matches = re.findall(r"http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0|www\.apple\.com/DTDs)\S+", content)
             assert not matches, f"{src_file.name} uses plain HTTP: {matches[:2]}"
 
 

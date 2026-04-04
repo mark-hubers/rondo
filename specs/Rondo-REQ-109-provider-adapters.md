@@ -135,6 +135,15 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 052 | Cloud providers MUST be dispatched concurrently via `ThreadPoolExecutor`. Each provider gets its own thread with independent adapter + HTTP connection. Results collected in provider order after all complete or timeout (120s per adapter). One provider's failure or slowness does not block others. | MUST | Parallel test |
 | 088 | `rondo_multi_review` concurrent dispatch: max workers = number of providers (typically 2-4). Thread safety: each adapter instantiated per-thread (no shared mutable state). `_HEALTH_CACHE` is read-only during dispatch (writes happen in health checks, not dispatch). | MUST | Thread safety test |
 
+### Config Robustness (Session 97 — AI body excellence recommendations)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 089 | `get_rondo_config()` MUST validate provider config types on load: `enabled` must be bool, `*_model` must be non-empty string, `trust` must be "trusted" or "untrusted". Invalid values logged as WARNING and skipped (not crash). | MUST | Validation test |
+| 090 | Config file permission check: on POSIX, skip loading if config.toml is world-writable (mode & 0o002). Log WARNING. This prevents malicious config injection on shared systems. | SHOULD | Permission test |
+| 091 | Adapter factory `get_adapter()` MUST return typed `ProviderAdapter | None`, not `object | None`. Enables IDE autocomplete and static analysis on dispatch results. | MUST | Type test |
+| 092 | Cache strategy documented per cache: health=5min TTL (req 018), config=one-shot (loaded once at startup, no reload), keys=5min TTL + invalidate on 401 (req 040). No undocumented caches. | SHOULD | Docstring review |
+
 ### Cloud Cost Controls (all 4 AI bodies flagged as critical)
 
 | ID | Requirement | Priority | Verified By |

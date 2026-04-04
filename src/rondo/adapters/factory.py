@@ -16,6 +16,10 @@ Usage:
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rondo.providers import ProviderAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +31,7 @@ _PROVIDER_URLS: dict[str, str] = {
 }
 
 
-def get_adapter(provider: str, model: str = "") -> object | None:
+def get_adapter(provider: str, model: str = "") -> ProviderAdapter | None:
     """Return a configured adapter instance for the given provider.
 
     Loads API key from auth chain (env → keychain → 1password).

@@ -9,11 +9,14 @@ Config is frozen (immutable) after creation — thread-safe by design.
 
 from __future__ import annotations
 
+import logging
 import tomllib
 import warnings
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────
 #  COALESCE — Rondo-STD-109 rule 6
@@ -278,8 +281,40 @@ def _load_toml(
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  Config validation — REQ-109 req 089
+# -- ──────────────────────────────────────────────────────────────
+
+_VALID_TRUST = {"trusted", "untrusted"}
+
+
+def _validate_config(data: dict[str, Any]) -> dict[str, Any]:
+    """Validate provider config types. Log warnings for invalid values, don't crash.
+
+    REQ-109 req 089: enabled=bool, *_model=str, trust=enum.
+    """
+    providers = data.get("providers", {})
+    for name, cfg in providers.items():
+        if not isinstance(cfg, dict):
+            logger.warning("Provider '%s' config is not a dict — skipping", name)
+            continue
+        # -- enabled must be bool
+        if "enabled" in cfg and not isinstance(cfg["enabled"], bool):
+            logger.warning("Provider '%s' enabled must be bool, got %s", name, type(cfg["enabled"]).__name__)
+        # -- model fields must be non-empty strings
+        for key in ("cheap_model", "default_model", "best_model"):
+            val = cfg.get(key, "")
+            if val and not isinstance(val, str):
+                logger.warning("Provider '%s' %s must be string, got %s", name, key, type(val).__name__)
+        # -- trust must be valid enum
+        trust = cfg.get("trust", "")
+        if trust and trust not in _VALID_TRUST:
+            logger.warning("Provider '%s' trust='%s' invalid — must be 'trusted' or 'untrusted'", name, trust)
+    return data
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  Raw TOML config reader — single cached reader for providers/cloud/auth
-# -- ───────────────────────────────────────────���──────────────────
+# -- ──────────────────────────────────────────────────────────────
 
 _raw_config: dict[str, Any] | None = None
 
@@ -288,13 +323,23 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
     """Load and cache raw ~/.rondo/config.toml as dict.
 
     Single source for all TOML config reads (providers, cloud, auth, routing).
-    Loaded once at startup, cached for process lifetime.
+
+    Cache strategy (REQ-109 req 092):
+        config: ONE-SHOT — loaded once at startup, never reloaded. Restart to pick up changes.
+        health: 5-min TTL (see adapters/health.py req 018)
+        keys:   5-min TTL + invalidate on 401 (see adapters/auth.py req 040)
+
+    Merge behavior (REQ-109 req 040):
+        config_path provided: returns that file (no cache, for tests).
+        config_path empty: reads ~/.rondo/config.toml ONCE, caches result.
+        Second call without config_path: returns cache (no-op, no re-read).
+        This is MERGE on first load, not hot-reload.
 
     Args:
         config_path: Override path (for tests). Default: ~/.rondo/config.toml.
 
     Returns:
-        Raw TOML dict. Empty dict if file missing or invalid (no error).
+        Raw TOML dict. Empty dict if file missing, invalid, or world-writable.
     """
     global _raw_config  # noqa: PLW0603
     if _raw_config is not None and not config_path:
@@ -302,9 +347,26 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
 
     path = Path(config_path) if config_path else Path.home() / ".rondo" / "config.toml"
     if path.is_file():
+        # -- REQ-109 req 090: permission check (POSIX only)
+        try:
+            import os
+            import stat
+
+            file_stat = os.stat(path)
+            if file_stat.st_mode & stat.S_IWOTH:
+                logger.warning("Config %s is world-writable — skipping for security", path)
+                result: dict[str, Any] = {}
+                if not config_path:
+                    _raw_config = result
+                return result
+        except (OSError, AttributeError):
+            pass  # -- Non-POSIX or can't stat — proceed with load
+
         try:
             with open(path, "rb") as f:
                 result = tomllib.load(f)
+            # -- REQ-109 req 089: validate provider config types
+            result = _validate_config(result)
         except (tomllib.TOMLDecodeError, OSError):
             result = {}
     else:

@@ -247,8 +247,8 @@ def rondo_multi_review(
     per_provider: list[dict] = []
     all_findings: list[str] = []
 
-    for provider in provider_list:
-        if dry_run:
+    if dry_run:
+        for provider in provider_list:
             per_provider.append(
                 {
                     "provider": provider,
@@ -258,30 +258,56 @@ def rondo_multi_review(
                     "duration_sec": 0,
                 }
             )
-            continue
+    else:
+        # -- REQ-109 req 052/088: concurrent dispatch via ThreadPoolExecutor
+        # -- Each thread gets its own adapter + HTTP connection (no shared mutable state)
+        from concurrent.futures import ThreadPoolExecutor, as_completed  # pylint: disable=import-outside-toplevel
 
-        raw = rondo_run_file(
-            prompt=prompt,
-            model=provider,
-            dry_run=False,
-            done_when="Review complete. List specific findings as bullet points.",
-        )
-        r = json.loads(raw)
-        tasks = r.get("tasks", [])
-        task = tasks[0] if tasks else {}
-        output = task.get("raw_output", "")
-
-        per_provider.append(
-            {
-                "provider": provider,
+        def _dispatch_one(provider_model: str) -> dict:
+            """Dispatch to one provider — runs in its own thread."""
+            raw = rondo_run_file(
+                prompt=prompt,
+                model=provider_model,
+                dry_run=False,
+                done_when="Review complete. List specific findings as bullet points.",
+            )
+            r = json.loads(raw)
+            tasks = r.get("tasks", [])
+            task = tasks[0] if tasks else {}
+            output = task.get("raw_output", "")
+            return {
+                "provider": provider_model,
                 "status": r.get("status", "error"),
                 "output": output,
                 "cost_usd": r.get("total_cost_usd", 0),
                 "duration_sec": task.get("duration_sec", 0),
             }
-        )
-        if output:
-            all_findings.append(f"[{provider}]: {output}")
+
+        with ThreadPoolExecutor(max_workers=len(provider_list)) as pool:
+            futures = {pool.submit(_dispatch_one, p): p for p in provider_list}
+            # -- Collect results in original provider order
+            results_map: dict[str, dict] = {}
+            for future in as_completed(futures):
+                provider = futures[future]
+                try:
+                    results_map[provider] = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    results_map[provider] = {
+                        "provider": provider,
+                        "status": "error",
+                        "output": "",
+                        "cost_usd": 0,
+                        "duration_sec": 0,
+                        "error": str(exc),
+                    }
+
+        # -- Preserve original provider order in output
+        for provider in provider_list:
+            result = results_map.get(provider, {"provider": provider, "status": "error"})
+            per_provider.append(result)
+            output = result.get("output", "")
+            if output:
+                all_findings.append(f"[{provider}]: {output}")
 
     total_cost = sum(p.get("cost_usd", 0) for p in per_provider)
 

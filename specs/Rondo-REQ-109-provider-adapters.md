@@ -178,6 +178,17 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 080 | `rondo_multi_review` MUST reject empty or whitespace-only prompts with `ERR_INVALID_INPUT`. Do not dispatch empty prompts to cloud providers. | MUST | Empty prompt test |
 | 081 | Dry-run output MUST include `prompt_length` (integer, actual byte count) alongside truncated `prompt_sent` (capped at 500 chars for display). Users must know how large the real prompt is. | MUST | Dry-run length test |
 
+### `rondo review` CLI Command (Session 97 — top feature request)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 082 | `rondo review <file>` reads a file and sends its contents to 2+ cloud providers for independent review. Returns per-provider findings. No round file needed. | MUST | CLI E2E test |
+| 083 | Default providers come from `[cloud.profiles.review]` in config.toml. Override with `--providers gemini,grok,mistral`. | MUST | Config test |
+| 084 | `--tier high\|default\|low` selects model tier per provider. Default: `default`. | SHOULD | Tier test |
+| 085 | `--dry-run` shows the prompt that would be sent without dispatching. | MUST | Dry-run test |
+| 086 | Output: per-provider section with findings. `--output json` for structured output. Default: human-readable text. | MUST | Output test |
+| 087 | `rondo review` also available as MCP tool `rondo_review_file(path, providers, tier, dry_run)` for AI editor integration. | SHOULD | MCP test |
+
 ### Model Routing
 
 | ID | Requirement | Priority | Verified By |

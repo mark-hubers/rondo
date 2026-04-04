@@ -1297,7 +1297,7 @@ class TestParallelDispatch:
             )
 
         providers = '["provider_a:model_a", "provider_b:model_b", "provider_c:model_c"]'
-        with patch("rondo.mcp_server.rondo_run_file", side_effect=mock_run_file):
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
             result = json.loads(rondo_multi_review(prompt="test", providers=providers, dry_run=False))
 
         # -- Results must be in original order regardless of thread completion order
@@ -1323,7 +1323,7 @@ class TestParallelDispatch:
             )
 
         providers = '["good:model_a", "bad:model_b", "good:model_c"]'
-        with patch("rondo.mcp_server.rondo_run_file", side_effect=mock_run_file):
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
             result = json.loads(rondo_multi_review(prompt="test", providers=providers, dry_run=False))
 
         # -- All 3 dispatched
@@ -1352,7 +1352,7 @@ class TestParallelDispatch:
             )
 
         providers = '["a:m1", "b:m2", "c:m3"]'
-        with patch("rondo.mcp_server.rondo_run_file", side_effect=mock_run_file):
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
             rondo_multi_review(prompt="test", providers=providers, dry_run=False)
 
         # -- With 3 providers, should use multiple threads (not all on main thread)

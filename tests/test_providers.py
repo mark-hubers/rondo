@@ -787,7 +787,7 @@ class TestFinalizationGuard:
         import ast
         from pathlib import Path
 
-        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_server.py"
+        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_dispatch.py"
         source = mcp_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
@@ -812,7 +812,7 @@ class TestFinalizationGuard:
         import ast
         from pathlib import Path
 
-        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_server.py"
+        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_dispatch.py"
         source = mcp_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 

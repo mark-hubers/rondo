@@ -76,7 +76,7 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "cli_commands.py", "live.py", "__main__.py", "notify.py"}
+    EXEMPT = {"cli.py", "cli_commands.py", "mcp_dispatch.py", "live.py", "__main__.py", "notify.py"}
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""
@@ -159,6 +159,13 @@ class TestImportLayering:
         "_version.py": set(),
         "metrics.py": set(),
         "mcp_server.py": {
+            "mcp_dispatch",
+            "mcp_tools",
+            "providers",
+            "ai_help",
+            "_version",
+        },
+        "mcp_dispatch.py": {
             "metrics",
             "_version",
             "cli",

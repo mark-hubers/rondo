@@ -132,7 +132,8 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 049 | Cloud profiles in config: `[cloud.profiles.review]`, `[cloud.profiles.coding]`, `[cloud.profiles.research]`. Each has a `providers` list and `description`. | MUST | Profile test |
 | 050 | Profile selection: `--cloud review` uses review profile. `--cloud` with no profile uses all enabled providers. Future: auto-detect task type from prompt keywords. | MUST | Selection test |
 | 051 | Cloud tier: `--cloud high` dispatches to all selected providers at `best_model` tier. `--cloud low` uses `cheap_model`. Default: `default_model`. Combinable: `--cloud high 3` = 3 providers at best tier. | MUST | Tier flag test |
-| 052 | Cloud providers SHOULD be dispatched concurrently where possible. v1 implementation is sequential (acceptable for 2-3 providers). Future: `asyncio` or thread pool when provider count exceeds 3. Results collected and merged after all complete or timeout. | SHOULD | Parallel test |
+| 052 | Cloud providers MUST be dispatched concurrently via `ThreadPoolExecutor`. Each provider gets its own thread with independent adapter + HTTP connection. Results collected in provider order after all complete or timeout (120s per adapter). One provider's failure or slowness does not block others. | MUST | Parallel test |
+| 088 | `rondo_multi_review` concurrent dispatch: max workers = number of providers (typically 2-4). Thread safety: each adapter instantiated per-thread (no shared mutable state). `_HEALTH_CACHE` is read-only during dispatch (writes happen in health checks, not dispatch). | MUST | Thread safety test |
 
 ### Cloud Cost Controls (all 4 AI bodies flagged as critical)
 

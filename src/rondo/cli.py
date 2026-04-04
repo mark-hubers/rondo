@@ -1211,21 +1211,11 @@ def _resolve_review_providers(providers_arg: str, tier: str) -> list[str]:
 
 def _get_review_profile_providers() -> list[str]:
     """Read review profile from config.toml, fallback to defaults."""
-    from pathlib import Path  # pylint: disable=import-outside-toplevel
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
 
-    try:
-        import tomllib  # pylint: disable=import-outside-toplevel
-
-        config_path = Path.home() / ".rondo" / "config.toml"
-        if config_path.is_file():
-            with open(config_path, "rb") as f:
-                cfg = tomllib.load(f)
-            providers = cfg.get("cloud", {}).get("profiles", {}).get("review", {}).get("providers", [])
-            if providers:
-                return providers
-    except (OSError, KeyError):
-        pass
-    return ["gemini", "grok"]
+    cfg = get_rondo_config()
+    providers = cfg.get("cloud", {}).get("profiles", {}).get("review", {}).get("providers", [])
+    return providers if providers else ["gemini", "grok"]
 
 
 def _review_dry_run(file_path: object, prompt: str, provider_models: list, tier: str, output_fmt: str) -> int:

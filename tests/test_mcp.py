@@ -1344,6 +1344,9 @@ class TestParallelDispatch:
 
         def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
             threads_seen.add(threading.current_thread().ident)
+            import time
+
+            time.sleep(0.05)  # force thread pool to use multiple workers
             return json.dumps(
                 {"status": "done", "tasks": [{"raw_output": "OK", "duration_sec": 0.1}], "total_cost_usd": 0}
             )

@@ -76,16 +76,12 @@ def _get_configured_providers() -> list[str]:
     """Return list of provider names from ~/.rondo/config.toml [providers] section.
 
     Falls back to empty list if config not found or malformed.
+    Uses shared config reader (single TOML load, cached).
     """
     try:
-        import tomllib
-        from pathlib import Path
+        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
 
-        path = Path.home() / ".rondo" / "config.toml"
-        if not path.is_file():
-            return []
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        data = get_rondo_config()
         providers_cfg = data.get("providers", {})
         return [name for name, cfg in providers_cfg.items() if isinstance(cfg, dict) and cfg.get("enabled", True)]
     except (OSError, KeyError, TypeError):

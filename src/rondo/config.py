@@ -277,4 +277,48 @@ def _load_toml(
     return {}
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Raw TOML config reader — single cached reader for providers/cloud/auth
+# -- ───────────────────────────────────────────���──────────────────
+
+_raw_config: dict[str, Any] | None = None
+
+
+def get_rondo_config(config_path: str = "") -> dict[str, Any]:
+    """Load and cache raw ~/.rondo/config.toml as dict.
+
+    Single source for all TOML config reads (providers, cloud, auth, routing).
+    Loaded once at startup, cached for process lifetime.
+
+    Args:
+        config_path: Override path (for tests). Default: ~/.rondo/config.toml.
+
+    Returns:
+        Raw TOML dict. Empty dict if file missing or invalid (no error).
+    """
+    global _raw_config  # noqa: PLW0603
+    if _raw_config is not None and not config_path:
+        return _raw_config
+
+    path = Path(config_path) if config_path else Path.home() / ".rondo" / "config.toml"
+    if path.is_file():
+        try:
+            with open(path, "rb") as f:
+                result = tomllib.load(f)
+        except (tomllib.TOMLDecodeError, OSError):
+            result = {}
+    else:
+        result = {}
+
+    if not config_path:
+        _raw_config = result
+    return result
+
+
+def reset_rondo_config() -> None:
+    """Clear cached config — used by tests."""
+    global _raw_config  # noqa: PLW0603
+    _raw_config = None
+
+
 # -- sig: mgh-6201.cd.bd955f.1174.b6fb32

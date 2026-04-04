@@ -94,16 +94,11 @@ def load_providers_config(toml_data: dict | None = None) -> None:
         return
     if _providers_loaded:
         return
-    ## Load from default config path
-    from pathlib import Path
+    ## Load from shared config reader
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
 
-    config_path = Path.home() / ".rondo" / "config.toml"
-    if config_path.is_file():
-        import tomllib
-
-        with open(config_path, "rb") as f:
-            data = tomllib.load(f)
-        _providers_config.update(data.get("providers", {}))
+    data = get_rondo_config()
+    _providers_config.update(data.get("providers", {}))
     _providers_loaded = True
 
 
@@ -303,26 +298,20 @@ def load_task_models(config_path: str = "") -> dict[str, str]:
     if _task_models_loaded and not config_path:
         merged = {**_DEFAULT_TASK_MODELS, **_task_model_overrides}
         return merged
-    import tomllib
-    from pathlib import Path
 
-    path = Path(config_path) if config_path else Path.home() / ".rondo" / "config.toml"
-    if path.is_file():
-        try:
-            with open(path, "rb") as f:
-                data = tomllib.load(f)
-            routing = data.get("routing", {})
-            overrides = routing.get("task_models", {})
-            if isinstance(overrides, dict):
-                _task_model_overrides = {k: str(v) for k, v in overrides.items()}
-            # -- REQ-109 reqs 021-023: multi-review provider lists
-            multi = routing.get("multi_review", {})
-            if isinstance(multi, dict):
-                for k, v in multi.items():
-                    if isinstance(v, list):
-                        _multi_review_overrides[k] = [str(x) for x in v]
-        except (tomllib.TOMLDecodeError, OSError):
-            pass
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+    data = get_rondo_config(config_path)
+    routing = data.get("routing", {})
+    overrides = routing.get("task_models", {})
+    if isinstance(overrides, dict):
+        _task_model_overrides = {k: str(v) for k, v in overrides.items()}
+    # -- REQ-109 reqs 021-023: multi-review provider lists
+    multi = routing.get("multi_review", {})
+    if isinstance(multi, dict):
+        for k, v in multi.items():
+            if isinstance(v, list):
+                _multi_review_overrides[k] = [str(x) for x in v]
 
     _task_models_loaded = True
     # -- Return merged: overrides win over defaults

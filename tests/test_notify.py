@@ -5,9 +5,18 @@
 VER-001 verification matrix: notification channels + triggers.
 """
 
+import os
 from unittest.mock import patch
 
+import pytest
+
 from rondo.notify import NotifyConfig, notify_failure, notify_round_complete
+
+
+@pytest.fixture(autouse=True)
+def _enable_notify_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Allow notification code to run in tests (normally suppressed by RONDO_TEST_DIR)."""
+    monkeypatch.setenv("RONDO_NOTIFY_TEST", "1")
 
 
 class TestNotifyRoundComplete:

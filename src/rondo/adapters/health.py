@@ -47,29 +47,14 @@ class HealthStatus:
 def _get_adapter_for_provider(provider_name: str) -> object | None:
     """Return an adapter instance for the given provider name.
 
-    Maps bare provider name (gemini, openai, grok, mistral, anthropic, local)
-    to an adapter using the default model for that provider. Returns None if
-    provider is not recognised or has no adapter.
+    Uses shared adapter factory (DRY — single construction point).
     """
     try:
-        from rondo.providers import (  # pylint: disable=import-outside-toplevel
-            _get_anthropic_adapter,
-            _get_chat_completions_adapter,
-            _get_gemini_adapter,
-            get_ollama_adapter,
-        )
+        from rondo.adapters.factory import get_adapter  # pylint: disable=import-outside-toplevel
+
+        return get_adapter(provider_name)
     except ImportError:
         return None
-
-    if provider_name == "gemini":
-        return _get_gemini_adapter("")
-    if provider_name in ("openai", "grok", "mistral"):
-        return _get_chat_completions_adapter(provider_name, "")
-    if provider_name == "anthropic":
-        return _get_anthropic_adapter("")
-    if provider_name == "local":
-        return get_ollama_adapter()
-    return None
 
 
 def _get_configured_providers() -> list[str]:

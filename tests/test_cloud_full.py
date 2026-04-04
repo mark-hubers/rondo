@@ -55,36 +55,10 @@ def _has_key(provider: str) -> bool:
 
 
 def _get_adapter(provider: str, model: str) -> object | None:
-    """Get adapter instance for provider with loaded key."""
-    from rondo.adapters.auth import load_api_key
+    """Get adapter instance for provider — uses shared factory (DRY)."""
+    from rondo.adapters.factory import get_adapter
 
-    key = load_api_key(provider)
-    if not key:
-        return None
-
-    if provider == "gemini":
-        from rondo.adapters.gemini import GeminiAdapter
-
-        return GeminiAdapter(api_key=key)
-    if provider in ("openai", "grok", "mistral"):
-        from rondo.adapters.chat_completions import ChatCompletionsAdapter
-
-        urls = {
-            "openai": "https://api.openai.com/v1",
-            "grok": "https://api.x.ai/v1",
-            "mistral": "https://api.mistral.ai/v1",
-        }
-        return ChatCompletionsAdapter(
-            provider_name=provider,
-            base_url=urls[provider],
-            api_key=key,
-            default_model=model,
-        )
-    if provider == "anthropic":
-        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
-
-        return AnthropicAPIAdapter(api_key=key)
-    return None
+    return get_adapter(provider, model)
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -393,7 +367,7 @@ class TestInitConfigE2E:
         fake_home = tmp_path / "fakehome"
         rondo_dir = fake_home / ".rondo"
         rondo_dir.mkdir(parents=True)
-        (rondo_dir / "config.toml").write_text("# existing config\n[auth]\nbackend = \"auto\"\n")
+        (rondo_dir / "config.toml").write_text('# existing config\n[auth]\nbackend = "auto"\n')
 
         env = {**__import__("os").environ, "HOME": str(fake_home)}
         result = subprocess.run(

@@ -6,7 +6,7 @@
 **Category:** REQ
 **Created:** 2026-03-20 | **Updated:** 2026-04-03 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.6
+**Version:** 1.7
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -169,6 +169,14 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 076 | `cloud_full` MUST report per-provider, per-tier results as a table: provider, tier, model ID, status (PASS/FAIL/SKIP), latency, error if any. | MUST | Output test |
 | 077 | `cloud_full` MUST also validate `_DEFAULT_TASK_MODELS` entries — every hardcoded model string must dispatch successfully. Catches stale model IDs (like `gemini:flash` → 404). | MUST | Default validation test |
 | 078 | Both `cloud` and `cloud_full` are opt-in markers. Normal `pytest rondo/tests/` MUST NOT run cloud tests. | MUST | Isolation test |
+
+### Health & UX Clarity (Session 97 — Cursor usability feedback)
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 079 | `rondo_health()` MUST separate live API status (`api_status`: GREEN/YELLOW/RED based on provider probes) from historical dispatch health (`dispatch_health`: based on success_rate). A user seeing "RED" when all providers are up is confusing. | MUST | Health output test |
+| 080 | `rondo_multi_review` MUST reject empty or whitespace-only prompts with `ERR_INVALID_INPUT`. Do not dispatch empty prompts to cloud providers. | MUST | Empty prompt test |
+| 081 | Dry-run output MUST include `prompt_length` (integer, actual byte count) alongside truncated `prompt_sent` (capped at 500 chars for display). Users must know how large the real prompt is. | MUST | Dry-run length test |
 
 ### Model Routing
 

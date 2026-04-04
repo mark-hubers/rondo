@@ -197,7 +197,7 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 084 | `--tier high\|default\|low` selects model tier per provider. Default: `default`. | SHOULD | Tier test |
 | 085 | `--dry-run` shows the prompt that would be sent without dispatching. | MUST | Dry-run test |
 | 086 | Output: per-provider section with findings. `--output json` for structured output. Default: human-readable text. | MUST | Output test |
-| 087 | `rondo review` also available as MCP tool `rondo_review_file(path, providers, tier, dry_run)` for AI editor integration. | SHOULD | MCP test |
+| 087 | `rondo_review_file(path, providers, tier, dry_run)` MCP tool: reads file at path, builds review prompt, dispatches to providers via `rondo_multi_review`. Returns per-provider findings. Max file size 500KB (H-07). AI editors call this instead of read+paste. | MUST | MCP test |
 
 ### Model Routing
 

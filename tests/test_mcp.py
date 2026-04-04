@@ -48,19 +48,31 @@ class TestMetricsTool:
 
 
 class TestHealthTool:
-    """IFS-104: rondo_health tool returns quick health status."""
+    """IFS-104 + REQ-109 req 079: rondo_health tool returns split health status."""
 
-    def test_returns_health_status(self):
-        """Health tool returns GREEN/YELLOW/RED."""
+    def test_returns_api_status(self) -> None:
+        """REQ-109 req 079: api_status shows live provider probe result."""
         result = rondo_health()
         data = json.loads(result)
-        assert data["health"] in ("GREEN", "YELLOW", "RED")
+        assert data["api_status"] in ("GREEN", "YELLOW", "RED", "UNKNOWN")
+
+    def test_returns_dispatch_health(self) -> None:
+        """REQ-109 req 079: dispatch_health shows historical success rate."""
+        data = json.loads(rondo_health())
+        assert data["dispatch_health"] in ("GREEN", "YELLOW", "RED")
+        assert "success_rate" in data
         assert "total_dispatches" in data
 
-    def test_lightweight(self):
-        """Health response is small (< 500 chars)."""
+    def test_providers_up_field(self) -> None:
+        """REQ-109 req 079: providers_up shows N/M format."""
+        data = json.loads(rondo_health())
+        assert "providers_up" in data
+        assert "/" in data["providers_up"]
+
+    def test_lightweight(self) -> None:
+        """Health response is compact (< 1000 chars with provider detail)."""
         result = rondo_health()
-        assert len(result) < 500
+        assert len(result) < 1000
 
 
 class TestAuditSummaryTool:
@@ -138,7 +150,6 @@ class TestRondoRunFile:
         raw = rondo_run_file(str(round_file), dry_run=True)
         parsed = json.loads(raw)
         assert isinstance(parsed, dict)
-
 
     def test_project_validation(self):
         """Invalid project path returns error."""
@@ -256,9 +267,11 @@ class TestRondoRunStatus:
         ## -- Run sync dispatch so it completes
         rondo_run_file(str(round_file), dry_run=True, background=True)
         import time
+
         time.sleep(1)
         ## -- Simulate: inject a known result into background results
         from rondo.mcp_server import _background_results
+
         _background_results["test-brief"] = {
             "status": "done",
             "done_count": 2,
@@ -277,6 +290,7 @@ class TestRondoRunStatus:
     def test_heartbeat_ultra_compact(self):
         """U-50: heartbeat=True returns single-letter keys (~10 tokens)."""
         from rondo.mcp_server import _background_results
+
         _background_results["test-hb"] = {
             "status": "running",
             "done_count": 2,
@@ -293,6 +307,7 @@ class TestRondoRunStatus:
     def test_heartbeat_done_status(self):
         """U-50: heartbeat shows 'd' for done status."""
         from rondo.mcp_server import _background_results
+
         _background_results["test-hb-done"] = {
             "status": "done",
             "done_count": 3,
@@ -340,23 +355,27 @@ class TestInlineDispatch:
 
     def test_inline_dry_run(self):
         """U-33: prompt= creates in-memory task and dispatches."""
-        result = json.loads(rondo_run_file(
-            file_path="",
-            prompt="List all Python files in the current directory",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                file_path="",
+                prompt="List all Python files in the current directory",
+                dry_run=True,
+            )
+        )
         assert result["status"] in ("done", "skipped")
         assert len(result["tasks"]) == 1
         assert "Python files" in result["tasks"][0].get("prompt_sent", "")
 
     def test_inline_with_done_when(self):
         """U-34: done_when parameter accepted."""
-        result = json.loads(rondo_run_file(
-            file_path="",
-            prompt="Check disk space",
-            done_when="Disk usage reported",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                file_path="",
+                prompt="Check disk space",
+                done_when="Disk usage reported",
+                dry_run=True,
+            )
+        )
         assert result["status"] in ("done", "skipped")
         assert "Disk usage" in str(result)
 
@@ -422,6 +441,7 @@ class TestRicherStatus:
         """U-45: brief mode doesn't include full task array."""
         ## -- Put a fake completed result in background store
         from rondo.mcp_server import _background_results
+
         _background_results["test-brief"] = {
             "status": "done",
             "dispatch_id": "test-brief",
@@ -464,11 +484,13 @@ class TestMCPDispatchE2E:
 
     def test_inline_dry_run_e2e(self):
         """Inline prompt dry-run: prompt → in-memory round → result."""
-        result = json.loads(rondo_run_file(
-            prompt="List files in current directory",
-            done_when="Files listed as JSON array",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="List files in current directory",
+                done_when="Files listed as JSON array",
+                dry_run=True,
+            )
+        )
         assert result["status"] in ("done", "skipped")
         assert len(result["tasks"]) == 1
         assert result["tasks"][0]["name"] == "inline-task"
@@ -485,9 +507,13 @@ class TestMCPDispatchE2E:
             "        Task(name='t', instruction='check', done_when='done'),\n"
             "    ])\n"
         )
-        result = json.loads(rondo_run_file(
-            str(rf), dry_run=True, project=str(tmp_path),
-        ))
+        result = json.loads(
+            rondo_run_file(
+                str(rf),
+                dry_run=True,
+                project=str(tmp_path),
+            )
+        )
         assert result["status"] in ("done", "skipped")
 
     def test_invalid_project_returns_error(self, tmp_path):
@@ -498,9 +524,12 @@ class TestMCPDispatchE2E:
             "def build_round():\n"
             "    return Round(name='t', tasks=[Task(name='t', instruction='x', done_when='y')])\n"
         )
-        result = json.loads(rondo_run_file(
-            str(rf), project="/nonexistent/path/xyz",
-        ))
+        result = json.loads(
+            rondo_run_file(
+                str(rf),
+                project="/nonexistent/path/xyz",
+            )
+        )
         assert result["status"] == "error"
 
     def test_background_dry_run_returns_immediately(self, tmp_path):
@@ -545,6 +574,7 @@ class TestMCPDispatchE2E:
     def test_full_tool_inventory(self):
         """All 8 MCP tools are registered."""
         from rondo.mcp_server import create_mcp_server
+
         server = create_mcp_server()
         assert server is not None
 
@@ -601,12 +631,14 @@ class TestRondoSummarize:
         """rondo_summarize returns valid JSON."""
         from rondo.mcp_server import rondo_summarize
 
-        dispatch = json.dumps({
-            "tasks": [
-                {"name": "t1", "raw_output": "Found 3 new trials"},
-                {"name": "t2", "raw_output": "Found 5 papers"},
-            ]
-        })
+        dispatch = json.dumps(
+            {
+                "tasks": [
+                    {"name": "t1", "raw_output": "Found 3 new trials"},
+                    {"name": "t2", "raw_output": "Found 5 papers"},
+                ]
+            }
+        )
         result = json.loads(rondo_summarize(dispatch, dry_run=True))
         assert "summary_prompt" in result or "summary" in result
 
@@ -697,6 +729,7 @@ class TestMCPInputLimits:
     def test_chain_too_many_steps(self):
         """H-08: chain > 20 steps rejected."""
         from rondo.mcp_server import rondo_chain
+
         steps = json.dumps([{"prompt": "x", "model": "haiku"}] * 25)
         result = json.loads(rondo_chain(steps, dry_run=True))
         assert result["status"] == "error"
@@ -704,6 +737,7 @@ class TestMCPInputLimits:
     def test_benchmark_too_many_models(self):
         """H-09: benchmark > 10 models rejected."""
         from rondo.mcp_server import rondo_benchmark
+
         models = json.dumps([f"model{i}" for i in range(15)])
         result = json.loads(rondo_benchmark(prompt="x", models=models, dry_run=True))
         assert result["status"] == "error"
@@ -721,9 +755,13 @@ class TestRondoScheduleMCP:
     def test_schedule_create_dry_run(self):
         from rondo.mcp_server import rondo_schedule_create
 
-        result = json.loads(rondo_schedule_create(
-            file_path="/tmp/test.py", interval="weekly", dry_run=True,
-        ))
+        result = json.loads(
+            rondo_schedule_create(
+                file_path="/tmp/test.py",
+                interval="weekly",
+                dry_run=True,
+            )
+        )
         assert "plist" in result or "status" in result
 
 
@@ -733,19 +771,25 @@ class TestRondoExplain:
     def test_explain_returns_json(self):
         from rondo.mcp_server import rondo_explain
 
-        result = json.loads(rondo_explain(
-            output="Found 3 trials: NCT001, NCT002, NCT003",
-            question="Are these real trial numbers?",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_explain(
+                output="Found 3 trials: NCT001, NCT002, NCT003",
+                question="Are these real trial numbers?",
+                dry_run=True,
+            )
+        )
         assert "status" in result
 
     def test_explain_default_model_is_local(self):
         from rondo.mcp_server import rondo_explain
 
-        result = json.loads(rondo_explain(
-            output="Some code", question="Is this correct?", dry_run=True,
-        ))
+        result = json.loads(
+            rondo_explain(
+                output="Some code",
+                question="Is this correct?",
+                dry_run=True,
+            )
+        )
         ## -- Should use a local model by default (not Claude)
         tasks = result.get("tasks", [])
         if tasks:
@@ -758,22 +802,26 @@ class TestRondoBenchmark:
     def test_benchmark_returns_json(self):
         from rondo.mcp_server import rondo_benchmark
 
-        result = json.loads(rondo_benchmark(
-            prompt="Say hello",
-            models=json.dumps(["llama3.1:8b", "qwen2.5:32b"]),
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_benchmark(
+                prompt="Say hello",
+                models=json.dumps(["llama3.1:8b", "qwen2.5:32b"]),
+                dry_run=True,
+            )
+        )
         assert "results" in result
         assert len(result["results"]) == 2
 
     def test_benchmark_ranks_by_speed(self):
         from rondo.mcp_server import rondo_benchmark
 
-        result = json.loads(rondo_benchmark(
-            prompt="Say hello",
-            models=json.dumps(["llama3.1:8b"]),
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_benchmark(
+                prompt="Say hello",
+                models=json.dumps(["llama3.1:8b"]),
+                dry_run=True,
+            )
+        )
         assert "ranked" in result
 
 
@@ -783,10 +831,12 @@ class TestRondoChain:
     def test_chain_returns_json(self):
         from rondo.mcp_server import rondo_chain
 
-        steps = json.dumps([
-            {"prompt": "List 3 colors", "model": "llama3.1:8b"},
-            {"prompt": "For each color in the previous result, name a fruit of that color", "model": "llama3.1:8b"},
-        ])
+        steps = json.dumps(
+            [
+                {"prompt": "List 3 colors", "model": "llama3.1:8b"},
+                {"prompt": "For each color in the previous result, name a fruit of that color", "model": "llama3.1:8b"},
+            ]
+        )
         result = json.loads(rondo_chain(steps, dry_run=True))
         assert "steps" in result
         assert len(result["steps"]) == 2
@@ -854,8 +904,11 @@ class TestCursorP0ErrorCode:
         record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
         trail.record_outcome(
             dispatch_id=record.dispatch_id,
-            task_name="t", model="m", status="error",
-            exit_code=1, error_code="ERR_TIMEOUT",
+            task_name="t",
+            model="m",
+            status="error",
+            exit_code=1,
+            error_code="ERR_TIMEOUT",
         )
         lines = (tmp_path / "rondo_audit.jsonl").read_text().strip().splitlines()
         outcome = json.loads(lines[-1])
@@ -879,7 +932,7 @@ class TestCursorP1MCPPaths:
         (tmp_path / "audit").mkdir()
         (tmp_path / "spool").mkdir()
         result = json.loads(rondo_health())
-        assert result["health"] == "GREEN"
+        assert result["dispatch_health"] == "GREEN"
         assert result["total_dispatches"] == 0
 
 
@@ -888,9 +941,13 @@ class TestCursorP1InlinePrePop:
 
     def test_inline_background_has_task_name(self):
         """Background dispatch with prompt= shows inline-task in response."""
-        result = json.loads(rondo_run_file(
-            prompt="Say hello", dry_run=False, background=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Say hello",
+                dry_run=False,
+                background=True,
+            )
+        )
         if result.get("dispatch_id"):
             assert "inline-task" in result.get("tasks", [])
 
@@ -933,6 +990,7 @@ class TestCursorP2CommandSSoT:
     def test_command_list_matches_cli(self):
         """dispatch_info commands match actual CLI parser."""
         from rondo.cli import build_parser
+
         parser = build_parser()
         ## -- Extract subcommand names from parser
         for action in parser._subparsers._actions:
@@ -1039,11 +1097,13 @@ class TestInlineDispatchPlan:
         """Omitting model returns inline_dispatch_plan, not a subprocess result."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Check this code for issues",
-            model="",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Check this code for issues",
+                model="",
+                dry_run=True,
+            )
+        )
         assert result.get("kind") == "inline_dispatch_plan"
         assert "prompt" in result
         assert "done_when" in result
@@ -1069,12 +1129,14 @@ class TestInlineDispatchPlan:
         """Dispatch plan includes all fields host needs to execute inline."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Review src/main.py",
-            model="",
-            dry_run=True,
-            done_when="List all findings as JSON",
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Review src/main.py",
+                model="",
+                dry_run=True,
+                done_when="List all findings as JSON",
+            )
+        )
         assert result["kind"] == "inline_dispatch_plan"
         assert result["prompt"] == "Review src/main.py"
         assert result["done_when"] == "List all findings as JSON"
@@ -1084,11 +1146,13 @@ class TestInlineDispatchPlan:
         """Local model always dispatches directly, never returns plan."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(
-            prompt="Say hello",
-            model="llama3.1:8b",
-            dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Say hello",
+                model="llama3.1:8b",
+                dry_run=True,
+            )
+        )
         assert result.get("kind") != "inline_dispatch_plan"
 
     def test_background_with_no_model_returns_plan(self) -> None:
@@ -1096,9 +1160,14 @@ class TestInlineDispatchPlan:
         from rondo.mcp_server import _background_results, rondo_run_file
 
         before = len(_background_results)
-        result = json.loads(rondo_run_file(
-            prompt="Check code", model="", background=True, dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Check code",
+                model="",
+                background=True,
+                dry_run=True,
+            )
+        )
         assert result["kind"] == "inline_dispatch_plan"
         assert len(_background_results) == before  ## no background job created
 
@@ -1108,13 +1177,17 @@ class TestInlineDispatchPlan:
 
         round_file = tmp_path / "test_round.py"
         round_file.write_text(
-            'from rondo.engine import Round, Task\n'
-            'def build_round():\n'
+            "from rondo.engine import Round, Task\n"
+            "def build_round():\n"
             '    return Round(name="test", tasks=[Task(name="t", instruction="x", done_when="y")])\n'
         )
-        result = json.loads(rondo_run_file(
-            file_path=str(round_file), model="", dry_run=True,
-        ))
+        result = json.loads(
+            rondo_run_file(
+                file_path=str(round_file),
+                model="",
+                dry_run=True,
+            )
+        )
         ## -- file_path mode: should NOT return plan (file needs actual dispatch)
         assert result.get("kind") != "inline_dispatch_plan"
 
@@ -1152,9 +1225,7 @@ class TestMultiReview:
     def test_default_providers_on_empty(self) -> None:
         from rondo.mcp_server import rondo_multi_review
 
-        result = json.loads(
-            rondo_multi_review(prompt="Review this", providers="[]", dry_run=True)
-        )
+        result = json.loads(rondo_multi_review(prompt="Review this", providers="[]", dry_run=True))
         assert result["provider_count"] == 3
         providers = [p["provider"] for p in result["per_provider"]]
         assert "local:qwen2.5:32b" in providers
@@ -1179,10 +1250,44 @@ class TestMultiReview:
         from rondo.mcp_server import rondo_multi_review
 
         long_prompt = "x" * 500
-        result = json.loads(
-            rondo_multi_review(prompt=long_prompt, providers="[]", dry_run=True)
-        )
+        result = json.loads(rondo_multi_review(prompt=long_prompt, providers="[]", dry_run=True))
         assert len(result["prompt"]) <= 200
+
+    def test_empty_prompt_rejected(self) -> None:
+        """REQ-109 req 080: empty prompt returns ERR_INVALID_INPUT."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(rondo_multi_review(prompt="", providers="[]", dry_run=False))
+        assert result["status"] == "error"
+        assert result["code"] == "ERR_INVALID_INPUT"
+
+    def test_whitespace_prompt_rejected(self) -> None:
+        """REQ-109 req 080: whitespace-only prompt returns ERR_INVALID_INPUT."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(rondo_multi_review(prompt="   \n  ", providers="[]", dry_run=False))
+        assert result["status"] == "error"
+        assert result["code"] == "ERR_INVALID_INPUT"
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  REQ-109 req 081 — dry-run prompt_length field
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestDryRunPromptLength:
+    """REQ-109 req 081: dry-run output includes prompt_length."""
+
+    def test_inline_dry_run_has_prompt_length(self) -> None:
+        """Dry-run with inline prompt shows prompt_length field."""
+        from rondo.mcp_server import rondo_run_file
+
+        long_prompt = "Review this code: " + "x" * 2000
+        result = json.loads(rondo_run_file(prompt=long_prompt, dry_run=True))
+        tasks = result.get("tasks", [])
+        if tasks:
+            assert "prompt_length" in tasks[0], "Dry-run task missing prompt_length field"
+            assert tasks[0]["prompt_length"] > 500, "prompt_length should reflect actual size"
 
 
 # -- ──────────────────────────────────────────────────────────────

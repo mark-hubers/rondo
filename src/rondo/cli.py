@@ -142,6 +142,16 @@ def build_parser() -> argparse.ArgumentParser:
     prov_parser = subparsers.add_parser("providers", help="Show all configured providers with health status")
     prov_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # -- review subcommand (REQ-109 reqs 082-087)
+    review_parser = subparsers.add_parser("review", help="Send file to 2+ cloud providers for independent review")
+    review_parser.add_argument("file", help="File to review")
+    review_parser.add_argument(
+        "--providers", default="", help="Comma-separated providers (default: from config review profile)"
+    )
+    review_parser.add_argument("--tier", default="default", choices=["high", "default", "low"], help="Model tier")
+    review_parser.add_argument("--dry-run", action="store_true", help="Show prompt without dispatching")
+    review_parser.add_argument("--output", default="text", choices=["text", "json"], help="Output format")
+
     return parser
 
 
@@ -1123,6 +1133,160 @@ _COMMANDS.update(
         "providers": _cmd_providers,
     }
 )
+
+
+def _cmd_review(args: argparse.Namespace) -> int:
+    """Send a file to 2+ cloud providers for independent review — REQ-109 reqs 082-087."""
+    import json as _json  # pylint: disable=import-outside-toplevel
+    from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+    file_path = Path(args.file).expanduser().resolve()
+    if not file_path.is_file():
+        print(f"Error: file not found: {file_path}", file=sys.stderr)
+        return EXIT_FAILURE
+
+    # -- Read file content
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"Error reading file: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+
+    if not content.strip():
+        print("Error: file is empty", file=sys.stderr)
+        return EXIT_FAILURE
+
+    # -- Build review prompt
+    prompt = f"Review this file for bugs, security issues, and code quality.\n\nFile: {file_path.name}\n\n```\n{content}\n```"
+
+    # -- Resolve providers
+    provider_list: list[str] = []
+    if args.providers:
+        provider_list = [p.strip() for p in args.providers.split(",") if p.strip()]
+    else:
+        # -- Default: read from config review profile
+        from rondo.providers import load_providers_config  # pylint: disable=import-outside-toplevel
+
+        load_providers_config()
+        try:
+            import tomllib  # pylint: disable=import-outside-toplevel
+
+            config_path = Path.home() / ".rondo" / "config.toml"
+            if config_path.is_file():
+                with open(config_path, "rb") as f:
+                    cfg = tomllib.load(f)
+                profile_providers = cfg.get("cloud", {}).get("profiles", {}).get("review", {}).get("providers", [])
+                if profile_providers:
+                    provider_list = profile_providers
+        except (OSError, KeyError):
+            pass
+
+    if not provider_list:
+        provider_list = ["gemini", "grok"]
+
+    # -- Resolve tier → model per provider
+    from rondo.providers import _providers_config, resolve_tier  # pylint: disable=import-outside-toplevel
+
+    tier = getattr(args, "tier", "default")
+    tier_map = {"high": "best_model", "default": "default_model", "low": "cheap_model"}
+    tier_key = tier_map.get(tier, "default_model")
+
+    dispatch_list: list[tuple[str, str]] = []
+    for provider in provider_list:
+        provider_cfg = _providers_config.get(provider, {})
+        model = provider_cfg.get(tier_key, "")
+        if model:
+            dispatch_list.append((provider, model))
+        else:
+            dispatch_list.append((provider, resolve_tier(provider, tier) or provider))
+
+    # -- Dry-run: show prompt
+    if getattr(args, "dry_run", False):
+        output = {
+            "status": "dry_run",
+            "file": str(file_path),
+            "prompt_length": len(prompt),
+            "providers": [f"{p}:{m}" for p, m in dispatch_list],
+            "tier": tier,
+            "prompt_preview": prompt[:500],
+        }
+        if getattr(args, "output", "text") == "json":
+            print(_json.dumps(output, indent=2))
+        else:
+            print(f"  File: {file_path.name} ({len(content)} chars)")
+            print(f"  Providers: {', '.join(f'{p}:{m}' for p, m in dispatch_list)}")
+            print(f"  Tier: {tier}")
+            print(f"  Prompt: {len(prompt)} chars (dry-run, not dispatched)")
+        return EXIT_SUCCESS
+
+    # -- Real dispatch to each provider
+    from rondo.adapters.auth import load_api_key  # pylint: disable=import-outside-toplevel
+
+    results: list[dict] = []
+    for provider, model in dispatch_list:
+        key = load_api_key(provider)
+        if not key:
+            results.append({"provider": provider, "model": model, "status": "skip", "error": "no API key"})
+            continue
+
+        # -- Get adapter
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter  # pylint: disable=import-outside-toplevel
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter  # pylint: disable=import-outside-toplevel
+        from rondo.adapters.gemini import GeminiAdapter  # pylint: disable=import-outside-toplevel
+
+        adapter = None
+        if provider == "gemini":
+            adapter = GeminiAdapter(api_key=key)
+        elif provider in ("openai", "grok", "mistral"):
+            urls = {
+                "openai": "https://api.openai.com/v1",
+                "grok": "https://api.x.ai/v1",
+                "mistral": "https://api.mistral.ai/v1",
+            }
+            adapter = ChatCompletionsAdapter(
+                provider_name=provider, base_url=urls[provider], api_key=key, default_model=model
+            )
+        elif provider == "anthropic":
+            adapter = AnthropicAPIAdapter(api_key=key)
+
+        if not adapter:
+            results.append({"provider": provider, "model": model, "status": "skip", "error": "unknown provider"})
+            continue
+
+        result = adapter.dispatch(prompt=prompt, model=model)
+        results.append(
+            {
+                "provider": provider,
+                "model": model,
+                "status": result.status,
+                "output": result.raw_output,
+                "duration_sec": result.duration_sec,
+                "error": result.error_message or "",
+            }
+        )
+
+    # -- Output
+    if getattr(args, "output", "text") == "json":
+        print(_json.dumps({"file": str(file_path), "tier": tier, "reviews": results}, indent=2))
+    else:
+        print(f"\n  Rondo Review: {file_path.name}")
+        print(f"  {'═' * 60}\n")
+        for r in results:
+            status_icon = "PASS" if r["status"] == "done" else "FAIL"
+            print(f"  [{status_icon}] {r['provider']}:{r['model']} ({r.get('duration_sec', 0):.1f}s)")
+            if r["status"] == "done" and r.get("output"):
+                for line in r["output"].strip().split("\n"):
+                    print(f"    {line}")
+            elif r.get("error"):
+                print(f"    Error: {r['error']}")
+            print()
+
+    has_failures = any(r["status"] != "done" and r["status"] != "skip" for r in results)
+    return EXIT_FAILURE if has_failures else EXIT_SUCCESS
+
+
+# -- Register review command (defined after _COMMANDS.update, so separate registration)
+_COMMANDS["review"] = _cmd_review
 
 
 if __name__ == "__main__":

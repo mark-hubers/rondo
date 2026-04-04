@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from typing import Any
 
 # -- Import tool functions from mcp_tools (Finding #195 split)
@@ -65,19 +66,20 @@ _MAX_SUMMARIZE_BYTES = 1_000_000  # -- 1MB
 
 # -- Background dispatch tracking (RONDO-39)
 _background_results: dict[str, dict] = {}
+_background_lock = threading.Lock()  # -- Thread-safe access to _background_results
 _MAX_BACKGROUND_ENTRIES = 100  # -- H-01
 
 
 def _prune_background() -> None:
-    """H-01/H-02: evict oldest completed entries when over max."""
-    if len(_background_results) <= _MAX_BACKGROUND_ENTRIES:
-        return
-    # -- Sort by completion: running entries kept, oldest completed evicted
-    completed = [(k, v) for k, v in _background_results.items() if v.get("status") not in ("running", "dispatched")]
-    completed.sort(key=lambda x: x[1].get("ts", 0))
-    to_remove = len(_background_results) - _MAX_BACKGROUND_ENTRIES
-    for k, _ in completed[:to_remove]:
-        del _background_results[k]
+    """H-01/H-02: evict oldest completed entries when over max. Thread-safe."""
+    with _background_lock:
+        if len(_background_results) <= _MAX_BACKGROUND_ENTRIES:
+            return
+        completed = [(k, v) for k, v in _background_results.items() if v.get("status") not in ("running", "dispatched")]
+        completed.sort(key=lambda x: x[1].get("ts", 0))
+        to_remove = len(_background_results) - _MAX_BACKGROUND_ENTRIES
+        for k, _ in completed[:to_remove]:
+            del _background_results[k]
 
 
 def _get_retry_dir() -> str:
@@ -442,7 +444,8 @@ def rondo_retry(dispatch_id: str, model: str = "") -> str:
     RONDO-106: checks in-memory first, then disk (~/.rondo/retry/).
     Works across sessions — failed dispatch results persist on disk.
     """
-    result = _background_results.get(dispatch_id)
+    with _background_lock:
+        result = _background_results.get(dispatch_id)
     if not result:
         # -- RONDO-106: fall back to disk-based retry
         result = _load_background_result(dispatch_id)
@@ -824,17 +827,19 @@ def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, se
     _prune_background()
 
     task_names = _get_task_names(file_path, prompt)
-    _background_results[dispatch_id] = {
-        "status": "running",
-        "dispatch_id": dispatch_id,
-        "tasks": [{"name": tn, "status": "pending"} for tn in task_names],
-        "total_cost_usd": 0.0,
-    }
+    with _background_lock:
+        _background_results[dispatch_id] = {
+            "status": "running",
+            "dispatch_id": dispatch_id,
+            "tasks": [{"name": tn, "status": "pending"} for tn in task_names],
+            "total_cost_usd": 0.0,
+        }
 
     def _bg_worker() -> None:
         result = dispatch_fn()
         result["dispatch_id"] = dispatch_id
-        _background_results[dispatch_id] = result
+        with _background_lock:
+            _background_results[dispatch_id] = result
         _save_background_result(dispatch_id, result)
         _notify_completion(session, dispatch_id, result)
 
@@ -863,16 +868,14 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool
         (default)       → ~300+ tokens: full results with task output
     """
     if not dispatch_id:
-        return json.dumps(
-            {
-                "dispatches": [
-                    {"dispatch_id": did, "status": r.get("status", "unknown")} for did, r in _background_results.items()
-                ]
-            },
-            indent=2,
-        )
+        with _background_lock:
+            dispatches = [
+                {"dispatch_id": did, "status": r.get("status", "unknown")} for did, r in _background_results.items()
+            ]
+        return json.dumps({"dispatches": dispatches}, indent=2)
 
-    result = _background_results.get(dispatch_id)
+    with _background_lock:
+        result = _background_results.get(dispatch_id)
     if not result:
         return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
 

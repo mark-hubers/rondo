@@ -76,7 +76,7 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "cli_commands.py", "mcp_dispatch.py", "live.py", "__main__.py", "notify.py"}
+    EXEMPT = {"cli.py", "cli_commands.py", "mcp_dispatch.py", "mcp_compose.py", "live.py", "__main__.py", "notify.py"}
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""
@@ -165,6 +165,11 @@ class TestImportLayering:
             "ai_help",
             "_version",
         },
+        "mcp_compose.py": {
+            "mcp_dispatch",
+            "config",
+            "providers",
+        },
         "mcp_dispatch.py": {
             "metrics",
             "_version",
@@ -181,6 +186,7 @@ class TestImportLayering:
             "audit",
             "schedule",
             "mcp_tools",
+            "mcp_compose",
         },
         "mcp_tools.py": {
             "metrics",
@@ -648,6 +654,7 @@ class TestNoCircularImports:
             "rondo.adapters.auth",
             "rondo.adapters.health",
             "rondo.mcp_tools",
+            "rondo.mcp_compose",
             "rondo.mcp_dispatch",
             "rondo.cli_commands",
             "rondo.cli",

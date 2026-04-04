@@ -614,6 +614,54 @@ class TestDocSpecSync:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  Import cycle detection (Cursor "would worry me" item)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestNoCircularImports:
+    """Verify no circular imports exist between rondo modules."""
+
+    def test_all_modules_import_cleanly(self) -> None:
+        """Import every rondo module — fails if circular import exists."""
+        import importlib
+
+        modules = [
+            "rondo.engine",
+            "rondo.config",
+            "rondo.providers",
+            "rondo.dispatch",
+            "rondo.runner",
+            "rondo.parallel",
+            "rondo.audit",
+            "rondo.sanitize",
+            "rondo.spool",
+            "rondo.history",
+            "rondo.metrics",
+            "rondo.flaky",
+            "rondo.preflight",
+            "rondo.report",
+            "rondo.overnight",
+            "rondo.live",
+            "rondo.notify",
+            "rondo.ai_help",
+            "rondo.adapters.factory",
+            "rondo.adapters.auth",
+            "rondo.adapters.health",
+            "rondo.mcp_tools",
+            "rondo.mcp_dispatch",
+            "rondo.cli_commands",
+            "rondo.cli",
+        ]
+        failures = []
+        for mod in modules:
+            try:
+                importlib.import_module(mod)
+            except ImportError as exc:
+                failures.append(f"{mod}: {exc}")
+        assert not failures, "Circular or broken imports:\n  " + "\n  ".join(failures)
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  STD-107 Security conventions (RONDO-56)
 # -- ──────────────────────────────────────────────────────────────
 

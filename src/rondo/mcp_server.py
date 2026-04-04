@@ -28,6 +28,7 @@ from rondo.mcp_dispatch import (  # noqa: F401
     rondo_explain,
     rondo_multi_review,
     rondo_retry,
+    rondo_review_file,
     rondo_run_file,
     rondo_run_status,
     rondo_summarize,
@@ -191,6 +192,13 @@ def create_mcp_server() -> Any:
     )
     def _benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> str:
         return rondo_benchmark(prompt=prompt, models=models, dry_run=dry_run)
+
+    @mcp.tool(
+        name="rondo_review_file",
+        description="Review a file with multiple cloud providers. Pass file path — no need to read+paste. Default: review profile providers at default tier. REQ-109 req 087.",
+    )
+    def _review_file(path: str, providers: str = "[]", tier: str = "default", dry_run: bool = False) -> str:
+        return rondo_review_file(path=path, providers=providers, tier=tier, dry_run=dry_run)
 
     @mcp.tool(
         name="rondo_multi_review",

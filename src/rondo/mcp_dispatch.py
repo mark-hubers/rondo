@@ -206,6 +206,77 @@ def rondo_benchmark(prompt: str, models: str = "[]", dry_run: bool = False) -> s
     )
 
 
+def rondo_review_file(
+    path: str,
+    providers: str = "[]",
+    tier: str = "default",
+    dry_run: bool = False,
+) -> str:
+    """Review a file with multiple cloud providers — REQ-109 req 087.
+
+    Reads file at path, builds review prompt, dispatches via rondo_multi_review.
+    AI editors call this instead of manually reading + pasting file contents.
+
+    Args:
+        path: File path to review (expanded with ~ and resolved).
+        providers: JSON array of provider:model strings. Default: review profile.
+        tier: Model tier (high/default/low). Used when providers not specified.
+        dry_run: Preview prompt without dispatching.
+    """
+    from pathlib import Path as _Path  # pylint: disable=import-outside-toplevel
+
+    file_path = _Path(path).expanduser().resolve()
+    if not file_path.is_file():
+        return json.dumps({"status": "error", "error": f"File not found: {path}", "code": "ERR_INVALID_INPUT"})
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return json.dumps({"status": "error", "error": f"Cannot read file: {exc}", "code": "ERR_INVALID_INPUT"})
+
+    if not content.strip():
+        return json.dumps({"status": "error", "error": "File is empty", "code": "ERR_INVALID_INPUT"})
+
+    if len(content) > _MAX_PROMPT_BYTES:
+        return json.dumps(
+            {
+                "status": "error",
+                "error": f"File too large ({len(content)} bytes, max {_MAX_PROMPT_BYTES})",
+                "code": "ERR_INPUT_TOO_LARGE",
+            }
+        )
+
+    prompt = f"Review this file for bugs, security issues, and code quality.\n\nFile: {file_path.name}\n\n```\n{content}\n```"
+
+    # -- Resolve providers from tier + config if not specified
+    if not providers or providers == "[]":
+        from rondo.providers import _providers_config, load_providers_config  # pylint: disable=import-outside-toplevel
+
+        load_providers_config()
+        tier_map = {"high": "best_model", "default": "default_model", "low": "cheap_model"}
+        tier_key = tier_map.get(tier, "default_model")
+
+        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+        cfg = get_rondo_config()
+        profile_providers = cfg.get("cloud", {}).get("profiles", {}).get("review", {}).get("providers", [])
+        if not profile_providers:
+            profile_providers = ["gemini", "grok"]
+
+        resolved = []
+        for name in profile_providers:
+            model = _providers_config.get(name, {}).get(tier_key, "")
+            resolved.append(f"{name}:{model}" if model else name)
+        providers = json.dumps(resolved)
+
+    result_json = rondo_multi_review(prompt=prompt, providers=providers, dry_run=dry_run)
+    result = json.loads(result_json)
+    result["file"] = str(file_path)
+    result["file_size"] = len(content)
+    result["tier"] = tier
+    return json.dumps(result, indent=2)
+
+
 def rondo_multi_review(
     prompt: str,
     providers: str = "[]",

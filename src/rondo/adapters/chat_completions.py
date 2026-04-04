@@ -22,7 +22,7 @@ import logging
 import time
 from typing import Any
 
-from rondo.engine import TaskResult
+from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
 from rondo.providers import ProviderAdapter
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
             return TaskResult(
                 task_name=task_name,
                 status="error",
-                error_code="ERR_AUTH",
+                error_code=ERR_AUTH,
                 error_message=f"No API key for {self.provider_name}",
                 model=use_model,
                 duration_sec=0.0,
@@ -108,7 +108,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 return TaskResult(
                     task_name=task_name,
                     status="error",
-                    error_code="ERR_EMPTY_RESPONSE",
+                    error_code=ERR_EMPTY_RESPONSE,
                     error_message=f"{self.provider_name} returned empty response body",
                     model=use_model,
                     duration_sec=duration,
@@ -127,17 +127,17 @@ class ChatCompletionsAdapter(ProviderAdapter):
             # -- REQ-109 req 068: distinct error codes by HTTP status
             duration = time.monotonic() - start
             if exc.code in (401, 403):
-                error_code = "ERR_AUTH"
+                error_code = ERR_AUTH
                 # -- REQ-109 req 069: invalidate cached key on auth failure
                 from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
 
                 invalidate_key(self.provider_name)
             elif exc.code == 429:
-                error_code = "ERR_RATE_LIMIT"
+                error_code = ERR_RATE_LIMIT
             elif exc.code >= 500:
-                error_code = "ERR_PROVIDER_DOWN"
+                error_code = ERR_PROVIDER_DOWN
             else:
-                error_code = "ERR_PROVIDER"
+                error_code = ERR_PROVIDER
             return TaskResult(
                 task_name=task_name,
                 status="error",
@@ -151,7 +151,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
             return TaskResult(
                 task_name=task_name,
                 status="error",
-                error_code="ERR_PROVIDER",
+                error_code=ERR_PROVIDER,
                 error_message=f"{self.provider_name} error: {exc}",
                 model=use_model,
                 duration_sec=duration,

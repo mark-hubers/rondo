@@ -1600,6 +1600,91 @@ class TestE2EProvidersCLI:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  RONDO-149: rondo review CLI — REQ-109 reqs 082-087
+# -- ──────────────────────────────────────────────────────────────
+
+
+@skip_no_rondo
+class TestE2EReviewDryRun:
+    """rondo review --dry-run shows prompt without dispatching."""
+
+    def test_review_dry_run_shows_file_info(self) -> None:
+        """Dry-run shows file name, providers, tier, prompt length."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write("def add(a, b):\n    return a + b\n")
+            path = f.name
+        result = _run(["review", path, "--dry-run"])
+        assert result.returncode == 0
+        assert "Providers:" in result.stdout
+        assert "Tier:" in result.stdout
+        assert "dry-run" in result.stdout.lower()
+
+    def test_review_dry_run_json(self) -> None:
+        """Dry-run with --output json returns structured data."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write("x = 1\n")
+            path = f.name
+        result = _run(["review", path, "--dry-run", "--output", "json"])
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["status"] == "dry_run"
+        assert "prompt_length" in data
+        assert "providers" in data
+
+    def test_review_missing_file_fails(self) -> None:
+        """Review of nonexistent file returns error."""
+        result = _run(["review", "/tmp/nonexistent_file_12345.py"])
+        assert result.returncode != 0
+
+    def test_review_empty_file_fails(self) -> None:
+        """Review of empty file returns error."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write("")
+            path = f.name
+        result = _run(["review", path])
+        assert result.returncode != 0
+
+    def test_review_tier_flag(self) -> None:
+        """--tier high uses best_model from config."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write("x = 1\n")
+            path = f.name
+        result = _run(["review", path, "--dry-run", "--tier", "high", "--output", "json"])
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["tier"] == "high"
+
+
+@pytest.mark.cloud
+@skip_no_rondo
+class TestE2EReviewRealCloud:
+    """rondo review with real cloud dispatch."""
+
+    @skip_no_gemini
+    def test_review_real_gemini(self) -> None:
+        """Real review with Gemini returns findings."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
+            f.write("def add(a, b):\n    return a + b\n")
+            path = f.name
+        result = _run(["review", path, "--providers", "gemini", "--output", "json"], timeout=60)
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert len(data["reviews"]) == 1
+        assert data["reviews"][0]["status"] == "done"
+        assert len(data["reviews"][0]["output"]) > 10
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  E2E: version consistency — installed binary matches repo
 # -- ──────────────────────────────────────────────────────────────
 

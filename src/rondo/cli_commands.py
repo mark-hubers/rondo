@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """CLI command handlers — split from cli.py for module size.
 
+Rondo-REQ-100, Rondo-REQ-101, Rondo-REQ-109.
 Each _cmd_* function uses lazy imports from rondo.cli to avoid circular dependency.
 Import direction: cli.py → cli_commands.py (one-way, at module bottom).
 """

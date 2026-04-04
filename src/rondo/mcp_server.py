@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """MCP server — tool registration + stdio transport.
 
+Rondo-IFS-104, Rondo-REQ-109.
 Dispatch functions live in mcp_dispatch.py. This file registers them as MCP tools.
 """
 

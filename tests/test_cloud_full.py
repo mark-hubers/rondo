@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Config-driven cloud provider validation — REQ-109 reqs 075-078.
 
+VER-001 verification matrix: config-driven provider + tier + profile validation.
 Reads ~/.rondo/config.toml and dispatches a minimal prompt to every enabled
 provider at every tier (cheap/default/best). Proves model IDs are valid
 against real APIs. Also validates _DEFAULT_TASK_MODELS entries.

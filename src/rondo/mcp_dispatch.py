@@ -730,9 +730,6 @@ def rondo_run_file(
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
     Strips CLAUDECODE env var to avoid nested session errors.
     """
-    import threading
-    import uuid
-
     file_path, project, err = _validate_run_inputs(file_path, project, prompt)
     if err:
         return err
@@ -747,98 +744,111 @@ def rondo_run_file(
     _provider, _model_name = parse_model(model.removesuffix(":new") if model.endswith(":new") else model)
     _clean_model = _model_name or model
 
-    def _dispatch() -> dict:
-        """Run the dispatch (called directly or in background thread)."""
-        try:
-            from rondo.runner import run_round
-
-            round_def, config = _build_round_and_config(
-                prompt,
-                done_when,
-                file_path,
-                _clean_model or model,
-                dry_run,
-                timeout_sec,
-                project,
-                max_budget,
-            )
-
-            # -- REQ-109: route to provider adapter or Claude dispatch
-            result = _dispatch_via_provider_or_claude(
-                round_def,
-                config,
-                model,
-                prompt,
-                dry_run,
-                run_round,
-            )
-
-            tasks_out = [
-                {
-                    "name": tr.task_name,
-                    "status": tr.status,
-                    "duration_sec": tr.duration_sec,
-                    "model": tr.model,
-                    "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
-                    "prompt_length": len(tr.prompt_sent) if dry_run and tr.prompt_sent else 0,
-                    "raw_output": tr.raw_output[:2000] if not dry_run else "",
-                    "cost_usd": tr.cost_usd or 0.0,
-                    "error_code": tr.error_code or "",
-                    "error_message": tr.error_message or "",
-                }
-                for tr in result.task_results
-            ]
-            statuses = [t["status"] for t in tasks_out]
-            return {
-                "status": result.status,
-                "round_name": result.round_name,
-                "tasks": tasks_out,
-                "done_count": statuses.count("done") + statuses.count("skipped"),
-                "error_count": statuses.count("error") + statuses.count("blocked"),
-                "pending_count": statuses.count("pending"),
-                "total_cost_usd": sum(u.cost_usd for u in result.usage),
-                "duration_sec": result.duration_sec,
-                "dry_run": dry_run,
-            }
-        except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
-            return {"status": "error", "error": str(exc)}
+    dispatch_fn = lambda: _execute_dispatch(  # noqa: E731
+        prompt, done_when, file_path, _clean_model or model, model, dry_run, timeout_sec, project, max_budget
+    )
 
     # -- Background dispatch: return dispatch_id immediately
     if background and not dry_run:
-        dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
-        _prune_background()  # -- H-01: evict before adding
-
-        task_names = _get_task_names(file_path, prompt)
-
-        _background_results[dispatch_id] = {
-            "status": "running",
-            "dispatch_id": dispatch_id,
-            "tasks": [{"name": tn, "status": "pending"} for tn in task_names],
-            "total_cost_usd": 0.0,
-        }
-
-        def _bg_worker() -> None:
-            result = _dispatch()
-            result["dispatch_id"] = dispatch_id
-            _background_results[dispatch_id] = result
-            # -- RONDO-106: persist to disk for cross-session retry
-            _save_background_result(dispatch_id, result)
-            _notify_completion(_session, dispatch_id, result)
-
-        thread = threading.Thread(target=_bg_worker, daemon=True)
-        thread.start()
-        return json.dumps(
-            {
-                "status": "dispatched",
-                "dispatch_id": dispatch_id,
-                "tasks": task_names,
-                "message": "Use rondo_run_status to check progress.",
-            },
-            indent=2,
-        )
+        return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
 
     # -- Synchronous dispatch (dry-run or foreground)
-    return json.dumps(_dispatch(), indent=2)
+    return json.dumps(dispatch_fn(), indent=2)
+
+
+def _execute_dispatch(
+    prompt: str,
+    done_when: str,
+    file_path: str,
+    clean_model: str,
+    model: str,
+    dry_run: bool,
+    timeout_sec: int,
+    project: str,
+    max_budget: float,
+) -> dict:
+    """Run the actual dispatch — called synchronously or from background thread."""
+    try:
+        from rondo.runner import run_round  # pylint: disable=import-outside-toplevel
+
+        round_def, config = _build_round_and_config(
+            prompt,
+            done_when,
+            file_path,
+            clean_model,
+            dry_run,
+            timeout_sec,
+            project,
+            max_budget,
+        )
+
+        result = _dispatch_via_provider_or_claude(round_def, config, model, prompt, dry_run, run_round)
+
+        tasks_out = [
+            {
+                "name": tr.task_name,
+                "status": tr.status,
+                "duration_sec": tr.duration_sec,
+                "model": tr.model,
+                "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
+                "prompt_length": len(tr.prompt_sent) if dry_run and tr.prompt_sent else 0,
+                "raw_output": tr.raw_output[:2000] if not dry_run else "",
+                "cost_usd": tr.cost_usd or 0.0,
+                "error_code": tr.error_code or "",
+                "error_message": tr.error_message or "",
+            }
+            for tr in result.task_results
+        ]
+        statuses = [t["status"] for t in tasks_out]
+        return {
+            "status": result.status,
+            "round_name": result.round_name,
+            "tasks": tasks_out,
+            "done_count": statuses.count("done") + statuses.count("skipped"),
+            "error_count": statuses.count("error") + statuses.count("blocked"),
+            "pending_count": statuses.count("pending"),
+            "total_cost_usd": sum(u.cost_usd for u in result.usage),
+            "duration_sec": result.duration_sec,
+            "dry_run": dry_run,
+        }
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
+        return {"status": "error", "error": str(exc)}
+
+
+def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, session: Any) -> str:
+    """Launch dispatch in background thread, return dispatch_id JSON immediately."""
+    import threading
+    import uuid
+
+    dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
+    _prune_background()
+
+    task_names = _get_task_names(file_path, prompt)
+    _background_results[dispatch_id] = {
+        "status": "running",
+        "dispatch_id": dispatch_id,
+        "tasks": [{"name": tn, "status": "pending"} for tn in task_names],
+        "total_cost_usd": 0.0,
+    }
+
+    def _bg_worker() -> None:
+        result = dispatch_fn()
+        result["dispatch_id"] = dispatch_id
+        _background_results[dispatch_id] = result
+        _save_background_result(dispatch_id, result)
+        _notify_completion(session, dispatch_id, result)
+
+    thread = threading.Thread(target=_bg_worker, daemon=True)
+    thread.start()
+    return json.dumps(
+        {
+            "status": "dispatched",
+            "dispatch_id": dispatch_id,
+            "tasks": task_names,
+            "message": "Use rondo_run_status to check progress.",
+        },
+        indent=2,
+    )
 
 
 _STATUS_SHORT = {"running": "w", "done": "d", "error": "e", "dispatched": "w"}

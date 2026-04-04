@@ -238,6 +238,9 @@ def rondo_multi_review(
             }
         )
 
+    if not prompt or not prompt.strip():
+        return json.dumps({"status": "error", "error": "Prompt is empty", "code": "ERR_INVALID_INPUT"})
+
     if not provider_list:
         provider_list = ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
 
@@ -398,7 +401,9 @@ def rondo_summarize(dispatch_json: str, dry_run: bool = False, model: str = "hai
     prompt = "\n".join(parts)
 
     if dry_run:
-        return json.dumps({"status": "done", "summary_prompt": prompt[:500], "task_count": len(tasks)})
+        return json.dumps(
+            {"status": "done", "summary_prompt": prompt[:500], "prompt_length": len(prompt), "task_count": len(tasks)}
+        )
 
     # -- Dispatch summarization via rondo_run_file
     result = rondo_run_file(prompt=prompt, done_when="Summary report written.", dry_run=False, model=model)
@@ -749,6 +754,7 @@ def rondo_run_file(
                     "duration_sec": tr.duration_sec,
                     "model": tr.model,
                     "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
+                    "prompt_length": len(tr.prompt_sent) if dry_run and tr.prompt_sent else 0,
                     "raw_output": tr.raw_output[:2000] if not dry_run else "",
                     "cost_usd": tr.cost_usd or 0.0,
                     "error_code": tr.error_code or "",

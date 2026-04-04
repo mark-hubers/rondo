@@ -86,25 +86,48 @@ def rondo_health() -> str:
     REQ-109 req 020: include per-provider health when providers configured.
     """
     report = _get_cached_metrics()
-    result: dict = {
-        "health": report.health,
-        "total_dispatches": report.total_dispatches,
-        "success_rate": report.success_rate,
-        "total_cost_usd": report.total_cost_usd,
-        "spool_pending": report.spool_pending,
-    }
-    # -- REQ-109 req 020: per-provider health status
+
+    # -- REQ-109 req 020: per-provider health status (live API probes)
+    providers_up = 0
+    providers_total = 0
+    providers_result: dict = {}
     try:
         from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
 
         health_map = get_all_providers_health()
         if health_map:
-            result["providers"] = {
+            providers_total = len(health_map)
+            providers_up = sum(1 for s in health_map.values() if s.healthy)
+            providers_result = {
                 name: {"healthy": s.healthy, "latency_ms": s.latency_ms, "error": s.error}
                 for name, s in health_map.items()
             }
-    except Exception:  # noqa: BLE001, S110
-        result["providers_error"] = "health check unavailable"
+    except Exception:  # noqa: BLE001
+        logger.debug("Provider health check unavailable")
+
+    # -- Split health into two signals:
+    # -- api_status: are providers reachable RIGHT NOW (live probe)
+    # -- dispatch_health: historical success rate (from audit trail)
+    if providers_total == 0:
+        api_status = "UNKNOWN"
+    elif providers_up == providers_total:
+        api_status = "GREEN"
+    elif providers_up > 0:
+        api_status = "YELLOW"
+    else:
+        api_status = "RED"
+
+    result: dict = {
+        "api_status": api_status,
+        "providers_up": f"{providers_up}/{providers_total}",
+        "dispatch_health": report.health,
+        "success_rate": report.success_rate,
+        "total_dispatches": report.total_dispatches,
+        "total_cost_usd": report.total_cost_usd,
+        "spool_pending": report.spool_pending,
+    }
+    if providers_result:
+        result["providers"] = providers_result
     return json.dumps(result)
 
 

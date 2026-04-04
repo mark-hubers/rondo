@@ -29,5 +29,17 @@ def _clean_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     _preflight_cache.clear()
 
+    # -- Clear config + provider caches between tests (Session 97)
+    from rondo.config import reset_rondo_config
+
+    reset_rondo_config()
+
+    import rondo.providers as _p
+
+    _p._providers_config.clear()
+    _p._providers_loaded = False
+    _p._task_model_overrides.clear()
+    _p._task_models_loaded = False
+
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.conf01

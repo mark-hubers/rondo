@@ -124,17 +124,30 @@ description = "Security audit — 3 independent perspectives"
 
 
 ## ─────────────────────────────────────────────────────────────
-## Task Routing — override which model handles which task type
+## Task Routing — which model handles which task type
 ## ─────────────────────────────────────────────────────────────
 ##
-## Optional. Code defaults are used if not specified.
+## These override code defaults. Edit to change model assignments.
 ## Format: task_type = "provider:model"
 
-## [routing.task_models]
-## code-review = "gemini:gemini-2.5-flash"
-## security = "mistral:mistral-large-latest"
-## reasoning = "gemini:gemini-2.5-pro"
+[routing.task_models]
+code-review = "gemini:gemini-2.5-flash"
+code-fix = "gemini:gemini-2.5-flash"
+code-generate = "gemini:gemini-2.5-flash"
+reasoning = "gemini:gemini-2.5-flash"
+math = "gemini:gemini-2.5-flash"
+logic = "gemini:gemini-2.5-flash"
+classify = "local:llama3.1:8b"
+scan = "local:llama3.1:8b"
+filter = "local:llama3.1:8b"
+structured-json = "gemini:gemini-2.5-flash"
+extract = "gemini:gemini-2.5-flash"
+summarize = "gemini:gemini-2.5-flash"
+general = "gemini:gemini-2.5-flash"
+research = "gemini:gemini-2.5-flash"
+analysis = "gemini:gemini-2.5-flash"
+security = "mistral:mistral-large-latest"
 
-## [routing.multi_review]
+[routing.multi_review]
 ## code-review = ["gemini:gemini-2.5-flash", "grok:grok-3"]
 ## security = ["gemini:gemini-2.5-flash", "grok:grok-3", "mistral:mistral-large-latest"]

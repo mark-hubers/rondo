@@ -60,4 +60,5 @@ def register_commands(commands: dict) -> None:
         }
     )
 
+
 # -- sig: mgh-6201.cd.bd955f.a1b2.36633d

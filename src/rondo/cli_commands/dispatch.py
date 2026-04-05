@@ -142,4 +142,5 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
+
 # -- sig: mgh-6201.cd.bd955f.a2c3.f30936

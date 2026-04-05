@@ -271,4 +271,5 @@ def _cmd_providers(args: argparse.Namespace) -> int:
     print()
     return EXIT_SUCCESS
 
+
 # -- sig: mgh-6201.cd.bd955f.a4e5.32ef29

@@ -311,4 +311,5 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
             print(f"    {code:20s}  {count}")
     return EXIT_SUCCESS
 
+
 # -- sig: mgh-6201.cd.bd955f.a3d4.9136a5

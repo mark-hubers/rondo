@@ -158,6 +158,83 @@ def notify_budget_threshold(
     _send(msg, title="Rondo: budget alert", config=config)
 
 
+# -- ──────────────────────────────────────────────────────────────
+#  Threshold alerting — FIX-678 (Rondo-REQ-105 extended)
+# -- ──────────────────────────────────────────────────────────────
+
+# -- Minimum sample size before thresholds apply (avoids false positives)
+_MIN_SAMPLE_SIZE = 3
+
+
+def notify_latency_threshold(
+    *,
+    task_name: str,
+    duration_sec: float,
+    avg_duration_sec: float,
+    sample_count: int,
+    multiplier: float = 2.0,
+    config: NotifyConfig | None = None,
+) -> None:
+    """Alert when task latency exceeds Nx average — FIX-678.
+
+    Only fires when sample_count >= MIN_SAMPLE_SIZE (hysteresis).
+    """
+    config = config or NotifyConfig()
+    if sample_count < _MIN_SAMPLE_SIZE:
+        return
+    if avg_duration_sec <= 0:
+        return
+    if duration_sec > avg_duration_sec * multiplier:
+        ratio = duration_sec / avg_duration_sec
+        msg = f"Task '{task_name}' latency spike: {duration_sec:.1f}s ({ratio:.1f}x avg {avg_duration_sec:.1f}s)"
+        notify_with_dedup(f"latency_{task_name}", msg, config=config)
+
+
+def notify_error_rate_threshold(
+    *,
+    phase_name: str,
+    error_count: int,
+    total_count: int,
+    threshold_pct: float = 50.0,
+    config: NotifyConfig | None = None,
+) -> None:
+    """Alert when error rate in a phase exceeds threshold — FIX-678.
+
+    Only fires when total_count >= MIN_SAMPLE_SIZE.
+    """
+    config = config or NotifyConfig()
+    if total_count < _MIN_SAMPLE_SIZE:
+        return
+    error_pct = (error_count / total_count) * 100
+    if error_pct >= threshold_pct:
+        msg = f"Phase '{phase_name}' error rate: {error_count}/{total_count} ({error_pct:.0f}%)"
+        notify_with_dedup(f"error_rate_{phase_name}", msg, config=config)
+
+
+def notify_cost_spike(
+    *,
+    task_name: str,
+    cost_usd: float,
+    avg_cost_usd: float,
+    sample_count: int,
+    multiplier: float = 3.0,
+    config: NotifyConfig | None = None,
+) -> None:
+    """Alert when task cost exceeds Nx average — FIX-678.
+
+    Only fires when sample_count >= MIN_SAMPLE_SIZE.
+    """
+    config = config or NotifyConfig()
+    if sample_count < _MIN_SAMPLE_SIZE:
+        return
+    if avg_cost_usd <= 0:
+        return
+    if cost_usd > avg_cost_usd * multiplier:
+        ratio = cost_usd / avg_cost_usd
+        msg = f"Task '{task_name}' cost spike: ${cost_usd:.4f} ({ratio:.1f}x avg ${avg_cost_usd:.4f})"
+        notify_with_dedup(f"cost_{task_name}", msg, config=config)
+
+
 # -- Deduplication state (Rondo-REQ-105 req 009)
 _dedup_seen: set[str] = set()
 

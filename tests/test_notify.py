@@ -262,4 +262,117 @@ class TestAppleScriptInjection:
             assert len(unescaped) == 4, f"Expected 4 unescaped quotes (string delimiters), got {len(unescaped)}: {script}"
 
 
+# -- ──────────────────────────────────────────────────────────────
+#  Threshold alerting — FIX-678
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestLatencyThreshold:
+    """FIX-678: latency spike alerting with hysteresis."""
+
+    def test_fires_when_above_threshold(self, capsys: pytest.CaptureFixture) -> None:
+        """Fires when duration > 2x average with sufficient samples."""
+        from rondo.notify import notify_latency_threshold, reset_dedup
+
+        reset_dedup()
+        notify_latency_threshold(
+            task_name="slow-task",
+            duration_sec=20.0,
+            avg_duration_sec=5.0,
+            sample_count=5,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert "latency spike" in capsys.readouterr().out.lower()
+
+    def test_silent_when_below_threshold(self, capsys: pytest.CaptureFixture) -> None:
+        """No alert when duration is within normal range."""
+        from rondo.notify import notify_latency_threshold, reset_dedup
+
+        reset_dedup()
+        notify_latency_threshold(
+            task_name="ok-task",
+            duration_sec=8.0,
+            avg_duration_sec=5.0,
+            sample_count=5,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert capsys.readouterr().out == ""
+
+    def test_silent_when_insufficient_samples(self, capsys: pytest.CaptureFixture) -> None:
+        """No alert when sample count is too low (hysteresis)."""
+        from rondo.notify import notify_latency_threshold, reset_dedup
+
+        reset_dedup()
+        notify_latency_threshold(
+            task_name="new-task",
+            duration_sec=100.0,
+            avg_duration_sec=5.0,
+            sample_count=1,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert capsys.readouterr().out == ""
+
+
+class TestErrorRateThreshold:
+    """FIX-678: error rate alerting with hysteresis."""
+
+    def test_fires_when_above_50pct(self, capsys: pytest.CaptureFixture) -> None:
+        """Fires when error rate exceeds threshold."""
+        from rondo.notify import notify_error_rate_threshold, reset_dedup
+
+        reset_dedup()
+        notify_error_rate_threshold(
+            phase_name="phase-1",
+            error_count=3,
+            total_count=5,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert "error rate" in capsys.readouterr().out.lower()
+
+    def test_silent_when_below_threshold(self, capsys: pytest.CaptureFixture) -> None:
+        """No alert when error rate is acceptable."""
+        from rondo.notify import notify_error_rate_threshold, reset_dedup
+
+        reset_dedup()
+        notify_error_rate_threshold(
+            phase_name="phase-ok",
+            error_count=1,
+            total_count=10,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert capsys.readouterr().out == ""
+
+
+class TestCostSpike:
+    """FIX-678: cost spike alerting with hysteresis."""
+
+    def test_fires_on_3x_cost(self, capsys: pytest.CaptureFixture) -> None:
+        """Fires when cost exceeds 3x average."""
+        from rondo.notify import notify_cost_spike, reset_dedup
+
+        reset_dedup()
+        notify_cost_spike(
+            task_name="expensive",
+            cost_usd=0.50,
+            avg_cost_usd=0.10,
+            sample_count=5,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert "cost spike" in capsys.readouterr().out.lower()
+
+    def test_silent_on_normal_cost(self, capsys: pytest.CaptureFixture) -> None:
+        """No alert when cost is within normal range."""
+        from rondo.notify import notify_cost_spike, reset_dedup
+
+        reset_dedup()
+        notify_cost_spike(
+            task_name="normal",
+            cost_usd=0.12,
+            avg_cost_usd=0.10,
+            sample_count=5,
+            config=NotifyConfig(channels=["terminal"]),
+        )
+        assert capsys.readouterr().out == ""
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.f1a2b3

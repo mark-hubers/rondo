@@ -196,6 +196,33 @@ _CONFIG_FIELDS: set[str] = {f.name for f in fields(RondoConfig)}
 _CLI_ONLY: set[str] = {"dry_run"}
 
 
+# -- FIX-680: TOML type checking at load time
+_TYPE_MAP: dict[str, type] = {
+    "int": int,
+    "float": float,
+    "bool": bool,
+    "str": str,
+}
+
+
+def _check_toml_type(field_name: str, value: Any, type_hint: Any) -> bool:
+    """Warn if TOML value type doesn't match field type.
+
+    FIX-680: fail-fast with clear message instead of cryptic TypeError.
+    Only checks simple types (int, float, bool, str). Complex types (Optional, list) skipped.
+    Returns True if type is bad (caller should skip this value and use default).
+    """
+    hint_str = str(type_hint).replace("'", "")
+    for type_name, type_cls in _TYPE_MAP.items():
+        if type_name == hint_str and not isinstance(value, type_cls):
+            warnings.warn(
+                f"Config type error: '{field_name}' must be {type_name}, got {type(value).__name__} ({value!r})",
+                stacklevel=4,
+            )
+            return True
+    return False
+
+
 def load_config(
     *,
     config_path: Path | str | None = None,
@@ -230,6 +257,10 @@ def load_config(
         toml_val = toml_data.get(f.name)
         resolved = resolve(cli_val, toml_val, None)
         if resolved is not None:
+            # -- FIX-680: type check TOML values at load time (fail fast, clear message)
+            if toml_val is not None and cli_val is None:
+                if _check_toml_type(f.name, toml_val, f.type):
+                    continue  # -- bad type: skip, use default
             kwargs[f.name] = resolved
 
     config = RondoConfig(**kwargs)

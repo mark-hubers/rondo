@@ -187,6 +187,31 @@ class TestUnknownKeys:
             assert len(unknown_warnings) >= 1
 
 
+# -- FIX-680: TOML type checking at load time
+class TestTomlTypeChecking:
+    def test_wrong_type_warns(self, tmp_path):
+        """String where int expected produces clear warning."""
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text('workers = "four"\n')
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            load_config(config_path=toml_file)
+            type_warnings = [x for x in w if "type error" in str(x.message).lower()]
+            assert len(type_warnings) >= 1
+            assert "workers" in str(type_warnings[0].message)
+            assert "int" in str(type_warnings[0].message)
+
+    def test_correct_type_no_warning(self, tmp_path):
+        """Correct types produce no type warnings."""
+        toml_file = tmp_path / "rondo.toml"
+        toml_file.write_text("workers = 8\n")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            load_config(config_path=toml_file)
+            type_warnings = [x for x in w if "type error" in str(x.message).lower()]
+            assert len(type_warnings) == 0
+
+
 # -- Rondo-STD-109 Rule 8: Invalid values error at startup
 class TestValidationErrors:
     def test_invalid_auth(self):

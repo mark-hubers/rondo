@@ -705,6 +705,48 @@ class TestNoHardcodedKeys:
         assert not violations, f"Hardcoded API keys found:\n  " + "\n  ".join(violations)
 
 
+class TestNoShellTrue:
+    """subprocess calls MUST NOT use shell=True (command injection prevention).
+
+    FIX-681: security convention enforcement.
+    """
+
+    SHELL_PATTERN = re.compile(r"shell\s*=\s*True")
+
+    def test_no_shell_true_in_source(self) -> None:
+        """No shell=True in any source file (STD-110 S1)."""
+        violations = []
+        for filepath in SRC_FILES:
+            content = filepath.read_text(encoding="utf-8")
+            for i, line in enumerate(content.splitlines(), 1):
+                if self.SHELL_PATTERN.search(line) and "never" not in line.lower() and "#" not in line.split("shell")[0]:
+                    violations.append(f"{filepath.name}:{i}")
+        assert not violations, f"shell=True found in source files: {violations}"
+
+
+class TestSanitizeScrubsKeys:
+    """sanitize.py MUST scrub API keys from stored outputs.
+
+    FIX-681: verify the sanitizer catches key patterns.
+    """
+
+    def test_api_key_scrubbed(self) -> None:
+        """API key patterns are removed by sanitize_text."""
+        from rondo.sanitize import sanitize_text
+
+        text = 'Error: api_key = "sk-abc123def456ghi789jkl012" failed'
+        result = sanitize_text(text)
+        assert "sk-abc123" not in result.sanitized_text
+
+    def test_bearer_token_scrubbed(self) -> None:
+        """Bearer tokens are removed by sanitize_text."""
+        from rondo.sanitize import sanitize_text
+
+        text = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test"
+        result = sanitize_text(text)
+        assert "eyJhbGci" not in result.sanitized_text
+
+
 # -- ──────────────────────────────────────────────────────────────
 # --  Import cycle detection (Cursor "would worry me" item)
 # -- ──────────────────────────────────────────────────────────────

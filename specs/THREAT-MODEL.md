@@ -52,3 +52,42 @@ For restricted environments:
 - Set `RONDO_ALLOW_MUTATIONS=false` to disable real dispatch via MCP
 - Set `RONDO_TEST_DIR` to sandbox all file writes
 - Use `--dry-run` for preview-only mode
+
+## Round Files as Code Execution
+
+**This is Rondo's highest-trust boundary.**
+
+Round files (`build_round()`) are Python — they execute arbitrary code when loaded via `importlib`. Rondo trusts the user wrote the round file. There is no sandboxing of round file execution.
+
+| Trust level | What | Control |
+|-------------|------|---------|
+| **Fully trusted** | Round files the user wrote | None — Python execution |
+| **Partially trusted** | AI-generated round files | User reviews before `rondo run` |
+| **Untrusted** | Round files from strangers | DO NOT RUN — no sandbox exists |
+
+**If Rondo is ever shared:** Round files need sandboxing (e.g., restricted `importlib` loader, AST validation, or container isolation). This is explicitly out of scope for v1 single-user.
+
+## Platform Support
+
+Rondo is **macOS-first**. Specific platform dependencies:
+
+| Feature | macOS dependency | Linux status | Windows status |
+|---------|-----------------|-------------|----------------|
+| Notifications | `osascript` (AppleScript) | Not supported | Not supported |
+| Keychain keys | `security` CLI (macOS Keychain) | Not supported | Not supported |
+| Scheduling | `launchd` plists | Needs `systemd` timer | Not supported |
+| Watchdog | `select()` on pipes | Works | Untested |
+| Core dispatch | `claude -p` subprocess | Works | Untested |
+
+**Honest disclosure:** Rondo works on Linux for core dispatch + Ollama. Notifications, keychain, and scheduling are macOS-only. Windows is unsupported.
+
+## Key Management Trust Chain
+
+| Backend | Trust | Risk |
+|---------|-------|------|
+| **KeychainBackend** | High — macOS Keychain encrypted | Requires user unlock |
+| **EnvBackend** | Medium — process environment | Keys visible in `/proc/PID/environ` on Linux, potential log leakage |
+| **ConfigBackend** | Medium — `~/.rondo/config.toml` | File permissions enforced (req 090: skip if world-readable) |
+| **OnePasswordBackend** | High — 1Password CLI | Requires `op` binary + auth |
+
+**Log scrubbing:** `sanitize.py` strips `*_API_KEY` patterns from stored outputs. Error messages should never contain raw keys.

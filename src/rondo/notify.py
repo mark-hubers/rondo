@@ -48,11 +48,17 @@ def notify_failure(
     task_name: str,
     error_code: str,
     error_message: str,
+    recovery: str = "",
     config: NotifyConfig | None = None,
 ) -> None:
-    """Notify on dispatch failure — Rondo-REQ-105 req 002."""
+    """Notify on dispatch failure — Rondo-REQ-105 req 002.
+
+    FIX-674: recovery param adds actionable guidance to the notification.
+    """
     config = config or NotifyConfig()
     msg = f"Task '{task_name}' failed: {error_code} — {error_message}"
+    if recovery:
+        msg += f" | Fix: {recovery}"
     _send(msg, title="Rondo: dispatch failed", config=config)
 
 

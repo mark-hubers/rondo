@@ -21,6 +21,7 @@ from rondo.config import (
 from rondo.dispatch import dispatch_task
 from rondo.engine import (
     DispatchUsage,
+    ErrorPayload,
     Gate,
     GateResult,
     Round,
@@ -44,6 +45,7 @@ __all__ = [
     "TaskResult",
     "RoundResult",
     "DispatchUsage",
+    "ErrorPayload",
     "RondoConfig",
     "load_config",
     "validate_config",

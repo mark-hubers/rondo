@@ -41,7 +41,7 @@ from rondo.dispatch_prompt import (
     RONDO_RESULT_SCHEMA,
     build_prompt,
 )
-from rondo.engine import DispatchUsage, Task, TaskResult, validate_task
+from rondo.engine import DispatchUsage, ErrorPayload, Task, TaskResult, validate_task
 from rondo.sanitize import sanitize_task_result
 from rondo.spool import spool_result
 
@@ -323,13 +323,26 @@ def _make_error_result(
 
     Extracted to reduce cyclomatic complexity in _dispatch_interactive().
     Every error path returns the same shaped result.
+    FIX-674: also populates error_payload with recovery guidance.
     """
+    from rondo.dispatch_parse import get_error_recovery  # pylint: disable=import-outside-toplevel
+
+    recovery, transient = get_error_recovery(error_code)
+    payload = ErrorPayload(
+        code=error_code,
+        message=error_message,
+        recovery=recovery,
+        transient=transient,
+        layer="dispatch",
+        model=model,
+    )
     return (
         TaskResult(
             task_name=task_name,
             status="error",
             error_code=error_code,
             error_message=error_message,
+            error_payload=payload,
             prompt_sent=prompt,
             raw_output=raw_output,
             stderr=stderr,

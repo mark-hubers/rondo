@@ -173,7 +173,11 @@ def _emit_action_items(result: OvernightResult, lines: list[str]) -> None:
         for tr in pr.task_results:
             if tr.status in ("error", "blocked"):
                 detail = tr.error_message or tr.status
-                action_items.append(f"- **{pr.round_name}/{tr.task_name}** [{tr.status}]: {detail}")
+                # -- FIX-674: include recovery guidance from ErrorPayload if present
+                recovery = ""
+                if tr.error_payload and tr.error_payload.recovery:
+                    recovery = f" **Recovery:** {tr.error_payload.recovery}"
+                action_items.append(f"- **{pr.round_name}/{tr.task_name}** [{tr.status}]: {detail}{recovery}")
 
     # -- Count skipped tasks for accurate messaging
     total_done = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done")

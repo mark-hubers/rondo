@@ -173,6 +173,32 @@ def classify_error(stderr: str) -> str:
     return "ERR_SUBPROCESS"
 
 
+# -- FIX-674: recovery guidance per error code
+ERROR_RECOVERY: dict[str, tuple[str, bool]] = {
+    # -- code: (recovery_message, is_transient)
+    "ERR_SUBPROCESS": ("Run `rondo preflight` to check environment. Claude binary may be missing or crashed.", False),
+    "ERR_AUTH": ("Check API key: `rondo providers` shows status. Verify env vars or ~/.rondo/config.toml.", False),
+    "ERR_NESTED_SESSION": ("Cannot dispatch from inside Claude Code. Use MCP tools (rondo_run) instead of CLI.", False),
+    "ERR_RATE_LIMIT": ("Provider rate limited. Wait and retry, or switch provider with --model.", True),
+    "ERR_TIMEOUT": ("Task exceeded timeout. Increase with --timeout or simplify the task.", True),
+    "ERR_EMPTY_OUTPUT": ("Claude returned empty output. May be auth issue. Run `rondo preflight`.", True),
+    "ERR_COST_CAP": ("Cost cap exceeded. Increase --max-budget or use a cheaper model.", False),
+    "ERR_WATCHDOG_TIMEOUT": ("Task went silent (no output). May be stuck. Check provider status.", True),
+    "ERR_INTERNAL": ("Internal Rondo error. Check logs and report if repeatable.", False),
+    "ERR_MALFORMED_JSON": ("AI output was not valid JSON. Retry or simplify the expected output format.", True),
+    "ERR_PROVIDER_DOWN": ("Provider is down. Check `rondo providers` and use fallback.", True),
+    "ERR_INVALID_PROFILE": ("Cloud profile not found. Check [cloud.profiles] in ~/.rondo/config.toml.", False),
+}
+
+
+def get_error_recovery(error_code: str) -> tuple[str, bool]:
+    """Get recovery guidance and transient flag for an error code.
+
+    Returns (recovery_message, is_transient). Unknown codes get generic guidance.
+    """
+    return ERROR_RECOVERY.get(error_code, ("Check `rondo preflight` for environment issues.", False))
+
+
 def extract_modified_files(raw_output: str) -> list[str]:
     """Extract file paths from Claude's output (heuristic).
 

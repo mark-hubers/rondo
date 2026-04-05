@@ -310,14 +310,21 @@ def _save_result_safe(
 
 
 def _notify_failure(task_result: TaskResult) -> None:
-    """Send notification on dispatch failure — Rondo-REQ-105 req 002."""
-    try:
-        from rondo.notify import notify_failure
+    """Send notification on dispatch failure — Rondo-REQ-105 req 002.
 
+    FIX-674: passes recovery guidance from ErrorPayload if present.
+    """
+    try:
+        from rondo.notify import notify_failure  # pylint: disable=import-outside-toplevel
+
+        recovery = ""
+        if task_result.error_payload:
+            recovery = task_result.error_payload.recovery
         notify_failure(
             task_name=task_result.task_name,
             error_code=task_result.error_code,
             error_message=task_result.error_message,
+            recovery=recovery,
         )
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Failure notification failed (non-fatal): %s", exc)

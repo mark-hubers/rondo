@@ -107,6 +107,23 @@ class GateResult:
 
 
 @dataclass
+class ErrorPayload:
+    """Structured error context — carries recovery guidance through the chain.
+
+    Rondo-REQ-100: every error includes code, context, and recovery path.
+    Added FIX-674 (additive — legacy error_code/error_message preserved).
+    """
+
+    code: str  # -- ERR_SUBPROCESS, ERR_AUTH, etc.
+    message: str  # -- human-readable explanation
+    recovery: str = ""  # -- "Run rondo preflight" or "Check API key"
+    transient: bool = False  # -- True = worth retrying
+    layer: str = ""  # -- "dispatch", "runner", "overnight", "report"
+    provider: str = ""  # -- which provider failed (if applicable)
+    model: str = ""  # -- which model was targeted
+
+
+@dataclass
 class TaskResult:  # pylint: disable=too-many-instance-attributes
     """Outcome of dispatching a single task (Rondo-STD-108).
 
@@ -121,6 +138,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     status: str = "pending"  # -- done, blocked, partial, error, skipped
     error_code: str | None = None
     error_message: str | None = None
+    error_payload: ErrorPayload | None = None  # -- FIX-674: structured error with recovery
 
     # -- dispatch I/O
     prompt_sent: str = ""

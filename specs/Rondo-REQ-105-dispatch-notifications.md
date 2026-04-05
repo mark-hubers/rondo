@@ -61,6 +61,10 @@ between Rondo's execution and Mark's awareness.
 | 008 | Morning report = the primary notification for overnight runs. Always generated (CORE-STD-010). | MUST | Report test |
 | 009 | Notification deduplication: don't send "rate limited" 50 times in a row. Once per state change. | SHOULD | Dedup test |
 | 010 | When OB-connected: OB may subscribe to notifications via OAResult event metadata | SHOULD | Integration test |
+| 011 | Threshold alert: latency spike — fire when task duration exceeds Nx average (default 2x). Requires min sample size (default 3) to avoid false positives | SHOULD | Threshold test |
+| 012 | Threshold alert: error rate — fire when phase error rate exceeds N% (default 50%). Requires min sample size | SHOULD | Threshold test |
+| 013 | Threshold alert: cost spike — fire when task cost exceeds Nx average (default 3x). Requires min sample size | SHOULD | Threshold test |
+| 014 | Failure notifications SHOULD include recovery guidance from ErrorPayload when available | SHOULD | Recovery test |
 
 
 ---
@@ -431,3 +435,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-118. 10 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
+| 1.2 | 2026-04-05 | FIX-678: Added reqs 011-013 — threshold alerting (latency, error rate, cost spike) with min sample hysteresis. FIX-674: Added req 014 — recovery guidance in failure notifications from ErrorPayload. 14 reqs total. |

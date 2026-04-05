@@ -155,10 +155,7 @@ def _shannon_entropy(s: str) -> float:
     for c in s:
         freq[c] = freq.get(c, 0) + 1
     length = len(s)
-    return -sum(
-        (count / length) * math.log2(count / length)
-        for count in freq.values()
-    )
+    return -sum((count / length) * math.log2(count / length) for count in freq.values())
 
 
 def _get_line_number(text: str, match_start: int) -> int:
@@ -191,11 +188,13 @@ def _scrub_secret_patterns(
     for pat in patterns:
         for match in pat.compiled.finditer(sanitized):
             line_num = _get_line_number(text, match.start())
-            detections.append(Detection(
-                pattern_name=pat.name,
-                confidence=pat.confidence,
-                line_number=line_num,
-            ))
+            detections.append(
+                Detection(
+                    pattern_name=pat.name,
+                    confidence=pat.confidence,
+                    line_number=line_num,
+                )
+            )
     # -- Apply redactions
     for pat in patterns:
         sanitized = pat.compiled.sub(f"[REDACTED:{pat.name}]", sanitized)
@@ -212,11 +211,13 @@ def _scrub_env_vars(
         compiled = re.compile(pattern)
         for match in compiled.finditer(sanitized):
             line_num = _get_line_number(text, match.start())
-            detections.append(Detection(
-                pattern_name=name,
-                confidence=0.8,
-                line_number=line_num,
-            ))
+            detections.append(
+                Detection(
+                    pattern_name=name,
+                    confidence=0.8,
+                    line_number=line_num,
+                )
+            )
         sanitized = compiled.sub(f"[REDACTED:{name}]", sanitized)
     return sanitized
 
@@ -324,10 +325,7 @@ def _scrub_dict(
         detections.extend(sr.detections)
         return sr.sanitized_text
     if isinstance(obj, dict):
-        return {
-            k: _scrub_dict(v, config=config, detections=detections)
-            for k, v in obj.items()
-        }
+        return {k: _scrub_dict(v, config=config, detections=detections) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_scrub_dict(item, config=config, detections=detections) for item in obj]
     return obj

@@ -155,7 +155,7 @@ class FlakyEngine:
         """
         self._outcomes.append(outcome)
         if len(self._outcomes) > self._max_outcomes:
-            self._outcomes = self._outcomes[-self._max_outcomes:]
+            self._outcomes = self._outcomes[-self._max_outcomes :]
 
     def get_groups(self) -> dict[tuple[str, str], list[DispatchOutcome]]:
         """Group outcomes by (task_name, prompt_hash) — REQ-107 req 002.

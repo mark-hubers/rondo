@@ -16,16 +16,18 @@ import json
 from rondo.engine import Task
 
 # -- Rondo-REQ-100 req 079: canonical result schema for --json-schema
-RONDO_RESULT_SCHEMA = json.dumps({
-    "type": "object",
-    "properties": {
-        "status": {"type": "string", "enum": ["done", "error", "blocked", "partial"]},
-        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-        "result": {"type": "string"},
-        "question": {"type": "string"},
-    },
-    "required": ["status", "result"],
-})
+RONDO_RESULT_SCHEMA = json.dumps(
+    {
+        "type": "object",
+        "properties": {
+            "status": {"type": "string", "enum": ["done", "error", "blocked", "partial"]},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "result": {"type": "string"},
+            "question": {"type": "string"},
+        },
+        "required": ["status", "result"],
+    }
+)
 
 # -- Rondo-REQ-100 req 080: default system prompt for dispatch
 RONDO_DISPATCH_PROMPT = (

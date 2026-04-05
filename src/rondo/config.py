@@ -196,30 +196,68 @@ _CONFIG_FIELDS: set[str] = {f.name for f in fields(RondoConfig)}
 _CLI_ONLY: set[str] = {"dry_run"}
 
 
-# -- FIX-680: TOML type checking at load time
-_TYPE_MAP: dict[str, type] = {
-    "int": int,
-    "float": float,
-    "bool": bool,
-    "str": str,
-}
+# -- FIX-688: robust TOML type checking (replaces FIX-680 string-matching)
+_SIMPLE_TYPES: set[type] = {int, float, bool, str}
+
+
+def _extract_allowed_types(type_hint: Any) -> set[type]:
+    """Extract concrete types from a type hint, handling Optional/Union.
+
+    Handles both real types and string annotations (from __future__ annotations).
+
+    Examples:
+        int / 'int' → {int}
+        float | None / 'float | None' → {float}
+        str | None → {str}
+        Optional[int] → {int}
+        complex/unknown → empty set (skip checking)
+    """
+    import types
+    import typing
+
+    # -- String annotations (from __future__ import annotations) → resolve
+    if isinstance(type_hint, str):
+        # -- Simple type name
+        simple_map = {"int": int, "float": float, "bool": bool, "str": str}
+        if type_hint in simple_map:
+            return {simple_map[type_hint]}
+        # -- Union: "float | None", "int | None"
+        if "|" in type_hint:
+            parts = [p.strip() for p in type_hint.split("|")]
+            return {simple_map[p] for p in parts if p in simple_map}
+        return set()
+
+    origin = typing.get_origin(type_hint)
+
+    # -- Simple type (int, str, etc.)
+    if type_hint in _SIMPLE_TYPES:
+        return {type_hint}
+
+    # -- Union type: int | None, Optional[int], etc.
+    if origin is types.UnionType or origin is typing.Union:
+        args = typing.get_args(type_hint)
+        return {a for a in args if a in _SIMPLE_TYPES}
+
+    return set()
 
 
 def _check_toml_type(field_name: str, value: Any, type_hint: Any) -> bool:
     """Warn if TOML value type doesn't match field type.
 
-    FIX-680: fail-fast with clear message instead of cryptic TypeError.
-    Only checks simple types (int, float, bool, str). Complex types (Optional, list) skipped.
+    FIX-688: uses typing.get_args for robust Optional/Union handling.
     Returns True if type is bad (caller should skip this value and use default).
     """
-    hint_str = str(type_hint).replace("'", "")
-    for type_name, type_cls in _TYPE_MAP.items():
-        if type_name == hint_str and not isinstance(value, type_cls):
-            warnings.warn(
-                f"Config type error: '{field_name}' must be {type_name}, got {type(value).__name__} ({value!r})",
-                stacklevel=4,
-            )
-            return True
+    allowed = _extract_allowed_types(type_hint)
+    if not allowed:
+        return False  # -- complex type, skip checking
+
+    if not isinstance(value, tuple(allowed)):
+        type_names = " | ".join(t.__name__ for t in sorted(allowed, key=lambda t: t.__name__))
+        warnings.warn(
+            f"Config type error: '{field_name}' must be {type_names}, got {type(value).__name__} ({value!r})",
+            stacklevel=4,
+        )
+        return True
     return False
 
 

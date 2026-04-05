@@ -18,14 +18,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from rondo.config import RondoConfig
-from rondo.engine import DispatchUsage, ErrorPayload, Round, RoundResult, Task, TaskResult
+from rondo.engine import DispatchUsage, ErrorPayload, Round, Task, TaskResult
 from rondo.runner import run_round
-
 
 # -- ──────────────────────────────────────────────────────────────
 #  Chaos 1: Subprocess crashes (ERR_SUBPROCESS)
@@ -37,9 +34,12 @@ class TestSubprocessCrash:
 
     def test_subprocess_oserror_becomes_error_result(self) -> None:
         """OSError from subprocess → TaskResult with error status, not exception."""
-        round_def = Round(name="crash-test", tasks=[
-            Task(name="t1", instruction="do something", done_when="done"),
-        ])
+        round_def = Round(
+            name="crash-test",
+            tasks=[
+                Task(name="t1", instruction="do something", done_when="done"),
+            ],
+        )
         config = RondoConfig(workers=1)
 
         with patch("rondo.runner.dispatch_task") as mock_dispatch:
@@ -76,10 +76,9 @@ class TestRateLimitStorm:
 
     def test_circuit_breaker_trips_after_3_consecutive(self) -> None:
         """3 consecutive ERR_RATE_LIMIT → circuit breaker halts round."""
-        round_def = Round(name="storm-test", tasks=[
-            Task(name=f"t{i}", instruction="do", done_when="done")
-            for i in range(5)
-        ])
+        round_def = Round(
+            name="storm-test", tasks=[Task(name=f"t{i}", instruction="do", done_when="done") for i in range(5)]
+        )
         config = RondoConfig(workers=1)
 
         with patch("rondo.runner.dispatch_task") as mock_dispatch:
@@ -117,9 +116,12 @@ class TestMalformedOutput:
 
     def test_malformed_json_gracefully_handled(self) -> None:
         """Non-JSON output → partial result with error_code, not crash."""
-        round_def = Round(name="garbage-test", tasks=[
-            Task(name="t1", instruction="return json", done_when="json returned"),
-        ])
+        round_def = Round(
+            name="garbage-test",
+            tasks=[
+                Task(name="t1", instruction="return json", done_when="json returned"),
+            ],
+        )
         config = RondoConfig(workers=1)
 
         with patch("rondo.runner.dispatch_task") as mock_dispatch:
@@ -205,9 +207,12 @@ class TestDiskFull:
         from rondo.overnight import run_overnight
 
         phases = [
-            Round(name="p1", tasks=[
-                Task(name="auto", auto_fn=lambda: (True, "ok")),
-            ]),
+            Round(
+                name="p1",
+                tasks=[
+                    Task(name="auto", auto_fn=lambda: (True, "ok")),
+                ],
+            ),
         ]
         config = RondoConfig(dry_run=True)
 
@@ -227,22 +232,22 @@ class TestPartialProviderOutage:
 
     def test_health_shows_partial_when_one_down(self) -> None:
         """1 of 3 providers down → health shows YELLOW, not RED."""
-        from rondo.adapters.health import HealthStatus
-
         import time
+
+        from rondo.adapters.health import HealthStatus
 
         now = time.time()
         mock_health = {
             "gemini": HealthStatus(provider="gemini", healthy=True, latency_ms=100, checked_at=now),
-            "grok": HealthStatus(provider="grok", healthy=False, latency_ms=0, checked_at=now, error="Connection refused"),
+            "grok": HealthStatus(
+                provider="grok", healthy=False, latency_ms=0, checked_at=now, error="Connection refused"
+            ),
             "mistral": HealthStatus(provider="mistral", healthy=True, latency_ms=200, checked_at=now),
         }
         with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_health):
-            health_json = json.loads(
-                __import__("rondo.mcp_tools", fromlist=["rondo_health"]).rondo_health()
-            )
+            health_json = json.loads(__import__("rondo.mcp_tools", fromlist=["rondo_health"]).rondo_health())
             assert health_json["api_status"] == "YELLOW"
             assert health_json["providers_up"] == "2/3"
 
 
-# -- sig: mgh-6201.cd.bd955f.b1c2.chaos1
+# -- sig: mgh-6201.cd.bd955f.b1c2.c4a051

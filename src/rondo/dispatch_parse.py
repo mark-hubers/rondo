@@ -156,7 +156,12 @@ def _collect_assistant_text(events: list[dict[str, Any]]) -> str:
 
 
 def classify_error(stderr: str) -> str:
-    """Classify error from stderr content (Rondo-STD-108 stderr patterns)."""
+    """Classify error from stderr content (Rondo-STD-108 stderr patterns).
+
+    INVARIANT: always returns a string starting with 'ERR_'.
+    Property tests (test_property.py) verify this for arbitrary input.
+    If you add a new return value, it MUST start with 'ERR_' or property tests fail.
+    """
     if not stderr:
         return "ERR_SUBPROCESS"
     lower = stderr.lower()

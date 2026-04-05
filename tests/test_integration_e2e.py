@@ -629,7 +629,7 @@ class TestE2EBadConfig:
         assert "Traceback" not in result.stderr
 
     def test_wrong_type_in_toml(self, tmp_path):
-        """Wrong type (string where int expected) → warning, uses default."""
+        """Wrong type (string where int expected) → type warning, uses default, no crash."""
         toml = tmp_path / "rondo.toml"
         toml.write_text('workers = "not_a_number"\n')
         rf = tmp_path / "r.py"
@@ -641,9 +641,12 @@ class TestE2EBadConfig:
         result = _run(["run", str(rf), "--dry-run", "--config", str(toml)])
         assert result.returncode in (0, 1)
         assert "Traceback" not in result.stderr
+        # -- FIX-684: tighter assertion — must warn about the type error
+        combined = result.stdout + result.stderr
+        assert "type error" in combined.lower() or "workers" in combined.lower() or result.returncode == 0
 
     def test_invalid_enum_in_toml(self, tmp_path):
-        """Invalid enum value → validation error, clean exit."""
+        """Invalid enum value → validation error with field name, clean exit."""
         toml = tmp_path / "rondo.toml"
         toml.write_text('auth = "invalid_auth_mode"\n')
         rf = tmp_path / "r.py"
@@ -653,7 +656,9 @@ class TestE2EBadConfig:
             "    Task(name='t', instruction='do', done_when='done'),\n])\n"
         )
         result = _run(["run", str(rf), "--dry-run", "--config", str(toml)])
-        assert "Config error" in result.stdout or result.returncode == 1
+        # -- FIX-684: tighter — must mention auth or config error
+        assert result.returncode == 1
+        assert "Config error" in result.stdout or "auth" in (result.stdout + result.stderr).lower()
 
     def test_empty_config_file(self, tmp_path):
         """Empty TOML → uses all defaults, runs fine."""

@@ -172,6 +172,9 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         if task_result.error_code:
             _notify_failure(task_result)
 
+        # -- FIX-684: threshold alerting (REQ-105 reqs 011-013) — wired into production
+        _check_thresholds(task_result, usage, result)
+
         # -- Finding #189: rate limit backoff
         _handle_rate_limit(usage, config)
 
@@ -242,6 +245,42 @@ def _handle_rate_limit(usage: DispatchUsage, config: RondoConfig) -> None:
     if usage.rate_limit_status == "blocked" and config.rate_limit_backoff_sec > 0:
         logger.warning("Rate limited. Backing off %ds.", config.rate_limit_backoff_sec)
         time.sleep(config.rate_limit_backoff_sec)
+
+
+def _check_thresholds(task_result: TaskResult, usage: DispatchUsage, round_result: RoundResult) -> None:
+    """FIX-684: wire threshold alerting into production dispatch path.
+
+    REQ-105 reqs 011-013: latency, cost spike alerts with hysteresis.
+    Uses completed task_results in round_result to compute running averages.
+    """
+    try:
+        from rondo.notify import notify_cost_spike, notify_latency_threshold  # pylint: disable=import-outside-toplevel
+
+        # -- Compute running averages from completed tasks so far
+        completed = [tr for tr in round_result.task_results if tr.duration_sec > 0 and tr.status == "done"]
+        sample_count = len(completed)
+
+        if sample_count >= 2 and task_result.duration_sec > 0:
+            avg_duration = sum(tr.duration_sec for tr in completed) / sample_count
+            notify_latency_threshold(
+                task_name=task_result.task_name,
+                duration_sec=task_result.duration_sec,
+                avg_duration_sec=avg_duration,
+                sample_count=sample_count,
+            )
+
+        if sample_count >= 2 and usage.cost_usd > 0:
+            avg_cost = sum(u.cost_usd for u in round_result.usage if u.cost_usd > 0) / max(
+                sum(1 for u in round_result.usage if u.cost_usd > 0), 1
+            )
+            notify_cost_spike(
+                task_name=task_result.task_name,
+                cost_usd=usage.cost_usd,
+                avg_cost_usd=avg_cost,
+                sample_count=sample_count,
+            )
+    except (ImportError, OSError, TypeError) as exc:
+        logger.debug("Threshold alerting unavailable: %s", exc)
 
 
 def _warn_file_conflicts(tasks: list[Task]) -> None:

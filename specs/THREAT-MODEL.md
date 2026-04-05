@@ -22,7 +22,7 @@ Rondo is per-user infrastructure. Each developer runs their own Rondo instance o
 ## What Rondo Does NOT Expose
 
 - No arbitrary shell execution (subprocess uses list args, never shell=True)
-- No arbitrary network access (Ollama locked to OLLAMA_HOST, Claude via local binary)
+- No arbitrary network access (Ollama locked to OLLAMA_HOST, Claude via local binary). Cloud adapters make outbound HTTPS to configured vendor APIs only (Gemini, Grok, Mistral, OpenAI, Anthropic) — no other network destinations.
 - No database access (stateless — JSONL files only)
 - No remote API calls without explicit provider adapter
 

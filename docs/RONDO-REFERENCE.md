@@ -1,6 +1,6 @@
 # Rondo Reference — Complete System Guide
 
-**Product:** Rondo v0.6 | **Updated:** 2026-04-03 | **Tests:** 1,363 | **MCP Tools:** 22
+**Product:** Rondo v0.6 | **Updated:** 2026-04-05 | **Tests:** 1,404 | **MCP Tools:** 22
 
 *Define AI tasks in Python. Send them to any provider. Get structured results back.*
 
@@ -15,7 +15,7 @@
                           │  CLI              MCP           Python  │
                           │  rondo run        rondo_run()   Round() │
                           │  rondo providers  rondo_cloud() Task()  │
-                          │  rondo metrics    + 16 more     run()   │
+                          │  rondo metrics    + 19 more     run()   │
                           │  15 commands      22 tools      import  │
                           └────────┬──────────┬──────────┬──────────┘
                                    │          │          │

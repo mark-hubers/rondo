@@ -24,7 +24,10 @@ class TestPreflightResult:
     def test_yellow_status(self):
         """YELLOW = warnings but can proceed."""
         r = PreflightResult(
-            status="YELLOW", checks=[], warnings=["disk low"], errors=[],
+            status="YELLOW",
+            checks=[],
+            warnings=["disk low"],
+            errors=[],
         )
         assert r.status == "YELLOW"
         assert r.can_proceed is True
@@ -32,7 +35,10 @@ class TestPreflightResult:
     def test_red_status(self):
         """RED = errors, cannot proceed."""
         r = PreflightResult(
-            status="RED", checks=[], warnings=[], errors=["no claude"],
+            status="RED",
+            checks=[],
+            warnings=[],
+            errors=["no claude"],
         )
         assert r.status == "RED"
         assert r.can_proceed is False
@@ -151,6 +157,7 @@ class TestGitCheck:
 
     def test_git_missing(self):
         """Git not on PATH = YELLOW warning (not RED — git is SHOULD, not MUST)."""
+
         def _which(name: str) -> str | None:
             if name == "git":
                 return None
@@ -167,6 +174,7 @@ class TestCCVersionCheck:
     def test_version_in_checks_when_available(self):
         """CC version reported in checks list."""
         import rondo.dispatch
+
         rondo.dispatch._cc_version_cache = None
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
@@ -178,6 +186,7 @@ class TestCCVersionCheck:
     def test_old_version_warns(self):
         """CC < 2.1.81 = YELLOW warning (--bare won't work)."""
         import rondo.dispatch
+
         rondo.dispatch._cc_version_cache = None
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
@@ -189,6 +198,7 @@ class TestCCVersionCheck:
     def test_version_unavailable_warns(self):
         """Can't detect version = YELLOW warning."""
         import rondo.dispatch
+
         rondo.dispatch._cc_version_cache = None
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
@@ -225,8 +235,10 @@ class TestPreflightCache:
         from rondo.preflight import _preflight_cache, run_preflight
 
         _preflight_cache.clear()
-        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
-             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)):
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)),
+        ):
             r1 = run_preflight()
             r2 = run_preflight()
         ## -- Same object if cached
@@ -238,11 +250,15 @@ class TestPreflightCache:
         from rondo.preflight import _preflight_cache, run_preflight
 
         _preflight_cache.clear()
-        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
-             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)):
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 87)),
+        ):
             run_preflight()
-        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
-             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 88)):
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 88)),
+        ):
             run_preflight()
         ## -- Different versions = 2 cache entries
         assert len(_preflight_cache) == 2
@@ -252,8 +268,10 @@ class TestPreflightCache:
         from rondo.preflight import _preflight_cache, run_preflight
 
         _preflight_cache.clear()
-        with patch("shutil.which", return_value="/usr/local/bin/claude"), \
-             patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 90)):
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch("rondo.preflight.detect_cc_version", return_value=(2, 1, 90)),
+        ):
             run_preflight()
         assert any("2.1.90" in str(k) for k in _preflight_cache)
 
@@ -286,7 +304,9 @@ class TestPreflightProviderHealth:
 
         result = PreflightResult()
         mock_map = {
-            "openai": HealthStatus(provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout")
+            "openai": HealthStatus(
+                provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout"
+            )
         }
         with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
             _check_provider_health(result)

@@ -498,8 +498,10 @@ class TestNewConfigFields:
 
     def test_all_new_fields_set(self):
         config = RondoConfig(
-            bare=True, json_schema="auto",
-            dispatch_system_prompt="auto", max_budget_usd=0.50,
+            bare=True,
+            json_schema="auto",
+            dispatch_system_prompt="auto",
+            max_budget_usd=0.50,
         )
         assert config.bare is True
         assert config.json_schema == "auto"
@@ -518,10 +520,7 @@ class TestConfigFromToml:
     def test_toml_with_new_fields(self, tmp_path):
         toml_file = tmp_path / "rondo.toml"
         toml_file.write_text(
-            'bare = true\n'
-            'json_schema = "auto"\n'
-            'dispatch_system_prompt = "auto"\n'
-            'max_budget_usd = 0.25\n'
+            'bare = true\njson_schema = "auto"\ndispatch_system_prompt = "auto"\nmax_budget_usd = 0.25\n'
         )
         config = load_config(config_path=str(toml_file))
         assert config.bare is True

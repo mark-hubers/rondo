@@ -30,10 +30,16 @@ def _write_audit(tmp_path: Path, records: list[dict]) -> Path:
     return str(audit_dir)
 
 
-def _make_outcome(task_name: str, status: str, cost: float,
-                  duration: float, model: str = "sonnet",
-                  error_code: str | None = None,
-                  input_tokens: int = 1000, output_tokens: int = 500) -> dict:
+def _make_outcome(
+    task_name: str,
+    status: str,
+    cost: float,
+    duration: float,
+    model: str = "sonnet",
+    error_code: str | None = None,
+    input_tokens: int = 1000,
+    output_tokens: int = 500,
+) -> dict:
     """Create a fake audit OUTCOME record."""
     return {
         "dispatch_id": f"dsp_{task_name}",
@@ -59,30 +65,39 @@ class TestCostMetrics:
 
     def test_total_cost(self, tmp_path):
         """Total cost sums all outcomes."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-            _make_outcome("t2", "done", 0.20, 15.0),
-            _make_outcome("t3", "error", 0.05, 5.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+                _make_outcome("t2", "done", 0.20, 15.0),
+                _make_outcome("t3", "error", 0.05, 5.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.total_cost_usd == pytest.approx(0.35)
 
     def test_avg_cost(self, tmp_path):
         """Average cost per dispatch."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-            _make_outcome("t2", "done", 0.20, 15.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+                _make_outcome("t2", "done", 0.20, 15.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.avg_cost_usd == pytest.approx(0.15)
 
     def test_cost_by_model(self, tmp_path):
         """Cost broken down by model."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0, model="sonnet"),
-            _make_outcome("t2", "done", 0.30, 15.0, model="opus"),
-            _make_outcome("t3", "done", 0.05, 5.0, model="sonnet"),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0, model="sonnet"),
+                _make_outcome("t2", "done", 0.30, 15.0, model="opus"),
+                _make_outcome("t3", "done", 0.05, 5.0, model="sonnet"),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.cost_by_model["sonnet"] == pytest.approx(0.15)
         assert report.cost_by_model["opus"] == pytest.approx(0.30)
@@ -98,23 +113,29 @@ class TestReliabilityMetrics:
 
     def test_success_rate(self, tmp_path):
         """Success rate = done / total."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-            _make_outcome("t2", "done", 0.10, 10.0),
-            _make_outcome("t3", "error", 0.05, 5.0),
-            _make_outcome("t4", "done", 0.10, 10.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+                _make_outcome("t2", "done", 0.10, 10.0),
+                _make_outcome("t3", "error", 0.05, 5.0),
+                _make_outcome("t4", "done", 0.10, 10.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.success_rate == pytest.approx(0.75)
 
     def test_error_breakdown(self, tmp_path):
         """Error codes counted."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "error", 0.0, 5.0, error_code="ERR_TIMEOUT"),
-            _make_outcome("t2", "error", 0.0, 5.0, error_code="ERR_TIMEOUT"),
-            _make_outcome("t3", "error", 0.0, 5.0, error_code="ERR_RATE_LIMIT"),
-            _make_outcome("t4", "done", 0.10, 10.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "error", 0.0, 5.0, error_code="ERR_TIMEOUT"),
+                _make_outcome("t2", "error", 0.0, 5.0, error_code="ERR_TIMEOUT"),
+                _make_outcome("t3", "error", 0.0, 5.0, error_code="ERR_RATE_LIMIT"),
+                _make_outcome("t4", "done", 0.10, 10.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.error_breakdown["ERR_TIMEOUT"] == 2
         assert report.error_breakdown["ERR_RATE_LIMIT"] == 1
@@ -130,21 +151,27 @@ class TestLatencyMetrics:
 
     def test_avg_duration(self, tmp_path):
         """Average duration across dispatches."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-            _make_outcome("t2", "done", 0.10, 20.0),
-            _make_outcome("t3", "done", 0.10, 30.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+                _make_outcome("t2", "done", 0.10, 20.0),
+                _make_outcome("t3", "done", 0.10, 30.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.avg_duration_sec == pytest.approx(20.0)
 
     def test_max_duration(self, tmp_path):
         """Max duration recorded."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 5.0),
-            _make_outcome("t2", "done", 0.10, 45.0),
-            _make_outcome("t3", "done", 0.10, 15.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 5.0),
+                _make_outcome("t2", "done", 0.10, 45.0),
+                _make_outcome("t3", "done", 0.10, 15.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.max_duration_sec == pytest.approx(45.0)
 
@@ -159,10 +186,13 @@ class TestTokenMetrics:
 
     def test_total_tokens(self, tmp_path):
         """Total input + output tokens."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0, input_tokens=5000, output_tokens=1000),
-            _make_outcome("t2", "done", 0.10, 10.0, input_tokens=3000, output_tokens=2000),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0, input_tokens=5000, output_tokens=1000),
+                _make_outcome("t2", "done", 0.10, 10.0, input_tokens=3000, output_tokens=2000),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.total_input_tokens == 8000
         assert report.total_output_tokens == 3000
@@ -178,11 +208,14 @@ class TestModelComparison:
 
     def test_dispatches_by_model(self, tmp_path):
         """Dispatch count per model."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0, model="sonnet"),
-            _make_outcome("t2", "done", 0.10, 10.0, model="sonnet"),
-            _make_outcome("t3", "done", 0.30, 20.0, model="opus"),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0, model="sonnet"),
+                _make_outcome("t2", "done", 0.10, 10.0, model="sonnet"),
+                _make_outcome("t3", "done", 0.30, 20.0, model="opus"),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.dispatches_by_model["sonnet"] == 2
         assert report.dispatches_by_model["opus"] == 1
@@ -198,31 +231,40 @@ class TestHealthStatus:
 
     def test_green_when_healthy(self, tmp_path):
         """All good = GREEN."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-            _make_outcome("t2", "done", 0.10, 10.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+                _make_outcome("t2", "done", 0.10, 10.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.health == "GREEN"
 
     def test_yellow_when_some_errors(self, tmp_path):
         """Some errors but >50% success = YELLOW."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-            _make_outcome("t2", "done", 0.10, 10.0),
-            _make_outcome("t3", "error", 0.05, 5.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+                _make_outcome("t2", "done", 0.10, 10.0),
+                _make_outcome("t3", "error", 0.05, 5.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.health in ("GREEN", "YELLOW")
 
     def test_red_when_mostly_errors(self, tmp_path):
         """Mostly errors = RED."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "error", 0.0, 5.0),
-            _make_outcome("t2", "error", 0.0, 5.0),
-            _make_outcome("t3", "error", 0.0, 5.0),
-            _make_outcome("t4", "done", 0.10, 10.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "error", 0.0, 5.0),
+                _make_outcome("t2", "error", 0.0, 5.0),
+                _make_outcome("t3", "error", 0.0, 5.0),
+                _make_outcome("t4", "done", 0.10, 10.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         assert report.health == "RED"
 
@@ -237,9 +279,12 @@ class TestMetricsSerialization:
 
     def test_to_dict(self, tmp_path):
         """MetricsReport serializes to JSON-safe dict."""
-        audit_dir = _write_audit(tmp_path, [
-            _make_outcome("t1", "done", 0.10, 10.0),
-        ])
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("t1", "done", 0.10, 10.0),
+            ],
+        )
         report = compute_metrics(audit_dir=audit_dir)
         data = report.to_dict()
         json_str = json.dumps(data)

@@ -21,9 +21,7 @@ def _claude_available() -> bool:
     return shutil.which("claude") is not None
 
 
-skip_no_claude = pytest.mark.skipif(
-    not _claude_available(), reason="claude CLI not available"
-)
+skip_no_claude = pytest.mark.skipif(not _claude_available(), reason="claude CLI not available")
 
 
 @skip_no_claude
@@ -38,7 +36,10 @@ class TestCCFlagSpikes:
         """S1: --bare flag in claude --help."""
         result = subprocess.run(
             ["claude", "--help"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         assert "--bare" in result.stdout, "CC removed --bare flag"
 
@@ -46,7 +47,10 @@ class TestCCFlagSpikes:
         """S2: --tools flag in claude --help."""
         result = subprocess.run(
             ["claude", "--help"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         assert "--tools" in result.stdout, "CC removed --tools flag"
 
@@ -54,7 +58,10 @@ class TestCCFlagSpikes:
         """S6: --max-budget-usd flag in claude --help."""
         result = subprocess.run(
             ["claude", "--help"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         assert "--max-budget-usd" in result.stdout, "CC removed --max-budget-usd"
 
@@ -62,7 +69,10 @@ class TestCCFlagSpikes:
         """S7: --json-schema flag in claude --help."""
         result = subprocess.run(
             ["claude", "--help"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         assert "--json-schema" in result.stdout, "CC removed --json-schema"
 
@@ -70,7 +80,10 @@ class TestCCFlagSpikes:
         """S8: --system-prompt flag in claude --help."""
         result = subprocess.run(
             ["claude", "--help"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         assert "--system-prompt" in result.stdout, "CC removed --system-prompt"
 
@@ -78,7 +91,10 @@ class TestCCFlagSpikes:
         """Session 91: dontAsk mode in --permission-mode."""
         result = subprocess.run(
             ["claude", "--help"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         assert "dontAsk" in result.stdout, "CC removed dontAsk permission mode"
 
@@ -86,15 +102,15 @@ class TestCCFlagSpikes:
         """Rondo requires CC >= 2.1.81 for --bare."""
         result = subprocess.run(
             ["claude", "--version"],
-            capture_output=True, text=True, check=False, timeout=10,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
         )
         version = result.stdout.strip().split()[0]
         parts = version.split(".")
         major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
-        assert (major, minor, patch) >= (2, 1, 81), (
-            f"CC version {version} too old — Rondo needs >= 2.1.81"
-        )
-
+        assert (major, minor, patch) >= (2, 1, 81), f"CC version {version} too old — Rondo needs >= 2.1.81"
 
     def test_s9_rondo_can_load_round(self):
         """S9: Rondo can load and dry-run its own round definitions."""

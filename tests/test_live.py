@@ -137,8 +137,9 @@ class TestHumanInputInLive:
 
     def test_human_input_displayed(self, capsys):
         """Task with human_input shows it before instruction."""
-        task = Task(name="review", instruction="check code", done_when="checked",
-                    human_input="Please review the PR first")
+        task = Task(
+            name="review", instruction="check code", done_when="checked", human_input="Please review the PR first"
+        )
         present_task(task, 0, 1)
         captured = capsys.readouterr()
         assert "review the PR" in captured.out
@@ -152,8 +153,7 @@ class TestHumanInputInLive:
 
     def test_context_data_in_live(self, capsys):
         """Task with context_data shows it in live mode."""
-        task = Task(name="review", instruction="analyze", done_when="done",
-                    context_data={"findings": [1, 2, 3]})
+        task = Task(name="review", instruction="analyze", done_when="done", context_data={"findings": [1, 2, 3]})
         present_task(task, 0, 1)
         captured = capsys.readouterr()
         assert "context_data" in captured.out.lower() or "findings" in captured.out
@@ -180,6 +180,7 @@ class TestAutoFnExecution:
 
     def test_auto_fn_exception_caught(self, capsys):
         """Auto task exception doesn't crash live mode."""
+
         def bad_fn():
             raise RuntimeError("disk full")
 
@@ -196,9 +197,12 @@ class TestLiveModeREQ100MustReqs:
     def test_req061_live_in_current_session(self):
         """Req 061: live mode runs in current session, not subprocess."""
         # -- run_live is a Python call, not subprocess.run
-        round_def = Round(name="t", tasks=[
-            Task(name="t1", instruction="do", done_when="done"),
-        ])
+        round_def = Round(
+            name="t",
+            tasks=[
+                Task(name="t1", instruction="do", done_when="done"),
+            ],
+        )
         results = run_live(round_def)
         assert len(results) == 1
         # -- No subprocess was involved — pure Python execution
@@ -206,10 +210,13 @@ class TestLiveModeREQ100MustReqs:
 
     def test_req062_one_task_at_a_time(self, capsys):
         """Req 062: live mode presents ONE task at a time."""
-        round_def = Round(name="t", tasks=[
-            Task(name="t1", instruction="first", done_when="done"),
-            Task(name="t2", instruction="second", done_when="done"),
-        ])
+        round_def = Round(
+            name="t",
+            tasks=[
+                Task(name="t1", instruction="first", done_when="done"),
+                Task(name="t2", instruction="second", done_when="done"),
+            ],
+        )
         run_live(round_def)
         captured = capsys.readouterr()
         # -- Each task gets its own header
@@ -219,9 +226,12 @@ class TestLiveModeREQ100MustReqs:
     def test_req065_same_round_definition(self):
         """Req 065: live and batch use same Round definition."""
         # -- Same Round object works for both modes
-        round_def = Round(name="shared", tasks=[
-            Task(name="t1", instruction="do it", done_when="done"),
-        ])
+        round_def = Round(
+            name="shared",
+            tasks=[
+                Task(name="t1", instruction="do it", done_when="done"),
+            ],
+        )
         # -- Live mode
         live_results = run_live(round_def)
         assert len(live_results) == 1
@@ -230,9 +240,12 @@ class TestLiveModeREQ100MustReqs:
 
     def test_req067_output_to_terminal(self, capsys):
         """Req 067: live mode output goes to terminal."""
-        round_def = Round(name="t", tasks=[
-            Task(name="t1", instruction="check", done_when="checked"),
-        ])
+        round_def = Round(
+            name="t",
+            tasks=[
+                Task(name="t1", instruction="check", done_when="checked"),
+            ],
+        )
         run_live(round_def)
         captured = capsys.readouterr()
         # -- Output went to stdout (terminal), not to a file
@@ -241,11 +254,14 @@ class TestLiveModeREQ100MustReqs:
 
     def test_req070_resume_from_last(self, capsys):
         """Req 070: --resume continues from last completed task."""
-        round_def = Round(name="t", tasks=[
-            Task(name="t1", instruction="first", done_when="done"),
-            Task(name="t2", instruction="second", done_when="done"),
-            Task(name="t3", instruction="third", done_when="done"),
-        ])
+        round_def = Round(
+            name="t",
+            tasks=[
+                Task(name="t1", instruction="first", done_when="done"),
+                Task(name="t2", instruction="second", done_when="done"),
+                Task(name="t3", instruction="third", done_when="done"),
+            ],
+        )
         results = run_live(round_def, start_from=2)
         assert len(results) == 1
         assert results[0]["task_name"] == "t3"
@@ -257,12 +273,14 @@ class TestTimeoutReqs:
     def test_req074_task_timeout_default(self):
         """Req 074: task_timeout_sec defaults to 300."""
         from rondo.config import RondoConfig
+
         config = RondoConfig()
         assert config.task_timeout_sec == 300
 
     def test_req075_round_timeout_default(self):
         """Req 075: round_timeout_sec defaults to 3600."""
         from rondo.config import RondoConfig
+
         config = RondoConfig()
         assert config.round_timeout_sec == 3600
 

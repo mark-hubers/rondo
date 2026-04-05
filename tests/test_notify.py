@@ -25,8 +25,10 @@ class TestNotifyRoundComplete:
     def test_terminal_notification(self, capsys):
         """Round complete prints to terminal."""
         notify_round_complete(
-            round_name="test-round", status="done",
-            duration_sec=12.5, cost_usd=0.03,
+            round_name="test-round",
+            status="done",
+            duration_sec=12.5,
+            cost_usd=0.03,
             config=NotifyConfig(channels=["terminal"]),
         )
         captured = capsys.readouterr()
@@ -37,8 +39,10 @@ class TestNotifyRoundComplete:
         """Round complete writes to notification log."""
         log_file = tmp_path / "notifications.log"
         notify_round_complete(
-            round_name="test-round", status="done",
-            duration_sec=5.0, cost_usd=0.01,
+            round_name="test-round",
+            status="done",
+            duration_sec=5.0,
+            cost_usd=0.01,
             config=NotifyConfig(channels=["file"], log_file=str(log_file)),
         )
         assert log_file.exists()
@@ -48,8 +52,10 @@ class TestNotifyRoundComplete:
         """MacOS notification calls osascript."""
         with patch("subprocess.run") as mock_run:
             notify_round_complete(
-                round_name="test-round", status="done",
-                duration_sec=5.0, cost_usd=0.01,
+                round_name="test-round",
+                status="done",
+                duration_sec=5.0,
+                cost_usd=0.01,
                 config=NotifyConfig(channels=["macos"]),
             )
             mock_run.assert_called_once()
@@ -63,7 +69,8 @@ class TestNotifyFailure:
     def test_failure_notification(self, capsys):
         """Failure prints error details."""
         notify_failure(
-            task_name="bad-task", error_code="ERR_AUTH",
+            task_name="bad-task",
+            error_code="ERR_AUTH",
             error_message="Invalid API key",
             config=NotifyConfig(channels=["terminal"]),
         )
@@ -96,8 +103,10 @@ class TestBudgetThreshold:
     def test_budget_75_fires(self, capsys):
         """Crossing 75% threshold fires notification."""
         from rondo.notify import notify_budget_threshold
+
         notify_budget_threshold(
-            spent_usd=7.50, budget_usd=10.0,
+            spent_usd=7.50,
+            budget_usd=10.0,
             config=NotifyConfig(channels=["terminal"]),
         )
         captured = capsys.readouterr()
@@ -106,8 +115,10 @@ class TestBudgetThreshold:
     def test_budget_50_fires(self, capsys):
         """Crossing 50% threshold fires notification."""
         from rondo.notify import notify_budget_threshold
+
         notify_budget_threshold(
-            spent_usd=5.0, budget_usd=10.0,
+            spent_usd=5.0,
+            budget_usd=10.0,
             config=NotifyConfig(channels=["terminal"]),
         )
         captured = capsys.readouterr()
@@ -116,8 +127,10 @@ class TestBudgetThreshold:
     def test_budget_under_50_no_fire(self, capsys):
         """Under 50% = no notification."""
         from rondo.notify import notify_budget_threshold
+
         notify_budget_threshold(
-            spent_usd=3.0, budget_usd=10.0,
+            spent_usd=3.0,
+            budget_usd=10.0,
             config=NotifyConfig(channels=["terminal"]),
         )
         captured = capsys.readouterr()
@@ -135,13 +148,16 @@ class TestNotifyDedup:
     def test_dedup_blocks_repeat(self, capsys):
         """Same message twice = only one output."""
         from rondo.notify import notify_with_dedup, reset_dedup
+
         reset_dedup()
         notify_with_dedup(
-            "rate_limited", "Rate limited",
+            "rate_limited",
+            "Rate limited",
             config=NotifyConfig(channels=["terminal"]),
         )
         notify_with_dedup(
-            "rate_limited", "Rate limited",
+            "rate_limited",
+            "Rate limited",
             config=NotifyConfig(channels=["terminal"]),
         )
         captured = capsys.readouterr()
@@ -150,13 +166,16 @@ class TestNotifyDedup:
     def test_different_keys_both_fire(self, capsys):
         """Different dedup keys both fire."""
         from rondo.notify import notify_with_dedup, reset_dedup
+
         reset_dedup()
         notify_with_dedup(
-            "rate_limited", "Rate limited",
+            "rate_limited",
+            "Rate limited",
             config=NotifyConfig(channels=["terminal"]),
         )
         notify_with_dedup(
-            "budget_warning", "Budget high",
+            "budget_warning",
+            "Budget high",
             config=NotifyConfig(channels=["terminal"]),
         )
         captured = capsys.readouterr()
@@ -174,6 +193,7 @@ class TestRateLimitNotify:
 
     def test_rate_limit_fires(self, capsys):
         from rondo.notify import notify_rate_limit, reset_dedup
+
         reset_dedup()
         notify_rate_limit(
             reset_time="2026-03-30T22:00:00Z",
@@ -185,6 +205,7 @@ class TestRateLimitNotify:
     def test_rate_limit_deduped(self, capsys):
         """Same rate limit only fires once (uses dedup)."""
         from rondo.notify import notify_rate_limit, reset_dedup
+
         reset_dedup()
         notify_rate_limit(reset_time="22:00", config=NotifyConfig(channels=["terminal"]))
         notify_rate_limit(reset_time="22:00", config=NotifyConfig(channels=["terminal"]))
@@ -202,9 +223,12 @@ class TestQuietMode:
 
     def test_quiet_suppresses_terminal(self, capsys):
         from rondo.notify import notify_round_complete
+
         notify_round_complete(
-            round_name="quiet-test", status="done",
-            duration_sec=5.0, cost_usd=0.01,
+            round_name="quiet-test",
+            status="done",
+            duration_sec=5.0,
+            cost_usd=0.01,
             config=NotifyConfig(channels=["terminal"], quiet=True),
         )
         captured = capsys.readouterr()
@@ -212,10 +236,13 @@ class TestQuietMode:
 
     def test_quiet_keeps_file(self, tmp_path):
         from rondo.notify import notify_round_complete
+
         log_file = tmp_path / "notify.log"
         notify_round_complete(
-            round_name="quiet-test", status="done",
-            duration_sec=5.0, cost_usd=0.01,
+            round_name="quiet-test",
+            status="done",
+            duration_sec=5.0,
+            cost_usd=0.01,
             config=NotifyConfig(channels=["terminal", "file"], log_file=str(log_file), quiet=True),
         )
         assert log_file.exists()
@@ -233,8 +260,10 @@ class TestAppleScriptInjection:
         """Message with double-quote doesn't inject AppleScript."""
         with patch("subprocess.run") as mock_run:
             notify_round_complete(
-                round_name='test"injection', status="done",
-                duration_sec=5.0, cost_usd=0.01,
+                round_name='test"injection',
+                status="done",
+                duration_sec=5.0,
+                cost_usd=0.01,
                 config=NotifyConfig(channels=["macos"]),
             )
             cmd = mock_run.call_args[0][0]
@@ -248,7 +277,8 @@ class TestAppleScriptInjection:
             notify_round_complete(
                 round_name='x" & do shell script "rm -rf ~',
                 status="done",
-                duration_sec=5.0, cost_usd=0.01,
+                duration_sec=5.0,
+                cost_usd=0.01,
                 config=NotifyConfig(channels=["macos"]),
             )
             cmd = mock_run.call_args[0][0]
@@ -256,10 +286,13 @@ class TestAppleScriptInjection:
             ## -- All internal double-quotes must be escaped with backslash
             ## -- Count: script has outer quotes + escaped inner quotes only
             import re
+
             ## -- Find unescaped double-quotes (not preceded by backslash)
             ## -- Should only be the 2 outer AppleScript string delimiters + 2 for 'with title'
             unescaped = re.findall(r'(?<!\\)"', script)
-            assert len(unescaped) == 4, f"Expected 4 unescaped quotes (string delimiters), got {len(unescaped)}: {script}"
+            assert len(unescaped) == 4, (
+                f"Expected 4 unescaped quotes (string delimiters), got {len(unescaped)}: {script}"
+            )
 
 
 # -- ──────────────────────────────────────────────────────────────

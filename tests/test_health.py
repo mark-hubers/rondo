@@ -106,6 +106,7 @@ class TestGetProviderHealth:
 
     def setup_method(self) -> None:
         from rondo.adapters.health import clear_health_cache
+
         clear_health_cache()
 
     def test_returns_health_status(self) -> None:
@@ -141,6 +142,7 @@ class TestGetProviderHealth:
         mock_adapter = MagicMock()
         mock_adapter.health.return_value = False
         from rondo.adapters.health import get_provider_health
+
         with patch("rondo.adapters.health._get_adapter_for_provider", return_value=mock_adapter):
             result = get_provider_health("gemini")
         # -- Stale → should recheck → new result
@@ -158,6 +160,7 @@ class TestIsProviderHealthy:
 
     def setup_method(self) -> None:
         from rondo.adapters.health import clear_health_cache
+
         clear_health_cache()
 
     def test_returns_true_for_healthy(self) -> None:
@@ -187,6 +190,7 @@ class TestGetAllProvidersHealth:
 
     def setup_method(self) -> None:
         from rondo.adapters.health import clear_health_cache
+
         clear_health_cache()
 
     def test_returns_dict(self) -> None:
@@ -228,6 +232,7 @@ class TestProviderFallback:
 
     def setup_method(self) -> None:
         from rondo.adapters.health import clear_health_cache
+
         clear_health_cache()
 
     def test_uses_primary_when_healthy(self) -> None:

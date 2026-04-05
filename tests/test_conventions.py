@@ -76,8 +76,19 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "mcp_dispatch.py", "mcp_compose.py", "live.py", "__main__.py", "notify.py",
-              "dispatch.py", "observe.py", "infra.py", "review.py", "__init__.py"}
+    EXEMPT = {
+        "cli.py",
+        "mcp_dispatch.py",
+        "mcp_compose.py",
+        "live.py",
+        "__main__.py",
+        "notify.py",
+        "dispatch.py",
+        "observe.py",
+        "infra.py",
+        "review.py",
+        "__init__.py",
+    }
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""
@@ -243,19 +254,41 @@ class TestImportLayering:
         },
         "cli_commands/__init__.py": {
             "cli_commands",
-            "dispatch", "observe", "infra", "review",
+            "dispatch",
+            "observe",
+            "infra",
+            "review",
         },  # package __init__ imports from submodules
         "cli_commands/dispatch.py": {
-            "cli_commands", "cli", "config", "live", "overnight", "report", "preflight",
+            "cli_commands",
+            "cli",
+            "config",
+            "live",
+            "overnight",
+            "report",
+            "preflight",
         },
         "cli_commands/observe.py": {
-            "cli_commands", "history", "audit", "flaky", "metrics",
+            "cli_commands",
+            "history",
+            "audit",
+            "flaky",
+            "metrics",
         },
         "cli_commands/infra.py": {
-            "cli_commands", "preflight", "spool", "mcp_server", "schedule", "adapters", "health",
+            "cli_commands",
+            "preflight",
+            "spool",
+            "mcp_server",
+            "schedule",
+            "adapters",
+            "health",
         },
         "cli_commands/review.py": {
-            "cli_commands", "mcp_server", "providers", "config",
+            "cli_commands",
+            "mcp_server",
+            "providers",
+            "config",
         },
         "report.py": {"engine", "config", "overnight"},
         "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
@@ -672,7 +705,9 @@ class TestAdapterContract:
         """ProviderAdapter ABC requires dispatch, health, models."""
         from rondo.providers import ProviderAdapter
 
-        abstract_methods = {m for m in dir(ProviderAdapter) if getattr(getattr(ProviderAdapter, m, None), "__isabstractmethod__", False)}
+        abstract_methods = {
+            m for m in dir(ProviderAdapter) if getattr(getattr(ProviderAdapter, m, None), "__isabstractmethod__", False)
+        }
         assert "dispatch" in abstract_methods
         assert "health" in abstract_methods
         assert "models" in abstract_methods
@@ -719,7 +754,11 @@ class TestNoShellTrue:
         for filepath in SRC_FILES:
             content = filepath.read_text(encoding="utf-8")
             for i, line in enumerate(content.splitlines(), 1):
-                if self.SHELL_PATTERN.search(line) and "never" not in line.lower() and "#" not in line.split("shell")[0]:
+                if (
+                    self.SHELL_PATTERN.search(line)
+                    and "never" not in line.lower()
+                    and "#" not in line.split("shell")[0]
+                ):
                     violations.append(f"{filepath.name}:{i}")
         assert not violations, f"shell=True found in source files: {violations}"
 

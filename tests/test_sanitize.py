@@ -123,17 +123,13 @@ class TestCustomPatterns:
 
     def test_custom_pattern_detected(self):
         """User-defined pattern matches."""
-        config = SanitizeConfig(
-            extra_patterns=[{"name": "internal_id", "pattern": r"CORP-[A-Z0-9]{12}"}]
-        )
+        config = SanitizeConfig(extra_patterns=[{"name": "internal_id", "pattern": r"CORP-[A-Z0-9]{12}"}])
         result = sanitize_text("ref CORP-A1B2C3D4E5F6 here", config=config)
         assert result.secrets_found > 0
 
     def test_custom_pattern_plus_defaults(self):
         """Custom patterns add to defaults, don't replace them."""
-        config = SanitizeConfig(
-            extra_patterns=[{"name": "custom", "pattern": r"MYCORP-\d+"}]
-        )
+        config = SanitizeConfig(extra_patterns=[{"name": "custom", "pattern": r"MYCORP-\d+"}])
         ## Default should still catch api_key (value must be 8+ chars)
         result = sanitize_text("api_key = 'sk-test123456' ref MYCORP-999", config=config)
         assert result.secrets_found >= 2

@@ -51,8 +51,7 @@ def _make_overnight_result(
             for i in range(pc.get("n_error", 0))
         ]
         skipped_results = [
-            TaskResult(task_name=f"{pc['name']}-skip{i + 1}", status="skipped")
-            for i in range(pc.get("n_skipped", 0))
+            TaskResult(task_name=f"{pc['name']}-skip{i + 1}", status="skipped") for i in range(pc.get("n_skipped", 0))
         ]
         blocked_results = [
             TaskResult(

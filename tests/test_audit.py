@@ -127,8 +127,12 @@ class TestAuditRecordSchema:
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
         record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
         required = [
-            "dispatch_id", "task_name", "model", "prompt_hash",
-            "dispatched_at", "status",
+            "dispatch_id",
+            "task_name",
+            "model",
+            "prompt_hash",
+            "dispatched_at",
+            "status",
         ]
         for field_name in required:
             assert getattr(record, field_name) is not None, f"Missing field: {field_name}"
@@ -155,7 +159,9 @@ class TestPromptStorage:
         """Prompt text saved to separate file."""
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
         record = trail.record_intent(
-            task_name="t", round_name="r", model="m",
+            task_name="t",
+            round_name="r",
+            model="m",
             prompt="Review this code for security issues",
         )
         prompt_file = tmp_path / f"{record.dispatch_id}.prompt.txt"
@@ -281,7 +287,9 @@ class TestCredentialScrubbing:
         """Prompt text is scrubbed before writing to file."""
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
         record = trail.record_intent(
-            task_name="t", round_name="r", model="m",
+            task_name="t",
+            round_name="r",
+            model="m",
             prompt="Use api_key = 'sk-real-secret-key-12345' to auth",
         )
         prompt_file = tmp_path / f"{record.dispatch_id}.prompt.txt"
@@ -395,7 +403,9 @@ class TestAuditEdgeCases:
         """Unicode prompt stored correctly."""
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
         record = trail.record_intent(
-            task_name="t", round_name="r", model="m",
+            task_name="t",
+            round_name="r",
+            model="m",
             prompt="レビュー: このコードをチェック",
         )
         prompt_file = tmp_path / f"{record.dispatch_id}.prompt.txt"
@@ -471,7 +481,9 @@ class TestAuditReset:
         record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
         trail.record_outcome(
             dispatch_id=record.dispatch_id,
-            status="done", exit_code=0, raw_output="ok",
+            status="done",
+            exit_code=0,
+            raw_output="ok",
         )
         trail.reset()
         assert len(list(tmp_path.glob("*.prompt.txt"))) == 0
@@ -497,7 +509,10 @@ class TestAuditDispatchedAt:
         record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
         trail.record_outcome(
             dispatch_id=record.dispatch_id,
-            task_name="t", model="m", status="done", exit_code=0,
+            task_name="t",
+            model="m",
+            status="done",
+            exit_code=0,
         )
         ## -- Read OUTCOME line from JSONL
         lines = (tmp_path / "rondo_audit.jsonl").read_text().strip().splitlines()
@@ -514,7 +529,11 @@ class TestAuditRoundName:
         record = trail.record_intent(task_name="t", round_name="my-round", model="m", prompt="p")
         trail.record_outcome(
             dispatch_id=record.dispatch_id,
-            task_name="t", round_name="my-round", model="m", status="done", exit_code=0,
+            task_name="t",
+            round_name="my-round",
+            model="m",
+            status="done",
+            exit_code=0,
         )
         lines = (tmp_path / "rondo_audit.jsonl").read_text().strip().splitlines()
         outcome = json.loads(lines[-1])

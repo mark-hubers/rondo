@@ -500,9 +500,14 @@ class TestCircuitBreaker:
             call_count[0] += 1
             return (
                 TaskResult(
-                    task_name=task.name, status="error", error_code=code,
-                    error_message=f"fail: {code}", raw_output="", model="sonnet",
-                    auth_mode="max", timestamp="2026-03-14T00:00:00Z",
+                    task_name=task.name,
+                    status="error",
+                    error_code=code,
+                    error_message=f"fail: {code}",
+                    raw_output="",
+                    model="sonnet",
+                    auth_mode="max",
+                    timestamp="2026-03-14T00:00:00Z",
                 ),
                 DispatchUsage(task_name=task.name, model="sonnet"),
             )
@@ -521,10 +526,9 @@ class TestCircuitBreakerDeep:
 
     def test_trips_after_3_consecutive_same_error(self):
         """3 consecutive same-error trips breaker, remaining skipped."""
-        round_def = Round(name="breaker", tasks=[
-            Task(name=f"t{i}", instruction="fail", done_when="done")
-            for i in range(5)
-        ])
+        round_def = Round(
+            name="breaker", tasks=[Task(name=f"t{i}", instruction="fail", done_when="done") for i in range(5)]
+        )
         config = RondoConfig()
 
         with patch("rondo.runner._dispatch_with_safety_net") as mock:
@@ -540,13 +544,16 @@ class TestCircuitBreakerDeep:
 
     def test_resets_on_success(self):
         """Success between errors resets breaker counter."""
-        round_def = Round(name="reset", tasks=[
-            Task(name="fail1", instruction="a", done_when="done"),
-            Task(name="fail2", instruction="b", done_when="done"),
-            Task(name="ok", instruction="c", done_when="done"),
-            Task(name="fail3", instruction="d", done_when="done"),
-            Task(name="fail4", instruction="e", done_when="done"),
-        ])
+        round_def = Round(
+            name="reset",
+            tasks=[
+                Task(name="fail1", instruction="a", done_when="done"),
+                Task(name="fail2", instruction="b", done_when="done"),
+                Task(name="ok", instruction="c", done_when="done"),
+                Task(name="fail3", instruction="d", done_when="done"),
+                Task(name="fail4", instruction="e", done_when="done"),
+            ],
+        )
         config = RondoConfig()
 
         def mock_dispatch(task, cfg, **kwargs):
@@ -571,11 +578,14 @@ class TestRoundTimeout:
 
     def test_round_timeout_skips_remaining_tasks(self):
         """When round time exceeds timeout, remaining tasks are skipped."""
-        round_def = Round(name="slow", tasks=[
-            Task(name="t1", instruction="first", done_when="done"),
-            Task(name="t2", instruction="second", done_when="done"),
-            Task(name="t3", instruction="third", done_when="done"),
-        ])
+        round_def = Round(
+            name="slow",
+            tasks=[
+                Task(name="t1", instruction="first", done_when="done"),
+                Task(name="t2", instruction="second", done_when="done"),
+                Task(name="t3", instruction="third", done_when="done"),
+            ],
+        )
         # -- Config with 0.1s round timeout
         config = RondoConfig(dry_run=True, round_timeout_sec=0)
 
@@ -600,10 +610,13 @@ class TestRoundTimeout:
 
     def test_round_timeout_records_reason(self):
         """Timed-out tasks have timeout reason in error_message."""
-        round_def = Round(name="timeout", tasks=[
-            Task(name="t1", instruction="first", done_when="done"),
-            Task(name="t2", instruction="second", done_when="done"),
-        ])
+        round_def = Round(
+            name="timeout",
+            tasks=[
+                Task(name="t1", instruction="first", done_when="done"),
+                Task(name="t2", instruction="second", done_when="done"),
+            ],
+        )
         config = RondoConfig(round_timeout_sec=0)
 
         with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch:
@@ -629,13 +642,18 @@ class TestNotifyOnFailure:
 
     def test_failure_triggers_notify(self):
         """Failed task triggers notification call."""
-        round_def = Round(name="fail-round", tasks=[
-            Task(name="will-fail", instruction="break", done_when="never"),
-        ])
+        round_def = Round(
+            name="fail-round",
+            tasks=[
+                Task(name="will-fail", instruction="break", done_when="never"),
+            ],
+        )
         config = RondoConfig()
 
-        with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch, \
-             patch("rondo.runner._notify_failure") as mock_notify:
+        with (
+            patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch,
+            patch("rondo.runner._notify_failure") as mock_notify,
+        ):
             mock_dispatch.return_value = (
                 TaskResult(task_name="will-fail", status="error", error_code="ERR_INTERNAL"),
                 DispatchUsage(task_name="will-fail"),
@@ -649,14 +667,19 @@ class TestSaveResultSafe:
 
     def test_save_called_per_task(self):
         """_save_result_safe called for each dispatched task."""
-        round_def = Round(name="save-test", tasks=[
-            Task(name="t1", instruction="do", done_when="done"),
-            Task(name="t2", instruction="do", done_when="done"),
-        ])
+        round_def = Round(
+            name="save-test",
+            tasks=[
+                Task(name="t1", instruction="do", done_when="done"),
+                Task(name="t2", instruction="do", done_when="done"),
+            ],
+        )
         config = RondoConfig()
 
-        with patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch, \
-             patch("rondo.runner._save_result_safe") as mock_save:
+        with (
+            patch("rondo.runner._dispatch_with_safety_net") as mock_dispatch,
+            patch("rondo.runner._save_result_safe") as mock_save,
+        ):
             mock_dispatch.return_value = (
                 TaskResult(task_name="t", status="done"),
                 DispatchUsage(task_name="t"),

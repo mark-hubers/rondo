@@ -721,7 +721,6 @@ class TestPreflightSubcommand:
         captured = capsys.readouterr()
         assert "claude" in captured.out.lower()
 
-
     def test_preflight_json_output(self, capsys):
         """Rondo preflight --json returns valid JSON."""
         import json
@@ -871,8 +870,14 @@ class TestFailureNotification:
             from rondo.runner import run_round
 
             mock_disp.return_value = (
-                TaskResult(task_name="t1", status="error", error_code="ERR_AUTH",
-                           error_message="bad key", model="sonnet", auth_mode="max"),
+                TaskResult(
+                    task_name="t1",
+                    status="error",
+                    error_code="ERR_AUTH",
+                    error_message="bad key",
+                    model="sonnet",
+                    auth_mode="max",
+                ),
                 DispatchUsage(task_name="t1", model="sonnet"),
             )
             r = Round(name="fail-test", tasks=[Task(name="t1", instruction="do", done_when="done")])
@@ -916,7 +921,11 @@ class TestProvidersSubcommand:
 
         from rondo.adapters.health import HealthStatus
 
-        mock_map = {"openai": HealthStatus(provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout")}
+        mock_map = {
+            "openai": HealthStatus(
+                provider="openai", healthy=False, latency_ms=0.0, checked_at=time.time(), error="timeout"
+            )
+        }
         with patch("rondo.adapters.health.get_all_providers_health", return_value=mock_map):
             exit_code = main(["providers"])
         assert exit_code == EXIT_SUCCESS

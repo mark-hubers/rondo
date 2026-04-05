@@ -515,10 +515,13 @@ class TestParallelDeep:
         """Req 001: parallel dispatch uses ThreadPoolExecutor."""
         from rondo.parallel import run_parallel
 
-        round_def = Round(name="par", tasks=[
-            Task(name="t1", auto_fn=lambda: (True, "ok")),
-            Task(name="t2", auto_fn=lambda: (True, "ok")),
-        ])
+        round_def = Round(
+            name="par",
+            tasks=[
+                Task(name="t1", auto_fn=lambda: (True, "ok")),
+                Task(name="t2", auto_fn=lambda: (True, "ok")),
+            ],
+        )
         config = RondoConfig(dry_run=True, workers=2)
         result = run_parallel(round_def, config)
         assert result.parallelism == 2
@@ -527,10 +530,13 @@ class TestParallelDeep:
         """Req 004: results collected as futures complete."""
         from rondo.parallel import run_parallel
 
-        round_def = Round(name="par", tasks=[
-            Task(name="fast", auto_fn=lambda: (True, "fast")),
-            Task(name="slow", auto_fn=lambda: (True, "slow")),
-        ])
+        round_def = Round(
+            name="par",
+            tasks=[
+                Task(name="fast", auto_fn=lambda: (True, "fast")),
+                Task(name="slow", auto_fn=lambda: (True, "slow")),
+            ],
+        )
         config = RondoConfig(dry_run=True, workers=2)
         result = run_parallel(round_def, config)
         # -- Both tasks should complete regardless of order
@@ -540,10 +546,13 @@ class TestParallelDeep:
         """Req 007: parallel report includes done/error/wall time."""
         from rondo.parallel import run_parallel
 
-        round_def = Round(name="par", tasks=[
-            Task(name="t1", auto_fn=lambda: (True, "ok")),
-            Task(name="t2", auto_fn=lambda: (True, "ok")),
-        ])
+        round_def = Round(
+            name="par",
+            tasks=[
+                Task(name="t1", auto_fn=lambda: (True, "ok")),
+                Task(name="t2", auto_fn=lambda: (True, "ok")),
+            ],
+        )
         config = RondoConfig(dry_run=True, workers=2)
         result = run_parallel(round_def, config)
         assert result.duration_sec >= 0
@@ -564,11 +573,14 @@ class TestParallelDeep:
             call_order.append("fail")
             return (False, "failed")
 
-        round_def = Round(name="par", tasks=[
-            Task(name="ok1", auto_fn=ok_fn),
-            Task(name="fail1", auto_fn=fail_fn),
-            Task(name="ok2", auto_fn=ok_fn),
-        ])
+        round_def = Round(
+            name="par",
+            tasks=[
+                Task(name="ok1", auto_fn=ok_fn),
+                Task(name="fail1", auto_fn=fail_fn),
+                Task(name="ok2", auto_fn=ok_fn),
+            ],
+        )
         config = RondoConfig(dry_run=False, workers=3)
         result = run_parallel(round_def, config)
         # -- All 3 tasks should have results

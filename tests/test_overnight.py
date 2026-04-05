@@ -569,9 +569,12 @@ class TestOvernightSpoolIntegration:
     def test_overnight_writes_spool(self):
         """Overnight result triggers spool write."""
         phases = [
-            Round(name="phase1", tasks=[
-                Task(name="auto", auto_fn=lambda: (True, "done")),
-            ]),
+            Round(
+                name="phase1",
+                tasks=[
+                    Task(name="auto", auto_fn=lambda: (True, "done")),
+                ],
+            ),
         ]
         config = RondoConfig(dry_run=True)
 
@@ -588,9 +591,12 @@ class TestOvernightEventLog:
     def test_event_log_has_start_and_end(self):
         """Event log contains start and end entries."""
         phases = [
-            Round(name="phase1", tasks=[
-                Task(name="auto", auto_fn=lambda: (True, "ok")),
-            ]),
+            Round(
+                name="phase1",
+                tasks=[
+                    Task(name="auto", auto_fn=lambda: (True, "ok")),
+                ],
+            ),
         ]
         config = RondoConfig(dry_run=True)
         result = run_overnight(phases=phases, config=config)
@@ -601,9 +607,12 @@ class TestOvernightEventLog:
     def test_event_log_has_timestamps(self):
         """Every event has a timestamp."""
         phases = [
-            Round(name="phase1", tasks=[
-                Task(name="auto", auto_fn=lambda: (True, "ok")),
-            ]),
+            Round(
+                name="phase1",
+                tasks=[
+                    Task(name="auto", auto_fn=lambda: (True, "ok")),
+                ],
+            ),
         ]
         config = RondoConfig(dry_run=True)
         result = run_overnight(phases=phases, config=config)
@@ -687,9 +696,12 @@ class TestOvernightPhaseOrdering:
     def test_phases_run_in_order(self):
         """Phase results are in submission order."""
         phases = [
-            Round(name=f"phase-{i}", tasks=[
-                Task(name=f"t{i}", auto_fn=lambda: (True, "ok")),
-            ])
+            Round(
+                name=f"phase-{i}",
+                tasks=[
+                    Task(name=f"t{i}", auto_fn=lambda: (True, "ok")),
+                ],
+            )
             for i in range(3)
         ]
         config = RondoConfig(dry_run=True)
@@ -709,12 +721,18 @@ class TestOvernightPhaseOrdering:
             return (True, "ok")
 
         phases = [
-            Round(name="fail-phase", tasks=[
-                Task(name="fail", auto_fn=failing_fn),
-            ]),
-            Round(name="ok-phase", tasks=[
-                Task(name="ok", auto_fn=lambda: (True, "ok")),
-            ]),
+            Round(
+                name="fail-phase",
+                tasks=[
+                    Task(name="fail", auto_fn=failing_fn),
+                ],
+            ),
+            Round(
+                name="ok-phase",
+                tasks=[
+                    Task(name="ok", auto_fn=lambda: (True, "ok")),
+                ],
+            ),
         ]
         config = RondoConfig(dry_run=True)
         result = run_overnight(phases=phases, config=config)
@@ -726,9 +744,14 @@ class TestOvernightResults:
 
     def test_result_has_timing(self):
         """OvernightResult has started_at, completed_at, duration_sec."""
-        phases = [Round(name="t", tasks=[
-            Task(name="t", auto_fn=lambda: (True, "ok")),
-        ])]
+        phases = [
+            Round(
+                name="t",
+                tasks=[
+                    Task(name="t", auto_fn=lambda: (True, "ok")),
+                ],
+            )
+        ]
         config = RondoConfig(dry_run=True)
         result = run_overnight(phases=phases, config=config)
         assert result.started_at != ""
@@ -737,9 +760,14 @@ class TestOvernightResults:
 
     def test_result_has_cost(self):
         """OvernightResult has total_cost_usd."""
-        phases = [Round(name="t", tasks=[
-            Task(name="t", auto_fn=lambda: (True, "ok")),
-        ])]
+        phases = [
+            Round(
+                name="t",
+                tasks=[
+                    Task(name="t", auto_fn=lambda: (True, "ok")),
+                ],
+            )
+        ]
         config = RondoConfig(dry_run=True)
         result = run_overnight(phases=phases, config=config)
         assert result.total_cost_usd >= 0

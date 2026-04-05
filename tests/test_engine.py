@@ -569,8 +569,7 @@ class TestContextData:
 
     def test_task_context_data_accepts_dict(self):
         """REQ-106 req 001: context_data accepts a dict."""
-        t = Task(name="t", instruction="do", done_when="done",
-                 context_data={"findings": [1, 2, 3], "product": "ob"})
+        t = Task(name="t", instruction="do", done_when="done", context_data={"findings": [1, 2, 3], "product": "ob"})
         assert t.context_data["product"] == "ob"
         assert len(t.context_data["findings"]) == 3
 
@@ -586,15 +585,18 @@ class TestContextData:
 
     def test_validate_rejects_non_serializable(self):
         """REQ-106 req 009: non-JSON-serializable context_data is an error."""
-        t = Task(name="bad", instruction="do", done_when="done",
-                 context_data={"fn": lambda: None})
+        t = Task(name="bad", instruction="do", done_when="done", context_data={"fn": lambda: None})
         errors = validate_task(t)
         assert any("JSON-serializable" in e for e in errors)
 
     def test_validate_accepts_serializable(self):
         """REQ-106 req 009: valid JSON context_data passes validation."""
-        t = Task(name="ok", instruction="do", done_when="done",
-                 context_data={"findings": [{"check": "yaml", "status": "pass"}]})
+        t = Task(
+            name="ok",
+            instruction="do",
+            done_when="done",
+            context_data={"findings": [{"check": "yaml", "status": "pass"}]},
+        )
         errors = validate_task(t)
         assert errors == []
 
@@ -619,22 +621,19 @@ class TestContextData:
 
     def test_context_files_path_traversal_rejected(self):
         """REQ-100 req 003: context_files with '..' are rejected."""
-        t = Task(name="bad", instruction="do", done_when="done",
-                 context_files=["../../etc/passwd"])
+        t = Task(name="bad", instruction="do", done_when="done", context_files=["../../etc/passwd"])
         errors = validate_task(t)
         assert any(".." in e for e in errors)
 
     def test_context_files_absolute_path_rejected(self):
         """REQ-100 req 003: absolute paths in context_files are rejected."""
-        t = Task(name="bad", instruction="do", done_when="done",
-                 context_files=["/etc/passwd"])
+        t = Task(name="bad", instruction="do", done_when="done", context_files=["/etc/passwd"])
         errors = validate_task(t)
         assert any("absolute" in e for e in errors)
 
     def test_context_files_relative_path_ok(self):
         """REQ-100 req 003: relative paths in context_files are valid."""
-        t = Task(name="ok", instruction="do", done_when="done",
-                 context_files=["specs/my-spec.md", "platform.yaml"])
+        t = Task(name="ok", instruction="do", done_when="done", context_files=["specs/my-spec.md", "platform.yaml"])
         errors = validate_task(t)
         assert errors == []
 
@@ -643,8 +642,7 @@ class TestContextData:
         ## -- Create a symlink pointing to /etc
         link = tmp_path / "sneaky_link"
         link.symlink_to("/etc")
-        t = Task(name="bad", instruction="do", done_when="done",
-                 context_files=[str(link)])
+        t = Task(name="bad", instruction="do", done_when="done", context_files=[str(link)])
         errors = validate_task(t, project_root=str(tmp_path))
         assert any("symlink" in e for e in errors)
 
@@ -654,8 +652,7 @@ class TestContextData:
         target.write_text("content")
         link = tmp_path / "good_link"
         link.symlink_to(target)
-        t = Task(name="ok", instruction="do", done_when="done",
-                 context_files=[str(link)])
+        t = Task(name="ok", instruction="do", done_when="done", context_files=[str(link)])
         errors = validate_task(t, project_root=str(tmp_path))
         assert not any("symlink" in e for e in errors)
 
@@ -665,16 +662,14 @@ class TestContextData:
         for i in range(6):
             (tmp_path / f"big_{i}.txt").write_text("x" * 100_000)
         files = [str(tmp_path / f"big_{i}.txt") for i in range(6)]
-        t = Task(name="big", instruction="do", done_when="done",
-                 context_files=files)
+        t = Task(name="big", instruction="do", done_when="done", context_files=files)
         errors = validate_task(t, max_context_bytes=500_000)
         assert any("max_context_bytes" in e for e in errors)
 
     def test_context_files_under_size_cap_ok(self, tmp_path):
         """REQ-100 req 003: files under the cap pass validation."""
         (tmp_path / "small.txt").write_text("hello")
-        t = Task(name="ok", instruction="do", done_when="done",
-                 context_files=[str(tmp_path / "small.txt")])
+        t = Task(name="ok", instruction="do", done_when="done", context_files=[str(tmp_path / "small.txt")])
         errors = validate_task(t, max_context_bytes=500_000)
         assert not any("max_context_bytes" in e for e in errors)
 
@@ -688,9 +683,15 @@ class TestNewFieldsSerialization:
         import json
         from dataclasses import asdict
 
-        t = Task(name="full", instruction="do", done_when="done",
-                 tool_mode="sandbox", bare=False, human_input="check first",
-                 context_data={"key": [1, 2, 3]})
+        t = Task(
+            name="full",
+            instruction="do",
+            done_when="done",
+            tool_mode="sandbox",
+            bare=False,
+            human_input="check first",
+            context_data={"key": [1, 2, 3]},
+        )
         data = asdict(t)
         # Remove non-serializable fields
         data.pop("auto_fn", None)
@@ -706,8 +707,7 @@ class TestNewFieldsSerialization:
         import json
         from dataclasses import asdict
 
-        tr = TaskResult(task_name="t", status="done",
-                        command_sent=["claude", "-p", "test", "--bare"])
+        tr = TaskResult(task_name="t", status="done", command_sent=["claude", "-p", "test", "--bare"])
         data = asdict(tr)
         json_str = json.dumps(data, default=str)
         parsed = json.loads(json_str)
@@ -754,21 +754,25 @@ class TestRoundStatusAllTypes:
 
     def test_all_blocked_is_error(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="blocked"), TaskResult(task_name="t2", status="blocked")]
         assert calculate_round_status(results) == "error"
 
     def test_mixed_done_blocked_is_partial(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="blocked")]
         assert calculate_round_status(results) == "partial"
 
     def test_skipped_only_is_skipped(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="skipped")]
         assert calculate_round_status(results) == "skipped"
 
     def test_done_plus_skipped_is_partial(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="skipped")]
         status = calculate_round_status(results)
         assert status in ("done", "partial")  # either valid
@@ -779,16 +783,19 @@ class TestIsTerminal:
 
     def test_all_terminal_states(self):
         from rondo.engine import TERMINAL_STATES, is_terminal
+
         for s in TERMINAL_STATES:
             assert is_terminal(s), f"{s} should be terminal"
 
     def test_non_terminal_states(self):
         from rondo.engine import is_terminal
+
         assert not is_terminal("pending")
         assert not is_terminal("in_progress")
 
     def test_invalid_state_not_terminal(self):
         from rondo.engine import is_terminal
+
         assert not is_terminal("unknown")
         assert not is_terminal("")
 
@@ -812,8 +819,7 @@ class TestTaskValidationEdgeCases:
         assert len(errors) > 0
 
     def test_context_data_non_serializable_rejected(self):
-        t = Task(name="t", instruction="do", done_when="done",
-                 context_data={"bad": lambda: None})
+        t = Task(name="t", instruction="do", done_when="done", context_data={"bad": lambda: None})
         errors = validate_task(t)
         assert any("serializable" in e.lower() for e in errors)
 
@@ -823,6 +829,7 @@ class TestParallelConflictDetection:
 
     def test_no_conflicts(self):
         from rondo.parallel import detect_conflicts
+
         results = [
             TaskResult(task_name="t1", status="done", files_modified=["a.py"]),
             TaskResult(task_name="t2", status="done", files_modified=["b.py"]),
@@ -831,6 +838,7 @@ class TestParallelConflictDetection:
 
     def test_conflict_detected(self):
         from rondo.parallel import detect_conflicts
+
         results = [
             TaskResult(task_name="t1", status="done", files_modified=["shared.py"]),
             TaskResult(task_name="t2", status="done", files_modified=["shared.py"]),
@@ -841,6 +849,7 @@ class TestParallelConflictDetection:
 
     def test_empty_files_no_conflicts(self):
         from rondo.parallel import detect_conflicts
+
         results = [
             TaskResult(task_name="t1", status="done"),
             TaskResult(task_name="t2", status="done"),
@@ -885,9 +894,13 @@ class TestTaskResultFields:
     def test_json_serializable(self):
         """TaskResult should be JSON-serializable via dataclasses.asdict."""
         from dataclasses import asdict
+
         tr = TaskResult(
-            task_name="t", status="done", cost_usd=0.01,
-            dispatch_id="dsp_123", files_modified=["a.py"],
+            task_name="t",
+            status="done",
+            cost_usd=0.01,
+            dispatch_id="dsp_123",
+            files_modified=["a.py"],
         )
         data = asdict(tr)
         json_str = json.dumps(data)
@@ -899,25 +912,36 @@ class TestRoundValidation:
 
     def test_empty_name_invalid(self):
         """Round with empty name is invalid."""
-        errors = validate_round(Round(name="", tasks=[
-            Task(name="t", instruction="do", done_when="done"),
-        ]))
+        errors = validate_round(
+            Round(
+                name="",
+                tasks=[
+                    Task(name="t", instruction="do", done_when="done"),
+                ],
+            )
+        )
         assert len(errors) > 0
 
     def test_duplicate_task_names_invalid(self):
         """Round with duplicate task names is invalid."""
-        round_def = Round(name="dupes", tasks=[
-            Task(name="same", instruction="a", done_when="done"),
-            Task(name="same", instruction="b", done_when="done"),
-        ])
+        round_def = Round(
+            name="dupes",
+            tasks=[
+                Task(name="same", instruction="a", done_when="done"),
+                Task(name="same", instruction="b", done_when="done"),
+            ],
+        )
         errors = validate_round(round_def)
         assert any("duplicate" in e.lower() or "same" in e.lower() for e in errors)
 
     def test_valid_round_no_errors(self):
         """Valid round produces no errors."""
-        round_def = Round(name="good", tasks=[
-            Task(name="t1", instruction="do it", done_when="done"),
-        ])
+        round_def = Round(
+            name="good",
+            tasks=[
+                Task(name="t1", instruction="do it", done_when="done"),
+            ],
+        )
         errors = validate_round(round_def)
         assert len(errors) == 0
 
@@ -932,12 +956,14 @@ class TestTaskValidation:
 
     def test_both_instruction_and_auto_fn(self):
         """Task with both instruction AND auto_fn is invalid."""
-        errors = validate_task(Task(
-            name="ambiguous",
-            instruction="do it",
-            done_when="done",
-            auto_fn=lambda: (True, "ok"),
-        ))
+        errors = validate_task(
+            Task(
+                name="ambiguous",
+                instruction="do it",
+                done_when="done",
+                auto_fn=lambda: (True, "ok"),
+            )
+        )
         assert len(errors) > 0
 
     def test_auto_fn_only_valid(self):
@@ -964,8 +990,10 @@ class TestGateExecution:
 
     def test_gate_exception_caught(self):
         """Gate that raises exception is caught."""
+
         def bad_check():
             raise RuntimeError("crashed")
+
         gate = Gate(name="bad", check_fn=bad_check)
         result = run_gate(gate)
         assert result.passed is False

@@ -87,7 +87,9 @@ class TestContextDataInPrompt:
     def test_context_data_appears_in_prompt(self):
         """REQ-106 req 001: context_data dict injected into prompt."""
         task = Task(
-            name="t", instruction="analyze", done_when="done",
+            name="t",
+            instruction="analyze",
+            done_when="done",
             context_data={"findings": [{"id": 1, "msg": "bad"}]},
         )
         prompt = build_prompt(task)
@@ -97,7 +99,9 @@ class TestContextDataInPrompt:
     def test_context_data_json_formatted(self):
         """Context data rendered as JSON code blocks."""
         task = Task(
-            name="t", instruction="do", done_when="done",
+            name="t",
+            instruction="do",
+            done_when="done",
             context_data={"config": {"key": "value"}},
         )
         prompt = build_prompt(task)
@@ -108,7 +112,9 @@ class TestContextDataInPrompt:
         """REQ-106: lists > 100 items use JSONL format."""
         big_list = [{"id": i} for i in range(101)]
         task = Task(
-            name="t", instruction="do", done_when="done",
+            name="t",
+            instruction="do",
+            done_when="done",
             context_data={"items": big_list},
         )
         prompt = build_prompt(task)
@@ -1144,10 +1150,18 @@ class TestStructuredOutputParsing:
         from rondo.dispatch import extract_structured_output
 
         events = [
-            {"type": "assistant", "message": {"content": [
-                {"type": "tool_use", "name": "StructuredOutput",
-                 "input": {"status": "done", "result": "all good"}}
-            ]}},
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "StructuredOutput",
+                            "input": {"status": "done", "result": "all good"},
+                        }
+                    ]
+                },
+            },
         ]
         result = extract_structured_output(events)
         assert result == {"status": "done", "result": "all good"}
@@ -1157,9 +1171,7 @@ class TestStructuredOutputParsing:
         from rondo.dispatch import extract_structured_output
 
         events = [
-            {"type": "assistant", "message": {"content": [
-                {"type": "text", "text": "hello"}
-            ]}},
+            {"type": "assistant", "message": {"content": [{"type": "text", "text": "hello"}]}},
         ]
         result = extract_structured_output(events)
         assert result is None
@@ -1169,14 +1181,30 @@ class TestStructuredOutputParsing:
         from rondo.dispatch import extract_structured_output
 
         events = [
-            {"type": "assistant", "message": {"content": [
-                {"type": "tool_use", "name": "StructuredOutput",
-                 "input": {"status": "error", "result": "first try"}}
-            ]}},
-            {"type": "assistant", "message": {"content": [
-                {"type": "tool_use", "name": "StructuredOutput",
-                 "input": {"status": "done", "result": "second try"}}
-            ]}},
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "StructuredOutput",
+                            "input": {"status": "error", "result": "first try"},
+                        }
+                    ]
+                },
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "StructuredOutput",
+                            "input": {"status": "done", "result": "second try"},
+                        }
+                    ]
+                },
+            },
         ]
         result = extract_structured_output(events)
         assert result["status"] == "done"
@@ -1187,11 +1215,19 @@ class TestStructuredOutputParsing:
 
         # Event has both text with JSON and a StructuredOutput tool call
         events = [
-            {"type": "assistant", "message": {"content": [
-                {"type": "text", "text": '```json\n{"status":"error"}\n```'},
-                {"type": "tool_use", "name": "StructuredOutput",
-                 "input": {"status": "done", "result": "structured wins"}}
-            ]}},
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": '```json\n{"status":"error"}\n```'},
+                        {
+                            "type": "tool_use",
+                            "name": "StructuredOutput",
+                            "input": {"status": "done", "result": "structured wins"},
+                        },
+                    ]
+                },
+            },
         ]
         result = extract_structured_output(events)
         assert result["status"] == "done"
@@ -1319,8 +1355,10 @@ class TestNotifyAllChannels:
         log_file = tmp_path / "notify.log"
         with patch("subprocess.run"):
             notify_round_complete(
-                round_name="test", status="done",
-                duration_sec=5.0, cost_usd=0.01,
+                round_name="test",
+                status="done",
+                duration_sec=5.0,
+                cost_usd=0.01,
                 config=NotifyConfig(channels=["terminal", "file", "macos"], log_file=str(log_file)),
             )
         assert log_file.exists()
@@ -1347,9 +1385,15 @@ class TestHistoryWithRealData:
         from rondo.history import DispatchRecord, load_history, log_dispatch, query_history
 
         for rn, model in [("r1", "sonnet"), ("r1", "opus"), ("r2", "sonnet")]:
-            log_dispatch(DispatchRecord(
-                round_name=rn, task_name=f"t-{model}", model=model, status="done",
-            ), str(tmp_path))
+            log_dispatch(
+                DispatchRecord(
+                    round_name=rn,
+                    task_name=f"t-{model}",
+                    model=model,
+                    status="done",
+                ),
+                str(tmp_path),
+            )
         records = load_history(str(tmp_path))
         r1_sonnet = query_history(records, round_name="r1", model="sonnet")
         assert len(r1_sonnet) == 1
@@ -1357,10 +1401,17 @@ class TestHistoryWithRealData:
     def test_aggregate_includes_duration(self, tmp_path):
         from rondo.history import DispatchRecord, aggregate_by_model, load_history, log_dispatch
 
-        log_dispatch(DispatchRecord(
-            round_name="r", task_name="t", model="opus", status="done",
-            cost_usd=0.10, duration_sec=5.5,
-        ), str(tmp_path))
+        log_dispatch(
+            DispatchRecord(
+                round_name="r",
+                task_name="t",
+                model="opus",
+                status="done",
+                cost_usd=0.10,
+                duration_sec=5.5,
+            ),
+            str(tmp_path),
+        )
         records = load_history(str(tmp_path))
         agg = aggregate_by_model(records)
         assert agg["opus"]["total_duration"] == 5.5
@@ -1371,8 +1422,12 @@ class TestEngineFields:
 
     def test_task_all_new_fields(self):
         t = Task(
-            name="full", instruction="do", done_when="done",
-            tool_mode="sandbox", bare=False, human_input="Review first",
+            name="full",
+            instruction="do",
+            done_when="done",
+            tool_mode="sandbox",
+            bare=False,
+            human_input="Review first",
             context_data={"key": "val"},
         )
         assert t.tool_mode == "sandbox"
@@ -1397,8 +1452,13 @@ class TestPromptBuildingDeep:
 
     def test_prompt_with_context_data_and_files(self):
         """Both context_files and context_data in one prompt."""
-        task = Task(name="t", instruction="review", done_when="reviewed",
-                    context_files=["src/main.py"], context_data={"findings": [1, 2, 3]})
+        task = Task(
+            name="t",
+            instruction="review",
+            done_when="reviewed",
+            context_files=["src/main.py"],
+            context_data={"findings": [1, 2, 3]},
+        )
         prompt = build_prompt(task)
         assert "src/main.py" in prompt
         assert "Structured Input Data" in prompt
@@ -1479,7 +1539,9 @@ class TestStreamJsonParsingDeep:
         assert usage.is_using_overage is False
 
     def test_result_populates_cost(self):
-        lines = ['{"type":"result","subtype":"success","total_cost_usd":0.05,"duration_ms":1000,"usage":{"input_tokens":100,"output_tokens":50},"modelUsage":{}}']
+        lines = [
+            '{"type":"result","subtype":"success","total_cost_usd":0.05,"duration_ms":1000,"usage":{"input_tokens":100,"output_tokens":50},"modelUsage":{}}'
+        ]
         _, usage = parse_stream_json_events(lines, task_name="t")
         assert usage.cost_usd == 0.05
         assert usage.input_tokens == 100
@@ -1534,21 +1596,25 @@ class TestRoundResultCalculation:
 
     def test_all_done_is_done(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="done")]
         assert calculate_round_status(results) == "done"
 
     def test_mix_is_partial(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="done"), TaskResult(task_name="t2", status="error")]
         assert calculate_round_status(results) == "partial"
 
     def test_all_error(self):
         from rondo.engine import calculate_round_status
+
         results = [TaskResult(task_name="t1", status="error"), TaskResult(task_name="t2", status="error")]
         assert calculate_round_status(results) == "error"
 
     def test_empty_is_skipped(self):
         from rondo.engine import calculate_round_status
+
         assert calculate_round_status([]) == "skipped"
 
 
@@ -1557,18 +1623,21 @@ class TestConfigValidationDeep:
 
     def test_zero_workers_rejected(self):
         from rondo.config import validate_config
+
         config = RondoConfig(workers=0)
         errors = validate_config(config)
         assert any("workers" in e for e in errors)
 
     def test_negative_timeout_rejected(self):
         from rondo.config import validate_config
+
         config = RondoConfig(task_timeout_sec=-1)
         errors = validate_config(config)
         assert any("timeout" in e.lower() for e in errors)
 
     def test_valid_config_no_errors(self):
         from rondo.config import validate_config
+
         config = RondoConfig()
         errors = validate_config(config)
         assert errors == []
@@ -1594,6 +1663,7 @@ class TestAutoTask:
         def _boom():
             msg = "kaboom"
             raise RuntimeError(msg)
+
         config = RondoConfig()
         task = Task(name="auto-boom", auto_fn=_boom)
         result, usage = dispatch_task(task, config)
@@ -1669,10 +1739,13 @@ class TestRoundValidation:
         from rondo.engine import Round as _Round
         from rondo.engine import validate_round
 
-        r = _Round(name="dup", tasks=[
-            Task(name="t1", instruction="do", done_when="done"),
-            Task(name="t1", instruction="also", done_when="also done"),
-        ])
+        r = _Round(
+            name="dup",
+            tasks=[
+                Task(name="t1", instruction="do", done_when="done"),
+                Task(name="t1", instruction="also", done_when="also done"),
+            ],
+        )
         errors = validate_round(r)
         assert any("duplicate" in e.lower() for e in errors)
 
@@ -1680,10 +1753,13 @@ class TestRoundValidation:
         from rondo.engine import Round as _Round
         from rondo.engine import validate_round
 
-        r = _Round(name="good", tasks=[
-            Task(name="t1", instruction="do", done_when="done"),
-            Task(name="t2", instruction="also", done_when="also done"),
-        ])
+        r = _Round(
+            name="good",
+            tasks=[
+                Task(name="t1", instruction="do", done_when="done"),
+                Task(name="t2", instruction="also", done_when="also done"),
+            ],
+        )
         errors = validate_round(r)
         assert errors == []
 
@@ -1795,6 +1871,7 @@ class TestDispatchErrorPaths:
 
     def test_auto_task_exception(self):
         """Auto task exception caught, returns ERR_INTERNAL."""
+
         def bad_fn():
             raise RuntimeError("crash")
 
@@ -1906,8 +1983,7 @@ class TestHistoryIntegration:
         task = Task(name="logged", instruction="check", done_when="checked")
         config = RondoConfig()
 
-        with patch("rondo.dispatch._run_subprocess") as mock_run, \
-             patch("rondo.dispatch._log_to_history") as mock_log:
+        with patch("rondo.dispatch._run_subprocess") as mock_run, patch("rondo.dispatch._log_to_history") as mock_log:
             mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
             dispatch_task(task, config)
             mock_log.assert_called_once()
@@ -1926,8 +2002,7 @@ class TestSpoolGating:
         task = Task(name="sync-task", instruction="review", done_when="done")
         config = RondoConfig()  ## spool_enabled defaults to False
 
-        with patch("rondo.dispatch._run_subprocess") as mock_run, \
-             patch("rondo.dispatch.spool_result") as mock_spool:
+        with patch("rondo.dispatch._run_subprocess") as mock_run, patch("rondo.dispatch.spool_result") as mock_spool:
             mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
             dispatch_task(task, config)
             mock_spool.assert_not_called()
@@ -1937,8 +2012,7 @@ class TestSpoolGating:
         task = Task(name="async-task", instruction="review", done_when="done")
         config = RondoConfig(spool_enabled=True)
 
-        with patch("rondo.dispatch._run_subprocess") as mock_run, \
-             patch("rondo.dispatch.spool_result") as mock_spool:
+        with patch("rondo.dispatch._run_subprocess") as mock_run, patch("rondo.dispatch.spool_result") as mock_spool:
             mock_run.return_value = ('{"type":"result"}\n', "", 0, False)
             dispatch_task(task, config)
             mock_spool.assert_called_once()
@@ -2140,6 +2214,7 @@ class TestContextDataSizeCap:
     def test_large_context_data_rejected(self):
         """context_data > max_context_bytes is rejected."""
         from rondo.engine import validate_task
+
         big_data = {"payload": "x" * 600_000}
         task = Task(name="big", instruction="x", done_when="y", context_data=big_data)
         errors = validate_task(task, max_context_bytes=500_000)
@@ -2148,6 +2223,7 @@ class TestContextDataSizeCap:
     def test_small_context_data_accepted(self):
         """context_data under cap passes."""
         from rondo.engine import validate_task
+
         task = Task(name="ok", instruction="x", done_when="y", context_data={"key": "val"})
         errors = validate_task(task, max_context_bytes=500_000)
         assert not any("context_data" in e for e in errors)
@@ -2155,12 +2231,16 @@ class TestContextDataSizeCap:
     def test_combined_files_and_data_cap(self, tmp_path):
         """context_files + context_data combined must be under cap."""
         from rondo.engine import validate_task
+
         big_file = tmp_path / "big.txt"
         big_file.write_text("x" * 400_000)
         big_data = {"extra": "y" * 200_000}
         task = Task(
-            name="combined", instruction="x", done_when="y",
-            context_files=[str(big_file)], context_data=big_data,
+            name="combined",
+            instruction="x",
+            done_when="y",
+            context_files=[str(big_file)],
+            context_data=big_data,
         )
         errors = validate_task(task, max_context_bytes=500_000)
         assert any("bytes" in e.lower() for e in errors)

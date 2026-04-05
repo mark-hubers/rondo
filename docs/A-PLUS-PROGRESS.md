@@ -35,5 +35,11 @@
 | Operational Readiness | A- | A+ | B+ | **A** |
 | Process Maturity | A- | A+ | B- | **A-** |
 
-**Final: A on 5 dimensions, A- on 3, B+ on 1, B on 1.**
-**That's a solid A overall — up from mixed B/C.**
+**Post-Phase 3: A on 5, A- on 3, B+ on 1, B on 1.**
+
+## Phase 4: Deeper Work (B → A)
+- [x] FIX-680: Config type validation at TOML load (B → A-)
+- [x] FIX-681: Security convention tests (shell=True ban, sanitizer verification) (B+ → A-)
+
+**Final: A on 5 dimensions, A- on 5 dimensions. No dimension below A-.**
+**That's a solid A across the board.**

@@ -19,6 +19,8 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
+
 # -- Rondo source and test roots
 RONDO_ROOT = Path(__file__).parent.parent
 SRC_DIR = RONDO_ROOT / "src" / "rondo"

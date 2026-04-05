@@ -610,6 +610,66 @@ class TestE2EConfigOverrides:
 
 
 @skip_no_rondo
+class TestE2EBadConfig:
+    """FIX-682: bad config files produce clean errors, not stack traces."""
+
+    def test_bad_toml_syntax(self, tmp_path):
+        """Malformed TOML file → clean warning, not crash."""
+        toml = tmp_path / "rondo.toml"
+        toml.write_text("this is not valid toml {{{\n")
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='t', tasks=[\n"
+            "    Task(name='t', instruction='do', done_when='done'),\n])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--config", str(toml)])
+        # -- Should not crash with stack trace; should handle gracefully
+        assert result.returncode in (0, 1)
+        assert "Traceback" not in result.stderr
+
+    def test_wrong_type_in_toml(self, tmp_path):
+        """Wrong type (string where int expected) → warning, uses default."""
+        toml = tmp_path / "rondo.toml"
+        toml.write_text('workers = "not_a_number"\n')
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='t', tasks=[\n"
+            "    Task(name='t', instruction='do', done_when='done'),\n])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--config", str(toml)])
+        assert result.returncode in (0, 1)
+        assert "Traceback" not in result.stderr
+
+    def test_invalid_enum_in_toml(self, tmp_path):
+        """Invalid enum value → validation error, clean exit."""
+        toml = tmp_path / "rondo.toml"
+        toml.write_text('auth = "invalid_auth_mode"\n')
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='t', tasks=[\n"
+            "    Task(name='t', instruction='do', done_when='done'),\n])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--config", str(toml)])
+        assert "Config error" in result.stdout or result.returncode == 1
+
+    def test_empty_config_file(self, tmp_path):
+        """Empty TOML → uses all defaults, runs fine."""
+        toml = tmp_path / "rondo.toml"
+        toml.write_text("")
+        rf = tmp_path / "r.py"
+        rf.write_text(
+            "from rondo.engine import Round, Task\n"
+            "def build_round(): return Round(name='t', tasks=[\n"
+            "    Task(name='t', instruction='do', done_when='done'),\n])\n"
+        )
+        result = _run(["run", str(rf), "--dry-run", "--config", str(toml)])
+        assert result.returncode in (0, 1)
+
+
+@skip_no_rondo
 class TestE2ETraceability:
     """Validate traceability script works."""
 

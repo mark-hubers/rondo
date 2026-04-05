@@ -136,11 +136,7 @@ def extract_structured_output(events: list[dict[str, Any]]) -> dict[str, Any] | 
         message = event.get("message", {})
         content = message.get("content", [])
         for block in content:
-            if (
-                isinstance(block, dict)
-                and block.get("type") == "tool_use"
-                and block.get("name") == "StructuredOutput"
-            ):
+            if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") == "StructuredOutput":
                 result = block.get("input", {})
     return result
 

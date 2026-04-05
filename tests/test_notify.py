@@ -5,7 +5,6 @@
 VER-001 verification matrix: notification channels + triggers.
 """
 
-import os
 from unittest.mock import patch
 
 import pytest

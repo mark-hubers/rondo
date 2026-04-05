@@ -8,16 +8,13 @@ Targets: dispatch_parse (JSON extraction), config validation, parse_model.
 
 from __future__ import annotations
 
-import json
-
-import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from rondo.config import RondoConfig, validate_config
 from rondo.dispatch_parse import classify_error, get_error_recovery, parse_task_json
-from rondo.engine import ErrorPayload, TaskResult
+from rondo.engine import ErrorPayload
 from rondo.providers import parse_model
-
 
 # -- ──────────────────────────────────────────────────────────────
 #  dispatch_parse: JSON extraction never crashes

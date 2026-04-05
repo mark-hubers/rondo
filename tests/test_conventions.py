@@ -737,7 +737,7 @@ class TestNoHardcodedKeys:
             content = filepath.read_text(encoding="utf-8")
             for match in self.KEY_PATTERN.finditer(content):
                 violations.append(f"{filepath.name}:{match.start()}: {match.group()[:40]}...")
-        assert not violations, f"Hardcoded API keys found:\n  " + "\n  ".join(violations)
+        assert not violations, "Hardcoded API keys found:\n  " + "\n  ".join(violations)
 
 
 class TestNoShellTrue:

@@ -636,6 +636,49 @@ class TestDocSpecSync:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  Architecture: adapter contract enforcement (FIX-679)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAdapterContract:
+    """All provider adapters MUST inherit from ProviderAdapter ABC.
+
+    FIX-679: formalize adapter architecture. Convention test ensures
+    any new adapter file follows the contract (dispatch, health, models).
+    """
+
+    def test_all_adapters_inherit_from_base(self) -> None:
+        """Every *Adapter class in adapters/ inherits from ProviderAdapter."""
+        import importlib
+
+        from rondo.providers import ProviderAdapter
+
+        adapter_modules = [
+            "rondo.adapters.ollama",
+            "rondo.adapters.chat_completions",
+            "rondo.adapters.gemini",
+            "rondo.adapters.anthropic_api",
+        ]
+        for mod_name in adapter_modules:
+            mod = importlib.import_module(mod_name)
+            for attr_name in dir(mod):
+                obj = getattr(mod, attr_name)
+                if isinstance(obj, type) and attr_name.endswith("Adapter") and attr_name != "ProviderAdapter":
+                    assert issubclass(obj, ProviderAdapter), (
+                        f"{mod_name}.{attr_name} does not inherit from ProviderAdapter"
+                    )
+
+    def test_adapter_contract_methods(self) -> None:
+        """ProviderAdapter ABC requires dispatch, health, models."""
+        from rondo.providers import ProviderAdapter
+
+        abstract_methods = {m for m in dir(ProviderAdapter) if getattr(getattr(ProviderAdapter, m, None), "__isabstractmethod__", False)}
+        assert "dispatch" in abstract_methods
+        assert "health" in abstract_methods
+        assert "models" in abstract_methods
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  Security: no hardcoded API keys in source (FIX-675)
 # -- ──────────────────────────────────────────────────────────────
 

@@ -24,8 +24,8 @@ RONDO_ROOT = Path(__file__).parent.parent
 SRC_DIR = RONDO_ROOT / "src" / "rondo"
 TEST_DIR = RONDO_ROOT / "tests"
 
-# -- All Python source files (excluding __pycache__)
-SRC_FILES = sorted(SRC_DIR.glob("*.py"))
+# -- All Python source files (excluding __pycache__, including cli_commands/ package)
+SRC_FILES = sorted(SRC_DIR.glob("*.py")) + sorted(SRC_DIR.glob("cli_commands/*.py"))
 TEST_FILES = sorted(TEST_DIR.glob("test_*.py"))
 ALL_PY_FILES = SRC_FILES + TEST_FILES
 
@@ -76,7 +76,8 @@ class TestNoBarePrints:
     Exception: cli.py is allowed to print (it's the user interface).
     """
 
-    EXEMPT = {"cli.py", "cli_commands.py", "mcp_dispatch.py", "mcp_compose.py", "live.py", "__main__.py", "notify.py"}
+    EXEMPT = {"cli.py", "mcp_dispatch.py", "mcp_compose.py", "live.py", "__main__.py", "notify.py",
+              "dispatch.py", "observe.py", "infra.py", "review.py", "__init__.py"}
 
     def test_no_bare_print_in_library(self):
         """No bare print() calls in library modules."""
@@ -240,26 +241,22 @@ class TestImportLayering:
             "health",
             "cli_commands",
         },
-        "cli_commands.py": {
-            "cli",
-            "config",
-            "live",
-            "overnight",
-            "report",
-            "preflight",
-            "history",
-            "audit",
-            "flaky",
-            "spool",
-            "sanitize",
-            "metrics",
-            "mcp_server",
-            "schedule",
-            "providers",
-            "_version",
-            "adapters",
-            "health",
-        },  # command handlers import from cli + domain modules
+        "cli_commands/__init__.py": {
+            "cli_commands",
+            "dispatch", "observe", "infra", "review",
+        },  # package __init__ imports from submodules
+        "cli_commands/dispatch.py": {
+            "cli_commands", "cli", "config", "live", "overnight", "report", "preflight",
+        },
+        "cli_commands/observe.py": {
+            "cli_commands", "history", "audit", "flaky", "metrics",
+        },
+        "cli_commands/infra.py": {
+            "cli_commands", "preflight", "spool", "mcp_server", "schedule", "adapters", "health",
+        },
+        "cli_commands/review.py": {
+            "cli_commands", "mcp_server", "providers", "config",
+        },
         "report.py": {"engine", "config", "overnight"},
         "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "__main__.py": {"cli"},
@@ -269,7 +266,12 @@ class TestImportLayering:
         """Modules only import from allowed rondo modules."""
         violations = []
         for filepath in SRC_FILES:
-            allowed = self.ALLOWED_IMPORTS.get(filepath.name)
+            # -- Use relative path from SRC_DIR for cli_commands/ package files
+            try:
+                rel = str(filepath.relative_to(SRC_DIR))
+            except ValueError:
+                rel = filepath.name
+            allowed = self.ALLOWED_IMPORTS.get(rel)
             if allowed is None:
                 continue
             tree = ast.parse(filepath.read_text(encoding="utf-8"))
@@ -278,7 +280,7 @@ class TestImportLayering:
                     imported_module = node.module.split(".")[-1]
                     if imported_module not in allowed:
                         violations.append(
-                            f"{filepath.name} imports rondo.{imported_module} (allowed: {sorted(allowed) or '(none)'})"
+                            f"{rel} imports rondo.{imported_module} (allowed: {sorted(allowed) or '(none)'})"
                         )
         assert not violations, "Import layer violations:\n  " + "\n  ".join(violations)
 
@@ -366,7 +368,7 @@ class TestErrorHandlingInCli:
 
     def test_cmd_run_has_error_handling(self):
         """_cmd_run wraps load_round_file in try/except."""
-        content = (SRC_DIR / "cli_commands.py").read_text(encoding="utf-8")
+        content = (SRC_DIR / "cli_commands" / "dispatch.py").read_text(encoding="utf-8")
         in_cmd_run = False
         has_try = False
         for line in content.splitlines():
@@ -381,7 +383,7 @@ class TestErrorHandlingInCli:
 
     def test_cmd_overnight_has_error_handling(self):
         """_cmd_overnight wraps load_phases_file in try/except."""
-        content = (SRC_DIR / "cli_commands.py").read_text(encoding="utf-8")
+        content = (SRC_DIR / "cli_commands" / "dispatch.py").read_text(encoding="utf-8")
         in_cmd = False
         has_try = False
         for line in content.splitlines():

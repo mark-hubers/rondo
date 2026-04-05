@@ -636,6 +636,33 @@ class TestDocSpecSync:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  Security: no hardcoded API keys in source (FIX-675)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestNoHardcodedKeys:
+    """Source files MUST NOT contain hardcoded API keys or secrets."""
+
+    KEY_PATTERN = re.compile(
+        r"""(?:GEMINI_API_KEY|XAI_API_KEY|MISTRAL_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY"""
+        r"""|api_key)\s*=\s*['"][A-Za-z0-9_\-]{20,}['"]""",
+        re.IGNORECASE,
+    )
+    EXEMPT = {"test_sanitize.py", "test_conventions.py", "test_audit.py", "test_dispatch.py", "test_integration_e2e.py"}
+
+    def test_no_hardcoded_keys_in_source(self) -> None:
+        """No API keys hardcoded in Python source files."""
+        violations = []
+        for filepath in ALL_PY_FILES:
+            if filepath.name in self.EXEMPT:
+                continue
+            content = filepath.read_text(encoding="utf-8")
+            for match in self.KEY_PATTERN.finditer(content):
+                violations.append(f"{filepath.name}:{match.start()}: {match.group()[:40]}...")
+        assert not violations, f"Hardcoded API keys found:\n  " + "\n  ".join(violations)
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  Import cycle detection (Cursor "would worry me" item)
 # -- ──────────────────────────────────────────────────────────────
 

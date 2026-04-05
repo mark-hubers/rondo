@@ -107,112 +107,134 @@
     {
       "name": "rondo_health",
       "category": "monitor",
-      "description": "GREEN/YELLOW/RED status"
+      "description": "GREEN/YELLOW/RED status",
+      "stability": "stable"
     },
     {
       "name": "rondo_metrics",
       "category": "monitor",
-      "description": "Cost, reliability, latency"
+      "description": "Cost, reliability, latency",
+      "stability": "stable"
     },
     {
       "name": "rondo_audit_summary",
       "category": "monitor",
-      "description": "Recent dispatch records"
+      "description": "Recent dispatch records",
+      "stability": "stable"
     },
     {
       "name": "rondo_cost",
       "category": "monitor",
-      "description": "Monthly spend by model"
+      "description": "Monthly spend by model",
+      "stability": "stable"
     },
     {
       "name": "rondo_dispatch_info",
       "category": "discovery",
-      "description": "Version + capabilities"
+      "description": "Version + capabilities",
+      "stability": "stable"
     },
     {
       "name": "rondo_models",
       "category": "discovery",
-      "description": "Available models + task recommendations"
+      "description": "Available models + task recommendations",
+      "stability": "stable"
     },
     {
       "name": "rondo_templates",
       "category": "discovery",
-      "description": "Pre-built round patterns"
+      "description": "Pre-built round patterns",
+      "stability": "stable"
     },
     {
       "name": "rondo_run",
       "category": "dispatch",
-      "description": "Dispatch file or inline prompt (dry-run/real/background)"
+      "description": "Dispatch file or inline prompt (dry-run/real/background)",
+      "stability": "stable"
     },
     {
       "name": "rondo_run_status",
       "category": "dispatch",
-      "description": "Progress: heartbeat/brief/full tiers"
+      "description": "Progress: heartbeat/brief/full tiers",
+      "stability": "stable"
     },
     {
       "name": "rondo_spool_consume",
       "category": "dispatch",
-      "description": "Drain overnight result mailbox"
+      "description": "Drain overnight result mailbox",
+      "stability": "stable"
     },
     {
       "name": "rondo_retry",
       "category": "recovery",
-      "description": "Re-run failed tasks"
+      "description": "Re-run failed tasks",
+      "stability": "stable"
     },
     {
       "name": "rondo_history",
       "category": "analysis",
-      "description": "Query by model/status"
+      "description": "Query by model/status",
+      "stability": "stable"
     },
     {
       "name": "rondo_diff",
       "category": "analysis",
-      "description": "Compare results \u2014 what's new"
+      "description": "Compare results \u2014 what's new",
+      "stability": "stable"
     },
     {
       "name": "rondo_summarize",
       "category": "analysis",
-      "description": "Condense outputs via AI"
+      "description": "Condense outputs via AI",
+      "stability": "stable"
     },
     {
       "name": "rondo_explain",
       "category": "qa",
-      "description": "Local model reviews AI output ($0)"
+      "description": "Local model reviews AI output ($0)",
+      "stability": "stable"
     },
     {
       "name": "rondo_chain",
       "category": "advanced",
-      "description": "Pipeline: step N output \u2192 step N+1 input"
+      "description": "Pipeline: step N output \u2192 step N+1 input",
+      "stability": "beta"
     },
     {
       "name": "rondo_benchmark",
       "category": "advanced",
-      "description": "Same prompt \u2192 N models \u2192 ranked"
+      "description": "Same prompt \u2192 N models \u2192 ranked",
+      "stability": "beta"
     },
     {
       "name": "rondo_cloud",
       "category": "cloud",
-      "description": "Dispatch to cloud providers (Gemini/Grok/Mistral/Anthropic/OpenAI optional) with profile + tier + cost cap"
+      "description": "Dispatch to cloud providers (Gemini/Grok/Mistral/Anthropic/OpenAI optional) with profile + tier + cost cap",
+      "stability": "beta"
     },
     {
       "name": "rondo_multi_review",
       "category": "cloud",
-      "description": "Send same prompt to N providers sequentially \u2014 returns per-provider results + merged findings"
+      "description": "Send same prompt to N providers sequentially \u2014 returns per-provider results + merged findings",
+      "stability": "beta"
     },
     {
       "name": "rondo_review_file",
       "category": "cloud",
-      "description": "Review a file with 2+ cloud providers. Pass file path, optional tier (high/default/low) and providers."
+      "description": "Review a file with 2+ cloud providers. Pass file path, optional tier (high/default/low) and providers.",
+      "stability": "beta"
     },
     {
       "name": "rondo_schedule_list",
       "category": "scheduling",
-      "description": "List installed schedules"
+      "description": "List installed schedules",
+      "stability": "beta"
     },
     {
       "name": "rondo_schedule_create",
       "category": "scheduling",
-      "description": "Create recurring dispatch"
+      "description": "Create recurring dispatch",
+      "stability": "beta"
     }
   ],
   "providers": [

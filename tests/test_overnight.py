@@ -535,6 +535,33 @@ class TestOvernightResult:
             result = run_overnight(phases=phases, config=config)
             assert result.status == "done"
 
+    def test_all_skipped_status(self):
+        """All phases skipped → overnight status skipped (not done)."""
+        phases = [_make_round("a"), _make_round("b")]
+        config = RondoConfig(workers=1)
+        with patch(
+            "rondo.overnight.run_round",
+            side_effect=lambda rd, config=None: _mock_round_result(rd.name, status="skipped"),
+        ):
+            result = run_overnight(phases=phases, config=config)
+            assert result.status == "skipped"
+
+    def test_mixed_done_skipped_is_partial(self):
+        """One done + one skipped → partial (not done)."""
+        phases = [_make_round("a"), _make_round("b")]
+        config = RondoConfig(workers=1)
+        call_count = [0]
+
+        def _mixed_mock(round_def, config=None):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return _mock_round_result(round_def.name, status="done")
+            return _mock_round_result(round_def.name, status="skipped")
+
+        with patch("rondo.overnight.run_round", side_effect=_mixed_mock):
+            result = run_overnight(phases=phases, config=config)
+            assert result.status == "partial"
+
 
 class TestOvernightSpoolIntegration:
     """REQ-101: overnight results written to spool (ALWAYS-ON)."""

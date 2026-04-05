@@ -361,13 +361,20 @@ def _filter_phases(
 
 
 def _calculate_overnight_status(phase_results: list[RoundResult]) -> str:
-    """Calculate overall overnight status from phase results."""
+    """Calculate overall overnight status from phase results.
+
+    Rules:
+        "done"    — all phases completed successfully
+        "skipped" — all phases skipped (dry-run, gate block, or no tasks)
+        "partial" — at least one done, at least one not
+        "error"   — no phases succeeded
+    """
     statuses = {pr.status for pr in phase_results}
 
     if statuses == {"done"}:
         return "done"
     if statuses == {"skipped"}:
-        return "done"
+        return "skipped"
     if "done" in statuses:
         return "partial"
     return "error"

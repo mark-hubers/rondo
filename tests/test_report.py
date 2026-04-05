@@ -50,6 +50,10 @@ def _make_overnight_result(
             )
             for i in range(pc.get("n_error", 0))
         ]
+        skipped_results = [
+            TaskResult(task_name=f"{pc['name']}-skip{i + 1}", status="skipped")
+            for i in range(pc.get("n_skipped", 0))
+        ]
         blocked_results = [
             TaskResult(
                 task_name=f"{pc['name']}-blk{i + 1}",
@@ -58,7 +62,7 @@ def _make_overnight_result(
             )
             for i in range(pc.get("n_blocked", 0))
         ]
-        all_tasks = done_results + error_results + blocked_results
+        all_tasks = done_results + error_results + skipped_results + blocked_results
         total_tasks = len(all_tasks)
 
         # -- Determine status
@@ -262,7 +266,38 @@ class TestActionItems:
             ]
         )
         report = generate_report(result)
-        assert "No action items" in report or "action items" not in report.lower() or "0 action" in report.lower()
+        assert "all tasks completed successfully" in report.lower()
+
+    def test_all_skipped_shows_skipped_message(self):
+        """All tasks skipped → report says skipped, not 'all completed'."""
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "dry", "n_done": 0, "n_error": 0, "n_skipped": 3, "cost": 0.0},
+            ]
+        )
+        report = generate_report(result)
+        assert "skipped" in report.lower()
+        assert "all tasks completed successfully" not in report.lower()
+
+    def test_skipped_count_in_summary(self):
+        """Skipped tasks appear in summary table."""
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "dry", "n_done": 0, "n_error": 0, "n_skipped": 4, "cost": 0.0},
+            ]
+        )
+        report = generate_report(result)
+        assert "| Skipped | 4 |" in report
+
+    def test_skipped_count_in_phase(self):
+        """Skipped tasks appear in per-phase stats."""
+        result = _make_overnight_result(
+            phase_configs=[
+                {"name": "phase-x", "n_done": 1, "n_error": 0, "n_skipped": 2, "cost": 0.01},
+            ]
+        )
+        report = generate_report(result)
+        assert "| Tasks skipped | 2 |" in report
 
 
 # ──────────────────────────────────────────────────────────────────

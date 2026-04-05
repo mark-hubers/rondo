@@ -107,6 +107,7 @@ def _emit_summary(result: OvernightResult, lines: list[str]) -> None:
     total_done = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done")
     total_errors = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "error")
     total_blocked = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "blocked")
+    total_skipped = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "skipped")
 
     lines.append("## Summary")
     lines.append("")
@@ -115,6 +116,7 @@ def _emit_summary(result: OvernightResult, lines: list[str]) -> None:
     lines.append(f"| Total tasks | {total_tasks} |")
     lines.append(f"| Done | {total_done} |")
     lines.append(f"| Errors | {total_errors} |")
+    lines.append(f"| Skipped | {total_skipped} |")
     lines.append(f"| Blocked | {total_blocked} |")
     lines.append(f"| Duration | {_format_duration(result.duration_sec)} ({result.duration_sec:.1f}s) |")
     lines.append(f"| Health | {_health_indicator(total_done, total_tasks)} |")
@@ -148,6 +150,7 @@ def _emit_phases(result: OvernightResult, lines: list[str]) -> None:
     for pr in result.phase_results:
         phase_done = sum(1 for tr in pr.task_results if tr.status == "done")
         phase_errors = sum(1 for tr in pr.task_results if tr.status == "error")
+        phase_skipped = sum(1 for tr in pr.task_results if tr.status == "skipped")
         phase_total = len(pr.task_results)
         health = _health_indicator(phase_done, phase_total)
 
@@ -157,6 +160,7 @@ def _emit_phases(result: OvernightResult, lines: list[str]) -> None:
         lines.append("|------|-------|")
         lines.append(f"| Tasks done | {phase_done} |")
         lines.append(f"| Tasks failed | {phase_errors} |")
+        lines.append(f"| Tasks skipped | {phase_skipped} |")
         lines.append(f"| Total tasks | {phase_total} |")
         lines.append(f"| Duration | {_format_duration(pr.duration_sec)} ({pr.duration_sec:.1f}s) |")
         lines.append("")
@@ -171,14 +175,25 @@ def _emit_action_items(result: OvernightResult, lines: list[str]) -> None:
                 detail = tr.error_message or tr.status
                 action_items.append(f"- **{pr.round_name}/{tr.task_name}** [{tr.status}]: {detail}")
 
+    # -- Count skipped tasks for accurate messaging
+    total_done = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "done")
+    total_skipped = sum(1 for pr in result.phase_results for tr in pr.task_results if tr.status == "skipped")
+    total_tasks = sum(len(pr.task_results) for pr in result.phase_results)
+
     lines.append("## Action Items")
     lines.append("")
     if action_items:
         lines.append(f"{len(action_items)} action item(s):")
         lines.append("")
         lines.extend(action_items)
-    else:
+    elif total_skipped == total_tasks and total_tasks > 0:
+        lines.append("All tasks skipped (dry-run or gate block). No dispatches executed.")
+    elif total_done == total_tasks:
         lines.append("No action items — all tasks completed successfully.")
+    elif total_tasks == 0:
+        lines.append("No tasks were scheduled.")
+    else:
+        lines.append("No errors or blocks, but not all tasks completed. Check phase details.")
     lines.append("")
 
 

@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.7
+**Version:** 0.8
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -103,11 +103,11 @@ Rondo-REQ-100 runs tasks sequentially — one at a time. A round with 8 tasks at
 |----|-------------|----------|
 | 029 | The morning report MUST aggregate results from all phases in one document | MUST |
 | 030 | Results MUST be grouped by round type (one section per round) | MUST |
-| 031 | Each round section MUST show: tasks done, tasks failed, total duration | MUST |
+| 031 | Each round section MUST show: tasks done, tasks failed, tasks skipped, total duration | MUST |
 | 032 | The report MUST use health indicators: pass (all tasks succeeded), partial (some failed), fail (majority failed) | MUST |
-| 033 | The report MUST list action items: tasks that failed or returned "blocked" status | MUST |
+| 033 | The report MUST list action items: tasks that failed or returned "blocked" status. When all tasks are skipped, the report MUST say so (not "all completed") | MUST |
 | 034 | The report MUST save to a dated file: `rondo-morning-YYYYMMDD.md` (or configurable pattern) | MUST |
-| 035 | The report MUST include: total duration, total tasks run, total errors, timestamp | MUST |
+| 035 | The report MUST include: total duration, total tasks run, total errors, total skipped, timestamp | MUST |
 | 036 | The report MUST include a usage summary: total cost, total tokens, overage status, watchdog interventions | MUST |
 
 ### Parallel Safety Contract
@@ -694,3 +694,4 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.5 | 2026-03-23 | Added Headless Dispatch group (reqs 053-057). --bare flag for clean headless execution (Claude Code v2.1.81+). Architecture note for dispatch modes. 57 requirements total. |
 | 0.6 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Filled §4 Architecture/Design (layer diagram, how Rondo-REQ-101 extends Rondo-REQ-100, headless dispatch interaction, timeout coordination diagram). Filled §5 Data Model (7 dataclasses). Filled §6 Data Boundary (spool vs results_dir clarification). Filled §13 Integration Points (8 integrations). Filled §21 Dependencies + Used By (added CORE-STD-001, Python 3.12+, Rondo-STD-110). Upgraded req 037 worktree isolation from SHOULD to MUST. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Added assumption A6 (Python 3.12+). Updated dependencies header. |
 | 0.7 | 2026-03-25 | Grok cross-review fixes: (M4) §6 Data Boundary clarified two distinct storage paths with owner/purpose/lifecycle. (M5) Added reqs 058-060: parallel safety contract — `safe_parallel: true` annotation required, read-only or worktree isolation enforced, sequential fallback with WARNING. (M6) Filled §20 Failure Modes (7 scenarios with detection/mitigation). Filled §25 Risk/Criticality (6 risks with likelihood/impact). Filled §27 Security Considerations (6 concerns with mitigations). 60 requirements total. |
+| 0.8 | 2026-04-05 | FIX-663: Overnight status now returns "skipped" (not "done") when all phases skipped. Morning report tracks skipped task count in summary and per-phase (reqs 031, 033, 035). Action items message no longer says "all completed" when tasks were skipped. |

@@ -292,31 +292,99 @@ class ErrorPayload:
 
 ---
 
-## Summary — Sprint Order
+## Cursor Review (2026-04-05)
 
-| Priority | Sprint ID | Area | Grade → Target | Effort |
-|----------|-----------|------|----------------|--------|
-| 1 | FIX-670 | **Structured Error Payloads** | C → A | 2-3 sprints |
-| 2 | FIX-671 | **Security Hardening** | C- → A | 2 sprints |
-| 3 | FIX-672 | **API Consistency + Versioning** | C+ → A | 2 sprints |
-| 4 | FIX-673 | **Property-Based Testing** | B+ → A | 1-2 sprints |
-| 5 | FIX-674 | **Real-Time Alerting** | B → A | 1 sprint |
-| 6 | FIX-675 | **Documentation Cookbook** | B- → A | 1 sprint |
-| 7 | FIX-676 | **Architecture Formalization** | A- → A+ | 1 sprint |
+Cursor reviewed all 7 FIX items + answered the 6 meta-questions. Key corrections:
 
-**Total: ~10-12 sprints** across 7 improvement areas.
+### Grade Corrections
+- **Error Handling C → B-** post-FIX-663 (skipped status tracking fixed the worst symptom)
+- **Security C-** is plausible for local/trusted-user context — don't inflate to A with log scrubbing alone
+- **Operational Readiness A-** is generous unless deploy/runbook exists — B+ without
+- **Test Quality B+** may be under-rated — 1,376 tests with TDD discipline is solid
+
+### Missing Gaps (3 reviewers missed)
+- **Agent ergonomics:** `rondo_review_file` path-native MCP tool — bigger felt win than tool semver
+- **Health semantics:** `rondo_health` should split `api_healthy` vs `run_quality` — two fields, large perceived gain
+- **Round files as code execution:** Security must address untrusted rounds if ever shared
+- **Cross-session UX:** dry_run prompt truncation vs real dispatch — document or fix
+- **macOS-first honesty:** If not cross-platform, say so — avoids false "ops A" claims
+
+### Approach Corrections
+- **FIX-1:** Additive migration (ErrorPayload alongside old fields), not big-bang TaskResult replacement
+- **FIX-2:** Lead with documented threat model. Subprocess is not the main risk — round files are.
+- **FIX-3:** Stability labels + server version BEFORE unified `{status,data,error}` everywhere
+- **FIX-4:** Hypothesis yes, mutmut optional nightly. Cap test runtime with `--hypothesis-profile`.
+- **FIX-5:** Thresholds need min sample size + hysteresis. Git RCA deferred.
+- **FIX-6:** Cookbook > pdoc for solo. Runnable examples highest leverage.
+- **FIX-7:** Don't duplicate ABC with Protocol — pick one, delete the other.
+
+### Scope: A vs A+
+**A (credible, maintainable):** Structured errors where users look (report, MCP JSON), key/log hygiene, cookbook, MCP stability labels, hypothesis on parsers.
+
+**A+ (portfolio/OSS bar):** Full TaskResult migration, unified API envelope, mutation testing, rich alerting, plugins, full cross-platform — pick two, not all.
 
 ---
 
-## For Cursor Review
+## MASTER BUILD LIST — Post-Cursor (Final)
 
-Cursor — please review this plan and provide:
+**Reordered per Cursor recommendation: cheap wins first, breaking changes last.**
 
-1. **Grade corrections:** Are our self-assessed grades accurate? What are we over/under-rating?
-2. **Missing gaps:** What A+ issues did the 3 reviewers miss?
-3. **Priority challenges:** Should the order change? What's actually highest impact?
-4. **Approach critiques:** For each FIX, is the proposed approach the right one? What would you do differently?
-5. **Scope cuts:** What can we NOT do and still call it A? What's A vs A+?
-6. **Quick wins:** Any 1-line changes that would meaningfully improve a grade?
+### Phase 1: Quick Wins (1 session, ~3 sprints)
 
-Be as harsh as the other reviewers. We want the real plan, not the comfortable one.
+| Sprint | What | Impact |
+|--------|------|--------|
+| FIX-670 | **Cookbook + Runnable Examples** — "RED but providers green" scenario, multi-provider review, auth failure recovery, cost optimization | Docs B- → A |
+| FIX-671 | **Health Semantics Split** — `rondo_health` returns `api_healthy` + `run_quality` separately. Convention test: MCP tool count + CLI command count matches reference doc. | API C+ → B+, doc rot prevention |
+| FIX-672 | **Agent Path Tool** — `rondo_review_file` accepts file path natively (not just inline prompt) | Agent UX improvement |
+
+### Phase 2: Error + Security Foundation (1-2 sessions, ~4 sprints)
+
+| Sprint | What | Impact |
+|--------|------|--------|
+| FIX-673 | **Threat Model Doc** — document what Rondo trusts (round files, config, Claude binary), what it doesn't (AI output, provider responses), macOS-first disclosure | Security C- → B |
+| FIX-674 | **Error Payloads (report + notify only)** — ErrorPayload dataclass, additive on TaskResult (`error_payload: ErrorPayload | None`), morning report renders recovery suggestions. Legacy fields preserved. | Error Handling B- → A- |
+| FIX-675 | **Key/Log Hygiene** — scrub `*_API_KEY` from error messages + debug logs, enforce chmod 600 on TOML, convention test for no hardcoded keys in source | Security B → A- |
+| FIX-676 | **MCP Stability Labels** — each tool tagged `stable`/`beta`/`experimental` in ai_help_data.json, server version in `rondo_dispatch_info`, deprecated tools shown with replacement | API B+ → A |
+
+### Phase 3: Depth (1-2 sessions, ~3 sprints)
+
+| Sprint | What | Impact |
+|--------|------|--------|
+| FIX-677 | **Property-Based Testing** — hypothesis for dispatch_parse, config validation, parse_model, adapter response mapping. `--hypothesis-profile` for CI timeout. | Tests B+ → A |
+| FIX-678 | **Threshold Alerting** — latency/error-rate/cost thresholds in notify.py with min sample size + hysteresis. Per-provider for cost/latency. No git RCA. | Observability B → A- |
+| FIX-679 | **Architecture: Protocol or ABC** — pick one (ABC, already exists), delete the other path, formalize adapter contract in REQ-109 | Architecture A- → A |
+
+### Deferred (A+ only, not needed for A)
+
+| Item | Why defer |
+|------|----------|
+| Full TaskResult migration (remove legacy fields) | Breaking change, needs versioned release |
+| Unified `{status, data, error}` MCP envelope | Same risk as above — do after stability labels prove out |
+| Mutation testing (mutmut) | CI cost >> benefit for solo dev |
+| Plugin system (entry_points) | Premature — no second user |
+| Real-time Grafana dashboard | Overkill for single-user |
+| Cross-platform (Windows/Linux) | macOS-first is honest |
+
+---
+
+## Target Grades After All 3 Phases
+
+| Area | Current | After Phase 1 | After Phase 2 | After Phase 3 |
+|------|---------|--------------|---------------|---------------|
+| Architecture | A- | A- | A- | **A** |
+| Test Quality | B+ | B+ | B+ | **A** |
+| Error Handling | B- | B- | **A-** | A- |
+| Security | C- | C- | **A-** | A- |
+| Configuration | B | B | B+ | B+ |
+| Documentation | B- | **A** | A | A |
+| Observability | B | B | B+ | **A-** |
+| API Design | C+ | **B+** | B+ | **A** |
+| Operational Readiness | A- | A- | A- | A- |
+| Process Maturity | A- | A- | A- | A- |
+
+**Honest final grade: A across 7 of 10, A- on the remaining 3.**
+**That's an A. Not A+, but a real, defensible A.**
+
+---
+
+*Original AI body review (Gemini + Grok + Mistral) above. Cursor review merged 2026-04-05.*

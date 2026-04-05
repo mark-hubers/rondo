@@ -200,6 +200,11 @@
       "description": "Send same prompt to N providers sequentially \u2014 returns per-provider results + merged findings"
     },
     {
+      "name": "rondo_review_file",
+      "category": "cloud",
+      "description": "Review a file with 2+ cloud providers. Pass file path, optional tier (high/default/low) and providers."
+    },
+    {
       "name": "rondo_schedule_list",
       "category": "scheduling",
       "description": "List installed schedules"

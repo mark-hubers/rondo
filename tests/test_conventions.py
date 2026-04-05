@@ -620,6 +620,20 @@ class TestDocSpecSync:
         doc_count = int(match.group(1))
         assert parser_count == doc_count, f"CLI command count drift: code has {parser_count}, doc says {doc_count}"
 
+    def test_ai_help_tool_count_matches(self) -> None:
+        """ai_help_data.json mcp_tools count matches @mcp.tool() registrations."""
+        import json
+        import re
+
+        server_path = SRC_DIR / "mcp_server.py"
+        tool_count = len(re.findall(r"@mcp\.tool\(", server_path.read_text(encoding="utf-8")))
+        data_path = SRC_DIR / "data" / "ai_help_data.json"
+        if not data_path.exists():
+            pytest.skip("ai_help_data.json not found")
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        ai_help_count = len(data.get("mcp_tools", []))
+        assert tool_count == ai_help_count, f"ai_help tool count drift: code has {tool_count}, data has {ai_help_count}"
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Import cycle detection (Cursor "would worry me" item)

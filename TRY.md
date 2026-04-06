@@ -22,6 +22,15 @@ rondo preflight
 
 That's it. `uv tool install` creates an isolated environment — no venv activation, no pip, no dependency conflicts. `rondo` is on your PATH.
 
+**Alternative install methods** (if uv is blocked in your environment):
+```bash
+# pipx (similar isolation to uv)
+pipx install rondo
+
+# pip (global — last resort)
+pip install --user rondo
+```
+
 **For developers** (editable install for contributing):
 ```bash
 git clone <repo-url>

@@ -90,6 +90,9 @@ def run_preflight(
     # -- REQ-109 req 017: provider health (key present + API reachable)
     _check_provider_health(result)
 
+    # -- FIX-690: platform capability check (informational, not blocking)
+    _check_platform(result)
+
     # -- Calculate final status
     if result.errors:
         result.status = "RED"
@@ -195,6 +198,33 @@ def _check_provider_health(result: PreflightResult) -> None:
                 result.warnings.append(f"provider {name}: DOWN — {status.error or 'health check failed'}")
     except Exception as exc:  # noqa: BLE001
         result.warnings.append(f"Provider health check failed: {exc}")
+
+
+def _check_platform(result: PreflightResult) -> None:
+    """FIX-690: platform capability matrix — factual, not blocking.
+
+    Reports which optional features are available on this OS.
+    Core dispatch always works. macOS-only features noted as unavailable.
+    """
+    import platform
+    import sys
+
+    os_name = platform.system()  # -- Darwin, Linux, Windows
+    arch = platform.machine()  # -- arm64, x86_64
+    result.checks.append(f"platform: {os_name} {arch} (Python {sys.version.split()[0]})")
+
+    if os_name == "Darwin":
+        result.checks.append("notifications: available (osascript)")
+        result.checks.append("keychain: available (macOS Keychain)")
+        result.checks.append("scheduling: available (launchd)")
+    elif os_name == "Linux":
+        result.checks.append("notifications: unavailable (macOS only) — errors go to stderr + file log")
+        result.checks.append("keychain: unavailable — use env vars or config.toml for API keys")
+        result.checks.append("scheduling: use cron or systemd timers (launchd is macOS only)")
+    else:
+        result.warnings.append(f"platform {os_name}: untested — core dispatch may work, optional features unavailable")
+        result.checks.append("notifications: unavailable")
+        result.checks.append("keychain: unavailable — use env vars or config.toml for API keys")
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.82d3a1

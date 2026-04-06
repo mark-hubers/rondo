@@ -132,9 +132,41 @@ Replaces `ai-review --all-providers --compare`.
 
 ---
 
+## v0.7 Three-Engine Dispatch (RONDO-129 — Session 99)
+
+**Problem discovered:** Audit logs showed 100% failure rate (59/59) on in-session
+subprocess dispatch (`claude -p`). Subprocess can't authenticate inside an existing
+Claude Code session ("Not logged in"). Cloud HTTP adapters: 95% success (39/41).
+
+**Solution:** `resolve_dispatch_engine()` in `mcp_dispatch.py` — four engines:
+
+| Engine | When | How |
+|--------|------|-----|
+| **INLINE** | model="" or omitted | Return plan, host session executes with full context |
+| **AGENT** | Claude model in-session (sonnet/opus/haiku) | Return plan, host spawns Agent(model=X) |
+| **HTTP** | Provider prefix (gemini:/grok:/local:/openai:/mistral:/anthropic:) | Adapter dispatch via API |
+| **SUBPROCESS** | background=True, :new suffix, or CLI (not in-session) | `claude -p --bare` |
+
+**Decision tree:**
+```
+background=True?  → SUBPROCESS
+provider prefix?  → HTTP ADAPTER
+model empty?      → INLINE
+:new suffix?      → SUBPROCESS
+Claude model + in-session?  → AGENT
+Claude model + CLI?         → SUBPROCESS
+else → ERROR
+```
+
+**Tests:** 23 routing tests, zero mocking. 18 in-session + 7 out-of-session verified real.
+
+**Findings closed:** #199 (HIGH), #198 (MEDIUM)
+
+---
+
 ## Cross-References
 
-- `scripts/ai_review.py` — reference implementation (keep until adapters proven)
+- `scripts/ai_review.py` — legacy implementation (adapters replace it)
 - `scripts/ai-keys.py` — Keychain management (reuse in adapters)
 - REQ-109 — provider adapter spec (already covers this architecture)
 - SPEC-INLINE-DISPATCH.md — provider:model routing (already built)

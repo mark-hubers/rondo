@@ -76,6 +76,19 @@ def is_claude_model(model: str) -> bool:
     """
     return model in _CLAUDE_MODELS
 
+
+def is_legacy_ollama_model(model: str) -> bool:
+    """Public accessor: check if model name matches legacy Ollama prefix.
+
+    RONDO-131: Cursor found that resolve_dispatch_engine() and get_provider()
+    disagreed on unprefixed Ollama names (llama3.1:8b, qwen2.5:32b).
+    This function unifies the check — same regex logic as get_provider line 243.
+    """
+    import re
+
+    model_base = re.sub(r"[\d.:]+.*$", "", model.split("-")[0].lower())
+    return model_base in _OLLAMA_PREFIXES
+
 # -- REQ-109 reqs 041-045: Provider tiers
 _TIER_NAMES = {"high", "default", "low"}
 _TIER_MAP = {"high": "best_model", "default": "default_model", "low": "cheap_model"}

@@ -397,26 +397,28 @@ def resolve_dispatch_engine(
     done_when: str = "Task completed. Return results.",
     project: str = "",
 ) -> dict:
-    """RONDO-129: Three-engine dispatch routing — the heart of v0.7.
+    """RONDO-129/131: Four-engine dispatch routing — the heart of v0.7.
 
     Decision tree (order matters):
         1. background=True → SUBPROCESS (only valid use of claude -p)
-        2. provider prefix (gemini:/grok:/local:/openai:/mistral:) → HTTP adapter
-        3. model empty OR (Claude model AND in-session AND same model) → INLINE
-        4. Claude model AND in-session AND different model → AGENT
-        5. Claude model AND NOT in-session → SUBPROCESS (CLI usage)
-        6. explicit anthropic: prefix → HTTP adapter (API key billing)
-        7. fallback → ERROR
+        2. provider prefix (gemini:/grok:/local:/openai:/mistral:/anthropic:) → HTTP
+        3. model empty → INLINE (current session, full context)
+        4. :new suffix → SUBPROCESS (force fresh session)
+        5. Claude model + in-session → AGENT (host spawns Agent)
+        6. Claude model + CLI → SUBPROCESS
+        7. Legacy Ollama name (llama, qwen, etc.) → HTTP (backward compat)
+        8. fallback → ERROR
 
-    Returns dict with 'engine' key: inline | agent | http | subprocess | error
-    Plus engine-specific fields the caller needs.
+    Returns dict with 'engine' + 'status' keys. Plans have status='plan'.
+    Engine-specific fields: kind, prompt, done_when, model, project, provider.
     """
-    from rondo.providers import is_claude_model, parse_model
+    from rondo.providers import is_claude_model, is_legacy_ollama_model, parse_model
 
     # -- Step 1: background always goes to subprocess
     if background:
         return {
             "engine": "subprocess",
+            "status": "plan",
             "model": model or "sonnet",
             "reason": "background=True forces subprocess dispatch",
         }
@@ -425,33 +427,24 @@ def resolve_dispatch_engine(
     provider, model_name = parse_model(model)
 
     # -- Step 3: explicit provider prefix → HTTP adapter
-    if provider and provider != "anthropic":
-        # -- gemini:, grok:, openai:, mistral:, local: → HTTP adapters
+    if provider:
         return {
             "engine": "http",
+            "status": "plan",
             "provider": provider,
             "model": model_name,
             "model_raw": model,
             "reason": f"Provider prefix '{provider}:' routes to HTTP adapter",
         }
 
-    # -- Step 4: anthropic: prefix → HTTP adapter (API key, not Max plan)
-    if provider == "anthropic":
-        return {
-            "engine": "http",
-            "provider": "anthropic",
-            "model": model_name,
-            "model_raw": model,
-            "reason": "Explicit 'anthropic:' prefix routes to API adapter (API key billing)",
-        }
-
-    # -- Step 5: no prefix — Claude model or empty
+    # -- Step 4: no prefix — Claude model or empty
     in_session = _is_in_session()
 
-    # -- Step 5a: model empty → inline (use current session)
+    # -- Step 4a: model empty → inline (use current session)
     if not model:
         return {
             "engine": "inline",
+            "status": "plan",
             "kind": "inline_dispatch_plan",
             "prompt": prompt,
             "done_when": done_when,
@@ -460,25 +453,22 @@ def resolve_dispatch_engine(
             "reason": "No model specified — execute inline in current session",
         }
 
-    # -- Step 5b: Claude model
-    is_claude = is_claude_model(model.removesuffix(":new"))
-
-    # -- :new suffix forces subprocess (explicit new session request)
+    # -- Step 4b: :new suffix forces subprocess
     if model.endswith(":new"):
         return {
             "engine": "subprocess",
+            "status": "plan",
             "model": model.removesuffix(":new"),
             "reason": "':new' suffix forces new subprocess session",
         }
 
+    # -- Step 5: Claude model
+    is_claude = is_claude_model(model)
+
     if is_claude and in_session:
-        # -- In-session Claude model → AGENT (different model) or INLINE (same)
-        # -- We can't detect the current session model from MCP context,
-        # -- so Claude models in-session always go to AGENT.
-        # -- The host session (Claude) decides: if it's the same model, it can
-        # -- execute inline; if different, it spawns Agent(model=X).
         return {
             "engine": "agent",
+            "status": "plan",
             "kind": "agent_dispatch_plan",
             "prompt": prompt,
             "done_when": done_when,
@@ -489,16 +479,28 @@ def resolve_dispatch_engine(
         }
 
     if is_claude and not in_session:
-        # -- CLI usage (not inside Claude Code) → subprocess is fine
         return {
             "engine": "subprocess",
+            "status": "plan",
             "model": model,
             "reason": f"Claude model '{model}' outside session — subprocess OK",
         }
 
-    # -- Step 6: unknown model → error
+    # -- Step 6: legacy Ollama model names (llama3.1:8b, qwen2.5:32b, etc.)
+    if is_legacy_ollama_model(model):
+        return {
+            "engine": "http",
+            "status": "plan",
+            "provider": "local",
+            "model": model,
+            "model_raw": model,
+            "reason": f"Legacy Ollama model name '{model}' routed to HTTP adapter",
+        }
+
+    # -- Step 7: unknown model → error
     return {
         "engine": "error",
+        "status": "error",
         "model": model,
         "reason": f"Unknown model '{model}' — not a known Claude model or provider prefix",
     }

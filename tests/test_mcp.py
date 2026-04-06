@@ -1086,12 +1086,12 @@ class TestDiskBasedRetry:
 
 
 # -- ──────────────────────────────────────────────────────────────
-# --  RONDO-129: Three-engine dispatch routing (replaces RONDO-111)
+# --  RONDO-129/131: Four-engine dispatch routing (replaces RONDO-111)
 # -- ──────────────────────────────────────────────────────────────
 
 
 class TestResolveDispatchEngine:
-    """RONDO-129: Pure routing logic — every input combination, no mocking."""
+    """RONDO-129/131: Pure routing logic — every input combination, no mocking."""
 
     def test_empty_model_returns_inline(self) -> None:
         """No model → inline engine (execute in current session)."""
@@ -1252,6 +1252,111 @@ class TestResolveDispatchEngine:
             result = resolve_dispatch_engine(model=model, prompt="hello")
             assert result["engine"] == "agent", f"{model} should be recognized as Claude"
 
+    # -- RONDO-131: Tests for Cursor findings (gaps that should have caught issues)
+
+    def test_legacy_ollama_routes_to_http(self) -> None:
+        """Cursor #1a: llama3.1:8b without local: prefix → HTTP, not error.
+
+        Previously resolve_dispatch_engine returned 'error' for unprefixed Ollama names
+        while get_provider() returned OllamaAdapter. This caused a routing divergence.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        for model in ("llama3.1:8b", "qwen2.5:32b", "deepseek-r1:14b", "phi4:latest"):
+            result = resolve_dispatch_engine(model=model, prompt="hello")
+            assert result["engine"] == "http", f"Legacy Ollama '{model}' should route to HTTP, got {result['engine']}"
+            assert result["provider"] == "local"
+
+    def test_all_plans_have_status_field(self) -> None:
+        """Cursor #6/#7: All plans must include status='plan' for defensive parsing.
+
+        Without status, clients doing result['status'] get KeyError or
+        misinterpret plans as dispatch results.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        # -- Every engine type should have status
+        cases = [
+            ("", False),           # -- inline
+            ("sonnet", True),      # -- subprocess (background)
+            ("gemini:high", False), # -- http
+        ]
+        for model, bg in cases:
+            result = resolve_dispatch_engine(model=model, background=bg, prompt="hello")
+            assert "status" in result, f"model={model!r} bg={bg} missing 'status' field"
+            assert result["status"] in ("plan", "error"), f"Unexpected status: {result['status']}"
+
+    def test_agent_plan_has_status(self, monkeypatch) -> None:
+        """Agent plans also need status='plan'."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        result = resolve_dispatch_engine(model="sonnet", prompt="hello")
+        assert result["status"] == "plan"
+
+    def test_error_has_status_error(self, monkeypatch) -> None:
+        """Error results have status='error' (not 'plan')."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+        result = resolve_dispatch_engine(model="totally-unknown-xyz", prompt="hello")
+        assert result["status"] == "error"
+        assert result["engine"] == "error"
+
+    def test_router_agrees_with_get_provider(self) -> None:
+        """Cursor #8: resolve_dispatch_engine and get_provider must not disagree.
+
+        The 'harshest line' from Cursor: two routers that disagree = two products.
+        This test feeds every known model pattern through BOTH and asserts parity.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+        from rondo.providers import get_provider
+
+        # -- (model, expected_is_http_in_both)
+        # -- get_provider returns None for Claude (subprocess), adapter for others
+        test_models = [
+            # -- Claude models: get_provider=None, router=agent/subprocess (both=not HTTP)
+            ("sonnet", False),
+            ("opus", False),
+            ("haiku", False),
+            # -- Prefixed providers: both route to HTTP
+            ("gemini:gemini-2.5-flash", True),
+            ("grok:grok-3", True),
+            ("local:qwen2.5:32b", True),
+            # -- Legacy Ollama: BOTH must route to HTTP (was the Cursor bug)
+            ("llama3.1:8b", True),
+            ("qwen2.5:32b", True),
+        ]
+        for model, expect_http in test_models:
+            provider = get_provider(model)
+            engine = resolve_dispatch_engine(model=model, prompt="test")
+            provider_is_http = provider is not None
+            engine_is_http = engine["engine"] == "http"
+
+            if expect_http:
+                assert provider_is_http, f"get_provider({model!r}) should return adapter, got None"
+                assert engine_is_http, f"resolve_dispatch_engine({model!r}) should be HTTP, got {engine['engine']}"
+            else:
+                assert not provider_is_http, f"get_provider({model!r}) should return None for Claude, got {provider}"
+                assert not engine_is_http, f"resolve_dispatch_engine({model!r}) should NOT be HTTP, got {engine['engine']}"
+
+    def test_anthropic_prefix_distinct_from_bare(self, monkeypatch) -> None:
+        """Cursor #5: anthropic:sonnet → HTTP (API key), sonnet → Agent (Max plan).
+
+        Users need to understand this distinction. Test enforces the split.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        # -- Bare sonnet in-session = agent (Max plan billing)
+        bare = resolve_dispatch_engine(model="sonnet", prompt="hello")
+        assert bare["engine"] == "agent"
+
+        # -- anthropic:sonnet = HTTP adapter (API key billing)
+        prefixed = resolve_dispatch_engine(model="anthropic:sonnet", prompt="hello")
+        assert prefixed["engine"] == "http"
+        assert prefixed["provider"] == "anthropic"
+
 
 class TestDispatchEngineIntegration:
     """RONDO-129: Test that rondo_run_file uses the routing engine correctly."""
@@ -1313,13 +1418,17 @@ class TestDispatchEngineIntegration:
         assert result["model"] == "current"
 
     def test_ollama_model_dispatches_via_http(self) -> None:
-        """Local model dispatches via HTTP adapter, not subprocess."""
+        """Local model dispatches via HTTP adapter — assert positive, not 'not X'.
+
+        Cursor #3a: old test asserted '!= inline' which passes on errors too.
+        This test asserts the ACTUAL result shape for Ollama dry-run dispatch.
+        """
         from rondo.mcp_server import rondo_run_file
 
         result = json.loads(rondo_run_file(prompt="Say hello", model="llama3.1:8b", dry_run=True))
-        # -- Ollama goes through HTTP adapter (dry-run returns skipped status)
-        assert result.get("kind") != "inline_dispatch_plan"
-        assert result.get("kind") != "agent_dispatch_plan"
+        # -- Ollama goes through HTTP adapter — dry-run returns skipped tasks
+        assert result.get("status") in ("done", "plan"), f"Expected done/plan, got: {result.get('status')}"
+        assert result.get("engine") != "error", f"Should not be error: {result.get('reason', '')}"
 
     def test_empty_prompt_and_model_is_error(self) -> None:
         """No prompt + no model + no file = error."""

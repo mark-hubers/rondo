@@ -383,25 +383,125 @@ def _build_round_and_config(
     return round_def, RondoConfig(**config_kwargs)
 
 
-def _check_inline_dispatch(model: str, prompt: str, done_when: str, project: str) -> str | None:
-    """RONDO-111: return inline dispatch plan if model is empty + prompt provided.
+def _is_in_session() -> bool:
+    """Detect if running inside a Claude Code session (CLAUDECODE env var)."""
+    import os
 
-    MCP tools return data only (Cursor confirmed). When no model specified,
-    return a plan for the host to execute inline — no subprocess needed.
-    Returns None if normal dispatch should proceed.
+    return bool(os.environ.get("CLAUDECODE"))
+
+
+def resolve_dispatch_engine(
+    model: str,
+    background: bool = False,
+    prompt: str = "",
+    done_when: str = "Task completed. Return results.",
+    project: str = "",
+) -> dict:
+    """RONDO-129: Three-engine dispatch routing — the heart of v0.7.
+
+    Decision tree (order matters):
+        1. background=True → SUBPROCESS (only valid use of claude -p)
+        2. provider prefix (gemini:/grok:/local:/openai:/mistral:) → HTTP adapter
+        3. model empty OR (Claude model AND in-session AND same model) → INLINE
+        4. Claude model AND in-session AND different model → AGENT
+        5. Claude model AND NOT in-session → SUBPROCESS (CLI usage)
+        6. explicit anthropic: prefix → HTTP adapter (API key billing)
+        7. fallback → ERROR
+
+    Returns dict with 'engine' key: inline | agent | http | subprocess | error
+    Plus engine-specific fields the caller needs.
     """
-    if not model and prompt:
-        return json.dumps(
-            {
-                "kind": "inline_dispatch_plan",
-                "prompt": prompt,
-                "done_when": done_when,
-                "model": "current",
-                "project": project,
-                "note": "No model specified — execute this inline in your current session.",
-            }
-        )
-    return None
+    from rondo.providers import is_claude_model, parse_model
+
+    # -- Step 1: background always goes to subprocess
+    if background:
+        return {
+            "engine": "subprocess",
+            "model": model or "sonnet",
+            "reason": "background=True forces subprocess dispatch",
+        }
+
+    # -- Step 2: parse provider prefix
+    provider, model_name = parse_model(model)
+
+    # -- Step 3: explicit provider prefix → HTTP adapter
+    if provider and provider != "anthropic":
+        # -- gemini:, grok:, openai:, mistral:, local: → HTTP adapters
+        return {
+            "engine": "http",
+            "provider": provider,
+            "model": model_name,
+            "model_raw": model,
+            "reason": f"Provider prefix '{provider}:' routes to HTTP adapter",
+        }
+
+    # -- Step 4: anthropic: prefix → HTTP adapter (API key, not Max plan)
+    if provider == "anthropic":
+        return {
+            "engine": "http",
+            "provider": "anthropic",
+            "model": model_name,
+            "model_raw": model,
+            "reason": "Explicit 'anthropic:' prefix routes to API adapter (API key billing)",
+        }
+
+    # -- Step 5: no prefix — Claude model or empty
+    in_session = _is_in_session()
+
+    # -- Step 5a: model empty → inline (use current session)
+    if not model:
+        return {
+            "engine": "inline",
+            "kind": "inline_dispatch_plan",
+            "prompt": prompt,
+            "done_when": done_when,
+            "model": "current",
+            "project": project,
+            "reason": "No model specified — execute inline in current session",
+        }
+
+    # -- Step 5b: Claude model
+    is_claude = is_claude_model(model.removesuffix(":new"))
+
+    # -- :new suffix forces subprocess (explicit new session request)
+    if model.endswith(":new"):
+        return {
+            "engine": "subprocess",
+            "model": model.removesuffix(":new"),
+            "reason": "':new' suffix forces new subprocess session",
+        }
+
+    if is_claude and in_session:
+        # -- In-session Claude model → AGENT (different model) or INLINE (same)
+        # -- We can't detect the current session model from MCP context,
+        # -- so Claude models in-session always go to AGENT.
+        # -- The host session (Claude) decides: if it's the same model, it can
+        # -- execute inline; if different, it spawns Agent(model=X).
+        return {
+            "engine": "agent",
+            "kind": "agent_dispatch_plan",
+            "prompt": prompt,
+            "done_when": done_when,
+            "model": model,
+            "project": project,
+            "reason": f"Claude model '{model}' in-session — use Agent tool",
+            "note": "If this is your current model, execute inline instead of spawning an agent.",
+        }
+
+    if is_claude and not in_session:
+        # -- CLI usage (not inside Claude Code) → subprocess is fine
+        return {
+            "engine": "subprocess",
+            "model": model,
+            "reason": f"Claude model '{model}' outside session — subprocess OK",
+        }
+
+    # -- Step 6: unknown model → error
+    return {
+        "engine": "error",
+        "model": model,
+        "reason": f"Unknown model '{model}' — not a known Claude model or provider prefix",
+    }
 
 
 def rondo_run_file(
@@ -429,11 +529,28 @@ def rondo_run_file(
     if err:
         return err
 
-    # -- RONDO-111/112: inline dispatch + model resolution
-    plan = _check_inline_dispatch(model, prompt, done_when, project)
-    if plan:
-        return plan
-    # -- Strip provider prefix (local:llama → llama) and :new suffix
+    # -- RONDO-129: Three-engine dispatch routing
+    engine = resolve_dispatch_engine(
+        model=model,
+        background=background,
+        prompt=prompt,
+        done_when=done_when,
+        project=project,
+    )
+
+    # -- Inline dispatch: return plan for host session to execute
+    if engine["engine"] == "inline":
+        return json.dumps(engine, indent=2)
+
+    # -- Agent dispatch: return plan for host to spawn Agent(model=X)
+    if engine["engine"] == "agent":
+        return json.dumps(engine, indent=2)
+
+    # -- Error: unknown model
+    if engine["engine"] == "error":
+        return json.dumps({"status": "error", "error": engine["reason"], "model": model})
+
+    # -- HTTP adapter or subprocess: proceed with dispatch
     from rondo.providers import parse_model
 
     _provider, _model_name = parse_model(model.removesuffix(":new") if model.endswith(":new") else model)

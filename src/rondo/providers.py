@@ -68,6 +68,14 @@ class ProviderAdapter(ABC):
 _CLAUDE_MODELS = {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}
 _OLLAMA_PREFIXES = {"llama", "qwen", "mistral", "phi", "gemma", "codellama", "deepseek"}
 
+
+def is_claude_model(model: str) -> bool:
+    """Public accessor: check if model name is a known Claude model.
+
+    RONDO-129: used by dispatch routing to decide inline/agent/subprocess.
+    """
+    return model in _CLAUDE_MODELS
+
 # -- REQ-109 reqs 041-045: Provider tiers
 _TIER_NAMES = {"high", "default", "low"}
 _TIER_MAP = {"high": "best_model", "default": "default_model", "low": "cheap_model"}

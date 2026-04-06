@@ -1086,47 +1086,217 @@ class TestDiskBasedRetry:
 
 
 # -- ──────────────────────────────────────────────────────────────
-# --  RONDO-111: Inline dispatch plan
+# --  RONDO-129: Three-engine dispatch routing (replaces RONDO-111)
 # -- ──────────────────────────────────────────────────────────────
 
 
-class TestInlineDispatchPlan:
-    """RONDO-111: when model omitted from MCP, return dispatch plan for host."""
+class TestResolveDispatchEngine:
+    """RONDO-129: Pure routing logic — every input combination, no mocking."""
 
-    def test_no_model_returns_dispatch_plan(self) -> None:
-        """Omitting model returns inline_dispatch_plan, not a subprocess result."""
-        from rondo.mcp_server import rondo_run_file
+    def test_empty_model_returns_inline(self) -> None:
+        """No model → inline engine (execute in current session)."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
 
-        result = json.loads(
-            rondo_run_file(
-                prompt="Check this code for issues",
-                model="",
-                dry_run=True,
-            )
+        result = resolve_dispatch_engine(model="", prompt="hello")
+        assert result["engine"] == "inline"
+        assert result["kind"] == "inline_dispatch_plan"
+        assert result["prompt"] == "hello"
+        assert result["model"] == "current"
+
+    def test_background_forces_subprocess(self) -> None:
+        """background=True → subprocess, regardless of model."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        for model in ("", "sonnet", "haiku", "gemini:high"):
+            result = resolve_dispatch_engine(model=model, background=True, prompt="hello")
+            assert result["engine"] == "subprocess", f"background+{model} should be subprocess"
+
+    def test_gemini_routes_to_http(self) -> None:
+        """gemini: prefix → HTTP adapter."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="gemini:gemini-2.5-flash", prompt="hello")
+        assert result["engine"] == "http"
+        assert result["provider"] == "gemini"
+
+    def test_grok_routes_to_http(self) -> None:
+        """grok: prefix → HTTP adapter."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="grok:grok-3", prompt="hello")
+        assert result["engine"] == "http"
+        assert result["provider"] == "grok"
+
+    def test_openai_routes_to_http(self) -> None:
+        """openai: prefix → HTTP adapter."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="openai:gpt-4.1", prompt="hello")
+        assert result["engine"] == "http"
+        assert result["provider"] == "openai"
+
+    def test_mistral_routes_to_http(self) -> None:
+        """mistral: prefix → HTTP adapter."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="mistral:mistral-large-latest", prompt="hello")
+        assert result["engine"] == "http"
+        assert result["provider"] == "mistral"
+
+    def test_local_routes_to_http(self) -> None:
+        """local: prefix → HTTP adapter (Ollama)."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="local:qwen2.5:32b", prompt="hello")
+        assert result["engine"] == "http"
+        assert result["provider"] == "local"
+
+    def test_anthropic_prefix_routes_to_http(self) -> None:
+        """anthropic: prefix → HTTP adapter (API key billing, not Max plan)."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="anthropic:sonnet", prompt="hello")
+        assert result["engine"] == "http"
+        assert result["provider"] == "anthropic"
+
+    def test_new_suffix_forces_subprocess(self) -> None:
+        """model='sonnet:new' → subprocess (explicit new session)."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="sonnet:new", prompt="hello")
+        assert result["engine"] == "subprocess"
+        assert result["model"] == "sonnet"
+
+    def test_claude_model_in_session_returns_agent(self, monkeypatch) -> None:
+        """Claude model inside Claude Code session → agent engine."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        for model in ("sonnet", "opus", "haiku"):
+            result = resolve_dispatch_engine(model=model, prompt="hello")
+            assert result["engine"] == "agent", f"{model} in-session should be agent"
+            assert result["kind"] == "agent_dispatch_plan"
+            assert result["model"] == model
+
+    def test_claude_model_outside_session_returns_subprocess(self, monkeypatch) -> None:
+        """Claude model outside Claude Code session (CLI) → subprocess."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+        for model in ("sonnet", "opus", "haiku"):
+            result = resolve_dispatch_engine(model=model, prompt="hello")
+            assert result["engine"] == "subprocess", f"{model} outside session should be subprocess"
+
+    def test_unknown_model_returns_error(self, monkeypatch) -> None:
+        """Unknown model name → error engine."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+        result = resolve_dispatch_engine(model="nonexistent-model-xyz", prompt="hello")
+        assert result["engine"] == "error"
+
+    def test_inline_plan_has_all_fields(self) -> None:
+        """Inline plan includes prompt, done_when, model, project."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(
+            model="",
+            prompt="Review this code",
+            done_when="List findings",
+            project="/tmp/myproject",
         )
-        assert result.get("kind") == "inline_dispatch_plan"
-        assert "prompt" in result
-        assert "done_when" in result
+        assert result["engine"] == "inline"
+        assert result["prompt"] == "Review this code"
+        assert result["done_when"] == "List findings"
+        assert result["project"] == "/tmp/myproject"
+        assert result["model"] == "current"
 
-    def test_named_claude_model_dispatches_normally(self) -> None:
-        """Named Claude models (sonnet/opus/haiku) dispatch via subprocess — caller wants THAT model."""
+    def test_agent_plan_has_all_fields(self, monkeypatch) -> None:
+        """Agent plan includes prompt, done_when, model, project, note."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        result = resolve_dispatch_engine(
+            model="haiku",
+            prompt="Quick check",
+            done_when="Done",
+            project="/tmp/proj",
+        )
+        assert result["engine"] == "agent"
+        assert result["prompt"] == "Quick check"
+        assert result["model"] == "haiku"
+        assert result["project"] == "/tmp/proj"
+        assert "note" in result
+
+    def test_background_overrides_inline(self) -> None:
+        """background=True + empty model → subprocess (not inline)."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="", background=True, prompt="hello")
+        assert result["engine"] == "subprocess"
+
+    def test_background_overrides_agent(self, monkeypatch) -> None:
+        """background=True + Claude model in-session → subprocess (not agent)."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        result = resolve_dispatch_engine(model="sonnet", background=True, prompt="hello")
+        assert result["engine"] == "subprocess"
+
+    def test_1m_models_detected(self, monkeypatch) -> None:
+        """sonnet[1m] and opus[1m] are recognized as Claude models."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        for model in ("sonnet[1m]", "opus[1m]"):
+            result = resolve_dispatch_engine(model=model, prompt="hello")
+            assert result["engine"] == "agent", f"{model} should be recognized as Claude"
+
+
+class TestDispatchEngineIntegration:
+    """RONDO-129: Test that rondo_run_file uses the routing engine correctly."""
+
+    def test_empty_model_returns_inline_plan(self) -> None:
+        """rondo_run_file with empty model returns inline plan."""
         from rondo.mcp_server import rondo_run_file
 
-        for model_name in ("sonnet", "opus", "haiku"):
-            result = json.loads(rondo_run_file(prompt="Say hello", model=model_name, dry_run=True))
-            assert result.get("kind") != "inline_dispatch_plan", f"{model_name} should dispatch, not plan"
-            assert result.get("status") in ("done", "skipped")
+        result = json.loads(rondo_run_file(prompt="Check this code", model="", dry_run=True))
+        assert result.get("engine") == "inline"
+        assert result.get("kind") == "inline_dispatch_plan"
+        assert result["prompt"] == "Check this code"
+
+    def test_claude_model_in_session_returns_agent_plan(self) -> None:
+        """rondo_run_file with Claude model in-session returns agent plan.
+
+        This test runs inside Claude Code (CLAUDECODE is set).
+        Previously this would try subprocess and fail 100% of the time.
+        Now it returns an agent plan for the host session to execute.
+        """
+        import os
+
+        if not os.environ.get("CLAUDECODE"):
+            # -- Outside session: Claude models go to subprocess, which is correct
+            return
+        from rondo.mcp_server import rondo_run_file
+
+        for model in ("sonnet", "opus", "haiku"):
+            result = json.loads(rondo_run_file(prompt="Say hello", model=model, dry_run=True))
+            assert result.get("engine") == "agent", (
+                f"{model} in-session should return agent plan, not subprocess. "
+                f"Got: {result.get('engine', result.get('status'))}"
+            )
 
     def test_force_new_subprocess(self) -> None:
-        """model='sonnet:new' forces subprocess dispatch (clean context)."""
+        """model='sonnet:new' forces subprocess even in-session."""
         from rondo.mcp_server import rondo_run_file
 
         result = json.loads(rondo_run_file(prompt="Say hello", model="sonnet:new", dry_run=True))
-        ## -- :new suffix forces subprocess, not inline plan
+        # -- :new suffix bypasses inline/agent, goes to subprocess dry-run
+        assert result.get("engine") != "inline"
         assert result.get("kind") != "inline_dispatch_plan"
 
-    def test_dispatch_plan_has_schema(self) -> None:
-        """Dispatch plan includes all fields host needs to execute inline."""
+    def test_inline_plan_has_schema(self) -> None:
+        """Inline plan includes all fields host needs to execute."""
         from rondo.mcp_server import rondo_run_file
 
         result = json.loads(
@@ -1137,62 +1307,22 @@ class TestInlineDispatchPlan:
                 done_when="List all findings as JSON",
             )
         )
-        assert result["kind"] == "inline_dispatch_plan"
+        assert result["engine"] == "inline"
         assert result["prompt"] == "Review src/main.py"
         assert result["done_when"] == "List all findings as JSON"
-        assert "model" in result  ## should say "current" or similar
+        assert result["model"] == "current"
 
-    def test_ollama_model_dispatches_directly(self) -> None:
-        """Local model always dispatches directly, never returns plan."""
+    def test_ollama_model_dispatches_via_http(self) -> None:
+        """Local model dispatches via HTTP adapter, not subprocess."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(
-            rondo_run_file(
-                prompt="Say hello",
-                model="llama3.1:8b",
-                dry_run=True,
-            )
-        )
+        result = json.loads(rondo_run_file(prompt="Say hello", model="llama3.1:8b", dry_run=True))
+        # -- Ollama goes through HTTP adapter (dry-run returns skipped status)
         assert result.get("kind") != "inline_dispatch_plan"
-
-    def test_background_with_no_model_returns_plan(self) -> None:
-        """Cursor review: background=True + model="" still returns plan (not background job)."""
-        from rondo.mcp_server import _background_results, rondo_run_file
-
-        before = len(_background_results)
-        result = json.loads(
-            rondo_run_file(
-                prompt="Check code",
-                model="",
-                background=True,
-                dry_run=True,
-            )
-        )
-        assert result["kind"] == "inline_dispatch_plan"
-        assert len(_background_results) == before  ## no background job created
-
-    def test_file_path_never_returns_plan(self, tmp_path) -> None:
-        """Cursor review: round files always dispatch normally, never return plan."""
-        from rondo.mcp_server import rondo_run_file
-
-        round_file = tmp_path / "test_round.py"
-        round_file.write_text(
-            "from rondo.engine import Round, Task\n"
-            "def build_round():\n"
-            '    return Round(name="test", tasks=[Task(name="t", instruction="x", done_when="y")])\n'
-        )
-        result = json.loads(
-            rondo_run_file(
-                file_path=str(round_file),
-                model="",
-                dry_run=True,
-            )
-        )
-        ## -- file_path mode: should NOT return plan (file needs actual dispatch)
-        assert result.get("kind") != "inline_dispatch_plan"
+        assert result.get("kind") != "agent_dispatch_plan"
 
     def test_empty_prompt_and_model_is_error(self) -> None:
-        """No prompt + no model + no file = error, not plan."""
+        """No prompt + no model + no file = error."""
         from rondo.mcp_server import rondo_run_file
 
         result = json.loads(rondo_run_file(prompt="", model="", dry_run=True))

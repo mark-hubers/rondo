@@ -30,7 +30,8 @@ class TestDispatchRecord:
 
     def test_record_has_timestamp(self):
         r = DispatchRecord(round_name="r", task_name="t", model="sonnet", status="done")
-        assert r.timestamp != ""
+        assert r.timestamp.startswith("20"), f"Not ISO 8601: {r.timestamp!r}"
+        assert "T" in r.timestamp, f"Missing time separator: {r.timestamp!r}"
 
 
 class TestLogDispatch:

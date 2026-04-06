@@ -282,10 +282,11 @@ class TestScrubAudit:
     """STD-114 req 010: log scrubbing events, never log the actual secret."""
 
     def test_detection_has_pattern_name(self):
-        """Each detection records which pattern matched."""
+        """Each detection records which pattern matched — assert actual name."""
         result = sanitize_text("api_key = 'sk-test123'")
         assert len(result.detections) > 0
-        assert result.detections[0].pattern_name != ""
+        assert isinstance(result.detections[0].pattern_name, str)
+        assert len(result.detections[0].pattern_name) >= 3, f"Pattern name too short: {result.detections[0].pattern_name!r}"
 
     def test_detection_has_line_number(self):
         """Detection records line number."""

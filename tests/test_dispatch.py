@@ -1886,11 +1886,12 @@ class TestDispatchAlwaysOn:
     """ALWAYS-ON: every dispatch path sets required fields."""
 
     def test_dry_run_has_timestamp(self):
-        """Even dry-run has timestamp."""
+        """Even dry-run has ISO 8601 timestamp."""
         task = Task(name="t", instruction="do", done_when="done")
         config = RondoConfig(dry_run=True)
         result, _ = dispatch_task(task, config)
-        assert result.timestamp != ""
+        assert result.timestamp.startswith("20"), f"Not ISO 8601: {result.timestamp!r}"
+        assert "T" in result.timestamp, f"Missing time separator: {result.timestamp!r}"
 
     def test_dry_run_has_model(self):
         """Dry-run records which model would be used."""

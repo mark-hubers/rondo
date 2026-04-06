@@ -332,13 +332,15 @@ class TestSummaryStats:
             assert result.status == "partial"
 
     def test_timing_fields_populated(self):
-        """Rondo-REQ-101 req 7: wall time and timing fields present."""
+        """Rondo-REQ-101 req 7: wall time as ISO 8601, duration non-negative."""
         r = Round(name="timing", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
         with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
-            assert result.started_at != ""
-            assert result.completed_at != ""
+            assert result.started_at.startswith("20"), f"Not ISO 8601: {result.started_at!r}"
+            assert "T" in result.started_at
+            assert result.completed_at.startswith("20"), f"Not ISO 8601: {result.completed_at!r}"
+            assert "T" in result.completed_at
             assert result.duration_sec >= 0
 
     def test_all_done_status(self):

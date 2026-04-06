@@ -51,10 +51,11 @@ class TestPhaseOneIntent:
         assert record.prompt_hash == f"sha256:{expected_hash}"
 
     def test_intent_has_timestamp(self, tmp_path):
-        """Intent record has dispatched_at timestamp."""
+        """Intent record has dispatched_at as ISO 8601 timestamp."""
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
         record = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
-        assert record.dispatched_at != ""
+        assert record.dispatched_at.startswith("20"), f"Not ISO 8601: {record.dispatched_at!r}"
+        assert "T" in record.dispatched_at, f"Missing time separator: {record.dispatched_at!r}"
 
     def test_intent_written_to_jsonl(self, tmp_path):
         """Intent record appended to JSONL file immediately."""
@@ -111,7 +112,8 @@ class TestPhaseTwoComplete:
         jsonl_file = tmp_path / "rondo_audit.jsonl"
         lines = jsonl_file.read_text(encoding="utf-8").strip().split("\n")
         complete = json.loads(lines[1])
-        assert complete["completed_at"] != ""
+        assert complete["completed_at"].startswith("20"), f"Not ISO 8601: {complete['completed_at']!r}"
+        assert "T" in complete["completed_at"], f"Missing time separator: {complete['completed_at']!r}"
 
 
 # -- ──────────────────────────────────────────────────────────────

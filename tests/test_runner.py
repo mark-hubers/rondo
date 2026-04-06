@@ -90,12 +90,14 @@ class TestRunRoundContract:
             assert result.round_name == "my-round"
 
     def test_timing_fields_populated(self):
-        """started_at, completed_at, duration_sec are populated."""
+        """started_at, completed_at are ISO 8601; duration_sec is non-negative."""
         r = Round(name="test", tasks=[Task(name="t1", instruction="do", done_when="done")])
         with patch("rondo.runner.dispatch_task", side_effect=_mock_dispatch):
             result = run_round(r, config=SEQ_CONFIG)
-            assert result.started_at != ""
-            assert result.completed_at != ""
+            assert result.started_at.startswith("20"), f"Not ISO 8601: {result.started_at!r}"
+            assert "T" in result.started_at
+            assert result.completed_at.startswith("20"), f"Not ISO 8601: {result.completed_at!r}"
+            assert "T" in result.completed_at
             assert result.duration_sec >= 0
 
 

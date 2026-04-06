@@ -500,13 +500,15 @@ class TestWatchdogResponse:
 
 class TestOvernightResult:
     def test_has_timing_fields(self):
-        """OvernightResult has started_at, completed_at, duration_sec."""
+        """OvernightResult has ISO 8601 timestamps and non-negative duration."""
         phases = [_make_round("a")]
         config = RondoConfig(workers=1)
         with patch("rondo.overnight.run_round", side_effect=_make_run_round_mock()):
             result = run_overnight(phases=phases, config=config)
-            assert result.started_at != ""
-            assert result.completed_at != ""
+            assert result.started_at.startswith("20"), f"Not ISO 8601: {result.started_at!r}"
+            assert "T" in result.started_at
+            assert result.completed_at.startswith("20"), f"Not ISO 8601: {result.completed_at!r}"
+            assert "T" in result.completed_at
             assert result.duration_sec >= 0
 
     def test_has_total_cost(self):
@@ -754,8 +756,10 @@ class TestOvernightResults:
         ]
         config = RondoConfig(dry_run=True)
         result = run_overnight(phases=phases, config=config)
-        assert result.started_at != ""
-        assert result.completed_at != ""
+        assert result.started_at.startswith("20"), f"Not ISO 8601: {result.started_at!r}"
+        assert "T" in result.started_at
+        assert result.completed_at.startswith("20"), f"Not ISO 8601: {result.completed_at!r}"
+        assert "T" in result.completed_at
         assert result.duration_sec >= 0
 
     def test_result_has_cost(self):

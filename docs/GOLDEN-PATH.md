@@ -3,19 +3,20 @@
 *The shortest path from install to your first useful AI dispatch.*
 
 **Audience:** New user (or Mark after 3 months away)
-**Prerequisites:** Python 3.12+, uv, Claude Code with Max plan
+**Prerequisites:** Python 3.12+, Claude Code with Max plan
 
 ---
 
 ## Step 1: Install (30 seconds)
 
 ```bash
-cd ~/git/mhubers/ace2/rondo
-uv tool install --editable . --force
+# Install uv (if needed) + Rondo — one command, no venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install --editable ~/git/mhubers/ace2/rondo --force
 rondo --version
 ```
 
-You now have `rondo` on your PATH.
+`uv tool install` creates an isolated environment automatically. No venv activation needed — `rondo` is on your PATH.
 
 ## Step 2: Configure Providers (60 seconds)
 

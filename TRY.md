@@ -2,24 +2,31 @@
 
 *You've never seen this project. Here's how to go from clone to successful AI dispatch.*
 
-**Requirements:** Python 3.12+, uv, Claude Code (Max plan OR API key)
+**Requirements:** Python 3.12+, Claude Code (Max plan OR API key)
 
 ---
 
-## Step 1: Clone and Install (2 minutes)
+## Step 1: Install (1 minute)
 
 ```bash
-git clone <repo-url>
-cd ace2/rondo
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create venv and install
-uv venv .venv
-source .venv/bin/activate
-uv pip install -e .
+# Install Rondo — one command, fully isolated, no venv dance
+uv tool install rondo --from git+https://github.com/<owner>/ace2.git#subdirectory=rondo
 
 # Verify
 rondo --version
 rondo preflight
+```
+
+That's it. `uv tool install` creates an isolated environment — no venv activation, no pip, no dependency conflicts. `rondo` is on your PATH.
+
+**For developers** (editable install for contributing):
+```bash
+git clone <repo-url>
+cd ace2/rondo
+uv tool install --editable . --force
 ```
 
 **Expected:** Version number + preflight shows GREEN or YELLOW (RED = fix first).

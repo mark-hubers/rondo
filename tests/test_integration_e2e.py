@@ -1392,15 +1392,21 @@ class TestRealDispatchSmoke:
         assert result.returncode in (0, 1), f"Unexpected returncode {result.returncode}: {result.stderr[:200]}"
 
     def test_real_claude_dispatch(self) -> None:
-        """Claude dispatch: real subprocess via claude -p (with --bare).
+        """Claude subprocess dispatch — only works from independent process.
 
-        Costs ~$0.01. Tests the full path: subprocess → hooks → Claude → result.
-        Uses haiku for speed and cost. --bare skips CLAUDE.md/hooks overhead.
-        Timeout 120s to allow for cold start.
+        RONDO-134 lesson: this test used pytest.skip on auth failure, hiding
+        100% subprocess failure from inside Claude Code sessions for months.
+
+        Now: skip ONLY if 'claude' binary is not installed (real prerequisite).
+        Auth failure = EXPECTED FAIL when run from inside CC (documented).
         """
         import json as _json
+        import shutil
         import tempfile
         import textwrap
+
+        if not shutil.which("claude"):
+            pytest.skip("Claude binary not installed")
 
         round_src = textwrap.dedent("""
             from rondo.engine import Round, Task
@@ -1416,19 +1422,19 @@ class TestRealDispatchSmoke:
             ["run", round_file, "--model", "haiku", "--bare"],
             timeout=120,
         )
-        ## -- If Claude binary not available or auth fails, skip gracefully
-        if result.returncode != 0:
-            if "not found" in result.stderr.lower() or "auth" in result.stderr.lower():
-                pytest.skip("Claude binary not available or auth failed")
-            ## -- Returncode 2 = argparse error (should not happen with round file)
-            assert result.returncode != 2, f"Argparse error: {result.stderr[:200]}"
-        ## -- If it ran, verify we got valid output
-        if result.returncode == 0 and result.stdout.strip():
-            try:
+        # -- From inside CC session: subprocess WILL fail (known, v0.7 uses Agent path instead)
+        # -- From CLI: subprocess should work
+        import os
+
+        if os.environ.get("CLAUDECODE"):
+            # -- In-session: subprocess fails. This is EXPECTED, not a skip.
+            # -- The real dispatch path is Agent (tested in test_real_dispatch.py PAT)
+            assert result.returncode != 0, "Subprocess should fail from inside CC session"
+        else:
+            # -- Outside session: subprocess should work
+            if result.returncode == 0 and result.stdout.strip():
                 data = _json.loads(result.stdout)
                 assert data.get("status") in ("done", "partial", "error", "skipped")
-            except _json.JSONDecodeError:
-                pass  ## -- Non-JSON output is acceptable (old CC versions)
 
 
 # -- ──────────────────────────────────────────────────────────────

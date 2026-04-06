@@ -71,6 +71,11 @@ DEFAULT_PATTERNS: list[SecretPattern] = [
         confidence=0.95,
     ),
     SecretPattern(
+        name="sk_prefix_key",
+        regex=r"""(sk-[A-Za-z0-9]{20,})""",
+        confidence=0.95,
+    ),
+    SecretPattern(
         name="aws_access_key",
         regex=r"""(AKIA[0-9A-Z]{16})""",
         confidence=0.99,

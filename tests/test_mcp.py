@@ -1279,9 +1279,9 @@ class TestResolveDispatchEngine:
 
         # -- Every engine type should have status
         cases = [
-            ("", False),           # -- inline
-            ("sonnet", True),      # -- subprocess (background)
-            ("gemini:high", False), # -- http
+            ("", False),  # -- inline
+            ("sonnet", True),  # -- subprocess (background)
+            ("gemini:high", False),  # -- http
         ]
         for model, bg in cases:
             result = resolve_dispatch_engine(model=model, background=bg, prompt="hello")
@@ -1340,7 +1340,9 @@ class TestResolveDispatchEngine:
                 assert engine_is_http, f"resolve_dispatch_engine({model!r}) should be HTTP, got {engine['engine']}"
             else:
                 assert not provider_is_http, f"get_provider({model!r}) should return None for Claude, got {provider}"
-                assert not engine_is_http, f"resolve_dispatch_engine({model!r}) should NOT be HTTP, got {engine['engine']}"
+                assert not engine_is_http, (
+                    f"resolve_dispatch_engine({model!r}) should NOT be HTTP, got {engine['engine']}"
+                )
 
     def test_anthropic_prefix_distinct_from_bare(self, monkeypatch) -> None:
         """Cursor #5: anthropic:sonnet → HTTP (API key), sonnet → Agent (Max plan).

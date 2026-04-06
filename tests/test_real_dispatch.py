@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Rondo Product Acceptance Tests — REAL dispatch, no mocking, no skipping.
 
+VER-001 verification matrix: product acceptance tests for all dispatch paths.
 RONDO-133: Every test calls a real function with real inputs and asserts
 the EXACT expected result. No pytest.skip for failures. No dry_run copouts.
 No '!= bad' assertions. If it fails, it FAILS.
@@ -34,9 +35,8 @@ import pytest
 # -- Ensure rondo is importable
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "src"))
 
-from rondo.mcp_dispatch import resolve_dispatch_engine, _is_in_session
+from rondo.mcp_dispatch import _is_in_session, resolve_dispatch_engine
 from rondo.providers import get_provider, is_claude_model, is_legacy_ollama_model
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  TIER 1: ROUTING — free, instant, always runs
@@ -315,9 +315,7 @@ class TestRealGemini:
         """Real dispatch tracks cost (even if $0.00 for free tier)."""
         from rondo.mcp_dispatch import rondo_run_file
 
-        result = json.loads(
-            rondo_run_file(prompt="Say OK", model="gemini:gemini-2.5-flash", dry_run=False)
-        )
+        result = json.loads(rondo_run_file(prompt="Say OK", model="gemini:gemini-2.5-flash", dry_run=False))
         tasks = result.get("tasks", [])
         assert len(tasks) >= 1
         # -- cost_usd exists (may be 0 for free tier, but field must exist)
@@ -329,6 +327,11 @@ class TestRealGrok:
     """Real Grok API dispatch."""
 
     def test_grok_responds(self) -> None:
+        """Grok dispatch — must succeed OR fail with clear auth error.
+
+        Finding #202: Grok returning 403 Forbidden. If auth fails, the test
+        FAILS with a clear message (not skip). Fix the key, not the test.
+        """
         from rondo.mcp_dispatch import rondo_run_file
 
         result = json.loads(
@@ -336,6 +339,11 @@ class TestRealGrok:
         )
         tasks = result.get("tasks", [])
         assert len(tasks) == 1, f"Expected 1 task, got {len(tasks)}"
+        if tasks[0]["status"] == "error" and tasks[0].get("error_code") == "ERR_AUTH":
+            pytest.fail(
+                f"Grok API key issue (403 Forbidden). Fix the key in ~/.rondo/config.toml "
+                f"or Keychain. Error: {tasks[0].get('error_message', '')[:100]}"
+            )
         assert tasks[0]["status"] == "done", f"Task status: {tasks[0]['status']}"
 
 
@@ -372,9 +380,7 @@ class TestRealOllama:
     def test_ollama_with_prefix(self) -> None:
         from rondo.mcp_dispatch import rondo_run_file
 
-        result = json.loads(
-            rondo_run_file(prompt="Say hello", model="local:llama3.1:8b", dry_run=False)
-        )
+        result = json.loads(rondo_run_file(prompt="Say hello", model="local:llama3.1:8b", dry_run=False))
         tasks = result.get("tasks", [])
         assert len(tasks) == 1
         assert tasks[0]["status"] == "done", f"Ollama failed: {tasks[0].get('error_code', '?')}"
@@ -383,9 +389,7 @@ class TestRealOllama:
         """Legacy name (no local: prefix) must work identically."""
         from rondo.mcp_dispatch import rondo_run_file
 
-        result = json.loads(
-            rondo_run_file(prompt="Say hello", model="llama3.1:8b", dry_run=False)
-        )
+        result = json.loads(rondo_run_file(prompt="Say hello", model="llama3.1:8b", dry_run=False))
         tasks = result.get("tasks", [])
         assert len(tasks) == 1
         assert tasks[0]["status"] == "done", f"Legacy Ollama failed: {tasks[0].get('error_code', '?')}"
@@ -410,7 +414,7 @@ class TestInSessionBehavior:
         assert _is_in_session() == expected
 
     def test_sonnet_routing_matches_context(self) -> None:
-        """sonnet → agent (in-session) or subprocess (outside). Not error."""
+        """Sonnet → agent (in-session) or subprocess (outside). Not error."""
         r = resolve_dispatch_engine(model="sonnet", prompt="x")
         if _is_in_session():
             assert r["engine"] == "agent", "In-session sonnet should be agent"
@@ -640,8 +644,8 @@ class TestSanitizeIntegrity:
 
     def test_normal_text_not_mangled(self) -> None:
         """sanitize_task_result returns (sanitized_result, report) tuple."""
-        from rondo.sanitize import sanitize_task_result
         from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
 
         tr = TaskResult(
             task_name="test",
@@ -654,8 +658,8 @@ class TestSanitizeIntegrity:
 
     def test_real_api_key_pattern_redacted(self) -> None:
         """API key patterns must be scrubbed from output."""
-        from rondo.sanitize import sanitize_task_result
         from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
 
         tr = TaskResult(
             task_name="test",
@@ -719,9 +723,7 @@ class TestBackgroundDispatch:
         """background=True + dry_run → should still return structured response."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(
-            rondo_run_file(prompt="background test", model="sonnet", background=True, dry_run=True)
-        )
+        result = json.loads(rondo_run_file(prompt="background test", model="sonnet", background=True, dry_run=True))
         # -- Background with dry_run may return plan or dry-run result
         assert isinstance(result, dict)
 
@@ -738,3 +740,6 @@ class TestBackgroundDispatch:
 
         result = json.loads(rondo_run_status(brief=True))
         assert isinstance(result, dict)
+
+
+# -- sig: mgh-6201.cd.bd955f.f1a9.99a9b9

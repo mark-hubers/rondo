@@ -286,7 +286,9 @@ class TestScrubAudit:
         result = sanitize_text("api_key = 'sk-test123'")
         assert len(result.detections) > 0
         assert isinstance(result.detections[0].pattern_name, str)
-        assert len(result.detections[0].pattern_name) >= 3, f"Pattern name too short: {result.detections[0].pattern_name!r}"
+        assert len(result.detections[0].pattern_name) >= 3, (
+            f"Pattern name too short: {result.detections[0].pattern_name!r}"
+        )
 
     def test_detection_has_line_number(self):
         """Detection records line number."""

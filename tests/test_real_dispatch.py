@@ -1133,6 +1133,71 @@ class TestAlwaysOnPipeline:
                 # -- OK: dispatch logic may fail downstream — we just care guard didn't fire
                 pass
 
+    def test_atomic_write_helper_creates_file(self, tmp_path) -> None:
+        """RONDO-144 (Finding #210): atomic_write creates the file correctly."""
+        from rondo.audit import atomic_write
+
+        target = tmp_path / "test.txt"
+        atomic_write(target, "hello world")
+        assert target.exists()
+        assert target.read_text() == "hello world"
+
+    def test_atomic_write_no_tmp_leftover(self, tmp_path) -> None:
+        """RONDO-144: atomic write cleans up temp file on success."""
+        from rondo.audit import atomic_write
+
+        target = tmp_path / "data.json"
+        atomic_write(target, '{"key":"value"}')
+        tmp_files = list(tmp_path.glob("*.tmp"))
+        assert len(tmp_files) == 0, f"Temp file leaked: {tmp_files}"
+        assert target.read_text() == '{"key":"value"}'
+
+    def test_audit_log_auto_rotates_at_size_limit(self, tmp_path) -> None:
+        """RONDO-144 (Finding #212): JSONL auto-rotates when size exceeds max_jsonl_bytes."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        # -- Tiny cap so one INTENT record triggers rotation
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path), max_jsonl_bytes=100))
+
+        # -- Record enough INTENT+OUTCOME pairs to exceed cap
+        for i in range(5):
+            record = trail.record_intent(
+                task_name=f"t{i}", round_name="rot-test", model="gemini-2.5-flash", prompt=f"prompt {i}"
+            )
+            trail.record_outcome(
+                dispatch_id=record.dispatch_id,
+                status="done",
+                exit_code=0,
+                raw_output="ok",
+            )
+
+        # -- archive/ should exist with rotated file
+        archive_dir = tmp_path / "archive"
+        assert archive_dir.exists(), "Archive dir missing — rotation didn't fire"
+        archive_files = list(archive_dir.glob("*.jsonl"))
+        assert len(archive_files) >= 1, "No archive files — rotation didn't write"
+
+    def test_audit_result_file_is_atomic(self, tmp_path) -> None:
+        """RONDO-144: result file write uses atomic pattern."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = trail.record_intent(
+            task_name="t", round_name="atomic-test", model="gemini-2.5-flash", prompt="hi"
+        )
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id,
+            status="done",
+            exit_code=0,
+            raw_output="real output",
+        )
+
+        # -- Result file exists, no .tmp leftover
+        result_files = list(tmp_path.glob("*.result.json"))
+        assert len(result_files) == 1
+        tmp_files = list(tmp_path.glob("*.tmp"))
+        assert len(tmp_files) == 0, f"Atomic write leaked temp: {tmp_files}"
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

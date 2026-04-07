@@ -61,11 +61,35 @@ class AuditConfig:
     prompt_storage: bool = True
     result_storage: bool = True
     audit_retention_days: int = 0  # -- 0 = keep forever
+    # -- RONDO-144 (Finding #212): size-based auto-rotation
+    max_jsonl_bytes: int = 10 * 1024 * 1024  # -- 10MB default
 
     def __post_init__(self) -> None:
         """COALESCE: explicit dir → RONDO_TEST_DIR → ~/.rondo/audit."""
         if not self.audit_dir:
             object.__setattr__(self, "audit_dir", _default_audit_dir())
+
+
+def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
+    """RONDO-144 (Finding #210): atomic file write via temp + rename.
+
+    Crash-safe: reader never sees a partial file. Either the old file
+    exists (write not started or failed) or the new file exists (write
+    completed). Never both, never torn.
+    """
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp_path.write_text(content, encoding=encoding)
+        # -- os.replace is atomic on POSIX and Windows (Python docs)
+        os.replace(str(tmp_path), str(path))
+    except OSError:
+        # -- Clean up tmp on failure
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        raise
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -190,10 +214,11 @@ class AuditTrail:
 
         # -- STD-113 req 004: save prompt to file
         # -- STD-113 req 009: scrub secrets before writing
+        # -- RONDO-144 (Finding #210): atomic write prevents torn reads on crash
         if self.config.prompt_storage:
             scrubbed = sanitize_text(prompt)
             prompt_path = self._audit_dir / prompt_file
-            prompt_path.write_text(scrubbed.sanitized_text, encoding="utf-8")
+            atomic_write(prompt_path, scrubbed.sanitized_text)
 
         # -- STD-113 req 007: append to JSONL (req 010: append-only)
         self._append_jsonl(record)
@@ -247,6 +272,7 @@ class AuditTrail:
 
         # -- STD-113 req 005: save result to file
         # -- STD-113 req 009: scrub secrets before writing
+        # -- RONDO-144 (Finding #210): atomic write prevents torn reads
         if self.config.result_storage and raw_output:
             scrubbed = sanitize_text(raw_output)
             result_data = {
@@ -256,10 +282,7 @@ class AuditTrail:
                 "secrets_scrubbed": scrubbed.secrets_found,
             }
             result_path = self._audit_dir / result_file
-            result_path.write_text(
-                json.dumps(result_data, indent=2),
-                encoding="utf-8",
-            )
+            atomic_write(result_path, json.dumps(result_data, indent=2))
 
         # -- STD-113 req 007 + 010: append outcome (never modify intent)
         self._append_jsonl(outcome)
@@ -330,7 +353,13 @@ class AuditTrail:
 
         Finding #186: advisory file lock prevents interleaved writes
         from parallel dispatch threads.
+
+        RONDO-144 (Finding #212): auto-rotate when JSONL exceeds
+        config.max_jsonl_bytes. Prevents audit dir from filling disk.
         """
+        # -- RONDO-144: size-based auto-rotation
+        self._maybe_rotate()
+
         line = json.dumps(record.to_dict()) + "\n"
         with self._jsonl_path.open("a", encoding="utf-8") as f:
             try:
@@ -343,6 +372,21 @@ class AuditTrail:
             except (ImportError, OSError):
                 ## -- Windows or lock failure: write without lock (best-effort)
                 f.write(line)
+
+    def _maybe_rotate(self) -> None:
+        """RONDO-144 (Finding #212): rotate if JSONL exceeds max_jsonl_bytes.
+
+        Called before each append. Cheap: just checks file size.
+        """
+        max_bytes = getattr(self.config, "max_jsonl_bytes", 0)
+        if not max_bytes or not self._jsonl_path.exists():
+            return
+        try:
+            if self._jsonl_path.stat().st_size >= max_bytes:
+                rotated = self.rotate()
+                logger.info("Auto-rotated %d audit records (size >= %d bytes)", rotated, max_bytes)
+        except OSError as exc:
+            logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b4

@@ -28,6 +28,35 @@ from rondo.providers import ProviderAdapter
 logger = logging.getLogger(__name__)
 
 
+# -- RONDO-202 (Finding #221): per-model cost table (USD per 1M tokens)
+# -- Source: provider pricing pages as of 2026-04. Update when prices change.
+# -- Tuple = (input_cost_per_1m, output_cost_per_1m)
+_COST_TABLE: dict[str, tuple[float, float]] = {
+    # -- OpenAI
+    "gpt-4.1": (2.00, 8.00),
+    "gpt-4.1-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.00),
+    # -- Grok (xAI)
+    "grok-3": (2.00, 10.00),
+    "grok-3-mini": (0.30, 0.50),
+    # -- Mistral
+    "mistral-large-latest": (2.00, 6.00),
+    "mistral-small-latest": (0.20, 0.60),
+}
+# -- Conservative default for unknown models (avoids silent zero-cost)
+_DEFAULT_COST = (1.00, 3.00)
+
+
+def compute_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Compute real cost in USD from token counts using per-model pricing.
+
+    RONDO-202 (Finding #221): replaces hardcoded cost_usd=0.0 with real math.
+    Unknown models get _DEFAULT_COST so budget caps still fire.
+    """
+    input_rate, output_rate = _COST_TABLE.get(model, _DEFAULT_COST)
+    return (input_tokens / 1_000_000.0) * input_rate + (output_tokens / 1_000_000.0) * output_rate
+
+
 class ChatCompletionsAdapter(ProviderAdapter):
     """Chat Completions API adapter — handles OpenAI, Grok, Mistral.
 
@@ -137,6 +166,12 @@ class ChatCompletionsAdapter(ProviderAdapter):
                     duration_sec=duration,
                 )
 
+            # -- RONDO-202 (Finding #221): extract real token usage + compute cost
+            usage = result.get("usage", {}) or {}
+            input_tokens = int(usage.get("prompt_tokens", 0) or 0)
+            output_tokens = int(usage.get("completion_tokens", 0) or 0)
+            cost = compute_cost_usd(use_model, input_tokens, output_tokens)
+
             return TaskResult(
                 task_name=task_name,
                 status="done",
@@ -144,7 +179,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 model=use_model,
                 duration_sec=duration,
                 auth_mode="api",
-                cost_usd=0.0,
+                cost_usd=cost,
             )
         except urllib.error.HTTPError as exc:
             # -- REQ-109 req 068: distinct error codes by HTTP status

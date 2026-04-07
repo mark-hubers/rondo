@@ -815,14 +815,11 @@ class TestAlwaysOnPipeline:
             assert secret not in content, f"Secret leaked into {pf.name}"
 
     def test_budget_cap_blocks_http_dispatch(self) -> None:
-        """RONDO-141 (Finding #205): Budget cap enforced on HTTP adapter path.
+        """RONDO-141/202 (Finding #205 + #226): Predictive budget cap on HTTP adapter path.
 
-        Was: max_budget_usd only used as --max-budget-usd subprocess flag.
-        HTTP adapters bypassed it entirely. Cost denial-of-service possible.
-
-        Now: pre-dispatch check accumulates cost across tasks. When running cost
-        hits the cap, remaining tasks return ERR_BUDGET_EXCEEDED without
-        calling the provider.
+        RONDO-202: cap is now PREDICTIVE — running + estimate >= cap blocks
+        the next dispatch (not just running >= cap). After task 1 at $0.05,
+        the estimate becomes $0.05 → task 2 pre-check sees $0.10 ≥ $0.08 → BLOCKED.
         """
         from unittest.mock import MagicMock, patch
 
@@ -830,7 +827,6 @@ class TestAlwaysOnPipeline:
         from rondo.engine import Round, RoundResult, Task, TaskResult
         from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
 
-        # -- 3 tasks, each costing $0.05 — should hit cap of $0.08 after task 2
         round_def = Round(
             name="budget-test",
             tasks=[
@@ -840,15 +836,13 @@ class TestAlwaysOnPipeline:
             ],
         )
 
-        # -- Mock provider that returns $0.05 per task
         provider = MagicMock()
 
         def fake_dispatch(prompt: str, model: str, task_name: str) -> TaskResult:
             return TaskResult(task_name=task_name, status="done", raw_output="ok", model=model, cost_usd=0.05)
 
         provider.dispatch.side_effect = fake_dispatch
-
-        config = RondoConfig(max_budget_usd=0.08, audit_dir="")  # -- cap at 8 cents
+        config = RondoConfig(max_budget_usd=0.08, audit_dir="")
 
         with patch("rondo.providers.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
@@ -864,19 +858,19 @@ class TestAlwaysOnPipeline:
         assert isinstance(result, RoundResult)
         assert len(result.task_results) == 3
 
-        # -- t1: dispatched, cost $0.05, running = $0.05 (under $0.08 cap)
+        # -- RONDO-202 predictive behavior:
+        # -- t1: initial estimate $0.01 + running $0 = $0.01 < $0.08 → dispatches
+        # --     after: running=$0.05, estimate updated to actual $0.05
+        # -- t2: running $0.05 + estimate $0.05 = $0.10 ≥ $0.08 → BLOCKED
+        # -- t3: same as t2 → BLOCKED
         assert result.task_results[0].status == "done"
-        # -- t2: dispatched, cost $0.05, running = $0.10 (over cap, but check is BEFORE dispatch)
-        # --     so t2 dispatches successfully (running was $0.05 when checked)
-        assert result.task_results[1].status == "done"
-        # -- t3: pre-check sees running = $0.10, cap = $0.08 → BLOCKED
-        assert result.task_results[2].status == "error"
+        assert result.task_results[1].error_code == "ERR_BUDGET_EXCEEDED"
         assert result.task_results[2].error_code == "ERR_BUDGET_EXCEEDED"
-        assert "0.0800" in result.task_results[2].error_message or "cap" in result.task_results[2].error_message.lower()
 
-        # -- Provider was called only twice (third was blocked)
-        assert provider.dispatch.call_count == 2, (
-            f"Provider should be called 2 times (3rd blocked by cap), got {provider.dispatch.call_count}"
+        # -- Only t1 actually dispatched
+        assert provider.dispatch.call_count == 1, (
+            f"Predictive cap should block after t1 (running+estimate >= cap). "
+            f"Got {provider.dispatch.call_count} dispatches."
         )
 
     def test_no_budget_cap_no_blocking(self) -> None:

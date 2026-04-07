@@ -201,6 +201,10 @@ class TestImportLayering:
             "schedule",
             "mcp_tools",
             "mcp_compose",
+            # -- RONDO-202: dead-code wiring for Finding #227
+            "structured_log",
+            "idempotency",
+            "sanitize",
         },
         "mcp_tools.py": {
             "metrics",

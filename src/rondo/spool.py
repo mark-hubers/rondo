@@ -74,12 +74,34 @@ def _validated_spool_path(spool_dir: Path, filename: str) -> Path | None:
 # -- ──────────────────────────────────────────────────────────────
 
 
+def _get_tenant_for_spool() -> str:
+    """RONDO-202 (Finding #224): derive tenant from env for spool isolation."""
+    import os as _os
+
+    return _os.environ.get("RONDO_TENANT") or _os.environ.get("USER") or "default"
+
+
+def _default_spool_dir() -> str:
+    """Default spool dir: ~/.rondo/spool/{tenant}/ — tenant-isolated.
+
+    RONDO-202 (Finding #224): Gemini R3 flagged spool dir as shared across
+    tenants. This path now includes tenant subdir same as audit.
+    """
+    tenant = _get_tenant_for_spool()
+    return f"~/.rondo/spool/{tenant}"
+
+
 @dataclass
 class SpoolConfig:
     """Spool configuration — REQ-101 req 042."""
 
-    spool_dir: str = "~/.rondo/spool"
+    spool_dir: str = ""  # -- resolved in __post_init__
     ttl_days: int = 7  # -- req 046: auto-cleanup threshold
+
+    def __post_init__(self) -> None:
+        """COALESCE: explicit dir → tenant-scoped default."""
+        if not self.spool_dir:
+            object.__setattr__(self, "spool_dir", _default_spool_dir())
 
 
 # -- ──────────────────────────────────────────────────────────────

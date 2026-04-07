@@ -10,6 +10,7 @@ Config is frozen (immutable) after creation — thread-safe by design.
 from __future__ import annotations
 
 import logging
+import threading
 import tomllib
 import warnings
 from dataclasses import dataclass, fields
@@ -17,6 +18,9 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# -- RONDO-202 (Finding #225): reload lock prevents mid-flight races.
+_config_lock = threading.RLock()
 
 # ──────────────────────────────────────────────────────────────────
 #  COALESCE — Rondo-STD-109 rule 6
@@ -411,8 +415,10 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
         Raw TOML dict. Empty dict if file missing, invalid, or world-writable.
     """
     global _raw_config  # noqa: PLW0603
-    if _raw_config is not None and not config_path:
-        return _raw_config
+    # -- RONDO-202 (Finding #225): hold lock during read to prevent mid-reload race
+    with _config_lock:
+        if _raw_config is not None and not config_path:
+            return _raw_config
 
     path = Path(config_path) if config_path else Path.home() / ".rondo" / "config.toml"
     if path.is_file():
@@ -442,27 +448,32 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
         result = {}
 
     if not config_path:
-        _raw_config = result
+        # -- RONDO-202 Finding #225: write cache atomically under lock
+        with _config_lock:
+            _raw_config = result
     return result
 
 
 def reset_rondo_config() -> None:
     """Clear cached config — used by tests."""
     global _raw_config  # noqa: PLW0603
-    _raw_config = None
+    with _config_lock:
+        _raw_config = None
 
 
 def reload_rondo_config(config_path: str = "") -> dict[str, Any]:
-    """RONDO-200 (Finding #218): Hot-reload config from disk.
+    """RONDO-200 (Finding #218) + RONDO-202 (Finding #225): Hot-reload config.
 
     Clears the in-memory cache and re-reads ~/.rondo/config.toml.
     Use when an operator updates config and wants new providers/keys
     picked up without restarting the MCP server.
 
-    Returns the freshly-loaded config dict.
+    Thread-safe: reload holds the lock for the entire reset+read sequence
+    so mid-flight dispatches either see OLD or NEW config — never partial.
     """
-    reset_rondo_config()
-    return get_rondo_config(config_path=config_path)
+    with _config_lock:
+        reset_rondo_config()
+        return get_rondo_config(config_path=config_path)
 
 
 # -- sig: mgh-6201.cd.bd955f.1174.b6fb32

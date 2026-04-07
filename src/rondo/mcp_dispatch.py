@@ -246,7 +246,10 @@ def _dispatch_via_provider_or_claude(
 
         Every TaskResult passes through finalize_dispatch (audit OUTCOME,
         sanitize, spool, history, metrics) regardless of status.
-        Defensive: if finalize itself fails, return original tr unchanged.
+
+        RONDO-202 (Finding #223): on finalize failure, we STILL sanitize
+        the returned tr before handing it back to the caller. Defensive
+        return must not leak unsanitized secrets.
         """
         try:
             usage = DispatchUsage(task_name=task_name, model=tr.model or model, cost_usd=tr.cost_usd or 0.0)
@@ -261,7 +264,16 @@ def _dispatch_via_provider_or_claude(
             return finalized_tr
         except (OSError, TypeError, ValueError, AttributeError) as exc:
             logger.warning("Pipeline finalization failed for %s: %s", task_name, exc)
-            return tr  # -- defensive: never lose the original result
+            # -- RONDO-202 Finding #223: sanitize BEFORE returning even on finalize failure
+            try:
+                from rondo.sanitize import sanitize_task_result
+
+                sanitized_tr, _report = sanitize_task_result(tr, config=None)
+                return sanitized_tr
+            except (TypeError, AttributeError):
+                # -- Defensive: if even sanitize fails, scrub raw_output manually
+                tr.raw_output = "[REDACTED:sanitize_failed]"
+                return tr
 
     provider, resolved_model = get_provider_with_fallback(model)
     provider_name, _ = parse_model(model)
@@ -366,11 +378,26 @@ def _run_provider_round(
 
     RONDO-139: every result flows through pipeline.
     RONDO-141: pre-dispatch budget cap check accumulates running cost.
+    RONDO-202 (Finding #226): predictive cap (running + estimated >= cap)
+    and thread-safe running_cost updates via local lock.
     """
+    import threading
+
     from rondo.engine import TaskResult
 
+    # -- RONDO-202: thread-safe running cost and predictive estimate
+    # -- Estimate: average cost of completed tasks, fallback to $0.01 per task
     running_cost: float = 0.0
+    cost_lock = threading.Lock()
+    estimated_next_cost: float = 0.01  # -- conservative first-dispatch estimate
     task_results = []
+
+    def _check_budget(current_running: float, current_estimate: float) -> bool:
+        """Return True if next dispatch would exceed budget_cap."""
+        if budget_cap is None:
+            return False
+        # -- Predictive: running + estimated >= cap (not reactive)
+        return (current_running + current_estimate) >= budget_cap
 
     for task in round_def.tasks:
         task_prompt = task.instruction or prompt
@@ -380,17 +407,21 @@ def _run_provider_round(
             task_results.append(run_pipeline(tr, task.name))
             continue
 
-        # -- RONDO-141: pre-dispatch budget check
-        if budget_cap is not None and running_cost >= budget_cap:
-            tr = TaskResult(
-                task_name=task.name,
-                status="error",
-                error_code="ERR_BUDGET_EXCEEDED",
-                error_message=f"Round budget cap ${budget_cap:.4f} reached (spent ${running_cost:.4f})",
-                model=model,
-            )
-            task_results.append(run_pipeline(tr, task.name))
-            continue
+        # -- RONDO-202: predictive, thread-safe budget check
+        with cost_lock:
+            if _check_budget(running_cost, estimated_next_cost):
+                tr = TaskResult(
+                    task_name=task.name,
+                    status="error",
+                    error_code="ERR_BUDGET_EXCEEDED",
+                    error_message=(
+                        f"Round budget cap ${budget_cap:.4f} reached "
+                        f"(spent ${running_cost:.4f}, est next ${estimated_next_cost:.4f})"
+                    ),
+                    model=model,
+                )
+                task_results.append(run_pipeline(tr, task.name))
+                continue
 
         tr = _dispatch_one_task(
             task=task,
@@ -402,8 +433,14 @@ def _run_provider_round(
             run_pipeline=run_pipeline,
         )
         task_results.append(tr)
-        # -- RONDO-141: accumulate cost AFTER successful dispatch
-        running_cost += tr.cost_usd or 0.0
+
+        # -- RONDO-202: update running cost + estimate under lock
+        with cost_lock:
+            actual_cost = tr.cost_usd or 0.0
+            running_cost += actual_cost
+            # -- Update estimate: rolling average of observed costs, floor $0.001
+            if actual_cost > 0:
+                estimated_next_cost = max(actual_cost, 0.001)
 
     return task_results
 
@@ -568,6 +605,21 @@ def resolve_dispatch_engine(
     """
     from rondo.providers import is_claude_model, is_legacy_ollama_model, parse_model
 
+    # -- Step 0: RONDO-202 (Finding #227): context limit pre-check
+    # -- Check resolved model (strip provider prefix for lookup)
+    if prompt and model:
+        _, resolved_model_for_check = parse_model(model)
+        check_model = resolved_model_for_check or model
+        fits, est_tokens, limit = check_context_limit(check_model, prompt)
+        if not fits:
+            return {
+                "engine": "error",
+                "status": "error",
+                "schema_version": PLAN_SCHEMA_VERSION,
+                "model": model,
+                "reason": (f"Prompt exceeds context limit for '{check_model}': {est_tokens} tokens > {limit} limit"),
+            }
+
     # -- Step 1: background always goes to subprocess
     if background:
         return {
@@ -689,9 +741,95 @@ def rondo_run_file(
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
     Strips CLAUDECODE env var to avoid nested session errors.
     """
+    # -- RONDO-202 (Finding #227): wire structured_log request_id for tracing
+    from rondo.structured_log import bind_request_id, log_event
+
+    with bind_request_id():
+        log_event(
+            "INFO",
+            "rondo_run_file invoked",
+            component="mcp_dispatch",
+            model=model,
+            dry_run=dry_run,
+            background=background,
+            has_prompt=bool(prompt),
+            has_file=bool(file_path),
+        )
+        return _rondo_run_file_inner(
+            file_path=file_path,
+            dry_run=dry_run,
+            model=model,
+            project=project,
+            max_budget=max_budget,
+            timeout_sec=timeout_sec,
+            background=background,
+            prompt=prompt,
+            done_when=done_when,
+            _session=_session,
+        )
+
+
+def _idempotency_lookup(prompt: str, model: str, dry_run: bool, background: bool) -> tuple[str, str | None]:
+    """RONDO-202 (Finding #227): look up cached result for (prompt, model).
+
+    Returns (key, cached_result) — key is empty if not eligible.
+    """
+    if not prompt or dry_run or background:
+        return "", None
+
+    from rondo.idempotency import compute_idempotency_key, get_cached_result
+    from rondo.structured_log import log_event
+
+    key = compute_idempotency_key(prompt, model)
+    cached = get_cached_result(key)
+    if cached is None:
+        return key, None
+
+    log_event(
+        "INFO",
+        "idempotency cache hit — returning cached result",
+        component="mcp_dispatch",
+        key=key[:16],
+    )
+    return key, cached if isinstance(cached, str) else json.dumps(cached, indent=2)
+
+
+def _idempotency_store(key: str, result_str: str) -> None:
+    """RONDO-202: cache successful results for future deduplication."""
+    if not key:
+        return
+
+    from rondo.idempotency import cache_result
+    from rondo.structured_log import log_event
+
+    cache_result(key, result_str)
+    log_event("INFO", "result cached for idempotency", component="mcp_dispatch", key=key[:16])
+
+
+def _rondo_run_file_inner(
+    file_path: str,
+    dry_run: bool,
+    model: str,
+    project: str,
+    max_budget: float,
+    timeout_sec: int,
+    background: bool,
+    prompt: str,
+    done_when: str,
+    _session: Any,
+) -> str:
+    """Inner dispatch body — extracted for complexity budget. RONDO-202."""
+    from rondo.structured_log import log_event
+
     file_path, project, err = _validate_run_inputs(file_path, project, prompt)
     if err:
+        log_event("WARNING", "input validation failed", component="mcp_dispatch", error=err[:200])
         return err
+
+    # -- RONDO-202 (Finding #227): idempotency cache — short-circuit duplicates
+    idempotency_key, cached = _idempotency_lookup(prompt, model, dry_run, background)
+    if cached is not None:
+        return cached
 
     # -- RONDO-129: Three-engine dispatch routing
     engine = resolve_dispatch_engine(
@@ -701,16 +839,17 @@ def rondo_run_file(
         done_when=done_when,
         project=project,
     )
+    log_event(
+        "INFO",
+        "engine resolved",
+        component="mcp_dispatch",
+        engine=engine.get("engine"),
+        reason=engine.get("reason", "")[:120],
+    )
 
-    # -- Inline dispatch: return plan for host session to execute
-    if engine["engine"] == "inline":
+    if engine["engine"] in ("inline", "agent"):
         return json.dumps(engine, indent=2)
 
-    # -- Agent dispatch: return plan for host to spawn Agent(model=X)
-    if engine["engine"] == "agent":
-        return json.dumps(engine, indent=2)
-
-    # -- Error: unknown model
     if engine["engine"] == "error":
         return json.dumps({"status": "error", "error": engine["reason"], "model": model})
 
@@ -724,12 +863,12 @@ def rondo_run_file(
         prompt, done_when, file_path, _clean_model or model, model, dry_run, timeout_sec, project, max_budget
     )
 
-    # -- Background dispatch: return dispatch_id immediately
     if background and not dry_run:
         return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
 
-    # -- Synchronous dispatch (dry-run or foreground)
-    return json.dumps(dispatch_fn(), indent=2)
+    result_str = json.dumps(dispatch_fn(), indent=2)
+    _idempotency_store(idempotency_key, result_str)
+    return result_str
 
 
 def _execute_dispatch(

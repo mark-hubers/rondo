@@ -1296,6 +1296,89 @@ class TestAlwaysOnPipeline:
         breaker.record_failure("test")
         assert not breaker.is_open("test"), "Should still be closed after recovery + 2 failures"
 
+    def test_all_plans_have_schema_version(self) -> None:
+        """RONDO-146 (Finding #207): All plan responses include schema_version."""
+        from rondo.mcp_dispatch import PLAN_SCHEMA_VERSION, resolve_dispatch_engine
+
+        cases = [
+            ("", False, "inline"),
+            ("gemini:flash", False, "http"),
+            ("local:qwen2.5:32b", False, "http"),
+            ("llama3.1:8b", False, "http"),
+            ("sonnet:new", False, "subprocess"),
+            ("", True, "subprocess"),
+            ("unknown-model", False, "error"),
+        ]
+        for model, bg, expected_engine in cases:
+            r = resolve_dispatch_engine(model=model, background=bg, prompt="x")
+            assert r["engine"] == expected_engine
+            assert "schema_version" in r, f"Missing schema_version: {model!r}/{bg}"
+            assert r["schema_version"] == PLAN_SCHEMA_VERSION
+
+    def test_agent_plan_has_schema_version(self, monkeypatch) -> None:
+        """RONDO-146: Agent plans (in-session Claude) include schema_version."""
+        from rondo.mcp_dispatch import PLAN_SCHEMA_VERSION, resolve_dispatch_engine
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        r = resolve_dispatch_engine(model="sonnet", prompt="x")
+        assert r["engine"] == "agent"
+        assert r["schema_version"] == PLAN_SCHEMA_VERSION
+
+    def test_routing_new_suffix_with_provider_prefix(self) -> None:
+        """RONDO-146 (Finding #220): :new suffix on provider-prefixed model.
+
+        Currently :new check happens after provider-prefix routing, so
+        gemini:flash:new should route to HTTP (not subprocess).
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        # -- gemini:flash:new — provider prefix wins (HTTP), :new is part of model name
+        r = resolve_dispatch_engine(model="gemini:flash:new", prompt="x")
+        # -- This is HTTP because gemini: prefix wins
+        assert r["engine"] == "http"
+        assert r["provider"] == "gemini"
+
+    def test_routing_background_with_unknown_model(self) -> None:
+        """RONDO-146 (Finding #220): background=True + unknown model → still subprocess."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        r = resolve_dispatch_engine(model="totally-unknown-xyz", background=True, prompt="x")
+        # -- background forces subprocess regardless of model validity
+        assert r["engine"] == "subprocess"
+
+    def test_routing_whitespace_in_model_not_stripped(self) -> None:
+        """RONDO-146 (Finding #220): whitespace in model name is NOT auto-stripped.
+
+        Documents current behavior: ' sonnet ' is treated as a different model
+        than 'sonnet'. Callers must trim before passing.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        r = resolve_dispatch_engine(model=" sonnet ", prompt="x")
+        # -- Whitespace makes it unknown — error engine
+        assert r["engine"] == "error"
+
+    def test_routing_case_sensitive_for_claude_models(self) -> None:
+        """RONDO-146 (Finding #220): Claude model match is case-sensitive."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        # -- 'SONNET' (uppercase) is not a known Claude model
+        r = resolve_dispatch_engine(model="SONNET", prompt="x")
+        assert r["engine"] == "error", "Uppercase SONNET should not match (case-sensitive)"
+
+    def test_routing_inline_preserves_project_in_all_engines(self, monkeypatch) -> None:
+        """RONDO-146 (Finding #220): project field preserved in inline + agent plans."""
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        # -- Inline plan
+        r = resolve_dispatch_engine(model="", prompt="x", project="/tmp/proj1")
+        assert r["project"] == "/tmp/proj1"
+
+        # -- Agent plan
+        monkeypatch.setenv("CLAUDECODE", "1")
+        r = resolve_dispatch_engine(model="haiku", prompt="x", project="/tmp/proj2")
+        assert r["project"] == "/tmp/proj2"
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

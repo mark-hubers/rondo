@@ -493,6 +493,11 @@ def _is_in_session() -> bool:
     return bool(os.environ.get("CLAUDECODE"))
 
 
+## -- RONDO-146 (Finding #207): plan schema version
+## -- Bump when plan response format changes in a non-backward-compatible way
+PLAN_SCHEMA_VERSION = "1"
+
+
 def resolve_dispatch_engine(
     model: str,
     background: bool = False,
@@ -522,6 +527,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "subprocess",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "model": model or "sonnet",
             "reason": "background=True forces subprocess dispatch",
         }
@@ -534,6 +540,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "http",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "provider": provider,
             "model": model_name,
             "model_raw": model,
@@ -548,6 +555,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "inline",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "kind": "inline_dispatch_plan",
             "prompt": prompt,
             "done_when": done_when,
@@ -561,6 +569,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "subprocess",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "model": model.removesuffix(":new"),
             "reason": "':new' suffix forces new subprocess session",
         }
@@ -572,6 +581,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "agent",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "kind": "agent_dispatch_plan",
             "prompt": prompt,
             "done_when": done_when,
@@ -585,6 +595,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "subprocess",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "model": model,
             "reason": f"Claude model '{model}' outside session — subprocess OK",
         }
@@ -594,6 +605,7 @@ def resolve_dispatch_engine(
         return {
             "engine": "http",
             "status": "plan",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "provider": "local",
             "model": model,
             "model_raw": model,
@@ -604,6 +616,7 @@ def resolve_dispatch_engine(
     return {
         "engine": "error",
         "status": "error",
+        "schema_version": PLAN_SCHEMA_VERSION,
         "model": model,
         "reason": f"Unknown model '{model}' — not a known Claude model or provider prefix",
     }

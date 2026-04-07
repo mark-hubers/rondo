@@ -1474,6 +1474,95 @@ class TestAlwaysOnPipeline:
         assert cache_size() == 50
         clear_cache()
 
+    def test_request_id_generation(self) -> None:
+        """RONDO-148 (Finding #215): new_request_id returns unique 32-char hex."""
+        from rondo.structured_log import new_request_id
+
+        r1 = new_request_id()
+        r2 = new_request_id()
+        assert r1 != r2
+        assert len(r1) == 32
+        assert all(c in "0123456789abcdef" for c in r1)
+
+    def test_bind_request_id_propagates(self) -> None:
+        """RONDO-148: bind_request_id sets thread-local for nested calls."""
+        from rondo.structured_log import bind_request_id, get_request_id
+
+        # -- Initially empty
+        assert get_request_id() == ""
+
+        with bind_request_id() as rid:
+            assert get_request_id() == rid
+            assert len(rid) == 32
+
+        # -- Restored after context exit
+        assert get_request_id() == ""
+
+    def test_bind_request_id_explicit(self) -> None:
+        """RONDO-148: bind_request_id accepts explicit ID."""
+        from rondo.structured_log import bind_request_id, get_request_id
+
+        with bind_request_id("custom-rid-123") as rid:
+            assert rid == "custom-rid-123"
+            assert get_request_id() == "custom-rid-123"
+
+    def test_bind_request_id_nested(self) -> None:
+        """RONDO-148: nested binds save/restore correctly."""
+        from rondo.structured_log import bind_request_id, get_request_id
+
+        with bind_request_id("outer"):
+            assert get_request_id() == "outer"
+            with bind_request_id("inner"):
+                assert get_request_id() == "inner"
+            assert get_request_id() == "outer"
+
+    def test_structured_logger_emits_json(self, caplog) -> None:
+        """RONDO-148: StructuredLogger emits JSON-formatted records."""
+        import logging
+
+        from rondo.structured_log import StructuredLogger, bind_request_id
+
+        slog = StructuredLogger("test-component")
+        with caplog.at_level(logging.INFO, logger="rondo.structured_log"):
+            with bind_request_id("test-rid"):
+                slog.info("test event", task_name="t1", model="sonnet")
+
+        # -- Find our log record
+        matching = [r for r in caplog.records if "test event" in r.message]
+        assert len(matching) >= 1
+        msg = matching[0].message
+        # -- Should be valid JSON with request_id, component, task_name, model
+        import json as _json
+
+        parsed = _json.loads(msg)
+        assert parsed["request_id"] == "test-rid"
+        assert parsed["component"] == "test-component"
+        assert parsed["task_name"] == "t1"
+        assert parsed["model"] == "sonnet"
+        assert parsed["msg"] == "test event"
+
+    def test_structured_logger_thread_isolation(self) -> None:
+        """RONDO-148: request_id is per-thread, not global."""
+        import threading
+
+        from rondo.structured_log import bind_request_id, get_request_id
+
+        results: dict[str, str] = {}
+
+        def worker(name: str, expected_rid: str) -> None:
+            with bind_request_id(expected_rid):
+                results[name] = get_request_id()
+
+        t1 = threading.Thread(target=worker, args=("thread-1", "rid-aaa"))
+        t2 = threading.Thread(target=worker, args=("thread-2", "rid-bbb"))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert results["thread-1"] == "rid-aaa"
+        assert results["thread-2"] == "rid-bbb"
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

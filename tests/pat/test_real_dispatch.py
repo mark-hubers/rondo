@@ -1127,6 +1127,73 @@ class TestAlwaysOnPipeline:
                 # -- OK: dispatch logic may fail downstream — we just care guard didn't fire
                 pass
 
+    def test_subprocess_footgun_guard_blocks_auth_api(self, monkeypatch) -> None:
+        """RONDO-205 Finding #237: guard ALSO blocks auth=api in-session.
+
+        Prior behavior only blocked auth=max. Gemini R3 flagged that
+        auth=api + CLAUDECODE + Claude model is still a footgun (cost
+        surprise, nested contexts, user confusion). Guard now fires for
+        both auth modes — auth=api is verified here.
+        """
+        from rondo.config import RondoConfig
+        from rondo.dispatch import _dispatch_interactive
+        from rondo.engine import Task
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        monkeypatch.delenv("RONDO_ALLOW_IN_SESSION_SUBPROCESS", raising=False)
+
+        task = Task(name="foot-api", instruction="hi", done_when="done")
+        config = RondoConfig(auth="api")  # -- #237: previously NOT guarded
+
+        result, _usage = _dispatch_interactive(task, config, "sonnet", "2026-04-07T00:00:00Z")
+        assert result.status == "error"
+        assert result.error_code == "ERR_SUBPROCESS_FOOTGUN", (
+            "#237: guard must fire for auth=api too, not just auth=max"
+        )
+        assert "api" in result.error_message.lower(), (
+            "Error message should mention auth mode for diagnostics"
+        )
+
+    def test_subprocess_footgun_override_emits_warning(self, monkeypatch, caplog) -> None:
+        """RONDO-205 Finding #237: override bypass must leave an audit trail.
+
+        Previously the override was silent — no log, no alert. Gemini R3
+        said this is a security gap (easy to accidentally leave set).
+        Guard now emits a WARNING-level log when override is active in
+        a blocking scenario, so it shows up in ops dashboards.
+        """
+        import logging as _logging
+        from unittest.mock import patch
+
+        from rondo.config import RondoConfig
+        from rondo.dispatch import _dispatch_interactive
+        from rondo.engine import Task
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        monkeypatch.setenv("RONDO_ALLOW_IN_SESSION_SUBPROCESS", "1")
+
+        task = Task(name="foot-override", instruction="hi", done_when="done")
+        config = RondoConfig(auth="max")
+
+        caplog.set_level(_logging.WARNING, logger="rondo.dispatch")
+        with patch("rondo.dispatch._run_subprocess") as mock_run:
+            mock_run.return_value = ("{}", "", 0, False)
+            try:
+                _dispatch_interactive(task, config, "sonnet", "2026-04-07T00:00:00Z")
+            except (OSError, RuntimeError):
+                pass
+
+        # -- #237: audit trail proof — warning must be logged
+        override_warnings = [
+            rec for rec in caplog.records
+            if "FOOTGUN OVERRIDE ACTIVE" in rec.message
+        ]
+        assert len(override_warnings) >= 1, (
+            "#237: override bypass must emit WARNING log (audit trail)"
+        )
+        # -- Verify warning includes task name for operator diagnosis
+        assert "foot-override" in override_warnings[0].message
+
     def test_atomic_write_helper_creates_file(self, tmp_path) -> None:
         """RONDO-144 (Finding #210): atomic_write creates the file correctly."""
         from rondo.audit import atomic_write
@@ -1289,6 +1356,73 @@ class TestAlwaysOnPipeline:
         breaker.record_failure("test")
         breaker.record_failure("test")
         assert not breaker.is_open("test"), "Should still be closed after recovery + 2 failures"
+
+    def test_circuit_breaker_persists_across_restart(self, tmp_path) -> None:
+        """RONDO-205 Finding #236: OPEN state survives process restart.
+
+        Simulates a restart by creating a second CircuitBreaker pointed at
+        the same persist file. Without persistence, the second breaker
+        would start fresh and allow a 6th failure through to the down
+        provider. With persistence, it remains OPEN.
+        """
+        from rondo.retry import CircuitBreaker
+
+        persist_file = tmp_path / "breaker.json"
+
+        # -- "Process 1": trip the breaker
+        breaker_1 = CircuitBreaker(
+            failure_threshold=3,
+            cooldown_sec=300.0,
+            persist_path=persist_file,
+        )
+        for _ in range(3):
+            breaker_1.record_failure("down-provider")
+        assert breaker_1.is_open("down-provider"), "Breaker should be OPEN after 3 failures"
+        assert persist_file.exists(), "Persist file must exist after trip"
+
+        # -- "Process 2": simulate restart — new breaker instance, same file
+        breaker_2 = CircuitBreaker(
+            failure_threshold=3,
+            cooldown_sec=300.0,
+            persist_path=persist_file,
+        )
+        assert breaker_2.is_open("down-provider"), (
+            "After restart, breaker must still be OPEN — #236 persistence"
+        )
+
+        # -- Other providers should be unaffected
+        assert not breaker_2.is_open("healthy-provider"), "Non-failed providers start closed"
+
+    def test_circuit_breaker_expired_state_not_restored(self, tmp_path) -> None:
+        """RONDO-205 Finding #236: expired OPEN states are dropped on load.
+
+        If the persist file has a breaker whose cooldown has already
+        elapsed (wall-clock), loading it should NOT restore the OPEN
+        state — the provider has had time to recover.
+        """
+        import json as _json
+        import time as _time
+
+        from rondo.retry import CircuitBreaker
+
+        persist_file = tmp_path / "breaker.json"
+        # -- Write a stale OPEN entry (cooldown expired 100s ago)
+        stale_payload = {
+            "stale-provider": {
+                "open_until": _time.time() - 100.0,
+                "failure_count": 5.0,
+            },
+        }
+        persist_file.write_text(_json.dumps(stale_payload), encoding="utf-8")
+
+        breaker = CircuitBreaker(
+            failure_threshold=3,
+            cooldown_sec=60.0,
+            persist_path=persist_file,
+        )
+        assert not breaker.is_open("stale-provider"), (
+            "Expired OPEN state must not be restored — provider may have recovered"
+        )
 
     def test_all_plans_have_schema_version(self) -> None:
         """RONDO-146 (Finding #207): All plan responses include schema_version."""
@@ -1468,6 +1602,210 @@ class TestAlwaysOnPipeline:
         assert cache_size() == 50
         clear_cache()
 
+    def test_idempotency_cache_persists_across_memory_wipe(self, tmp_path, monkeypatch) -> None:
+        """RONDO-205 Finding #241: cache survives in-memory cache being wiped.
+
+        Simulates a process restart: cache in Process A, wipe in-memory
+        cache (as if Process B started fresh), then read — should find
+        the value via the SQLite backing store.
+        """
+        import rondo.idempotency as idem
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        idem.clear_cache()
+
+        key = idem.compute_idempotency_key("cross-process prompt", "gemini:flash")
+        payload = {"status": "done", "raw_output": "shared result", "cost_usd": 0.001}
+        idem.cache_result(key, payload)
+
+        # -- Simulate "restart": wipe in-memory only (not the DB)
+        with idem._cache_lock:
+            idem._cache.clear()
+        assert idem.cache_size() == 0, "precondition: in-memory wiped"
+
+        # -- Fetch should succeed via SQLite fallback
+        result = idem.get_cached_result(key)
+        assert result is not None, (
+            "#241: cache miss after in-memory wipe — SQLite fallback broken"
+        )
+        assert result["status"] == "done"
+        assert result["raw_output"] == "shared result"
+        assert result["cost_usd"] == 0.001
+
+        # -- Promotion: after reading via SQLite, in-memory should be populated
+        assert idem.cache_size() == 1, "#241: SQLite hit should promote to memory"
+
+        idem.clear_cache()
+
+    def test_idempotency_cache_crosses_process_boundary(self, tmp_path, monkeypatch) -> None:
+        """RONDO-205 Finding #241: two separate process-like instances share cache.
+
+        Uses RONDO_TEST_DIR to isolate the SQLite file. Process A caches,
+        then we clear ALL in-memory state (including any OS-level caches
+        the module may have built up) to simulate Process B starting fresh.
+        """
+        import importlib
+
+        import rondo.idempotency as idem1
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        idem1.clear_cache()
+
+        # -- "Process A" writes
+        key = idem1.compute_idempotency_key("P1 prompt xyz", "openai:gpt-4.1")
+        idem1.cache_result(key, {"result": "from-process-a"})
+
+        # -- "Process B" — reload module to simulate fresh Python process
+        importlib.reload(idem1)
+        # -- After reload, in-memory cache is empty but SQLite file persists
+        assert idem1.cache_size() == 0, "reloaded module has empty in-memory cache"
+
+        found = idem1.get_cached_result(key)
+        assert found is not None, (
+            "#241: fresh-process read failed — SQLite backing store not shared"
+        )
+        assert found["result"] == "from-process-a"
+
+        idem1.clear_cache()
+
+    def test_dispatch_task_emits_structured_logs_with_request_id(
+        self, tmp_path, monkeypatch, caplog
+    ) -> None:
+        """RONDO-205 Finding #242: dispatch_task wires structured_log + binds request_id.
+
+        Previously: structured_log module existed but nothing called log_event.
+        Now: dispatch_task wraps the whole dispatch in bind_request_id() and
+        emits log_event at start/complete. This test proves:
+          1. A request_id gets bound during dispatch
+          2. log_event calls produce records tagged with that request_id
+          3. The START and COMPLETE events share the SAME request_id
+        """
+        import json as _json
+        import logging as _logging
+
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+        from rondo.engine import Task
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        caplog.set_level(_logging.INFO, logger="rondo.structured_log")
+
+        # -- Dry-run task so we don't actually call subprocess/adapter
+        task = Task(name="fp242-task", instruction="noop", done_when="ok")
+        config = RondoConfig(auth="max", dry_run=True)
+
+        dispatch_task(task, config, cli_model="sonnet", round_name="test-round")
+
+        # -- Collect structured log records (JSON-formatted)
+        structured_records: list[dict] = []
+        for rec in caplog.records:
+            if rec.name != "rondo.structured_log":
+                continue
+            try:
+                payload = _json.loads(rec.message)
+            except (ValueError, TypeError):
+                continue
+            structured_records.append(payload)
+
+        assert len(structured_records) >= 2, (
+            f"#242: expected at least 2 structured records (start + complete), "
+            f"got {len(structured_records)}"
+        )
+
+        # -- All records from this dispatch must share a request_id
+        request_ids = {rec["request_id"] for rec in structured_records if rec.get("request_id")}
+        assert len(request_ids) == 1, (
+            f"#242: multiple request_ids across same dispatch: {request_ids}"
+        )
+        rid = request_ids.pop()
+        assert len(rid) == 32, f"#242: request_id should be 32-char UUID hex, got: {rid!r}"
+
+        # -- Start event has task name + component=dispatch
+        start_events = [r for r in structured_records if "dispatch_task start" in r.get("msg", "")]
+        assert len(start_events) == 1, "#242: exactly one start event"
+        assert start_events[0]["task"] == "fp242-task"
+        assert start_events[0]["component"] == "dispatch"
+
+    def test_dispatch_task_respects_existing_request_id(
+        self, tmp_path, monkeypatch, caplog
+    ) -> None:
+        """RONDO-205 Finding #242: don't rebind if caller already bound one.
+
+        When mcp_dispatch.rondo_run_file binds a request_id and then calls
+        dispatch_task, the existing id must propagate — not get overwritten.
+        This is the correlation guarantee for the full call chain.
+        """
+        import json as _json
+        import logging as _logging
+
+        from rondo.config import RondoConfig
+        from rondo.dispatch import dispatch_task
+        from rondo.engine import Task
+        from rondo.structured_log import bind_request_id
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        caplog.set_level(_logging.INFO, logger="rondo.structured_log")
+
+        task = Task(name="fp242-nested", instruction="noop", done_when="ok")
+        config = RondoConfig(auth="max", dry_run=True)
+
+        with bind_request_id("caller-supplied-id-abcd1234abcd1234") as expected_rid:
+            dispatch_task(task, config, cli_model="sonnet")
+
+        # -- Records from dispatch_task must use the caller's rid, not a new one
+        rids_seen: set[str] = set()
+        for rec in caplog.records:
+            if rec.name != "rondo.structured_log":
+                continue
+            try:
+                payload = _json.loads(rec.message)
+            except (ValueError, TypeError):
+                continue
+            if payload.get("task") == "fp242-nested":
+                rids_seen.add(payload.get("request_id", ""))
+
+        assert rids_seen == {expected_rid}, (
+            f"#242: dispatch_task rebound request_id. "
+            f"expected={expected_rid}, got={rids_seen}"
+        )
+
+    def test_idempotency_ttl_honored_in_file_layer(self, tmp_path, monkeypatch) -> None:
+        """RONDO-205 Finding #241: expired entries in JSON file are not returned.
+
+        Write with wall-clock timestamp in the past, verify the fetch
+        returns None (TTL filter on read). Rondo-STD-107 req 005:
+        JSON file persistence, not SQLite (Rondo is stateless).
+        """
+        import json as _json
+        import time as _time
+
+        import rondo.idempotency as idem
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        idem.clear_cache()
+
+        # -- Write a stale entry directly into the JSON file layer
+        cache_path = idem._default_cache_file()
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        stale_time = _time.time() - 1000.0  # -- 1000 seconds ago
+        cache_path.write_text(
+            _json.dumps(
+                {
+                    "stale-key": {
+                        "data": {"x": 1},
+                        "cached_at_wall": stale_time,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        # -- Fetch with default 300s TTL — should NOT return the stale value
+        result = idem.get_cached_result("stale-key", ttl_sec=300)
+        assert result is None, "#241: stale entry leaked past TTL filter in file layer"
+
+        idem.clear_cache()
+
     def test_request_id_generation(self) -> None:
         """RONDO-148 (Finding #215): new_request_id returns unique 32-char hex."""
         from rondo.structured_log import new_request_id
@@ -1606,6 +1944,63 @@ class TestAlwaysOnPipeline:
 
         _fits, _est, limit = check_context_limit("unknown-model-xyz", "small")
         assert limit == DEFAULT_CONTEXT_LIMIT
+
+    def test_token_estimate_non_english_cjk(self) -> None:
+        """RONDO-205 Finding #238: CJK text is counted with higher ratio.
+
+        Old formula: len(text)//4 + 1 — massively undercounted CJK.
+        Example: "你好世界" (len=4) → old=2, actual=6-8 tokens.
+
+        New formula: ASCII at 4:1, non-ASCII at 2 tokens/char.
+        This test proves CJK is no longer catastrophically undercounted.
+        """
+        from rondo.mcp_dispatch import estimate_token_count
+
+        # -- 10 CJK chars ≈ 10-20 real tokens. New formula: 10*2+1 = 21.
+        cjk_short = "你好世界再见中国日本" * 1  # 10 CJK chars
+        cjk_tokens = estimate_token_count(cjk_short)
+        assert cjk_tokens >= 20, (
+            f"#238: CJK undercount still present. Got {cjk_tokens} for 10 CJK chars."
+        )
+
+        # -- Old broken formula would have given len(20 CJK)//4+1 = 6 tokens
+        cjk_long = "你好世界再见中国日本" * 2  # 20 CJK chars
+        cjk_long_tokens = estimate_token_count(cjk_long)
+        assert cjk_long_tokens >= 40, (
+            f"#238: 20 CJK chars should be ≥40 tokens. Got {cjk_long_tokens}."
+        )
+
+        # -- ASCII remains close to old (no regression for English)
+        ascii_text = "hello world" * 10  # 110 ASCII chars
+        ascii_tokens = estimate_token_count(ascii_text)
+        assert 25 <= ascii_tokens <= 35, (
+            f"#238: English token estimate should stay ~28. Got {ascii_tokens}."
+        )
+
+    def test_token_estimate_mixed_language(self) -> None:
+        """RONDO-205 Finding #238: mixed ASCII + non-ASCII text is summed.
+
+        A prompt like "Translate: 你好" (10 ASCII + 2 CJK) should be
+        counted as ~3 ASCII tokens + 4 CJK tokens = 7+, not 3.
+        """
+        from rondo.mcp_dispatch import estimate_token_count
+
+        mixed = "Translate: 你好"  # 11 ASCII + 2 CJK
+        tokens = estimate_token_count(mixed)
+        # -- 11 ASCII = ceil(11/4) = 3; 2 CJK = 4; + safety 1 = 8
+        assert tokens >= 7, (
+            f"#238: mixed text must sum both portions. Got {tokens}."
+        )
+
+    def test_token_estimate_empty_string(self) -> None:
+        """RONDO-205 Finding #238: empty string returns 1, never 0.
+
+        Edge case — zero-token prompt would break downstream math
+        (division, ratios). Guarantee at least 1.
+        """
+        from rondo.mcp_dispatch import estimate_token_count
+
+        assert estimate_token_count("") == 1
 
     def test_config_hot_reload(self, tmp_path) -> None:
         """RONDO-200 (Finding #218): reload_rondo_config picks up file changes."""

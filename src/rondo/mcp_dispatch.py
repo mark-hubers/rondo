@@ -563,12 +563,33 @@ DEFAULT_CONTEXT_LIMIT = 100_000
 
 
 def estimate_token_count(text: str) -> int:
-    """Conservative token estimate: 1 token ≈ 4 characters (English).
+    """Conservative token estimate — heterogeneous text aware.
 
     RONDO-200 (Finding #216): used for pre-dispatch context size check.
-    Real tokenization varies by model. This is a fast upper bound.
+    RONDO-205 Finding #238: original 4:1 ratio drastically undercounted
+    non-English text. CJK characters can be 1-2 tokens EACH in Claude's
+    tokenizer, so "你好" (len=2) was estimated as 1 token but is actually
+    4+. This caused context-fit checks to pass for prompts that then
+    failed at the API boundary.
+
+    New formula:
+      - ASCII bytes (ord < 128):  4 chars/token (English baseline)
+      - Non-ASCII chars:           2 tokens/char (CJK worst case)
+
+    This OVERCOUNTS Cyrillic/Latin-1 Supplement slightly, but the point
+    of this check is to reject oversized prompts before dispatch — over
+    is safe, under is not. A rejected-but-fitting prompt is annoying;
+    a dispatched-but-oversized prompt fails 100% at the API boundary.
     """
-    return len(text) // 4 + 1
+    if not text:
+        return 1
+    ascii_count = sum(1 for c in text if ord(c) < 128)
+    non_ascii_count = len(text) - ascii_count
+    # -- Ceiling division: (n + 3) // 4 == ceil(n/4)
+    ascii_tokens = (ascii_count + 3) // 4
+    # -- CJK worst case: 2 tokens per character
+    non_ascii_tokens = non_ascii_count * 2
+    return ascii_tokens + non_ascii_tokens + 1  # -- +1 safety margin
 
 
 def check_context_limit(model: str, prompt: str) -> tuple[bool, int, int]:

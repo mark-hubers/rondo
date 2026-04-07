@@ -80,6 +80,12 @@ def check_health(provider_name: str, timeout: float = 5.0) -> HealthStatus:  # n
     The timeout parameter is reserved for future async implementation;
     the synchronous adapters use their own internal timeouts.
 
+    RONDO-205 Finding #240: fast-path via circuit breaker. If the breaker
+    for this provider is OPEN, we already know from real dispatch failures
+    that the provider is down — skip the network health call entirely.
+    This reduces first-time multi-hop fallback latency from N×HTTP_timeout
+    to O(1) for providers already marked down by prior dispatches.
+
     Args:
         provider_name: Provider name (gemini, openai, grok, etc.).
         timeout:       Max seconds to wait (advisory — adapters set own limits).
@@ -87,6 +93,23 @@ def check_health(provider_name: str, timeout: float = 5.0) -> HealthStatus:  # n
     Returns:
         HealthStatus with healthy=True/False, latency_ms, checked_at, error.
     """
+    # -- #240 fast-path: circuit breaker is authoritative "provider is down" signal.
+    # -- Skip HTTP health call if breaker already OPEN from real dispatch failures.
+    try:
+        from rondo.retry import get_circuit_breaker  # pylint: disable=import-outside-toplevel
+
+        if get_circuit_breaker().is_open(provider_name):
+            return HealthStatus(
+                provider=provider_name,
+                healthy=False,
+                latency_ms=0.0,
+                checked_at=time.time(),
+                error="circuit breaker OPEN (skipped HTTP health check)",
+            )
+    except (ImportError, OSError, TypeError) as exc:
+        # -- Breaker check failure is non-fatal — fall through to real health call
+        logger.debug("Circuit breaker fast-path skipped: %s", exc)
+
     adapter = _get_adapter_for_provider(provider_name)
     if adapter is None:
         return HealthStatus(

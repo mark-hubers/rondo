@@ -54,9 +54,13 @@ def generate_matrix() -> dict[str, dict[str, list[str]]]:
         matrix[spec] = {
             "source": source_refs.get(spec, []),
             "tests": test_refs.get(spec, []),
-            "status": "TRACED" if source_refs.get(spec) and test_refs.get(spec) else
-                      "CODE_ONLY" if source_refs.get(spec) else
-                      "TEST_ONLY" if test_refs.get(spec) else "MISSING",
+            "status": "TRACED"
+            if source_refs.get(spec) and test_refs.get(spec)
+            else "CODE_ONLY"
+            if source_refs.get(spec)
+            else "TEST_ONLY"
+            if test_refs.get(spec)
+            else "MISSING",
         }
     return matrix
 
@@ -69,7 +73,7 @@ def print_matrix(matrix: dict[str, dict[str, list[str]]]) -> None:
     total = len(matrix)
 
     print(f"\n{'=' * 70}")
-    print(f"  RONDO TRACEABILITY MATRIX")
+    print("  RONDO TRACEABILITY MATRIX")
     print(f"  Specs: {total} | Traced: {traced} | Code-only: {code_only} | Test-only: {test_only}")
     print(f"  Coverage: {traced}/{total} = {traced * 100 // total if total else 0}% fully traced")
     print(f"{'=' * 70}\n")

@@ -214,52 +214,105 @@ def dispatch_task(
         1. dry_run — return prompt without invoking
         2. auto task — call task.auto_fn() directly
         3. interactive task — invoke claude -p subprocess
+
+    RONDO-205 Finding #242: bind_request_id wraps the whole dispatch so
+    log_event calls anywhere downstream (adapters, audit, providers)
+    share the same request_id for correlation across the call chain.
     """
-    timestamp = datetime.now(UTC).isoformat()
+    # -- #242: import inside function to avoid circular import risk
+    from contextlib import nullcontext  # pylint: disable=import-outside-toplevel
 
-    # -- Pre-dispatch validation (Rondo-STD-108 defensive check)
-    task_errors = validate_task(task)
-    if task_errors:
-        msg = "; ".join(task_errors)
-        logger.warning("Task '%s' failed validation: %s", task.name, msg)
-        result = TaskResult(
-            task_name=task.name,
-            status="error",
-            error_code="ERR_INTERNAL",
-            error_message=f"Validation failed: {msg}",
-            raw_output="",
-            model="",
-            auth_mode=config.auth,
-            timestamp=timestamp,
+    from rondo.structured_log import (  # pylint: disable=import-outside-toplevel
+        bind_request_id,
+        get_request_id,
+        log_event,
+    )
+
+    # -- Only bind if not already bound (caller may have already set one)
+    already_bound = bool(get_request_id())
+    ctx = bind_request_id() if not already_bound else nullcontext()
+    with ctx:
+        timestamp = datetime.now(UTC).isoformat()
+        log_event(
+            "INFO",
+            "dispatch_task start",
+            component="dispatch",
+            task=task.name,
+            auth=config.auth,
+            round_name=round_name,
+            is_auto=task.is_auto,
         )
-        _attach_metrics(result, config)
-        return result, DispatchUsage(task_name=task.name)
 
-    model = resolve_model(cli_model, task, config)
+        # -- Pre-dispatch validation (Rondo-STD-108 defensive check)
+        task_errors = validate_task(task)
+        if task_errors:
+            msg = "; ".join(task_errors)
+            logger.warning("Task '%s' failed validation: %s", task.name, msg)
+            log_event(
+                "ERROR",
+                "dispatch_task validation failed",
+                component="dispatch",
+                task=task.name,
+                validation_errors=task_errors,
+            )
+            result = TaskResult(
+                task_name=task.name,
+                status="error",
+                error_code="ERR_INTERNAL",
+                error_message=f"Validation failed: {msg}",
+                raw_output="",
+                model="",
+                auth_mode=config.auth,
+                timestamp=timestamp,
+            )
+            _attach_metrics(result, config)
+            return result, DispatchUsage(task_name=task.name)
 
-    # -- Case 1: Dry run (Rondo-REQ-100 req 16)
-    if config.dry_run:
-        prompt = build_prompt(task) if not task.is_auto else f"[AUTO] {task.name}"
-        result = TaskResult(
-            task_name=task.name,
-            status="skipped",
-            prompt_sent=prompt,
-            raw_output="",
-            model=model,
-            auth_mode=config.auth,
-            timestamp=timestamp,
+        model = resolve_model(cli_model, task, config)
+
+        # -- Case 1: Dry run (Rondo-REQ-100 req 16)
+        if config.dry_run:
+            prompt = build_prompt(task) if not task.is_auto else f"[AUTO] {task.name}"
+            log_event("INFO", "dispatch_task dry_run", component="dispatch", task=task.name, model=model)
+            result = TaskResult(
+                task_name=task.name,
+                status="skipped",
+                prompt_sent=prompt,
+                raw_output="",
+                model=model,
+                auth_mode=config.auth,
+                timestamp=timestamp,
+            )
+            _attach_metrics(result, config)
+            return result, DispatchUsage(task_name=task.name, model=model)
+
+        # -- Case 2: Auto task (Rondo-REQ-100 req 4)
+        if task.is_auto:
+            r, u = _dispatch_auto(task, config, model, timestamp)
+            _attach_metrics(r, config)
+            log_event(
+                "INFO",
+                "dispatch_task auto complete",
+                component="dispatch",
+                task=task.name,
+                status=r.status,
+                duration_sec=r.duration_sec,
+            )
+            return r, u
+
+        # -- Case 3: Interactive task (Rondo-REQ-100 reqs 12-28)
+        r, u = _dispatch_interactive(task, config, model, timestamp, round_name=round_name)
+        log_event(
+            "INFO",
+            "dispatch_task interactive complete",
+            component="dispatch",
+            task=task.name,
+            status=r.status,
+            error_code=r.error_code,
+            duration_sec=r.duration_sec,
+            cost_usd=u.cost_usd,
         )
-        _attach_metrics(result, config)
-        return result, DispatchUsage(task_name=task.name, model=model)
-
-    # -- Case 2: Auto task (Rondo-REQ-100 req 4)
-    if task.is_auto:
-        r, u = _dispatch_auto(task, config, model, timestamp)
-        _attach_metrics(r, config)
         return r, u
-
-    # -- Case 3: Interactive task (Rondo-REQ-100 reqs 12-28)
-    return _dispatch_interactive(task, config, model, timestamp, round_name=round_name)
 
 
 def _dispatch_auto(
@@ -356,29 +409,23 @@ def _make_error_result(
     )
 
 
-def _dispatch_interactive(
+def _pre_dispatch_guards(
     task: Task,
     config: RondoConfig,
     model: str,
     timestamp: str,
-    round_name: str = "",
-) -> tuple[TaskResult, DispatchUsage]:
-    """Execute an interactive task via claude -p subprocess.
+) -> tuple[TaskResult, DispatchUsage] | None:
+    """Run pre-dispatch safety checks. Return error result if blocked, else None.
 
-    Rondo-STD-110 S1: command as list, never shell=True.
-    Rondo-STD-110 R1: SIGTERM-first kill sequence.
-    Rondo-STD-108: all exceptions caught and converted to error results.
-
-    RONDO-143 (Finding #206): FOOTGUN GUARD — if the router regresses and
-    misclassifies an in-session Claude model, this hard-stop prevents the
-    silent "not logged in" failure cascade. Opt-in bypass via env var for
-    explicit CLI/cron use cases that need subprocess dispatch.
+    Extracted from _dispatch_interactive for cyclomatic complexity (STD-107).
+    Covers:
+      - RONDO-204 #235: circuit breaker fast-path for Claude subprocess
+      - RONDO-143/#237: in-session subprocess footgun guard (both auth modes)
+      - RONDO-205 #237: audit trail warning when bypass env var is active
     """
-    # -- RONDO-204 Finding #235: Claude path parity — circuit breaker
-    # -- Separate bucket from "anthropic" HTTP adapter so subprocess auth
-    # -- failures don't trip the HTTP API breaker and vice versa.
     from rondo.retry import get_circuit_breaker  # pylint: disable=import-outside-toplevel
 
+    # -- #235: circuit breaker for Claude subprocess path
     breaker = get_circuit_breaker()
     if breaker.is_open("claude_cli"):
         logger.error("Claude subprocess circuit breaker OPEN — cooldown active")
@@ -394,26 +441,28 @@ def _dispatch_interactive(
         _attach_metrics(result, config)
         return result, DispatchUsage(task_name=task.name, model=model)
 
-    # -- RONDO-143: Subprocess footgun guard for in-session Claude models
-    if (
-        os.environ.get("CLAUDECODE")
-        and model in VALID_MODELS
-        and config.auth == "max"
-        and not os.environ.get("RONDO_ALLOW_IN_SESSION_SUBPROCESS")
-    ):
+    # -- #237: footgun guard (both auth modes)
+    in_claude_code = bool(os.environ.get("CLAUDECODE"))
+    is_claude_model = model in VALID_MODELS
+    override_active = bool(os.environ.get("RONDO_ALLOW_IN_SESSION_SUBPROCESS"))
+
+    if in_claude_code and is_claude_model and not override_active:
+        auth_detail = "max plan" if config.auth == "max" else "API key"
         logger.error(
-            "Subprocess footgun blocked: in-session Claude model '%s' routed to claude -p. "
-            "This always fails with 'not logged in'. Use agent plan instead (v0.7 router).",
+            "Subprocess footgun blocked: in-session Claude model '%s' routed to claude -p (%s). "
+            "Use agent plan instead (v0.7 router).",
             model,
+            auth_detail,
         )
         result = TaskResult(
             task_name=task.name,
             status="error",
             error_code="ERR_SUBPROCESS_FOOTGUN",
             error_message=(
-                f"In-session subprocess dispatch blocked for Claude model '{model}'. "
-                f"This is a v0.7 safety guard — subprocess fails 100% from inside Claude Code. "
-                f"Use empty model (inline) or different Claude model (agent). "
+                f"In-session subprocess dispatch blocked for Claude model '{model}' "
+                f"(auth={config.auth}). This is a v0.7 safety guard — subprocess dispatch "
+                f"from inside Claude Code causes cost surprise (auth=api) or 100% failure "
+                f"(auth=max). Use empty model (inline) or different Claude model (agent). "
                 f"Override with RONDO_ALLOW_IN_SESSION_SUBPROCESS=1."
             ),
             model=model,
@@ -422,6 +471,46 @@ def _dispatch_interactive(
         )
         _attach_metrics(result, config)
         return result, DispatchUsage(task_name=task.name, model=model)
+
+    # -- #237: audit trail when bypass env var is used
+    if in_claude_code and is_claude_model and override_active:
+        logger.warning(
+            "FOOTGUN OVERRIDE ACTIVE: RONDO_ALLOW_IN_SESSION_SUBPROCESS=1 is bypassing "
+            "the in-session subprocess guard for model '%s' (auth=%s, task=%s). "
+            "This path has known failure modes — ensure intentional use.",
+            model,
+            config.auth,
+            task.name,
+        )
+
+    return None  # -- No guard tripped — proceed with dispatch
+
+
+def _dispatch_interactive(
+    task: Task,
+    config: RondoConfig,
+    model: str,
+    timestamp: str,
+    round_name: str = "",
+) -> tuple[TaskResult, DispatchUsage]:
+    """Execute an interactive task via claude -p subprocess.
+
+    Rondo-STD-110 S1: command as list, never shell=True.
+    Rondo-STD-110 R1: SIGTERM-first kill sequence.
+    Rondo-STD-108: all exceptions caught and converted to error results.
+
+    Pre-dispatch safety checks live in _pre_dispatch_guards() for complexity.
+    """
+    # -- Pre-dispatch guards (circuit breaker + footgun). Returns error result
+    # -- if a guard fires, None if dispatch should proceed.
+    guard_result = _pre_dispatch_guards(task, config, model, timestamp)
+    if guard_result is not None:
+        return guard_result
+
+    # -- #235: breaker was checked in _pre_dispatch_guards, now needed for success/failure
+    from rondo.retry import get_circuit_breaker  # pylint: disable=import-outside-toplevel
+
+    breaker = get_circuit_breaker()
 
     prompt = build_prompt(task)
     env = prepare_env(config)

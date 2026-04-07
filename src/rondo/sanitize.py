@@ -51,8 +51,12 @@ DEFAULT_PATTERNS: list[SecretPattern] = [
         confidence=0.95,
     ),
     SecretPattern(
+        # -- RONDO-205 #239: require quotes around value. Previously matched
+        # -- code like `password = getpass.getpass()` → false positive.
+        # -- Trade-off: unquoted literal passwords are missed, but AI output
+        # -- typically writes passwords as quoted string literals anyway.
         name="password",
-        regex=r"""(?i)(?:password|passwd|pwd)\s*[=:]\s*['"]?([^\s'"]{4,})['"]?""",
+        regex=r"""(?i)(?:password|passwd|pwd)\s*[=:]\s*['"]([^'"\s]{4,})['"]""",
         confidence=0.95,
     ),
     SecretPattern(
@@ -61,8 +65,11 @@ DEFAULT_PATTERNS: list[SecretPattern] = [
         confidence=0.95,
     ),
     SecretPattern(
+        # -- RONDO-205 #239: require 20+ chars to match. Previously matched
+        # -- any word after "Bearer" → "Bearer of bad news" redacted "bad".
+        # -- Real bearer tokens are always 20+ chars (JWT, opaque, etc.).
         name="bearer_token",
-        regex=r"""(?i)Bearer\s+([A-Za-z0-9_\-.]+)""",
+        regex=r"""(?i)Bearer\s+([A-Za-z0-9_\-.]{20,})""",
         confidence=0.95,
     ),
     SecretPattern(

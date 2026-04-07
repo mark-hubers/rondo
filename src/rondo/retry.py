@@ -21,15 +21,31 @@ Import direction:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import secrets
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _default_breaker_path() -> Path:
+    """Path to the persistent circuit breaker state file.
+
+    RONDO-205 Finding #236: persist across process restart so that a
+    tripped breaker survives Rondo restarting during a provider outage.
+    Defaults to ~/.rondo/circuit_breaker.json; honors RONDO_TEST_DIR.
+    """
+    test_dir = os.environ.get("RONDO_TEST_DIR")
+    if test_dir:
+        return Path(test_dir) / "circuit_breaker.json"
+    return Path(os.path.expanduser("~/.rondo/circuit_breaker.json"))
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -132,17 +148,26 @@ class CircuitBreaker:
 
     Trips open after N consecutive failures. While open, calls fail
     immediately without hitting the network. Auto-closes after cooldown.
+
+    RONDO-205 Finding #236: state persists to disk on OPEN/CLOSE
+    transitions (not every failure — would hammer disk). open_until
+    stores wall-clock seconds (time.time()) so it survives restart.
+    Clock skew of <60s from NTP jitter is acceptable for a 60s cooldown.
     """
 
     def __init__(
         self,
         failure_threshold: int = 5,
         cooldown_sec: float = 60.0,
+        persist_path: Path | None = None,
     ) -> None:
         self.failure_threshold = failure_threshold
         self.cooldown_sec = cooldown_sec
         self._states: dict[str, CircuitBreakerState] = {}
         self._global_lock = threading.Lock()
+        # -- #236: persistent state file for cross-restart safety
+        self._persist_path = persist_path if persist_path is not None else _default_breaker_path()
+        self._load_state()
 
     def _get_state(self, provider: str) -> CircuitBreakerState:
         with self._global_lock:
@@ -150,39 +175,105 @@ class CircuitBreaker:
                 self._states[provider] = CircuitBreakerState()
             return self._states[provider]
 
+    def _save_state(self) -> None:
+        """Persist OPEN circuit states to disk — #236.
+
+        Only persists providers whose cooldown has not yet expired.
+        Atomic write via tmp+replace to prevent partial-read corruption.
+        Called on transitions only (OPEN/CLOSE), not every failure.
+        """
+        try:
+            now = time.time()
+            payload: dict[str, dict[str, float]] = {}
+            with self._global_lock:
+                for provider, state in self._states.items():
+                    if state.open_until > now:
+                        payload[provider] = {
+                            "open_until": state.open_until,
+                            "failure_count": float(state.failure_count),
+                        }
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = self._persist_path.with_suffix(".tmp")
+            tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            os.replace(tmp_path, self._persist_path)
+        except (OSError, TypeError, ValueError) as exc:
+            logger.debug("Circuit breaker persist failed (non-fatal): %s", exc)
+
+    def _load_state(self) -> None:
+        """Restore OPEN circuit states from disk — #236.
+
+        Only loads states where open_until is still in the future (by
+        wall clock). Expired entries are ignored. Non-fatal on any error.
+        """
+        try:
+            if not self._persist_path.exists():
+                return
+            data = json.loads(self._persist_path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return
+            now = time.time()
+            for provider, entry in data.items():
+                if not isinstance(entry, dict):
+                    continue
+                open_until = float(entry.get("open_until", 0.0))
+                if open_until > now:
+                    state = CircuitBreakerState(
+                        failure_count=int(entry.get("failure_count", self.failure_threshold)),
+                        open_until=open_until,
+                    )
+                    self._states[provider] = state
+                    logger.info(
+                        "Circuit breaker RESTORED for %s (cooldown %.0fs remaining)",
+                        provider,
+                        open_until - now,
+                    )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            logger.debug("Circuit breaker load failed (non-fatal): %s", exc)
+
     def is_open(self, provider: str) -> bool:
         """Check if circuit is open for this provider."""
         state = self._get_state(provider)
+        transitioned = False
         with state.lock:
             if state.open_until == 0.0:
                 return False
-            if time.monotonic() >= state.open_until:
-                # -- Cooldown expired — auto-close
+            if time.time() >= state.open_until:
+                # -- Cooldown expired — auto-close (#236: wall-clock)
                 state.failure_count = 0
                 state.open_until = 0.0
-                return False
-            return True
+                transitioned = True
+        if transitioned:
+            self._save_state()  # -- #236: persist auto-close
+        return False if transitioned else True
 
     def record_failure(self, provider: str) -> None:
         """Record a failure for this provider. Trip circuit if threshold reached."""
         state = self._get_state(provider)
+        tripped = False
         with state.lock:
             state.failure_count += 1
-            if state.failure_count >= self.failure_threshold:
-                state.open_until = time.monotonic() + self.cooldown_sec
+            if state.failure_count >= self.failure_threshold and state.open_until == 0.0:
+                state.open_until = time.time() + self.cooldown_sec  # -- #236: wall-clock
+                tripped = True
                 logger.warning(
                     "Circuit breaker OPENED for %s after %d failures (cooldown %.0fs)",
                     provider,
                     state.failure_count,
                     self.cooldown_sec,
                 )
+        if tripped:
+            self._save_state()  # -- #236: persist OPEN transition only
 
     def record_success(self, provider: str) -> None:
         """Record a success — reset failure count."""
         state = self._get_state(provider)
+        was_open = False
         with state.lock:
+            was_open = state.open_until > 0.0
             state.failure_count = 0
             state.open_until = 0.0
+        if was_open:
+            self._save_state()  # -- #236: persist CLOSE transition only
 
     def reset(self, provider: str | None = None) -> None:
         """Reset breaker state for a provider (or all if None)."""
@@ -191,6 +282,7 @@ class CircuitBreaker:
                 self._states.clear()
             else:
                 self._states.pop(provider, None)
+        self._save_state()  # -- #236: persist reset
 
 
 # -- Global shared circuit breaker for all adapters + dispatch

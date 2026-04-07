@@ -95,6 +95,75 @@ class TestCheckHealth:
             result = check_health("gemini")
         assert result.checked_at >= before
 
+    def test_open_circuit_breaker_skips_http_health_call(self, tmp_path) -> None:
+        """RONDO-205 Finding #240: OPEN breaker = fast-path, no HTTP call.
+
+        When the circuit breaker is OPEN for a provider, check_health must
+        return unhealthy immediately without calling adapter.health().
+        This collapses multi-hop fallback latency from N×HTTP to O(1).
+
+        Uses an ISOLATED CircuitBreaker instance (tmp_path persist file)
+        so the test doesn't pollute ~/.rondo/circuit_breaker.json.
+        """
+        from rondo.adapters.health import check_health
+        from rondo.retry import CircuitBreaker
+
+        # -- Isolated breaker (writes to tmp_path only)
+        isolated_breaker = CircuitBreaker(
+            failure_threshold=3,
+            cooldown_sec=300.0,
+            persist_path=tmp_path / "breaker.json",
+        )
+        for _ in range(3):
+            isolated_breaker.record_failure("fp240-down")
+        assert isolated_breaker.is_open("fp240-down"), "precondition: breaker must be OPEN"
+
+        mock_adapter = MagicMock()
+        mock_adapter.health.return_value = True  # -- would lie if called
+        with (
+            patch("rondo.retry.get_circuit_breaker", return_value=isolated_breaker),
+            patch("rondo.adapters.health._get_adapter_for_provider", return_value=mock_adapter),
+        ):
+            result = check_health("fp240-down")
+
+        assert result.healthy is False, "#240: OPEN breaker must return unhealthy"
+        assert "circuit breaker" in result.error.lower(), (
+            f"#240: error must mention breaker, got: {result.error!r}"
+        )
+        assert mock_adapter.health.call_count == 0, (
+            "#240: HTTP health call should be SKIPPED when breaker is OPEN"
+        )
+
+    def test_closed_circuit_breaker_does_http_health_call(self, tmp_path) -> None:
+        """RONDO-205 Finding #240: CLOSED breaker still calls adapter.health().
+
+        Regression guard — the fast-path must NOT prevent real health
+        checks when the breaker is closed (normal operation).
+        """
+        from rondo.adapters.health import check_health
+        from rondo.retry import CircuitBreaker
+
+        # -- Isolated fresh breaker = closed by default
+        isolated_breaker = CircuitBreaker(
+            failure_threshold=3,
+            cooldown_sec=300.0,
+            persist_path=tmp_path / "breaker.json",
+        )
+        assert not isolated_breaker.is_open("fp240-up"), "precondition: closed"
+
+        mock_adapter = MagicMock()
+        mock_adapter.health.return_value = True
+        with (
+            patch("rondo.retry.get_circuit_breaker", return_value=isolated_breaker),
+            patch("rondo.adapters.health._get_adapter_for_provider", return_value=mock_adapter),
+        ):
+            result = check_health("fp240-up")
+
+        assert result.healthy is True
+        assert mock_adapter.health.call_count == 1, (
+            "#240: CLOSED breaker must allow real health call through"
+        )
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  get_provider_health — REQ-109 req 018: 5-min TTL cache

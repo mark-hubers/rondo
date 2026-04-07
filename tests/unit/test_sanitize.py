@@ -401,4 +401,135 @@ class TestEdgeCases:
         assert "MIIEvg" not in result.sanitized_text
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a1.92a1b3
+class TestFalsePositiveGuards:
+    """RONDO-205 Finding #239: document & prove sanitize false-positive fixes.
+
+    These tests exist to prevent regression of known false-positive issues
+    that were fixed in Finding #239. Each test documents an input that
+    previously triggered a spurious redaction and now does not.
+    """
+
+    def test_bearer_as_english_word_not_redacted(self):
+        r"""'Bearer' as noun/adjective should not trigger bearer_token pattern.
+
+        Previously: `Bearer\s+(\w+)` matched any word after "Bearer".
+        Fix: require 20+ chars for the token portion (real tokens are long).
+        """
+        # -- These should NOT be redacted (English prose, not tokens)
+        false_positives = [
+            "Bearer is a valid load-bearing pillar.",
+            "The bearer of bad news has arrived.",
+            "Bearer bonds are investment vehicles from the 1980s era.",
+            "In the context of JWT, a Bearer token is sent via header.",
+            "We use bearer authentication in our API.",
+        ]
+        for text in false_positives:
+            result = sanitize_text(text)
+            assert result.secrets_found == 0, (
+                f"#239: false positive on bearer_token for: {text!r} "
+                f"→ detected {[d.pattern_name for d in result.detections]}"
+            )
+
+    def test_bearer_with_real_long_token_still_redacted(self):
+        """Real bearer tokens (20+ chars) must still be detected."""
+        # -- Runtime-constructed fake to avoid gitleaks flagging the test file.
+        # -- Use obvious FAKE markers repeated to hit the 20+ char threshold
+        # -- without resembling any real API key format.
+        fake_token = ("FAKE-TEST-" * 4) + "END"  # -- 43 chars, obviously fake
+        text = f"Authorization: Bearer {fake_token}"
+        result = sanitize_text(text)
+        assert result.secrets_found >= 1, (
+            f"#239: real bearer token must still be detected (got {result.secrets_found})"
+        )
+        assert fake_token not in result.sanitized_text
+
+    def test_password_function_call_not_redacted(self):
+        """Code like `password = getpass.getpass()` should not match.
+
+        Previously: password pattern captured `getpass.getpass()` as the
+        password value. Fix: require quoted value (real AI code uses quotes).
+        """
+        false_positives = [
+            "password = getpass.getpass()",
+            "pwd = input('enter password: ')",
+            "passwd = some_module.get_password()",
+        ]
+        for text in false_positives:
+            result = sanitize_text(text)
+            # -- password pattern must NOT match (but other patterns may)
+            pattern_hits = [d.pattern_name for d in result.detections]
+            assert "password" not in pattern_hits, (
+                f"#239: false positive on password pattern for: {text!r} "
+                f"→ detected {pattern_hits}"
+            )
+
+    def test_password_quoted_literal_still_redacted(self):
+        """Real quoted password literals must still be detected."""
+        real_secrets = [
+            'password = "myRealP@ssw0rd123"',
+            "password: 'superSecret99'",
+            'passwd="anotherRealOne456"',
+        ]
+        for text in real_secrets:
+            result = sanitize_text(text)
+            assert result.secrets_found >= 1, (
+                f"#239: real quoted password missed in: {text!r}"
+            )
+
+    def test_meta_references_not_redacted(self):
+        """Words like 'api_key' or 'token' in prose are not secrets.
+
+        Only `api_key = VALUE` or `token = VALUE` assignments should match.
+        Meta-references in documentation prose should pass through.
+        """
+        safe_prose = [
+            "The api_key parameter was documented yesterday.",
+            "Store your secret_key in the environment.",
+            "The token is worth 5 gold coins in game.",
+            "RSA encryption is secure.",
+            "How does JWT authentication work?",
+        ]
+        for text in safe_prose:
+            result = sanitize_text(text)
+            assert result.secrets_found == 0, (
+                f"#239: false positive on meta-reference: {text!r} "
+                f"→ detected {[d.pattern_name for d in result.detections]}"
+            )
+
+    def test_short_prefixes_not_redacted(self):
+        """Strings that start with real key prefixes but are too short.
+
+        `sk-123` is not an API key — it's too short. Real keys have 20+
+        chars after the prefix. This test documents the length boundaries.
+        """
+        too_short = [
+            "sk-123",  # 3 chars after prefix, not 20+
+            "ghp_short",  # not 36+ chars
+            "eyJhbGcixYZ",  # not a complete JWT
+            "AKIA12345",  # not 16 chars after AKIA
+            "AIzaShortNotRealKey",  # not 35 chars after AIza
+        ]
+        for text in too_short:
+            result = sanitize_text(text)
+            assert result.secrets_found == 0, (
+                f"#239: short string redacted as secret: {text!r} "
+                f"→ detected {[d.pattern_name for d in result.detections]}"
+            )
+
+    def test_certificate_block_not_confused_with_private_key(self):
+        """BEGIN CERTIFICATE blocks are public certs, not private keys.
+
+        Only BEGIN PRIVATE KEY / BEGIN RSA PRIVATE KEY should match.
+        """
+        cert = "-----BEGIN CERTIFICATE-----\nMIIDazCCAlOgAwIBAgI\n-----END CERTIFICATE-----"
+        result = sanitize_text(cert)
+        # -- Certificates may trigger high_entropy_base64 on the body,
+        # -- but should NOT trigger private_key patterns.
+        pattern_hits = [d.pattern_name for d in result.detections]
+        assert "private_key" not in pattern_hits, (
+            f"#239: certificate confused with private key: {pattern_hits}"
+        )
+        assert "private_key_begin" not in pattern_hits
+
+
+# -- sig: mgh-6201.cd.bd955f.f1a1.92a1b4

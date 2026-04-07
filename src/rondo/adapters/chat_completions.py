@@ -55,9 +55,15 @@ class ChatCompletionsAdapter(ProviderAdapter):
         self.name = provider_name
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Send prompt via Chat Completions API, return TaskResult."""
+        """Send prompt via Chat Completions API, return TaskResult.
+
+        RONDO-145 (Finding #211): wraps HTTP call in retry_http() with
+        exponential backoff. Circuit breaker trips after 5 failures.
+        """
         import urllib.error
         import urllib.request
+
+        from rondo.adapters.retry import get_circuit_breaker, retry_http
 
         task_name = kwargs.get("task_name", f"{self.provider_name}-{model}")
         use_model = model or self.default_model
@@ -73,6 +79,18 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 duration_sec=0.0,
             )
 
+        # -- RONDO-145: circuit breaker check
+        breaker = get_circuit_breaker()
+        if breaker.is_open(self.provider_name):
+            return TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code=ERR_PROVIDER_DOWN,
+                error_message=f"{self.provider_name} circuit breaker OPEN — cooldown active",
+                model=use_model,
+                duration_sec=0.0,
+            )
+
         url = f"{self.base_url}/chat/completions"
         payload = {
             "model": use_model,
@@ -84,10 +102,11 @@ class ChatCompletionsAdapter(ProviderAdapter):
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
-            "User-Agent": "rondo/0.6",
+            "User-Agent": "rondo/0.7",
         }
 
-        try:
+        def _do_request() -> dict:
+            """Inner request — called by retry_http."""
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
@@ -95,8 +114,12 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-                result = json.loads(resp.read().decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8"))
 
+        try:
+            # -- RONDO-145: retry on transient errors (5xx, 429, network)
+            result = retry_http(_do_request, provider_name=self.provider_name)
+            breaker.record_success(self.provider_name)
             duration = time.monotonic() - start
 
             # -- Extract response text
@@ -134,8 +157,12 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 invalidate_key(self.provider_name)
             elif exc.code == 429:
                 error_code = ERR_RATE_LIMIT
+                # -- RONDO-145: record transient failure for circuit breaker
+                breaker.record_failure(self.provider_name)
             elif exc.code >= 500:
                 error_code = ERR_PROVIDER_DOWN
+                # -- RONDO-145: record server error for circuit breaker
+                breaker.record_failure(self.provider_name)
             else:
                 error_code = ERR_PROVIDER
             return TaskResult(
@@ -148,6 +175,8 @@ class ChatCompletionsAdapter(ProviderAdapter):
             )
         except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError) as exc:
             duration = time.monotonic() - start
+            # -- RONDO-145: network/transient failures count against breaker
+            breaker.record_failure(self.provider_name)
             return TaskResult(
                 task_name=task_name,
                 status="error",

@@ -1198,6 +1198,104 @@ class TestAlwaysOnPipeline:
         tmp_files = list(tmp_path.glob("*.tmp"))
         assert len(tmp_files) == 0, f"Atomic write leaked temp: {tmp_files}"
 
+    def test_retry_http_retries_on_500(self) -> None:
+        """RONDO-145 (Finding #211): retry_http retries on 500 errors."""
+        import urllib.error
+
+        from rondo.adapters.retry import RetryConfig, retry_http
+
+        call_count = [0]
+
+        def flaky_call():
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise urllib.error.HTTPError("http://test", 503, "Service Unavailable", {}, None)
+            return "success"
+
+        result = retry_http(
+            flaky_call,
+            config=RetryConfig(max_attempts=5, initial_delay_sec=0.01, max_delay_sec=0.05, jitter=False),
+        )
+        assert result == "success"
+        assert call_count[0] == 3, "Should have retried twice before succeeding"
+
+    def test_retry_http_no_retry_on_401(self) -> None:
+        """RONDO-145: 401 (auth failure) is NOT transient — no retry."""
+        import urllib.error
+
+        from rondo.adapters.retry import RetryConfig, retry_http
+
+        call_count = [0]
+
+        def unauth_call():
+            call_count[0] += 1
+            raise urllib.error.HTTPError("http://test", 401, "Unauthorized", {}, None)
+
+        with pytest.raises(urllib.error.HTTPError) as exc_info:
+            retry_http(
+                unauth_call,
+                config=RetryConfig(max_attempts=5, initial_delay_sec=0.01, jitter=False),
+            )
+        assert exc_info.value.code == 401
+        assert call_count[0] == 1, "Should NOT retry on 401"
+
+    def test_retry_http_exhausts_attempts(self) -> None:
+        """RONDO-145: Gives up after max_attempts on persistent transient errors."""
+        import urllib.error
+
+        from rondo.adapters.retry import RetryConfig, retry_http
+
+        call_count = [0]
+
+        def always_fails():
+            call_count[0] += 1
+            raise urllib.error.HTTPError("http://test", 503, "Always down", {}, None)
+
+        with pytest.raises(urllib.error.HTTPError):
+            retry_http(
+                always_fails,
+                config=RetryConfig(max_attempts=3, initial_delay_sec=0.01, jitter=False),
+            )
+        assert call_count[0] == 3, f"Expected 3 attempts, got {call_count[0]}"
+
+    def test_circuit_breaker_opens_after_threshold(self) -> None:
+        """RONDO-145: Circuit breaker opens after N consecutive failures."""
+        from rondo.adapters.retry import CircuitBreaker
+
+        breaker = CircuitBreaker(failure_threshold=3, cooldown_sec=60.0)
+        assert not breaker.is_open("test-provider")
+
+        # -- Record failures up to threshold
+        breaker.record_failure("test-provider")
+        breaker.record_failure("test-provider")
+        assert not breaker.is_open("test-provider"), "Should still be closed at 2 failures"
+
+        breaker.record_failure("test-provider")
+        assert breaker.is_open("test-provider"), "Should be OPEN at 3 failures"
+
+    def test_circuit_breaker_isolates_providers(self) -> None:
+        """RONDO-145: Failures on one provider don't affect another."""
+        from rondo.adapters.retry import CircuitBreaker
+
+        breaker = CircuitBreaker(failure_threshold=2)
+        breaker.record_failure("provider-a")
+        breaker.record_failure("provider-a")
+        assert breaker.is_open("provider-a")
+        assert not breaker.is_open("provider-b"), "Provider B should still be closed"
+
+    def test_circuit_breaker_recovers_on_success(self) -> None:
+        """RONDO-145: Successful call resets failure count."""
+        from rondo.adapters.retry import CircuitBreaker
+
+        breaker = CircuitBreaker(failure_threshold=3)
+        breaker.record_failure("test")
+        breaker.record_failure("test")
+        breaker.record_success("test")
+        # -- Failure count reset — need 3 more to trip
+        breaker.record_failure("test")
+        breaker.record_failure("test")
+        assert not breaker.is_open("test"), "Should still be closed after recovery + 2 failures"
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

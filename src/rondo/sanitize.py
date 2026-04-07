@@ -71,8 +71,83 @@ DEFAULT_PATTERNS: list[SecretPattern] = [
         confidence=0.95,
     ),
     SecretPattern(
+        name="anthropic_key",
+        regex=r"""(sk-ant-[A-Za-z0-9_\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="openai_project_key",
+        regex=r"""(sk-proj-[A-Za-z0-9_\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
         name="sk_prefix_key",
         regex=r"""(sk-[A-Za-z0-9]{20,})""",
+        confidence=0.95,
+    ),
+    SecretPattern(
+        name="github_personal_access_token",
+        regex=r"""(ghp_[A-Za-z0-9]{36,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="github_oauth",
+        regex=r"""(gho_[A-Za-z0-9]{36,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="github_server_token",
+        regex=r"""(ghs_[A-Za-z0-9]{36,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="github_user_token",
+        regex=r"""(ghu_[A-Za-z0-9]{36,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="github_refresh_token",
+        regex=r"""(ghr_[A-Za-z0-9]{36,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="github_fine_grained_pat",
+        regex=r"""(github_pat_[A-Za-z0-9_]{80,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="gitlab_pat",
+        regex=r"""(glpat-[A-Za-z0-9_\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="slack_bot_token",
+        regex=r"""(xoxb-[A-Za-z0-9\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="slack_user_token",
+        regex=r"""(xoxp-[A-Za-z0-9\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="slack_app_token",
+        regex=r"""(xapp-[A-Za-z0-9\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="slack_legacy_token",
+        regex=r"""(xoxa-[A-Za-z0-9\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="slack_session_token",
+        regex=r"""(xoxs-[A-Za-z0-9\-]{20,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="jwt_token",
+        regex=r"""(eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,})""",
         confidence=0.95,
     ),
     SecretPattern(
@@ -81,13 +156,38 @@ DEFAULT_PATTERNS: list[SecretPattern] = [
         confidence=0.99,
     ),
     SecretPattern(
+        name="aws_temp_access_key",
+        regex=r"""(ASIA[0-9A-Z]{16})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="aws_session_token",
+        regex=r"""(?i)(?:aws[_-]?session[_-]?token)\s*[=:]\s*['"]?([A-Za-z0-9/+=]{100,})['"]?""",
+        confidence=0.95,
+    ),
+    SecretPattern(
+        name="google_api_key",
+        regex=r"""(AIza[A-Za-z0-9_\-]{35})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="stripe_live_key",
+        regex=r"""(sk_live_[A-Za-z0-9]{24,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
+        name="stripe_test_key",
+        regex=r"""(sk_test_[A-Za-z0-9]{24,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
         name="private_key",
-        regex=r"""-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----""",
+        regex=r"""-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----""",
         confidence=0.99,
     ),
     SecretPattern(
         name="private_key_begin",
-        regex=r"""-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]*""",
+        regex=r"""-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]*""",
         confidence=0.95,
     ),
     SecretPattern(

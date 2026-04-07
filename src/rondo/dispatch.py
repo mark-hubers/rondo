@@ -368,7 +368,41 @@ def _dispatch_interactive(
     Rondo-STD-110 S1: command as list, never shell=True.
     Rondo-STD-110 R1: SIGTERM-first kill sequence.
     Rondo-STD-108: all exceptions caught and converted to error results.
+
+    RONDO-143 (Finding #206): FOOTGUN GUARD — if the router regresses and
+    misclassifies an in-session Claude model, this hard-stop prevents the
+    silent "not logged in" failure cascade. Opt-in bypass via env var for
+    explicit CLI/cron use cases that need subprocess dispatch.
     """
+    # -- RONDO-143: Subprocess footgun guard for in-session Claude models
+    if (
+        os.environ.get("CLAUDECODE")
+        and model in VALID_MODELS
+        and config.auth == "max"
+        and not os.environ.get("RONDO_ALLOW_IN_SESSION_SUBPROCESS")
+    ):
+        logger.error(
+            "Subprocess footgun blocked: in-session Claude model '%s' routed to claude -p. "
+            "This always fails with 'not logged in'. Use agent plan instead (v0.7 router).",
+            model,
+        )
+        result = TaskResult(
+            task_name=task.name,
+            status="error",
+            error_code="ERR_SUBPROCESS_FOOTGUN",
+            error_message=(
+                f"In-session subprocess dispatch blocked for Claude model '{model}'. "
+                f"This is a v0.7 safety guard — subprocess fails 100% from inside Claude Code. "
+                f"Use empty model (inline) or different Claude model (agent). "
+                f"Override with RONDO_ALLOW_IN_SESSION_SUBPROCESS=1."
+            ),
+            model=model,
+            auth_mode=config.auth,
+            timestamp=timestamp,
+        )
+        _attach_metrics(result, config)
+        return result, DispatchUsage(task_name=task.name, model=model)
+
     prompt = build_prompt(task)
     env = prepare_env(config)
     start = time.monotonic()

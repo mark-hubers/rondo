@@ -1010,6 +1010,129 @@ class TestAlwaysOnPipeline:
 
         auth.invalidate_all_keys()
 
+    def test_sanitize_detects_github_pat(self) -> None:
+        """RONDO-143 (Finding #208): GitHub personal access tokens scrubbed."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        # -- Fake but pattern-matching GitHub PAT
+        fake = "ghp_" + ("A" * 40)
+        tr = TaskResult(task_name="t", status="done", raw_output=f"token is {fake}")
+        sanitized, _report = sanitize_task_result(tr)
+        assert fake not in sanitized.raw_output, "GitHub PAT leaked"
+
+    def test_sanitize_detects_slack_tokens(self) -> None:
+        """RONDO-143: Slack bot/user/app tokens scrubbed."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        for prefix in ("xoxb-", "xoxp-", "xapp-"):
+            fake = prefix + ("X" * 30)
+            tr = TaskResult(task_name="t", status="done", raw_output=f"token: {fake}")
+            sanitized, _report = sanitize_task_result(tr)
+            assert fake not in sanitized.raw_output, f"Slack {prefix} token leaked"
+
+    def test_sanitize_detects_jwt(self) -> None:
+        """RONDO-143: JWT bearer tokens (three-part eyJ...) scrubbed."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        fake_jwt = "eyJ" + ("A" * 20) + ".eyJ" + ("B" * 20) + "." + ("C" * 30)
+        tr = TaskResult(task_name="t", status="done", raw_output=f"bearer: {fake_jwt}")
+        sanitized, _report = sanitize_task_result(tr)
+        assert fake_jwt not in sanitized.raw_output, "JWT leaked"
+
+    def test_sanitize_detects_aws_temp_key(self) -> None:
+        """RONDO-143: AWS temporary access keys (ASIA prefix) scrubbed."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        fake = "ASIA" + "1" * 16
+        tr = TaskResult(task_name="t", status="done", raw_output=f"key: {fake}")
+        sanitized, _report = sanitize_task_result(tr)
+        assert fake not in sanitized.raw_output, "AWS temp key leaked"
+
+    def test_sanitize_detects_anthropic_specific(self) -> None:
+        """RONDO-143: sk-ant- prefix caught with higher confidence."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        fake = "sk-ant-" + ("X" * 30)
+        tr = TaskResult(task_name="t", status="done", raw_output=f"claude key: {fake}")
+        sanitized, _report = sanitize_task_result(tr)
+        assert fake not in sanitized.raw_output, "Anthropic key leaked"
+
+    def test_sanitize_detects_gitlab_pat(self) -> None:
+        """RONDO-143: GitLab personal access tokens scrubbed."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        fake = "glpat-" + ("Y" * 25)
+        tr = TaskResult(task_name="t", status="done", raw_output=f"gitlab: {fake}")
+        sanitized, _report = sanitize_task_result(tr)
+        assert fake not in sanitized.raw_output, "GitLab PAT leaked"
+
+    def test_sanitize_detects_google_api_key(self) -> None:
+        """RONDO-143: Google API keys (AIza prefix) scrubbed."""
+        from rondo.engine import TaskResult
+        from rondo.sanitize import sanitize_task_result
+
+        fake = "AIza" + ("Z" * 35)
+        tr = TaskResult(task_name="t", status="done", raw_output=f"google: {fake}")
+        sanitized, _report = sanitize_task_result(tr)
+        assert fake not in sanitized.raw_output, "Google API key leaked"
+
+    def test_subprocess_footgun_guard_blocks_in_session(self, monkeypatch) -> None:
+        """RONDO-143 (Finding #206): In-session subprocess dispatch hard-stop.
+
+        If router regresses and a Claude model reaches _dispatch_interactive
+        while CLAUDECODE is set, the guard returns ERR_SUBPROCESS_FOOTGUN
+        instead of silently failing with 'not logged in'.
+        """
+        from rondo.config import RondoConfig
+        from rondo.dispatch import _dispatch_interactive
+        from rondo.engine import Task
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        monkeypatch.delenv("RONDO_ALLOW_IN_SESSION_SUBPROCESS", raising=False)
+
+        task = Task(name="foot", instruction="hi", done_when="done")
+        config = RondoConfig(auth="max")
+
+        result, _usage = _dispatch_interactive(task, config, "sonnet", "2026-04-07T00:00:00Z")
+        assert result.status == "error"
+        assert result.error_code == "ERR_SUBPROCESS_FOOTGUN"
+        assert "footgun" in result.error_message.lower() or "blocked" in result.error_message.lower()
+
+    def test_subprocess_footgun_opt_in_bypass(self, monkeypatch) -> None:
+        """Footgun guard can be bypassed with RONDO_ALLOW_IN_SESSION_SUBPROCESS=1.
+
+        Opt-in escape for explicit CLI/cron use cases. Still runs the real
+        dispatch which will fail — but the footgun guard doesn't block it.
+        """
+        from unittest.mock import patch
+
+        from rondo.config import RondoConfig
+        from rondo.dispatch import _dispatch_interactive
+        from rondo.engine import Task
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        monkeypatch.setenv("RONDO_ALLOW_IN_SESSION_SUBPROCESS", "1")
+
+        task = Task(name="foot", instruction="hi", done_when="done")
+        config = RondoConfig(auth="max")
+
+        # -- Mock the subprocess runner so we don't actually fork
+        with patch("rondo.dispatch._run_subprocess") as mock_run:
+            mock_run.return_value = ("{}", "", 0, False)
+            try:
+                result, _usage = _dispatch_interactive(task, config, "sonnet", "2026-04-07T00:00:00Z")
+                # -- Guard didn't fire, so we got past it (even if dispatch itself fails later)
+                assert result.error_code != "ERR_SUBPROCESS_FOOTGUN", "Guard should be bypassed"
+            except (OSError, RuntimeError):
+                # -- OK: dispatch logic may fail downstream — we just care guard didn't fire
+                pass
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

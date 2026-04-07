@@ -633,6 +633,425 @@ class TestAuditPipeline:
             os.environ.pop("RONDO_TEST_DIR", None)
 
 
+class TestAlwaysOnPipeline:
+    """RONDO-139 (Finding #203): Every dispatch path goes through finalize_dispatch.
+
+    Cursor review #2 P0: error/dry-run/exception paths were skipping audit/sanitize/
+    spool/history/metrics. This test asserts ALL paths now flow through the pipeline.
+    """
+
+    def test_dry_run_provider_path_calls_finalize(self, tmp_path) -> None:
+        """dry_run=True on provider path now goes through finalize_dispatch.
+
+        Was: appended TaskResult(skipped) directly, no pipeline.
+        Now: pipeline runs, audit records the skipped task.
+        """
+        from unittest.mock import patch
+
+        from rondo.engine import Round, RoundResult, Task
+        from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
+
+        round_def = Round(
+            name="dry-run-test",
+            tasks=[Task(name="t1", instruction="hi", done_when="done")],
+        )
+
+        with patch("rondo.dispatch.finalize_dispatch") as mock_finalize:
+            from rondo.engine import DispatchUsage, TaskResult
+
+            mock_finalize.return_value = (
+                TaskResult(task_name="t1", status="skipped", model="gemini-2.5-flash"),
+                DispatchUsage(task_name="t1", model="gemini-2.5-flash", cost_usd=0.0),
+            )
+            result = _dispatch_via_provider_or_claude(
+                round_def=round_def,
+                config=None,
+                model="gemini:gemini-2.5-flash",
+                prompt="hi",
+                dry_run=True,
+                run_round=lambda *a, **kw: None,
+            )
+        assert isinstance(result, RoundResult)
+        # -- finalize_dispatch was called for the dry-run task (this is the fix)
+        assert mock_finalize.called, "RONDO-139: dry-run path must call finalize_dispatch"
+
+    def test_provider_down_path_calls_finalize(self) -> None:
+        """provider-down error path now goes through finalize_dispatch.
+
+        Was: returned RoundResult immediately, no pipeline.
+        Now: error TaskResult flows through finalize.
+        """
+        from unittest.mock import patch
+
+        from rondo.engine import Round, RoundResult, Task
+        from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
+
+        round_def = Round(
+            name="provider-down-test",
+            tasks=[Task(name="t1", instruction="hi", done_when="done")],
+        )
+
+        with (
+            patch("rondo.providers.get_provider_with_fallback") as mock_get,
+            patch("rondo.dispatch.finalize_dispatch") as mock_finalize,
+        ):
+            from rondo.engine import DispatchUsage, TaskResult
+
+            mock_get.return_value = (None, "")  # -- provider down, no fallback
+            mock_finalize.return_value = (
+                TaskResult(task_name="dispatch", status="error", error_code="ERR_PROVIDER_DOWN", model="gemini:flash"),
+                DispatchUsage(task_name="dispatch", model="gemini:flash", cost_usd=0.0),
+            )
+            result = _dispatch_via_provider_or_claude(
+                round_def=round_def,
+                config=None,
+                model="gemini:flash",
+                prompt="hi",
+                dry_run=False,
+                run_round=lambda *a, **kw: None,
+            )
+        assert isinstance(result, RoundResult)
+        assert result.status == "error"
+        # -- THE FIX: provider-down path now calls finalize_dispatch
+        assert mock_finalize.called, "RONDO-139: provider-down path must call finalize_dispatch"
+
+    def test_adapter_exception_path_calls_finalize(self) -> None:
+        """When provider.dispatch raises, the error TaskResult goes through finalize.
+
+        Was: exception bubbled up to _execute_dispatch, no pipeline.
+        Now: caught in dispatch loop, wrapped in TaskResult, sent through finalize.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from rondo.engine import Round, RoundResult, Task
+        from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
+
+        round_def = Round(
+            name="exception-test",
+            tasks=[Task(name="t1", instruction="hi", done_when="done")],
+        )
+
+        # -- Mock provider that raises
+        bad_provider = MagicMock()
+        bad_provider.dispatch.side_effect = RuntimeError("simulated adapter crash")
+
+        with (
+            patch("rondo.providers.get_provider_with_fallback") as mock_get,
+            patch("rondo.dispatch.finalize_dispatch") as mock_finalize,
+        ):
+            from rondo.engine import DispatchUsage, TaskResult
+
+            mock_get.return_value = (bad_provider, "gemini-2.5-flash")
+            mock_finalize.return_value = (
+                TaskResult(task_name="t1", status="error", error_code="ERR_PROVIDER", model="gemini-2.5-flash"),
+                DispatchUsage(task_name="t1", model="gemini-2.5-flash", cost_usd=0.0),
+            )
+            result = _dispatch_via_provider_or_claude(
+                round_def=round_def,
+                config=None,
+                model="gemini:gemini-2.5-flash",
+                prompt="hi",
+                dry_run=False,
+                run_round=lambda *a, **kw: None,
+            )
+        assert isinstance(result, RoundResult)
+        # -- THE FIX: adapter exceptions caught + finalize called
+        assert mock_finalize.called, "RONDO-139: adapter exception path must call finalize_dispatch"
+        # -- The error result must be in task_results
+        assert len(result.task_results) == 1
+        assert result.task_results[0].status == "error"
+
+    def test_sanitize_runs_before_audit_outcome(self, tmp_path) -> None:
+        """RONDO-140 (Finding #204): SANITIZE BEFORE AUDIT.
+
+        Secrets in raw_output must be scrubbed BEFORE audit_trail.record_outcome
+        writes to JSONL/result.json. Otherwise plaintext secrets land in audit logs.
+        """
+        from rondo.audit import AuditConfig, AuditTrail
+        from rondo.config import RondoConfig
+        from rondo.dispatch import _finalize_dispatch
+        from rondo.engine import DispatchUsage, TaskResult
+
+        # -- Construct a fake sk- pattern at runtime so gitleaks doesn't flag the test source
+        # -- Pattern matches sanitize.py sk_prefix_key regex: sk-[A-Za-z0-9]{20,}
+        secret = "sk-" + ("FAKETESTKEY" * 3)  # nosec B105 -- test fixture, not a real secret
+        tr = TaskResult(
+            task_name="leak-test",
+            status="done",
+            raw_output=f"Use this key: {secret}",
+            model="gemini-2.5-flash",
+        )
+        usage = DispatchUsage(task_name="leak-test", model="gemini-2.5-flash", cost_usd=0.0)
+        audit_trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        record = audit_trail.record_intent(
+            task_name="leak-test", round_name="test", model="gemini-2.5-flash", prompt="give me a key"
+        )
+        config = RondoConfig(audit_dir=str(tmp_path))
+
+        finalized_tr, _u = _finalize_dispatch(tr, usage, config, audit_trail, record, round_name="test")
+
+        # -- Returned result is sanitized
+        assert secret not in finalized_tr.raw_output, "Returned TaskResult still contains secret"
+        assert "REDACTED" in finalized_tr.raw_output, "Returned TaskResult missing redaction marker"
+
+        # -- Result file (persisted to disk) is sanitized
+        result_files = list(tmp_path.glob("*.result.json"))
+        assert len(result_files) >= 1, "No result file written"
+        for rf in result_files:
+            content = rf.read_text()
+            assert secret not in content, f"Secret leaked into {rf.name}"
+
+        # -- Audit JSONL is sanitized (or doesn't store raw_output at all)
+        jsonl_files = list(tmp_path.glob("*.jsonl"))
+        for jf in jsonl_files:
+            content = jf.read_text()
+            assert secret not in content, f"Secret leaked into {jf.name}"
+
+        # -- Prompt file (if it captures prompt) doesn't leak the secret either
+        prompt_files = list(tmp_path.glob("*.prompt.txt"))
+        for pf in prompt_files:
+            content = pf.read_text()
+            # -- Prompt didn't contain the secret, but verify defensively
+            assert secret not in content, f"Secret leaked into {pf.name}"
+
+    def test_budget_cap_blocks_http_dispatch(self) -> None:
+        """RONDO-141 (Finding #205): Budget cap enforced on HTTP adapter path.
+
+        Was: max_budget_usd only used as --max-budget-usd subprocess flag.
+        HTTP adapters bypassed it entirely. Cost denial-of-service possible.
+
+        Now: pre-dispatch check accumulates cost across tasks. When running cost
+        hits the cap, remaining tasks return ERR_BUDGET_EXCEEDED without
+        calling the provider.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from rondo.config import RondoConfig
+        from rondo.engine import Round, RoundResult, Task, TaskResult
+        from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
+
+        # -- 3 tasks, each costing $0.05 — should hit cap of $0.08 after task 2
+        round_def = Round(
+            name="budget-test",
+            tasks=[
+                Task(name="t1", instruction="hi", done_when="done"),
+                Task(name="t2", instruction="hi", done_when="done"),
+                Task(name="t3", instruction="hi", done_when="done"),
+            ],
+        )
+
+        # -- Mock provider that returns $0.05 per task
+        provider = MagicMock()
+
+        def fake_dispatch(prompt: str, model: str, task_name: str) -> TaskResult:
+            return TaskResult(task_name=task_name, status="done", raw_output="ok", model=model, cost_usd=0.05)
+
+        provider.dispatch.side_effect = fake_dispatch
+
+        config = RondoConfig(max_budget_usd=0.08, audit_dir="")  # -- cap at 8 cents
+
+        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+            mock_get.return_value = (provider, "gemini-2.5-flash")
+            result = _dispatch_via_provider_or_claude(
+                round_def=round_def,
+                config=config,
+                model="gemini:gemini-2.5-flash",
+                prompt="hi",
+                dry_run=False,
+                run_round=lambda *a, **kw: None,
+            )
+
+        assert isinstance(result, RoundResult)
+        assert len(result.task_results) == 3
+
+        # -- t1: dispatched, cost $0.05, running = $0.05 (under $0.08 cap)
+        assert result.task_results[0].status == "done"
+        # -- t2: dispatched, cost $0.05, running = $0.10 (over cap, but check is BEFORE dispatch)
+        # --     so t2 dispatches successfully (running was $0.05 when checked)
+        assert result.task_results[1].status == "done"
+        # -- t3: pre-check sees running = $0.10, cap = $0.08 → BLOCKED
+        assert result.task_results[2].status == "error"
+        assert result.task_results[2].error_code == "ERR_BUDGET_EXCEEDED"
+        assert "0.0800" in result.task_results[2].error_message or "cap" in result.task_results[2].error_message.lower()
+
+        # -- Provider was called only twice (third was blocked)
+        assert provider.dispatch.call_count == 2, (
+            f"Provider should be called 2 times (3rd blocked by cap), got {provider.dispatch.call_count}"
+        )
+
+    def test_no_budget_cap_no_blocking(self) -> None:
+        """If max_budget_usd is None, all dispatches proceed regardless of cost."""
+        from unittest.mock import MagicMock, patch
+
+        from rondo.config import RondoConfig
+        from rondo.engine import Round, Task, TaskResult
+        from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
+
+        round_def = Round(
+            name="no-cap-test",
+            tasks=[Task(name=f"t{i}", instruction="hi", done_when="done") for i in range(5)],
+        )
+        provider = MagicMock()
+        provider.dispatch.side_effect = lambda prompt, model, task_name: TaskResult(
+            task_name=task_name, status="done", model=model, cost_usd=10.0
+        )
+        config = RondoConfig(audit_dir="")  # -- no max_budget_usd
+
+        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+            mock_get.return_value = (provider, "gemini-2.5-flash")
+            result = _dispatch_via_provider_or_claude(
+                round_def=round_def,
+                config=config,
+                model="gemini:gemini-2.5-flash",
+                prompt="hi",
+                dry_run=False,
+                run_round=lambda *a, **kw: None,
+            )
+        assert all(t.status == "done" for t in result.task_results)
+        assert provider.dispatch.call_count == 5
+
+    def test_key_cache_tenant_isolation(self, monkeypatch) -> None:
+        """RONDO-142 (Finding #209): _KEY_CACHE is tenant-scoped.
+
+        Was: cache keyed only by provider. User A's key reused for User B's
+        request for 5 minutes (cross-tenant credential bleed).
+
+        Now: cache keyed by (provider, tenant). User B gets their own key,
+        not a leftover from User A.
+        """
+        from rondo.adapters import auth
+
+        auth.invalidate_all_keys()
+
+        # -- Tenant A logs in with their key
+        monkeypatch.setenv("RONDO_TENANT", "alice")
+        monkeypatch.setenv("XAI_API_KEY", "alice-secret-key")
+        key_alice = auth.load_api_key("grok")
+        assert key_alice == "alice-secret-key"
+
+        # -- Switch to Tenant B with their own key
+        monkeypatch.setenv("RONDO_TENANT", "bob")
+        monkeypatch.setenv("XAI_API_KEY", "bob-secret-key")
+        key_bob = auth.load_api_key("grok")
+        # -- Bob must get HIS key, not Alice's cached one
+        assert key_bob == "bob-secret-key", (
+            f"Cross-tenant key leak: Bob got {key_bob!r} instead of bob-secret-key"
+        )
+
+        # -- Switch back to Alice — she should get her key from cache
+        monkeypatch.setenv("RONDO_TENANT", "alice")
+        monkeypatch.setenv("XAI_API_KEY", "different-key-now")
+        key_alice2 = auth.load_api_key("grok")
+        # -- Alice gets her CACHED value, not the new env (unless TTL expired)
+        assert key_alice2 == "alice-secret-key", "Alice's cache lost — should still hit"
+
+        auth.invalidate_all_keys()
+
+    def test_key_cache_thread_safe(self, monkeypatch) -> None:
+        """RONDO-142: concurrent loads don't corrupt cache or duplicate work."""
+        import threading
+
+        from rondo.adapters import auth
+
+        auth.invalidate_all_keys()
+        monkeypatch.setenv("RONDO_TENANT", "concurrent-test")
+        monkeypatch.setenv("GEMINI_API_KEY", "concurrent-key-value")
+
+        results: list[str] = []
+        errors: list[Exception] = []
+
+        def load_in_thread() -> None:
+            try:
+                results.append(auth.load_api_key("gemini"))
+            except (RuntimeError, OSError) as exc:
+                errors.append(exc)
+
+        # -- 20 concurrent threads loading the same key
+        threads = [threading.Thread(target=load_in_thread) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # -- All threads got the same key, no errors
+        assert len(errors) == 0, f"Errors during concurrent load: {errors}"
+        assert len(results) == 20
+        assert all(r == "concurrent-key-value" for r in results), f"Inconsistent keys: {set(results)}"
+
+        auth.invalidate_all_keys()
+
+    def test_invalidate_only_affects_current_tenant(self, monkeypatch) -> None:
+        """RONDO-142: invalidate_key only clears the calling tenant's cache."""
+        from rondo.adapters import auth
+
+        auth.invalidate_all_keys()
+
+        # -- Cache for tenant A
+        monkeypatch.setenv("RONDO_TENANT", "alice")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "alice-anthropic")
+        auth.load_api_key("anthropic")
+
+        # -- Cache for tenant B
+        monkeypatch.setenv("RONDO_TENANT", "bob")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "bob-anthropic")
+        auth.load_api_key("anthropic")
+
+        # -- Bob invalidates HIS key
+        auth.invalidate_key("anthropic")
+
+        # -- Switch to Alice — her cache should still have her key
+        monkeypatch.setenv("RONDO_TENANT", "alice")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        # -- Alice's cache should still have her value (Bob's invalidate didn't touch it)
+        key_alice = auth.load_api_key("anthropic")
+        assert key_alice == "alice-anthropic", (
+            f"Alice's cache wrongly invalidated by Bob's invalidate. Got: {key_alice!r}"
+        )
+
+        auth.invalidate_all_keys()
+
+    def test_finalize_failure_does_not_lose_result(self) -> None:
+        """If finalize_dispatch itself raises, original TaskResult is preserved.
+
+        Defensive: never lose the dispatch result to a finalization bug.
+        """
+        from unittest.mock import MagicMock, patch
+
+        from rondo.engine import Round, RoundResult, Task, TaskResult
+        from rondo.mcp_dispatch import _dispatch_via_provider_or_claude
+
+        round_def = Round(
+            name="finalize-fail-test",
+            tasks=[Task(name="t1", instruction="hi", done_when="done")],
+        )
+
+        good_provider = MagicMock()
+        good_provider.dispatch.return_value = TaskResult(
+            task_name="t1", status="done", raw_output="real output", model="gemini-2.5-flash"
+        )
+
+        with (
+            patch("rondo.providers.get_provider_with_fallback") as mock_get,
+            patch("rondo.dispatch.finalize_dispatch") as mock_finalize,
+        ):
+            mock_get.return_value = (good_provider, "gemini-2.5-flash")
+            mock_finalize.side_effect = OSError("simulated finalize crash")
+
+            result = _dispatch_via_provider_or_claude(
+                round_def=round_def,
+                config=None,
+                model="gemini:gemini-2.5-flash",
+                prompt="hi",
+                dry_run=False,
+                run_round=lambda *a, **kw: None,
+            )
+        # -- Defensive: original result preserved even when finalize crashes
+        assert isinstance(result, RoundResult)
+        assert len(result.task_results) == 1
+        assert result.task_results[0].raw_output == "real output"
+        assert result.task_results[0].status == "done"
+
+
 # -- ──────────────────────────────────────────────────────────────
 # --  TIER 8: SANITIZE — Cursor MINOR finding
 # --  "Sanitize false positives on normal content"

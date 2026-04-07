@@ -477,6 +477,22 @@ def _dispatch_interactive(
         return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
 
+def finalize_dispatch(
+    result: TaskResult,
+    usage: DispatchUsage,
+    config: RondoConfig,
+    audit_trail: AuditTrail | None,
+    audit_record: object | None,
+    round_name: str = "",
+) -> tuple[TaskResult, DispatchUsage]:
+    """Public accessor for shared ALWAYS-ON pipeline (RONDO-139).
+
+    Both success and error paths in dispatch routing call this to ensure
+    audit/sanitize/spool/history/metrics run for every result.
+    """
+    return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
+
+
 def _finalize_dispatch(
     result: TaskResult,
     usage: DispatchUsage,
@@ -489,12 +505,22 @@ def _finalize_dispatch(
 
     Cursor review (Session 92): error paths were skipping audit OUTCOME,
     sanitize, spool, and history. This function runs on every path.
+
+    RONDO-140 (Finding #204): SANITIZE BEFORE AUDIT. Secrets in raw_output
+    must be scrubbed before audit_trail.record_outcome writes to JSONL.
+    Order: dispatch_id → SANITIZE → audit OUTCOME → spool → metrics → history.
     """
     # -- STD-113: set dispatch_id on result
     if audit_record:
         result.dispatch_id = getattr(audit_record, "dispatch_id", "")
 
-    # -- STD-113: record audit OUTCOME
+    # -- STD-114: SANITIZE FIRST — before any persistence (RONDO-140 / Finding #204)
+    try:
+        result, _sr = sanitize_task_result(result, config=None)
+    except (TypeError, AttributeError) as exc:
+        logger.debug("Sanitize failed (non-fatal): %s", exc)
+
+    # -- STD-113: record audit OUTCOME (now with sanitized raw_output)
     if audit_trail and audit_record:
         try:
             audit_trail.record_outcome(
@@ -514,12 +540,6 @@ def _finalize_dispatch(
             )
         except (OSError, TypeError) as exc:
             logger.debug("Audit outcome failed (non-fatal): %s", exc)
-
-    # -- STD-114: sanitize result
-    try:
-        result, _sr = sanitize_task_result(result, config=None)
-    except (TypeError, AttributeError) as exc:
-        logger.debug("Sanitize failed (non-fatal): %s", exc)
 
     # -- REQ-101 req 045: spool only for async/overnight callers
     if config.spool_enabled:

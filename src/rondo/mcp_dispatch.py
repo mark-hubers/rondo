@@ -213,89 +213,91 @@ def _dispatch_via_provider_or_claude(
 
     Non-Claude providers go through adapter.dispatch() + shared _finalize_dispatch().
     Claude goes through run_round() → dispatch_task() (proven path).
-    Both paths get the full ALWAYS-ON pipeline: audit, sanitize, spool, history, metrics.
+
+    RONDO-139 (Finding #203): EVERY result — success, error, dry-run, provider-down,
+    exception — MUST go through _finalize_dispatch. No early returns. The pipeline
+    is ALWAYS-ON for all paths.
     """
+    from rondo.audit import AuditConfig, AuditTrail
+    from rondo.config import RondoConfig
+    from rondo.dispatch import finalize_dispatch
+    from rondo.engine import DispatchUsage, RoundResult, TaskResult
     from rondo.providers import get_provider_with_fallback, parse_model
 
+    # -- Build finalize_config + audit_trail upfront — used by ALL paths
+    audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
+    audit_trail = None
+    try:
+        audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
+    except (OSError, TypeError):
+        pass
+
+    finalize_config = (
+        config
+        if isinstance(config, RondoConfig)
+        else RondoConfig(
+            audit_dir=audit_dir,
+            results_dir=_resolve_dir("~/.rondo/results", "results"),
+        )
+    )
+
+    def _run_pipeline(tr: TaskResult, task_name: str, audit_record: Any = None) -> TaskResult:
+        """ALWAYS-ON pipeline wrapper — RONDO-139.
+
+        Every TaskResult passes through finalize_dispatch (audit OUTCOME,
+        sanitize, spool, history, metrics) regardless of status.
+        Defensive: if finalize itself fails, return original tr unchanged.
+        """
+        try:
+            usage = DispatchUsage(task_name=task_name, model=tr.model or model, cost_usd=tr.cost_usd or 0.0)
+            finalized_tr, _usage = finalize_dispatch(
+                tr,
+                usage,
+                finalize_config,
+                audit_trail,
+                audit_record,
+                round_name=round_def.name if hasattr(round_def, "name") else "dispatch",
+            )
+            return finalized_tr
+        except (OSError, TypeError, ValueError, AttributeError) as exc:
+            logger.warning("Pipeline finalization failed for %s: %s", task_name, exc)
+            return tr  # -- defensive: never lose the original result
+
     provider, resolved_model = get_provider_with_fallback(model)
-
-    # -- REQ-109 req 016: all providers down + no fallback → error, NOT Claude
     provider_name, _ = parse_model(model)
-    if provider is None and provider_name and not resolved_model:
-        from rondo.engine import RoundResult, TaskResult
 
+    # -- REQ-109 req 016: provider down → error result MUST also flow through pipeline
+    if provider is None and provider_name and not resolved_model:
+        error_tr = TaskResult(
+            task_name="dispatch",
+            status="error",
+            error_code="ERR_PROVIDER_DOWN",
+            error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
+            model=model,
+        )
+        # -- RONDO-139: even provider-down errors get the pipeline
+        finalized = _run_pipeline(error_tr, "dispatch")
         return RoundResult(
             round_name=round_def.name if hasattr(round_def, "name") else "dispatch",
             status="error",
-            task_results=[
-                TaskResult(
-                    task_name="dispatch",
-                    status="error",
-                    error_code="ERR_PROVIDER_DOWN",
-                    error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
-                    model=model,
-                )
-            ],
+            task_results=[finalized],
         )
 
     if provider is not None:
-        from rondo.audit import AuditConfig, AuditTrail
-        from rondo.dispatch import _finalize_dispatch
-        from rondo.engine import DispatchUsage, RoundResult, TaskResult
-
         # -- Strip provider prefix for adapter dispatch (local:llama → llama)
         _, adapter_model = parse_model(resolved_model)
         model = adapter_model or resolved_model
 
-        # -- REQ-109 req 026: shared finalization for ALL providers
-        audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
-        audit_trail = None
-        try:
-            audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
-        except (OSError, TypeError):
-            pass
-
-        # -- Build a minimal config for _finalize_dispatch
-        from rondo.config import RondoConfig
-
-        finalize_config = (
-            config
-            if isinstance(config, RondoConfig)
-            else RondoConfig(
-                audit_dir=audit_dir,
-                results_dir=_resolve_dir("~/.rondo/results", "results"),
-            )
+        task_results = _run_provider_round(
+            round_def=round_def,
+            provider=provider,
+            model=model,
+            prompt=prompt,
+            dry_run=dry_run,
+            budget_cap=finalize_config.max_budget_usd,
+            audit_trail=audit_trail,
+            run_pipeline=_run_pipeline,
         )
-
-        task_results = []
-        for task in round_def.tasks:
-            task_prompt = task.instruction or prompt
-            if dry_run:
-                task_results.append(
-                    TaskResult(task_name=task.name, status="skipped", prompt_sent=task_prompt[:500], model=model)
-                )
-            else:
-                # -- Audit INTENT before dispatch
-                audit_record = None
-                if audit_trail:
-                    audit_record = audit_trail.record_intent(
-                        task_name=task.name,
-                        round_name=round_def.name,
-                        model=model,
-                        prompt=task_prompt,
-                    )
-                tr = provider.dispatch(prompt=task_prompt, model=model, task_name=task.name)
-                usage = DispatchUsage(task_name=task.name, model=model, cost_usd=tr.cost_usd or 0.0)
-                # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
-                tr, usage = _finalize_dispatch(
-                    tr,
-                    usage,
-                    finalize_config,
-                    audit_trail,
-                    audit_record,
-                    round_name=round_def.name,
-                )
-                task_results.append(tr)
         ok_statuses = {"done", "skipped"}
         return RoundResult(
             round_name=round_def.name,
@@ -303,6 +305,107 @@ def _dispatch_via_provider_or_claude(
             task_results=task_results,
         )
     return run_round(round_def, config=config)
+
+
+def _dispatch_one_task(
+    task: Any,
+    provider: Any,
+    model: str,
+    prompt: str,
+    audit_trail: Any,
+    round_name: str,
+    run_pipeline: Any,
+) -> Any:
+    """Process a single task in a provider round — RONDO-139 always-on path.
+
+    Records audit INTENT, dispatches, catches exceptions, runs pipeline.
+    Extracted from _dispatch_via_provider_or_claude to reduce complexity.
+    """
+    from rondo.engine import TaskResult
+
+    task_prompt = task.instruction or prompt
+
+    # -- Audit INTENT before dispatch
+    audit_record = None
+    if audit_trail:
+        try:
+            audit_record = audit_trail.record_intent(
+                task_name=task.name,
+                round_name=round_name,
+                model=model,
+                prompt=task_prompt,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            logger.warning("Audit INTENT failed for %s: %s", task.name, exc)
+
+    # -- RONDO-139: wrap dispatch in try/except so exceptions also flow through pipeline
+    try:
+        tr = provider.dispatch(prompt=task_prompt, model=model, task_name=task.name)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+        tr = TaskResult(
+            task_name=task.name,
+            status="error",
+            error_code="ERR_PROVIDER",
+            error_message=f"Adapter exception: {type(exc).__name__}: {str(exc)[:200]}",
+            model=model,
+        )
+    return run_pipeline(tr, task.name, audit_record)
+
+
+def _run_provider_round(
+    round_def: Any,
+    provider: Any,
+    model: str,
+    prompt: str,
+    dry_run: bool,
+    budget_cap: float | None,
+    audit_trail: Any,
+    run_pipeline: Any,
+) -> list:
+    """Process all tasks in a provider round with budget cap enforcement.
+
+    RONDO-139: every result flows through pipeline.
+    RONDO-141: pre-dispatch budget cap check accumulates running cost.
+    """
+    from rondo.engine import TaskResult
+
+    running_cost: float = 0.0
+    task_results = []
+
+    for task in round_def.tasks:
+        task_prompt = task.instruction or prompt
+
+        if dry_run:
+            tr = TaskResult(task_name=task.name, status="skipped", prompt_sent=task_prompt[:500], model=model)
+            task_results.append(run_pipeline(tr, task.name))
+            continue
+
+        # -- RONDO-141: pre-dispatch budget check
+        if budget_cap is not None and running_cost >= budget_cap:
+            tr = TaskResult(
+                task_name=task.name,
+                status="error",
+                error_code="ERR_BUDGET_EXCEEDED",
+                error_message=f"Round budget cap ${budget_cap:.4f} reached (spent ${running_cost:.4f})",
+                model=model,
+            )
+            task_results.append(run_pipeline(tr, task.name))
+            continue
+
+        tr = _dispatch_one_task(
+            task=task,
+            provider=provider,
+            model=model,
+            prompt=prompt,
+            audit_trail=audit_trail,
+            round_name=round_def.name,
+            run_pipeline=run_pipeline,
+        )
+        task_results.append(tr)
+        # -- RONDO-141: accumulate cost AFTER successful dispatch
+        running_cost += tr.cost_usd or 0.0
+
+    return task_results
 
 
 def _get_task_names(file_path: str, prompt: str) -> list[str]:

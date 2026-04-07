@@ -204,19 +204,28 @@ class TestCaching:
         _KEY_CACHE.clear()
 
     def test_second_call_uses_cache(self) -> None:
+        """Cache returns same key on second call (without re-reading env).
+
+        RONDO-142: Cache key is (provider, tenant). Test sets RONDO_TENANT
+        explicitly so env-derived tenant doesn't change between calls.
+        """
         _KEY_CACHE.clear()
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "cached-key"}):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "cached-key", "RONDO_TENANT": "test-tenant"}):
             load_api_key("openai")
-        ## Env var gone — should still return cached
-        with patch.dict("os.environ", {}, clear=True):
-            assert load_api_key("openai") == "cached-key"
+            ## Env var gone — should still return cached (TENANT must persist for cache lookup)
+            with patch.dict("os.environ", {"RONDO_TENANT": "test-tenant"}, clear=True):
+                assert load_api_key("openai") == "cached-key"
 
     def test_invalidate_clears_cache(self) -> None:
+        """invalidate_key removes the (provider, tenant) entry from cache.
+
+        RONDO-142: Cache key is now a tuple, not a string.
+        """
         _KEY_CACHE.clear()
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "old-key"}):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "old-key", "RONDO_TENANT": "test-tenant"}):
             load_api_key("openai")
-        invalidate_key("openai")
-        assert "openai" not in _KEY_CACHE
+            invalidate_key("openai")
+            assert ("openai", "test-tenant") not in _KEY_CACHE
 
     def test_invalidate_nonexistent_is_safe(self) -> None:
         _KEY_CACHE.clear()

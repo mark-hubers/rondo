@@ -17,6 +17,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 import time
 from abc import ABC, abstractmethod
 
@@ -31,9 +32,22 @@ _ENV_MAP: dict[str, str] = {
     "grok": "XAI_API_KEY",
 }
 
-## -- Per-process cache: provider → (key, timestamp)
-_KEY_CACHE: dict[str, tuple[str, float]] = {}
+## -- RONDO-142 (Finding #209): tenant-scoped cache + thread safety
+## -- Cache key: (provider, tenant) — prevents cross-tenant credential bleed
+## -- Lock: prevents race conditions across workers
+_KEY_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
+_KEY_CACHE_LOCK = threading.Lock()
 _CACHE_TTL_SEC = 300  # 5 minutes (REQ-109 req 040)
+
+
+def _get_tenant() -> str:
+    """RONDO-142: derive tenant scope from env var.
+
+    Defaults to RONDO_TENANT env var, falls back to USER, then 'default'.
+    Tenant scoping prevents one user's API key from being served to another
+    user's request through the shared cache.
+    """
+    return os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -143,26 +157,47 @@ def load_api_key(provider: str) -> str:
     REQ-109 req 035: first non-empty value wins.
     REQ-109 req 040: cached per-process with 5-minute TTL.
     Cache invalidated if key fails (caller should call invalidate_key).
-    """
-    ## Check cache first
-    if provider in _KEY_CACHE:
-        cached_key, cached_at = _KEY_CACHE[provider]
-        if time.monotonic() - cached_at < _CACHE_TTL_SEC:
-            return cached_key
 
-    ## Walk the chain
+    RONDO-142 (Finding #209): cache is now tenant-scoped + thread-safe.
+    Cache key is (provider, tenant) — one user's key never served to
+    another user's request. Lock prevents race conditions across workers.
+    """
+    tenant = _get_tenant()
+    cache_key = (provider, tenant)
+
+    # -- Check cache first (under lock for thread safety)
+    with _KEY_CACHE_LOCK:
+        if cache_key in _KEY_CACHE:
+            cached_key, cached_at = _KEY_CACHE[cache_key]
+            if time.monotonic() - cached_at < _CACHE_TTL_SEC:
+                return cached_key
+
+    # -- Walk the chain (outside lock — backend calls can block)
     for backend in _DEFAULT_CHAIN:
         key = backend.get_key(provider)
         if key:
-            _KEY_CACHE[provider] = (key, time.monotonic())
+            with _KEY_CACHE_LOCK:
+                _KEY_CACHE[cache_key] = (key, time.monotonic())
             return key
 
     return ""
 
 
 def invalidate_key(provider: str) -> None:
-    """Clear cached key for provider (e.g., after auth error)."""
-    _KEY_CACHE.pop(provider, None)
+    """Clear cached key for provider+tenant (e.g., after auth error).
+
+    RONDO-142: only invalidates the current tenant's cached key.
+    Other tenants' caches are untouched.
+    """
+    tenant = _get_tenant()
+    with _KEY_CACHE_LOCK:
+        _KEY_CACHE.pop((provider, tenant), None)
+
+
+def invalidate_all_keys() -> None:
+    """Clear ALL cached keys across all tenants. RONDO-142: for testing only."""
+    with _KEY_CACHE_LOCK:
+        _KEY_CACHE.clear()
 
 
 # -- sig: mgh-6201.cd.bd955f.a109.d03540

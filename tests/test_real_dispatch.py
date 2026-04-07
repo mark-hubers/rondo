@@ -1563,6 +1563,118 @@ class TestAlwaysOnPipeline:
         assert results["thread-1"] == "rid-aaa"
         assert results["thread-2"] == "rid-bbb"
 
+    def test_audit_dir_tenant_isolation(self, monkeypatch) -> None:
+        """RONDO-200 (Finding #217): audit dir is tenant-scoped by default."""
+        monkeypatch.delenv("RONDO_TEST_DIR", raising=False)
+        monkeypatch.setenv("RONDO_TENANT", "alice")
+
+        from rondo.audit import _default_audit_dir
+
+        path_alice = _default_audit_dir()
+        assert "alice" in path_alice, f"Audit dir should contain tenant: {path_alice}"
+
+        monkeypatch.setenv("RONDO_TENANT", "bob")
+        path_bob = _default_audit_dir()
+        assert "bob" in path_bob
+        assert path_alice != path_bob
+
+    def test_context_limit_check_within_limit(self) -> None:
+        """RONDO-200 (Finding #216): check_context_limit passes for short prompt."""
+        from rondo.mcp_dispatch import check_context_limit
+
+        fits, est, limit = check_context_limit("sonnet", "hello world")
+        assert fits is True
+        assert est < limit
+        assert limit == 200_000
+
+    def test_context_limit_check_over_limit(self) -> None:
+        """RONDO-200: check_context_limit detects oversized prompt."""
+        from rondo.mcp_dispatch import check_context_limit
+
+        huge_prompt = "x" * 700_000
+        fits, est, limit = check_context_limit("gpt-4.1", huge_prompt)
+        assert fits is False
+        assert est > limit
+
+    def test_context_limit_1m_models(self) -> None:
+        """RONDO-200: 1M context models accept large prompts."""
+        from rondo.mcp_dispatch import check_context_limit
+
+        big_prompt = "x" * 800_000
+        fits, _est, _limit = check_context_limit("sonnet[1m]", big_prompt)
+        assert fits is True
+        fits, _est, _limit = check_context_limit("gemini-2.5-pro", big_prompt)
+        assert fits is True
+
+    def test_context_limit_unknown_model_uses_default(self) -> None:
+        """RONDO-200: unknown model gets DEFAULT_CONTEXT_LIMIT."""
+        from rondo.mcp_dispatch import DEFAULT_CONTEXT_LIMIT, check_context_limit
+
+        _fits, _est, limit = check_context_limit("unknown-model-xyz", "small")
+        assert limit == DEFAULT_CONTEXT_LIMIT
+
+    def test_config_hot_reload(self, tmp_path) -> None:
+        """RONDO-200 (Finding #218): reload_rondo_config picks up file changes."""
+        from rondo.config import reload_rondo_config, reset_rondo_config
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text('[providers.gemini]\nenabled = true\nbest_model = "version-1"\n')
+
+        reset_rondo_config()
+        cfg = reload_rondo_config(config_path=str(config_file))
+        assert cfg.get("providers", {}).get("gemini", {}).get("best_model") == "version-1"
+
+        config_file.write_text('[providers.gemini]\nenabled = true\nbest_model = "version-2"\n')
+
+        cfg2 = reload_rondo_config(config_path=str(config_file))
+        assert cfg2.get("providers", {}).get("gemini", {}).get("best_model") == "version-2"
+        reset_rondo_config()
+
+    def test_multi_hop_fallback_walks_chain(self) -> None:
+        """RONDO-200 (Finding #219): get_provider_with_fallback walks multi-hop chain."""
+        from unittest.mock import patch
+
+        from rondo.providers import get_provider_with_fallback
+
+        health_calls: dict[str, bool] = {
+            "gemini": False,
+            "grok": False,
+            "mistral": True,
+        }
+
+        def fake_health(provider: str) -> bool:
+            return health_calls.get(provider, False)
+
+        def fake_fallback(provider: str) -> str:
+            return {"gemini": "grok", "grok": "mistral"}.get(provider, "")
+
+        with (
+            patch("rondo.adapters.health.is_provider_healthy", side_effect=fake_health),
+            patch("rondo.providers._get_fallback_provider", side_effect=fake_fallback),
+        ):
+            _adapter, resolved = get_provider_with_fallback("gemini:gemini-2.5-flash")
+            assert "mistral" in resolved, f"Expected mistral fallback, got: {resolved}"
+
+    def test_multi_hop_fallback_cycle_detection(self) -> None:
+        """RONDO-200: cycle in fallback chain doesn't loop forever."""
+        from unittest.mock import patch
+
+        from rondo.providers import get_provider_with_fallback
+
+        def all_unhealthy(_provider: str) -> bool:
+            return False
+
+        def cyclic_fallback(provider: str) -> str:
+            return {"gemini": "grok", "grok": "gemini"}.get(provider, "")
+
+        with (
+            patch("rondo.adapters.health.is_provider_healthy", side_effect=all_unhealthy),
+            patch("rondo.providers._get_fallback_provider", side_effect=cyclic_fallback),
+        ):
+            adapter, resolved = get_provider_with_fallback("gemini:gemini-2.5-flash")
+            assert adapter is None
+            assert resolved == ""
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

@@ -44,12 +44,25 @@ logger = logging.getLogger(__name__)
 # -- ──────────────────────────────────────────────────────────────
 
 
+def _get_tenant_for_audit() -> str:
+    """RONDO-200 (Finding #217): tenant scope for audit isolation.
+
+    Same logic as adapters/auth.py: RONDO_TENANT → USER → 'default'.
+    """
+    return os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
+
+
 def _default_audit_dir() -> str:
-    """Resolve audit dir: RONDO_TEST_DIR (test isolation) → ~/.rondo/audit."""
+    """Resolve audit dir: RONDO_TEST_DIR (test isolation) → ~/.rondo/audit/{tenant}.
+
+    RONDO-200 (Finding #217): tenant subdirectory prevents cross-tenant
+    audit/spool/result file leakage on shared installs.
+    """
     test_dir = os.environ.get("RONDO_TEST_DIR")
     if test_dir:
         return str(Path(test_dir) / "audit")
-    return "~/.rondo/audit"
+    tenant = _get_tenant_for_audit()
+    return f"~/.rondo/audit/{tenant}"
 
 
 @dataclass

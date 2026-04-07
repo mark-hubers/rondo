@@ -452,4 +452,17 @@ def reset_rondo_config() -> None:
     _raw_config = None
 
 
+def reload_rondo_config(config_path: str = "") -> dict[str, Any]:
+    """RONDO-200 (Finding #218): Hot-reload config from disk.
+
+    Clears the in-memory cache and re-reads ~/.rondo/config.toml.
+    Use when an operator updates config and wants new providers/keys
+    picked up without restarting the MCP server.
+
+    Returns the freshly-loaded config dict.
+    """
+    reset_rondo_config()
+    return get_rondo_config(config_path=config_path)
+
+
 # -- sig: mgh-6201.cd.bd955f.1174.b6fb32

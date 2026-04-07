@@ -493,9 +493,55 @@ def _is_in_session() -> bool:
     return bool(os.environ.get("CLAUDECODE"))
 
 
-## -- RONDO-146 (Finding #207): plan schema version
-## -- Bump when plan response format changes in a non-backward-compatible way
+# -- RONDO-146 (Finding #207): plan schema version
+# -- Bump when plan response format changes in a non-backward-compatible way
 PLAN_SCHEMA_VERSION = "1"
+
+# -- RONDO-200 (Finding #216): per-model context limits (input tokens)
+# -- Used to validate prompt size before dispatch and prevent OOM
+# -- Approximate token count: 1 token ≈ 4 chars (English text)
+MODEL_CONTEXT_LIMITS: dict[str, int] = {
+    # -- Claude family (Anthropic)
+    "haiku": 200_000,
+    "sonnet": 200_000,
+    "opus": 200_000,
+    "sonnet[1m]": 1_000_000,
+    "opus[1m]": 1_000_000,
+    # -- Gemini
+    "gemini-2.5-flash": 1_000_000,
+    "gemini-2.5-pro": 2_000_000,
+    "gemini-2.0-flash": 1_000_000,
+    # -- OpenAI
+    "gpt-4.1": 128_000,
+    "gpt-4.1-mini": 128_000,
+    # -- Grok
+    "grok-3": 131_072,
+    "grok-3-mini": 131_072,
+    # -- Mistral
+    "mistral-large-latest": 131_072,
+}
+
+# -- Default conservative limit for unknown models
+DEFAULT_CONTEXT_LIMIT = 100_000
+
+
+def estimate_token_count(text: str) -> int:
+    """Conservative token estimate: 1 token ≈ 4 characters (English).
+
+    RONDO-200 (Finding #216): used for pre-dispatch context size check.
+    Real tokenization varies by model. This is a fast upper bound.
+    """
+    return len(text) // 4 + 1
+
+
+def check_context_limit(model: str, prompt: str) -> tuple[bool, int, int]:
+    """Check if prompt fits in model's context window.
+
+    Returns (fits, estimated_tokens, limit).
+    """
+    estimated = estimate_token_count(prompt)
+    limit = MODEL_CONTEXT_LIMITS.get(model, DEFAULT_CONTEXT_LIMIT)
+    return estimated <= limit, estimated, limit
 
 
 def resolve_dispatch_engine(

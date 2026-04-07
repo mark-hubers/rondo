@@ -404,16 +404,20 @@ def _get_fallback_provider(provider_name: str) -> str | None:
 
 
 def get_provider_with_fallback(model: str) -> tuple[object | None, str]:
-    """Route to provider adapter with health check + fallback — REQ-109 reqs 015, 016, 019.
+    """Route to provider adapter with health check + multi-hop fallback.
 
-    Checks if primary provider is healthy. If down, uses configured fallback.
+    REQ-109 reqs 015, 016, 019. RONDO-200 (Finding #219): multi-hop chain.
+
+    Checks if primary provider is healthy. If down, walks the fallback
+    chain (up to MAX_FALLBACK_HOPS=3) until a healthy provider is found.
+    Cycle detection prevents infinite loops.
     REQ-109 req 016: NEVER falls back to Claude interactive (returns None).
 
     Args:
         model: Provider:model string (e.g. 'gemini:gemini-2.5-flash', 'grok:grok-3').
 
     Returns:
-        (adapter, model_string) — adapter is None if no healthy provider found.
+        (adapter, model_string) — adapter is None if no healthy provider in chain.
     """
     from rondo.adapters.health import is_provider_healthy  # pylint: disable=import-outside-toplevel
 
@@ -423,24 +427,53 @@ def get_provider_with_fallback(model: str) -> tuple[object | None, str]:
     if not provider_name:
         return get_provider(model), model
 
-    # -- Check primary provider health
-    if is_provider_healthy(provider_name):
-        adapter = get_provider(model)
-        return adapter, model
+    # -- RONDO-200: walk multi-hop fallback chain (max 3 hops, cycle-safe)
+    max_hops = 3
+    visited: set[str] = set()
+    current_provider = provider_name
+    current_model = model
 
-    # -- REQ-109 req 019: log WARNING, try fallback
-    logger.warning("Provider '%s' is unhealthy — trying fallback", provider_name)
+    for hop in range(max_hops + 1):
+        if current_provider in visited:
+            logger.warning("Fallback cycle detected at provider '%s' — aborting", current_provider)
+            break
+        visited.add(current_provider)
 
-    fallback_name = _get_fallback_provider(provider_name)
-    if fallback_name:
-        fallback_model = f"{fallback_name}:{model_name}" if model_name else fallback_name
-        if is_provider_healthy(fallback_name):
-            adapter = get_provider(fallback_model)
-            logger.info("Using fallback provider '%s' for '%s'", fallback_name, provider_name)
-            return adapter, fallback_model
+        if is_provider_healthy(current_provider):
+            adapter = get_provider(current_model)
+            if hop > 0:
+                logger.info(
+                    "Using fallback provider '%s' (hop %d) for original '%s'",
+                    current_provider,
+                    hop,
+                    provider_name,
+                )
+            return adapter, current_model
 
-    # -- REQ-109 req 016: no fallback available — return None (NOT Claude interactive)
-    logger.warning("No healthy fallback for provider '%s' — dispatch aborted", provider_name)
+        # -- Try next hop
+        next_provider = _get_fallback_provider(current_provider)
+        if not next_provider:
+            logger.warning(
+                "Provider '%s' unhealthy and no fallback configured — chain ends",
+                current_provider,
+            )
+            break
+
+        logger.warning(
+            "Provider '%s' unhealthy — trying fallback '%s' (hop %d)",
+            current_provider,
+            next_provider,
+            hop + 1,
+        )
+        current_provider = next_provider
+        current_model = f"{next_provider}:{model_name}" if model_name else next_provider
+
+    # -- REQ-109 req 016: chain exhausted — return None (NOT Claude interactive)
+    logger.warning(
+        "No healthy provider in fallback chain for '%s' (visited: %s) — dispatch aborted",
+        provider_name,
+        sorted(visited),
+    )
     return None, ""
 
 

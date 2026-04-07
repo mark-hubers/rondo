@@ -18,8 +18,8 @@ import pytest
 # -- Add rondo/src to path so we can import rondo
 from rondo.engine import Round
 
-# -- Example directory
-EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
+# -- Example directory (tests live in rondo/tests/integration/ now — RONDO-203)
+EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 # -- All round_*.py files (both spec and practical)
 ALL_ROUND_FILES = sorted(EXAMPLES_DIR.glob("round_*.py"))

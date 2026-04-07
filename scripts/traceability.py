@@ -24,9 +24,15 @@ SPEC_PATTERN = re.compile(r"Rondo-(REQ|STD|IFS|VER)-\d{3}")
 
 
 def scan_files(directory: Path, pattern: str = "*.py") -> dict[str, list[str]]:
-    """Scan files for spec references. Returns {spec_id: [file:line, ...]}."""
+    """Scan files for spec references. Returns {spec_id: [file:line, ...]}.
+
+    RONDO-203: uses rglob to walk nested test layer folders
+    (unit/, integration/, e2e/, pat/, cloud/, chaos/, conventions/).
+    """
     refs: dict[str, list[str]] = {}
-    for filepath in sorted(directory.glob(pattern)):
+    for filepath in sorted(directory.rglob(pattern)):
+        if "__pycache__" in filepath.parts:
+            continue
         for i, line in enumerate(filepath.read_text(encoding="utf-8").splitlines(), 1):
             for match in SPEC_PATTERN.findall(line):
                 spec_id = SPEC_PATTERN.search(line)

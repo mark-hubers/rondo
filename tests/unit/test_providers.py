@@ -766,7 +766,7 @@ class TestFinalizationGuard:
         import ast
         from pathlib import Path
 
-        cli_path = Path(__file__).parent.parent / "src" / "rondo" / "cli.py"
+        cli_path = Path(__file__).parent.parent.parent / "src" / "rondo" / "cli.py"
         source = cli_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
@@ -787,21 +787,22 @@ class TestFinalizationGuard:
         import ast
         from pathlib import Path
 
-        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_dispatch.py"
+        mcp_path = Path(__file__).parent.parent.parent / "src" / "rondo" / "mcp_dispatch.py"
         source = mcp_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
         # -- Find _dispatch_via_provider_or_claude function
+        # -- RONDO-139: function now delegates to _run_pipeline which calls finalize_dispatch
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name == "_dispatch_via_provider_or_claude":
                 body_source = ast.get_source_segment(source, node) or ""
-                assert "_finalize_dispatch" in body_source, (
-                    "mcp_server.py _dispatch_via_provider_or_claude must call _finalize_dispatch "
+                assert "finalize_dispatch" in body_source, (
+                    "mcp_dispatch.py _dispatch_via_provider_or_claude must call finalize_dispatch "
                     "(REQ-109 req 026: shared finalization for ALL providers)"
                 )
                 break
         else:
-            pytest.fail("mcp_server.py missing _dispatch_via_provider_or_claude function")
+            pytest.fail("mcp_dispatch.py missing _dispatch_via_provider_or_claude function")
 
     def test_no_manual_audit_outcome_in_provider_paths(self) -> None:
         """Provider paths must NOT call audit_trail.record_outcome directly.
@@ -812,7 +813,7 @@ class TestFinalizationGuard:
         import ast
         from pathlib import Path
 
-        mcp_path = Path(__file__).parent.parent / "src" / "rondo" / "mcp_dispatch.py"
+        mcp_path = Path(__file__).parent.parent.parent / "src" / "rondo" / "mcp_dispatch.py"
         source = mcp_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 

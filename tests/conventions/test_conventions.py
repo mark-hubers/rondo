@@ -22,13 +22,15 @@ from pathlib import Path
 import pytest
 
 # -- Rondo source and test roots
-RONDO_ROOT = Path(__file__).parent.parent
+# -- RONDO-203: this file lives in rondo/tests/conventions/ — need 3x .parent for rondo/
+RONDO_ROOT = Path(__file__).parent.parent.parent
 SRC_DIR = RONDO_ROOT / "src" / "rondo"
 TEST_DIR = RONDO_ROOT / "tests"
 
 # -- All Python source files (excluding __pycache__, including cli_commands/ package)
 SRC_FILES = sorted(SRC_DIR.glob("*.py")) + sorted(SRC_DIR.glob("cli_commands/*.py"))
-TEST_FILES = sorted(TEST_DIR.glob("test_*.py"))
+# -- Tests now live in layer subdirectories: unit/, integration/, e2e/, pat/, cloud/, chaos/
+TEST_FILES = sorted(TEST_DIR.rglob("test_*.py"))
 ALL_PY_FILES = SRC_FILES + TEST_FILES
 
 

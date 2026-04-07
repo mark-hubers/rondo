@@ -373,6 +373,64 @@ class AuditTrail:
                 ## -- Windows or lock failure: write without lock (best-effort)
                 f.write(line)
 
+    def reconcile_stuck_intents(self) -> int:
+        """RONDO-147 (Finding #213): Find INTENT records without matching OUTCOME.
+
+        Scans the JSONL log for dispatch_ids that have INTENT but no OUTCOME.
+        These are dispatches that crashed mid-flight. Records a synthetic
+        OUTCOME with status='stuck' so the audit trail is consistent.
+
+        Returns the number of stuck records reconciled.
+        """
+        if not self._jsonl_path.exists():
+            return 0
+
+        intents: dict[str, dict] = {}
+        outcomes: set[str] = set()
+        try:
+            for line in self._jsonl_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                dispatch_id = rec.get("dispatch_id", "")
+                if not dispatch_id:
+                    continue
+                if rec.get("status") == "INTENT":
+                    intents[dispatch_id] = rec
+                else:
+                    outcomes.add(dispatch_id)
+        except OSError as exc:
+            logger.warning("Reconcile read failed: %s", exc)
+            return 0
+
+        stuck_count = 0
+        for dispatch_id, intent_rec in intents.items():
+            if dispatch_id in outcomes:
+                continue
+            # -- Stuck INTENT — write synthetic OUTCOME
+            stuck_outcome = AuditRecord(
+                dispatch_id=dispatch_id,
+                task_name=intent_rec.get("task_name", ""),
+                round_name=intent_rec.get("round_name", ""),
+                model=intent_rec.get("model", ""),
+                status="stuck",
+                error_code="ERR_RECONCILED_STUCK",
+                dispatched_at=intent_rec.get("dispatched_at", ""),
+                completed_at=datetime.now(UTC).isoformat(),
+            )
+            try:
+                self._append_jsonl(stuck_outcome)
+                stuck_count += 1
+            except OSError as exc:
+                logger.warning("Failed to write stuck outcome for %s: %s", dispatch_id, exc)
+
+        if stuck_count > 0:
+            logger.info("Reconciled %d stuck INTENT records", stuck_count)
+        return stuck_count
+
     def _maybe_rotate(self) -> None:
         """RONDO-144 (Finding #212): rotate if JSONL exceeds max_jsonl_bytes.
 

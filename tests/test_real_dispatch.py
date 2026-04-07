@@ -1379,6 +1379,101 @@ class TestAlwaysOnPipeline:
         r = resolve_dispatch_engine(model="haiku", prompt="x", project="/tmp/proj2")
         assert r["project"] == "/tmp/proj2"
 
+    def test_reconcile_stuck_intents(self, tmp_path) -> None:
+        """RONDO-147 (Finding #213): reconcile_stuck_intents finds INTENT without OUTCOME."""
+        from rondo.audit import AuditConfig, AuditTrail
+
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+
+        # -- Record one INTENT, complete its OUTCOME (normal flow)
+        good = trail.record_intent(task_name="good", round_name="r", model="gemini-2.5-flash", prompt="ok")
+        trail.record_outcome(dispatch_id=good.dispatch_id, status="done", exit_code=0)
+
+        # -- Record an INTENT but never complete it (simulated crash)
+        trail.record_intent(task_name="stuck", round_name="r", model="gemini-2.5-flash", prompt="crash")
+
+        # -- Reconcile
+        stuck_count = trail.reconcile_stuck_intents()
+        assert stuck_count == 1, f"Expected 1 stuck record, got {stuck_count}"
+
+        # -- Second reconcile should find zero (already reconciled)
+        stuck_count_again = trail.reconcile_stuck_intents()
+        assert stuck_count_again == 0, "Second reconcile should be no-op"
+
+    def test_idempotency_key_stable(self) -> None:
+        """RONDO-147 (Finding #214): Same prompt+model produces same key."""
+        from rondo.idempotency import compute_idempotency_key
+
+        k1 = compute_idempotency_key("hello world", "gemini-2.5-flash")
+        k2 = compute_idempotency_key("hello world", "gemini-2.5-flash")
+        assert k1 == k2
+
+        # -- Different prompt → different key
+        k3 = compute_idempotency_key("hello WORLD", "gemini-2.5-flash")
+        assert k1 != k3
+
+        # -- Different model → different key
+        k4 = compute_idempotency_key("hello world", "grok-3")
+        assert k1 != k4
+
+    def test_idempotency_cache_returns_cached(self) -> None:
+        """RONDO-147: cached result returned within TTL."""
+        from rondo.idempotency import cache_result, clear_cache, compute_idempotency_key, get_cached_result
+
+        clear_cache()
+        key = compute_idempotency_key("test prompt", "test-model")
+
+        # -- Initially empty
+        assert get_cached_result(key) is None
+
+        # -- Cache something
+        fake_result = {"status": "done", "raw_output": "cached"}
+        cache_result(key, fake_result)
+
+        # -- Retrieved within TTL
+        retrieved = get_cached_result(key)
+        assert retrieved == fake_result
+        clear_cache()
+
+    def test_idempotency_cache_expires(self) -> None:
+        """RONDO-147: cached result evicted after TTL."""
+        from rondo.idempotency import cache_result, clear_cache, compute_idempotency_key, get_cached_result
+
+        clear_cache()
+        key = compute_idempotency_key("expiring", "test")
+        cache_result(key, {"x": 1})
+
+        # -- TTL=0 → immediate expiry
+        retrieved = get_cached_result(key, ttl_sec=0)
+        assert retrieved is None
+        clear_cache()
+
+    def test_idempotency_cache_thread_safe(self) -> None:
+        """RONDO-147: concurrent cache writes don't corrupt state."""
+        import threading
+
+        from rondo.idempotency import cache_result, cache_size, clear_cache, compute_idempotency_key
+
+        clear_cache()
+        errors: list[Exception] = []
+
+        def writer(i: int) -> None:
+            try:
+                key = compute_idempotency_key(f"prompt {i}", "model")
+                cache_result(key, {"i": i})
+            except (RuntimeError, OSError) as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=writer, args=(i,)) for i in range(50)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert cache_size() == 50
+        clear_cache()
+
     def test_finalize_failure_does_not_lose_result(self) -> None:
         """If finalize_dispatch itself raises, original TaskResult is preserved.
 

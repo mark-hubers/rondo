@@ -327,24 +327,24 @@ class TestRealGrok:
     """Real Grok API dispatch."""
 
     def test_grok_responds(self) -> None:
-        """Grok dispatch — must succeed OR fail with clear auth error.
+        """Grok dispatch — sends neutral prompt, asserts success.
 
-        Finding #202: Grok returning 403 Forbidden. If auth fails, the test
-        FAILS with a clear message (not skip). Fix the key, not the test.
+        Finding #202 root cause: Grok's content filter rejects some prompts
+        with 403 Forbidden (same code as auth failure). Verified: the key
+        works for 'Say hello' but fails for 'Reply with exactly: GROK_PAT_OK'.
+        Use neutral prompts for Grok tests.
         """
         from rondo.mcp_dispatch import rondo_run_file
 
-        result = json.loads(
-            rondo_run_file(prompt="Reply with exactly: GROK_PAT_OK", model="grok:grok-3", dry_run=False)
-        )
+        result = json.loads(rondo_run_file(prompt="Say hello", model="grok:grok-3", dry_run=False))
         tasks = result.get("tasks", [])
         assert len(tasks) == 1, f"Expected 1 task, got {len(tasks)}"
-        if tasks[0]["status"] == "error" and tasks[0].get("error_code") == "ERR_AUTH":
-            pytest.fail(
-                f"Grok API key issue (403 Forbidden). Fix the key in ~/.rondo/config.toml "
-                f"or Keychain. Error: {tasks[0].get('error_message', '')[:100]}"
-            )
-        assert tasks[0]["status"] == "done", f"Task status: {tasks[0]['status']}"
+        assert tasks[0]["status"] == "done", (
+            f"Grok dispatch failed: status={tasks[0]['status']} "
+            f"error={tasks[0].get('error_code')} "
+            f"msg={tasks[0].get('error_message', '')[:100]}"
+        )
+        assert len(tasks[0].get("raw_output", "")) > 0, "Grok returned empty output"
 
 
 @pytest.mark.cloud
@@ -356,7 +356,7 @@ class TestRealMultiReview:
 
         result = json.loads(
             rondo_multi_review(
-                prompt="Reply with exactly: MULTI_OK",
+                prompt="Say hello",
                 providers='["gemini:gemini-2.5-flash"]',
                 dry_run=False,
             )

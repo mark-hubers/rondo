@@ -73,9 +73,11 @@ class AuditConfig:
     enabled: bool = True
     prompt_storage: bool = True
     result_storage: bool = True
-    audit_retention_days: int = 0  # -- 0 = keep forever
+    audit_retention_days: int = 0  # -- 0 = keep forever (live JSONL)
     # -- RONDO-144 (Finding #212): size-based auto-rotation
     max_jsonl_bytes: int = 10 * 1024 * 1024  # -- 10MB default
+    # -- RONDO-204 (Finding #229): archive retention cap — default 12 months
+    archive_retention_months: int = 12
 
     def __post_init__(self) -> None:
         """COALESCE: explicit dir → RONDO_TEST_DIR → ~/.rondo/audit."""
@@ -192,12 +194,26 @@ class AuditTrail:
     Phase 2: record_outcome() — called AFTER dispatch completes.
     """
 
-    def __init__(self, *, config: AuditConfig | None = None) -> None:
+    def __init__(self, *, config: AuditConfig | None = None, auto_reconcile: bool = True) -> None:
         self.config = config or AuditConfig()
         self._audit_dir = Path(self.config.audit_dir).expanduser()
+        # -- RONDO-204 (Finding #231): lock prevents concurrent rotation
+        import threading as _threading
+
+        self._rotate_lock = _threading.Lock()
+
         self._audit_dir.mkdir(parents=True, exist_ok=True)
         self._jsonl_path = self._audit_dir / "rondo_audit.jsonl"
         self._intent_times: dict[str, str] = {}  # -- dispatch_id → dispatched_at
+
+        # -- RONDO-204 (Finding #232): auto-reconcile stuck intents on init.
+        # -- MUST run AFTER _jsonl_path is set — reconcile reads the JSONL.
+        # -- Any crashes from previous runs get marked as 'stuck' on startup.
+        if auto_reconcile and self._jsonl_path.exists():
+            try:
+                self.reconcile_stuck_intents()
+            except (OSError, TypeError, ValueError, AttributeError) as exc:
+                logger.debug("Auto-reconcile skipped on init: %s", exc)
 
     def record_intent(
         self,
@@ -324,27 +340,67 @@ class AuditTrail:
         return failed
 
     def rotate(self) -> int:
-        """Archive current JSONL to archive/YYYY-MM.jsonl — RONDO-29.
+        """Archive current JSONL to archive/YYYY-MM.jsonl — RONDO-29 / RONDO-204.
+
+        RONDO-204 (Finding #231): holds lock during rotation to prevent
+        concurrent writers from corrupting the archive.
+        RONDO-204 (Finding #229): also prunes archives older than
+        config.archive_retention_months.
+        RONDO-204 (Finding #230): archive dir is inside audit_dir, which
+        is already tenant-scoped via _default_audit_dir(). Tenant isolation
+        inherits automatically.
 
         Returns number of lines archived (0 if nothing to rotate).
         """
-        if not self._jsonl_path.exists():
-            return 0
-        content = self._jsonl_path.read_text(encoding="utf-8").strip()
-        if not content:
+        with self._rotate_lock:
+            if not self._jsonl_path.exists():
+                return 0
+            content = self._jsonl_path.read_text(encoding="utf-8").strip()
+            if not content:
+                self._jsonl_path.unlink()
+                return 0
+            line_count = len(content.splitlines())
+            archive_dir = self._audit_dir / "archive"
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now(UTC).strftime("%Y-%m")
+            archive_path = archive_dir / f"{timestamp}.jsonl"
+            # -- Append if archive already exists (multiple rotations in same month)
+            with archive_path.open("a", encoding="utf-8") as f:
+                f.write(content + "\n")
             self._jsonl_path.unlink()
+            logger.info("Rotated %d audit records to %s", line_count, archive_path)
+
+            # -- RONDO-204 (Finding #229): prune old archives
+            self._prune_old_archives(archive_dir)
+            return line_count
+
+    def _prune_old_archives(self, archive_dir: Path) -> int:
+        """Delete archive files older than archive_retention_months.
+
+        RONDO-204 (Finding #229). Returns number of files deleted.
+        """
+        retention = getattr(self.config, "archive_retention_months", 12)
+        if retention <= 0:
             return 0
-        line_count = len(content.splitlines())
-        archive_dir = self._audit_dir / "archive"
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now(UTC).strftime("%Y-%m")
-        archive_path = archive_dir / f"{timestamp}.jsonl"
-        ## -- Append if archive already exists (multiple rotations in same month)
-        with archive_path.open("a", encoding="utf-8") as f:
-            f.write(content + "\n")
-        self._jsonl_path.unlink()
-        logger.info("Rotated %d audit records to %s", line_count, archive_path)
-        return line_count
+        try:
+            files = sorted(archive_dir.glob("*.jsonl"))
+        except OSError:
+            return 0
+
+        if len(files) <= retention:
+            return 0
+
+        to_delete = files[: len(files) - retention]
+        deleted = 0
+        for f in to_delete:
+            try:
+                f.unlink()
+                deleted += 1
+            except OSError as exc:
+                logger.warning("Failed to prune archive %s: %s", f.name, exc)
+        if deleted:
+            logger.info("Pruned %d archive files (retention: %d months)", deleted, retention)
+        return deleted
 
     def reset(self) -> int:
         """Clear all audit data (JSONL + prompt/result files) — RONDO-29.

@@ -1196,7 +1196,7 @@ class TestAlwaysOnPipeline:
         """RONDO-145 (Finding #211): retry_http retries on 500 errors."""
         import urllib.error
 
-        from rondo.adapters.retry import RetryConfig, retry_http
+        from rondo.retry import RetryConfig, retry_http
 
         call_count = [0]
 
@@ -1217,7 +1217,7 @@ class TestAlwaysOnPipeline:
         """RONDO-145: 401 (auth failure) is NOT transient — no retry."""
         import urllib.error
 
-        from rondo.adapters.retry import RetryConfig, retry_http
+        from rondo.retry import RetryConfig, retry_http
 
         call_count = [0]
 
@@ -1237,7 +1237,7 @@ class TestAlwaysOnPipeline:
         """RONDO-145: Gives up after max_attempts on persistent transient errors."""
         import urllib.error
 
-        from rondo.adapters.retry import RetryConfig, retry_http
+        from rondo.retry import RetryConfig, retry_http
 
         call_count = [0]
 
@@ -1254,7 +1254,7 @@ class TestAlwaysOnPipeline:
 
     def test_circuit_breaker_opens_after_threshold(self) -> None:
         """RONDO-145: Circuit breaker opens after N consecutive failures."""
-        from rondo.adapters.retry import CircuitBreaker
+        from rondo.retry import CircuitBreaker
 
         breaker = CircuitBreaker(failure_threshold=3, cooldown_sec=60.0)
         assert not breaker.is_open("test-provider")
@@ -1269,7 +1269,7 @@ class TestAlwaysOnPipeline:
 
     def test_circuit_breaker_isolates_providers(self) -> None:
         """RONDO-145: Failures on one provider don't affect another."""
-        from rondo.adapters.retry import CircuitBreaker
+        from rondo.retry import CircuitBreaker
 
         breaker = CircuitBreaker(failure_threshold=2)
         breaker.record_failure("provider-a")
@@ -1279,7 +1279,7 @@ class TestAlwaysOnPipeline:
 
     def test_circuit_breaker_recovers_on_success(self) -> None:
         """RONDO-145: Successful call resets failure count."""
-        from rondo.adapters.retry import CircuitBreaker
+        from rondo.retry import CircuitBreaker
 
         breaker = CircuitBreaker(failure_threshold=3)
         breaker.record_failure("test")

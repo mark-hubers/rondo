@@ -46,9 +46,15 @@ class GeminiAdapter(ProviderAdapter):
         self.base_url = base_url.rstrip("/")
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Send prompt to Gemini generateContent API, return TaskResult."""
+        """Send prompt to Gemini generateContent API, return TaskResult.
+
+        RONDO-204 (Finding #234): wraps HTTP call in retry_http + circuit breaker
+        for consistency with ChatCompletionsAdapter.
+        """
         import urllib.error
         import urllib.request
+
+        from rondo.retry import get_circuit_breaker, retry_http
 
         task_name = kwargs.get("task_name", f"gemini-{model}")
         use_model = model or self.default_model
@@ -64,6 +70,18 @@ class GeminiAdapter(ProviderAdapter):
                 duration_sec=0.0,
             )
 
+        # -- RONDO-204: circuit breaker check
+        breaker = get_circuit_breaker()
+        if breaker.is_open("gemini"):
+            return TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code=ERR_PROVIDER_DOWN,
+                error_message="gemini circuit breaker OPEN — cooldown active",
+                model=use_model,
+                duration_sec=0.0,
+            )
+
         # -- Gemini API: key in URL, not header
         url = f"{self.base_url}/models/{use_model}:generateContent?key={self.api_key}"
         payload = {
@@ -71,19 +89,23 @@ class GeminiAdapter(ProviderAdapter):
             "generationConfig": {"temperature": self.temperature},
         }
 
-        try:
+        def _do_request() -> dict:
+            """Inner HTTP call — wrapped by retry_http."""
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
                 headers={
                     "Content-Type": "application/json",
-                    "User-Agent": "rondo/0.6",
+                    "User-Agent": "rondo/0.7",
                 },
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-                result = json.loads(resp.read().decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8"))
 
+        try:
+            result = retry_http(_do_request, provider_name="gemini")
+            breaker.record_success("gemini")
             duration = time.monotonic() - start
 
             # -- Extract response text (Gemini's unique structure)
@@ -123,8 +145,10 @@ class GeminiAdapter(ProviderAdapter):
                 invalidate_key("gemini")
             elif exc.code == 429:
                 error_code = ERR_RATE_LIMIT
+                breaker.record_failure("gemini")
             elif exc.code >= 500:
                 error_code = ERR_PROVIDER_DOWN
+                breaker.record_failure("gemini")
             else:
                 error_code = ERR_PROVIDER
             return TaskResult(
@@ -137,6 +161,7 @@ class GeminiAdapter(ProviderAdapter):
             )
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             duration = time.monotonic() - start
+            breaker.record_failure("gemini")
             return TaskResult(
                 task_name=task_name,
                 status="error",

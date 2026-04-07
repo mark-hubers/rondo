@@ -200,4 +200,18 @@ def invalidate_all_keys() -> None:
         _KEY_CACHE.clear()
 
 
+def invalidate_key_global(provider: str) -> None:
+    """RONDO-204 (Finding #233): invalidate a provider's key for ALL tenants.
+
+    Use when a key is compromised or revoked globally. Clears every
+    (provider, *) tuple from the cache. Thread-safe.
+    """
+    with _KEY_CACHE_LOCK:
+        keys_to_remove = [k for k in _KEY_CACHE if k[0] == provider]
+        for k in keys_to_remove:
+            del _KEY_CACHE[k]
+    if keys_to_remove:
+        logger.info("Globally invalidated %d cached keys for provider '%s'", len(keys_to_remove), provider)
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.d03540

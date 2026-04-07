@@ -92,7 +92,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
         import urllib.error
         import urllib.request
 
-        from rondo.adapters.retry import get_circuit_breaker, retry_http
+        from rondo.retry import get_circuit_breaker, retry_http
 
         task_name = kwargs.get("task_name", f"{self.provider_name}-{model}")
         use_model = model or self.default_model

@@ -2,8 +2,13 @@
 # SPDX-License-Identifier: MIT
 """HTTP retry with exponential backoff + circuit breaker — RONDO-145.
 
+Rondo-REQ-109 req 074: reliability primitives (retry + circuit breaker)
+for all provider dispatch paths — HTTP adapters and subprocess Claude CLI.
+
 Finding #211: HTTP adapters had no retry/backoff/circuit breaker logic.
-Transient network failures caused immediate dispatch failure.
+Finding #235 (RONDO-204): subprocess Claude path needed same reliability
+pattern — promoted this module from adapters/ to top-level rondo/ so
+both L1 (dispatch.py) and L2 (HTTP adapters) can share the primitives.
 
 This module provides:
     retry_http(fn) — call fn() with retries on transient failures
@@ -11,6 +16,7 @@ This module provides:
 
 Import direction:
     retry.py → pure Python stdlib only (no rondo imports)
+    Callers: dispatch.py (subprocess), adapters/*.py (HTTP)
 """
 
 from __future__ import annotations
@@ -187,7 +193,7 @@ class CircuitBreaker:
                 self._states.pop(provider, None)
 
 
-# -- Global shared circuit breaker for all adapters
+# -- Global shared circuit breaker for all adapters + dispatch
 _GLOBAL_BREAKER = CircuitBreaker()
 
 
@@ -196,4 +202,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.f1b0.f0b060
+# -- sig: mgh-6201.cd.bd955f.f1b0.f0b061

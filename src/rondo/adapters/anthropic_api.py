@@ -51,9 +51,15 @@ class AnthropicAPIAdapter(ProviderAdapter):
         self.base_url = base_url.rstrip("/")
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Send prompt to Anthropic Messages API, return TaskResult."""
+        """Send prompt to Anthropic Messages API, return TaskResult.
+
+        RONDO-204 (Finding #234): wraps HTTP call in retry_http + circuit breaker
+        for consistency with ChatCompletionsAdapter + Gemini.
+        """
         import urllib.error
         import urllib.request
+
+        from rondo.retry import get_circuit_breaker, retry_http
 
         task_name = kwargs.get("task_name", f"anthropic-{model}")
         use_model = model or self.default_model
@@ -65,6 +71,18 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 status="error",
                 error_code=ERR_AUTH,
                 error_message="No API key for Anthropic",
+                model=use_model,
+                duration_sec=0.0,
+            )
+
+        # -- RONDO-204: circuit breaker check
+        breaker = get_circuit_breaker()
+        if breaker.is_open("anthropic"):
+            return TaskResult(
+                task_name=task_name,
+                status="error",
+                error_code=ERR_PROVIDER_DOWN,
+                error_message="anthropic circuit breaker OPEN — cooldown active",
                 model=use_model,
                 duration_sec=0.0,
             )
@@ -82,10 +100,11 @@ class AnthropicAPIAdapter(ProviderAdapter):
             "Content-Type": "application/json",
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
-            "User-Agent": "rondo/0.6",
+            "User-Agent": "rondo/0.7",
         }
 
-        try:
+        def _do_request() -> dict:
+            """Inner HTTP call — wrapped by retry_http."""
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
@@ -93,8 +112,11 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-                result = json.loads(resp.read().decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8"))
 
+        try:
+            result = retry_http(_do_request, provider_name="anthropic")
+            breaker.record_success("anthropic")
             duration = time.monotonic() - start
 
             # -- Extract text from Anthropic's response format
@@ -134,8 +156,10 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 invalidate_key("anthropic")
             elif exc.code == 429:
                 error_code = ERR_RATE_LIMIT
+                breaker.record_failure("anthropic")
             elif exc.code >= 500:
                 error_code = ERR_PROVIDER_DOWN
+                breaker.record_failure("anthropic")
             else:
                 error_code = ERR_PROVIDER
             return TaskResult(
@@ -148,6 +172,7 @@ class AnthropicAPIAdapter(ProviderAdapter):
             )
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             duration = time.monotonic() - start
+            breaker.record_failure("anthropic")
             return TaskResult(
                 task_name=task_name,
                 status="error",

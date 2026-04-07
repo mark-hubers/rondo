@@ -374,6 +374,26 @@ def _dispatch_interactive(
     silent "not logged in" failure cascade. Opt-in bypass via env var for
     explicit CLI/cron use cases that need subprocess dispatch.
     """
+    # -- RONDO-204 Finding #235: Claude path parity — circuit breaker
+    # -- Separate bucket from "anthropic" HTTP adapter so subprocess auth
+    # -- failures don't trip the HTTP API breaker and vice versa.
+    from rondo.retry import get_circuit_breaker  # pylint: disable=import-outside-toplevel
+
+    breaker = get_circuit_breaker()
+    if breaker.is_open("claude_cli"):
+        logger.error("Claude subprocess circuit breaker OPEN — cooldown active")
+        result = TaskResult(
+            task_name=task.name,
+            status="error",
+            error_code="ERR_PROVIDER_DOWN",
+            error_message="claude_cli circuit breaker OPEN — cooldown active",
+            model=model,
+            auth_mode=config.auth,
+            timestamp=timestamp,
+        )
+        _attach_metrics(result, config)
+        return result, DispatchUsage(task_name=task.name, model=model)
+
     # -- RONDO-143: Subprocess footgun guard for in-session Claude models
     if (
         os.environ.get("CLAUDECODE")
@@ -432,6 +452,7 @@ def _dispatch_interactive(
 
         # -- Handle timeout
         if timed_out:
+            breaker.record_failure("claude_cli")  # -- #235
             result, usage = _make_error_result(
                 task.name,
                 error_code="ERR_TIMEOUT",
@@ -448,6 +469,7 @@ def _dispatch_interactive(
 
         # -- Handle non-zero exit (Rondo-REQ-100 req 27)
         if returncode != 0:
+            breaker.record_failure("claude_cli")  # -- #235
             result, usage = _make_error_result(
                 task.name,
                 error_code=classify_error(stderr),
@@ -465,6 +487,7 @@ def _dispatch_interactive(
 
         # -- Handle empty stdout (Rondo-STD-108: ERR_EMPTY_OUTPUT)
         if not stdout or not stdout.strip():
+            breaker.record_failure("claude_cli")  # -- #235
             result, usage = _make_error_result(
                 task.name,
                 error_code="ERR_EMPTY_OUTPUT",
@@ -478,6 +501,9 @@ def _dispatch_interactive(
                 timestamp=timestamp,
             )
             return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
+
+        # -- RONDO-204 #235: success path — record breaker success
+        breaker.record_success("claude_cli")
 
         # -- Parse and build success result
         return _parse_and_build_result(
@@ -497,6 +523,7 @@ def _dispatch_interactive(
 
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         # -- Rondo-STD-108 rule 9: subprocess + I/O failures caught
+        breaker.record_failure("claude_cli")  # -- #235
         logger.warning("Interactive dispatch failed for task %s: %s", task.name, exc)
         result, usage = _make_error_result(
             task.name,

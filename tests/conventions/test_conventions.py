@@ -231,6 +231,7 @@ class TestImportLayering:
             "audit",
             "spool",
             "metrics",
+            "retry",  # -- RONDO-204 #235: circuit breaker parity for subprocess path
         },
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
         "parallel.py": {"engine", "config", "dispatch"},

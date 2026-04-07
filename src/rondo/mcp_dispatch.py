@@ -534,32 +534,10 @@ def _is_in_session() -> bool:
 # -- Bump when plan response format changes in a non-backward-compatible way
 PLAN_SCHEMA_VERSION = "1"
 
-# -- RONDO-200 (Finding #216): per-model context limits (input tokens)
-# -- Used to validate prompt size before dispatch and prevent OOM
-# -- Approximate token count: 1 token ≈ 4 chars (English text)
-MODEL_CONTEXT_LIMITS: dict[str, int] = {
-    # -- Claude family (Anthropic)
-    "haiku": 200_000,
-    "sonnet": 200_000,
-    "opus": 200_000,
-    "sonnet[1m]": 1_000_000,
-    "opus[1m]": 1_000_000,
-    # -- Gemini
-    "gemini-2.5-flash": 1_000_000,
-    "gemini-2.5-pro": 2_000_000,
-    "gemini-2.0-flash": 1_000_000,
-    # -- OpenAI
-    "gpt-4.1": 128_000,
-    "gpt-4.1-mini": 128_000,
-    # -- Grok
-    "grok-3": 131_072,
-    "grok-3-mini": 131_072,
-    # -- Mistral
-    "mistral-large-latest": 131_072,
-}
-
-# -- Default conservative limit for unknown models
-DEFAULT_CONTEXT_LIMIT = 100_000
+# -- RONDO-206 Finding #216: model limits moved to config.py to break the
+# -- layering cycle between dispatch.py (L1) and mcp_dispatch.py (L2).
+# -- Re-exported here for backward compatibility with existing callers.
+from rondo.config import DEFAULT_CONTEXT_LIMIT, MODEL_CONTEXT_LIMITS  # noqa: E402, F401
 
 
 def estimate_token_count(text: str) -> int:
@@ -623,8 +601,18 @@ def resolve_dispatch_engine(
 
     Returns dict with 'engine' + 'status' keys. Plans have status='plan'.
     Engine-specific fields: kind, prompt, done_when, model, project, provider.
+
+    RONDO-206 Finding #220: input normalization — model argument is stripped
+    of surrounding whitespace before routing. Prior behavior left inputs like
+    ' sonnet ' as "unknown model" errors, which was user-hostile. The :new
+    suffix is also stripped when paired with a provider prefix (:new is
+    subprocess-only semantics; gemini:flash:new made no sense).
     """
-    from rondo.providers import is_claude_model, is_legacy_ollama_model, parse_model
+    from rondo.providers import parse_model  # pylint: disable=import-outside-toplevel
+
+    # -- #220: normalize whitespace — user-friendly for ' Sonnet ' etc.
+    # -- We do NOT lowercase because opus[1m] has case-sensitive brackets.
+    model = (model or "").strip()
 
     # -- Step 0: RONDO-202 (Finding #227): context limit pre-check
     # -- Check resolved model (strip provider prefix for lookup)
@@ -654,8 +642,20 @@ def resolve_dispatch_engine(
     # -- Step 2: parse provider prefix
     provider, model_name = parse_model(model)
 
+    # -- #220: strip :new when paired with a provider prefix.
+    # -- :new forces a fresh Claude subprocess session — meaningless for HTTP.
+    # -- gemini:flash:new became provider=gemini, model=flash:new — which the
+    # -- HTTP adapter would then fail to recognize. Strip and note in reason.
+    new_suffix_stripped = False
+    if provider and model_name.endswith(":new"):
+        model_name = model_name.removesuffix(":new")
+        new_suffix_stripped = True
+
     # -- Step 3: explicit provider prefix → HTTP adapter
     if provider:
+        reason = f"Provider prefix '{provider}:' routes to HTTP adapter"
+        if new_suffix_stripped:
+            reason += " (':new' suffix stripped — subprocess-only semantics)"
         return {
             "engine": "http",
             "status": "plan",
@@ -663,10 +663,32 @@ def resolve_dispatch_engine(
             "provider": provider,
             "model": model_name,
             "model_raw": model,
-            "reason": f"Provider prefix '{provider}:' routes to HTTP adapter",
+            "reason": reason,
         }
 
-    # -- Step 4: no prefix — Claude model or empty
+    # -- Step 4+: no provider prefix — delegate to helper for complexity
+    return _resolve_no_provider_model(
+        model=model,
+        prompt=prompt,
+        done_when=done_when,
+        project=project,
+    )
+
+
+def _resolve_no_provider_model(
+    model: str,
+    prompt: str,
+    done_when: str,
+    project: str,
+) -> dict:
+    """Handle models without a provider prefix (Claude/empty/Ollama/unknown).
+
+    Extracted from resolve_dispatch_engine for cyclomatic complexity (#220).
+    Covers: empty → inline, :new → subprocess, Claude in/out-of-session,
+    legacy Ollama, unknown → error.
+    """
+    from rondo.providers import is_claude_model, is_legacy_ollama_model  # pylint: disable=import-outside-toplevel
+
     in_session = _is_in_session()
 
     # -- Step 4a: model empty → inline (use current session)
@@ -694,23 +716,20 @@ def resolve_dispatch_engine(
         }
 
     # -- Step 5: Claude model
-    is_claude = is_claude_model(model)
-
-    if is_claude and in_session:
-        return {
-            "engine": "agent",
-            "status": "plan",
-            "schema_version": PLAN_SCHEMA_VERSION,
-            "kind": "agent_dispatch_plan",
-            "prompt": prompt,
-            "done_when": done_when,
-            "model": model,
-            "project": project,
-            "reason": f"Claude model '{model}' in-session — use Agent tool",
-            "note": "If this is your current model, execute inline instead of spawning an agent.",
-        }
-
-    if is_claude and not in_session:
+    if is_claude_model(model):
+        if in_session:
+            return {
+                "engine": "agent",
+                "status": "plan",
+                "schema_version": PLAN_SCHEMA_VERSION,
+                "kind": "agent_dispatch_plan",
+                "prompt": prompt,
+                "done_when": done_when,
+                "model": model,
+                "project": project,
+                "reason": f"Claude model '{model}' in-session — use Agent tool",
+                "note": "If this is your current model, execute inline instead of spawning an agent.",
+            }
         return {
             "engine": "subprocess",
             "status": "plan",

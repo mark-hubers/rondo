@@ -48,7 +48,41 @@ from rondo.spool import spool_result
 logger = logging.getLogger(__name__)
 
 # -- Maximum size for raw_output in result files (Rondo-STD-110 R2)
-_MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB
+# -- RONDO-206 Finding #216: 1M context era — static 1MB cap was too small
+# -- for sonnet[1m]/opus[1m]/gemini-2.5-pro responses. Now scales with the
+# -- model's context window: allow up to 25% of the input token budget as
+# -- output bytes (conservative: ~4 chars per token for ASCII).
+_MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB fallback for unknown models
+
+
+def _max_output_bytes_for_model(model: str) -> int:
+    """Return the output byte cap for a given model — RONDO-206 #216.
+
+    Scales with MODEL_CONTEXT_LIMITS so 1M-context models can return
+    proportionally larger responses. Formula: `limit_tokens * 2` bytes,
+    floored at the 1MB static cap. The 2x factor reflects that LLM
+    responses average ~2 chars per token (shorter than input which is
+    ~4 chars/token) while leaving headroom for long-form outputs.
+
+    Examples:
+        sonnet (200K tokens)   → max(1MB, 400KB)  = 1MB   (static floor)
+        sonnet[1m] (1M tokens) → max(1MB, 2MB)    = 2MB
+        gemini-2.5-pro (2M)    → max(1MB, 4MB)    = 4MB
+        unknown                → 1MB (static)
+    """
+    try:
+        from rondo.config import MODEL_CONTEXT_LIMITS  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        return _MAX_OUTPUT_BYTES
+
+    # -- Strip provider prefix if present (e.g., "gemini:flash" → "flash")
+    check_model = model.split(":", 1)[-1] if ":" in model else model
+    limit_tokens = MODEL_CONTEXT_LIMITS.get(check_model)
+    if limit_tokens is None:
+        return _MAX_OUTPUT_BYTES
+    # -- Scale output cap with context — 2 bytes per token, 1MB floor
+    return max(_MAX_OUTPUT_BYTES, limit_tokens * 2)
+
 
 # -- Rondo-REQ-100 req 071: CC version detection (cached per process)
 _cc_version_cache: tuple[int, int, int] | None = None
@@ -165,7 +199,7 @@ def save_result(
     """Save task result to JSON file with restrictive permissions.
 
     Rondo-STD-110 S5: file permissions 0o600.
-    Rondo-STD-110 R2: raw_output truncated to 1MB.
+    Rondo-STD-110 R2: raw_output truncated per-model (RONDO-206 #216).
     Rondo-STD-108 rule 8: no credentials in output (enforced by env prep).
     """
     out_dir = Path(results_dir)
@@ -174,9 +208,15 @@ def save_result(
     # -- Build result dict
     data = asdict(result)
 
-    # -- Truncate raw_output if needed (Rondo-STD-110 R2)
-    if len(data.get("raw_output", "")) > _MAX_OUTPUT_BYTES:
-        data["raw_output"] = data["raw_output"][:_MAX_OUTPUT_BYTES] + "\n... [TRUNCATED — exceeded 1MB limit]"
+    # -- RONDO-206 #216: dynamic truncation cap based on model's context window.
+    # -- 1M-context models (sonnet[1m], gemini-2.5-pro) get proportionally larger
+    # -- output allowances; unknown models fall back to the 1MB static cap.
+    max_output = _max_output_bytes_for_model(result.model or "")
+    if len(data.get("raw_output", "")) > max_output:
+        mb_label = f"{max_output // (1024 * 1024)}MB" if max_output >= 1024 * 1024 else f"{max_output}B"
+        data["raw_output"] = (
+            data["raw_output"][:max_output] + f"\n... [TRUNCATED — exceeded {mb_label} limit for model {result.model}]"
+        )
 
     # -- Add usage data
     data["usage"] = asdict(usage)

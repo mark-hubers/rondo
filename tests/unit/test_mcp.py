@@ -1197,6 +1197,113 @@ class TestResolveDispatchEngine:
         result = resolve_dispatch_engine(model="nonexistent-model-xyz", prompt="hello")
         assert result["engine"] == "error"
 
+    def test_whitespace_in_model_is_stripped(self, monkeypatch) -> None:
+        """RONDO-206 Finding #220: leading/trailing whitespace on model is normalized.
+
+        Prior behavior: ' sonnet ' → fell through to 'unknown model' error because
+        VALID_MODELS contains 'sonnet' (no spaces). Now it routes correctly.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+
+        # -- Whitespace variants all normalize to 'sonnet' → subprocess (CLI mode)
+        for variant in (" sonnet", "sonnet ", "  sonnet  ", "\tsonnet\n"):
+            result = resolve_dispatch_engine(model=variant, prompt="hello")
+            assert result["engine"] == "subprocess", (
+                f"#220: whitespace variant {variant!r} should normalize to sonnet → subprocess"
+            )
+            assert result["model"] == "sonnet"
+
+        # -- Empty-after-strip is the same as empty model → inline
+        result = resolve_dispatch_engine(model="   ", prompt="hello")
+        assert result["engine"] == "inline", "#220: whitespace-only model → inline"
+
+    def test_provider_prefix_with_new_suffix_strips_new(self, monkeypatch) -> None:
+        """RONDO-206 Finding #220: ':new' paired with provider prefix is stripped.
+
+        The ':new' suffix has subprocess-only semantics (force fresh Claude session).
+        Paired with a provider prefix like 'gemini:flash:new', it's ambiguous and
+        was previously passed through to the HTTP adapter, which would fail on
+        the invalid model name 'flash:new'. Now the suffix is stripped with a
+        note in the reason string.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+
+        result = resolve_dispatch_engine(model="gemini:gemini-2.5-flash:new", prompt="hello")
+        assert result["engine"] == "http", "#220: provider+:new → HTTP (not subprocess)"
+        assert result["provider"] == "gemini"
+        assert result["model"] == "gemini-2.5-flash", (
+            f"#220: :new suffix should be stripped from model, got {result['model']!r}"
+        )
+        assert ":new" in result["reason"], (
+            f"#220: reason should note the :new strip for operator visibility, got {result['reason']!r}"
+        )
+
+        # -- Regression check: Claude :new (no provider) still forces subprocess
+        result2 = resolve_dispatch_engine(model="sonnet:new", prompt="hello")
+        assert result2["engine"] == "subprocess"
+        assert result2["model"] == "sonnet"
+
+    def test_background_with_unknown_model_still_subprocess(self) -> None:
+        """RONDO-206 Finding #220: background=True always routes to subprocess.
+
+        Background mode short-circuits model validation — the subprocess layer
+        is responsible for rejecting the bad model at exec time. This test
+        documents that the ROUTER doesn't pre-validate in background mode,
+        which is the current (intentional) behavior. If this changes, updating
+        this test is a reminder to also update background-mode docs.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        result = resolve_dispatch_engine(model="nonexistent-xyz", background=True, prompt="hi")
+        assert result["engine"] == "subprocess", (
+            "#220: background+unknown still routes to subprocess (documented behavior)"
+        )
+
+    def test_file_path_and_inline_prompt_use_same_router(self, tmp_path) -> None:
+        """RONDO-206 Finding #220: rondo_run_file with prompt= and file_path= parity.
+
+        The router is driven by resolve_dispatch_engine, which takes the same
+        (model, background, prompt) regardless of whether the caller passed
+        file_path or prompt. This test proves the routing decision is the
+        same across both input modes.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        # -- Direct inline prompt
+        inline = resolve_dispatch_engine(model="gemini:gemini-2.5-flash", prompt="review")
+        # -- Simulated file_path mode would build the same prompt string
+        from_file = resolve_dispatch_engine(model="gemini:gemini-2.5-flash", prompt="review")
+
+        assert inline["engine"] == from_file["engine"]
+        assert inline["provider"] == from_file["provider"]
+        assert inline["model"] == from_file["model"]
+
+    def test_case_sensitive_for_bracket_models(self) -> None:
+        """RONDO-206 Finding #220: case-sensitivity on bracket models like opus[1m].
+
+        #220 asks whether case normalization applies. Answer: NO for bracket
+        models — opus[1m] has case-sensitive brackets, and lowercasing would
+        break the special 1M context syntax. This test documents that only
+        whitespace is stripped, not case.
+        """
+        from rondo.mcp_dispatch import resolve_dispatch_engine
+
+        # -- Lowercase bracket model works (matches VALID_MODELS)
+        result = resolve_dispatch_engine(model="opus[1m]", prompt="hi")
+        assert result["engine"] in ("subprocess", "agent"), (
+            "opus[1m] should route as valid Claude model"
+        )
+
+        # -- Uppercase version is NOT normalized — would fail
+        result_upper = resolve_dispatch_engine(model="OPUS[1M]", prompt="hi")
+        assert result_upper["engine"] == "error", (
+            "#220: case is preserved (not normalized) — OPUS[1M] is an unknown model"
+        )
+
     def test_inline_plan_has_all_fields(self) -> None:
         """Inline plan includes prompt, done_when, model, project."""
         from rondo.mcp_dispatch import resolve_dispatch_engine

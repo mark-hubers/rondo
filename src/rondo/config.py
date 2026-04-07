@@ -22,6 +22,44 @@ logger = logging.getLogger(__name__)
 # -- RONDO-202 (Finding #225): reload lock prevents mid-flight races.
 _config_lock = threading.RLock()
 
+
+# ──────────────────────────────────────────────────────────────────
+#  Model context limits — RONDO-200 Finding #216, #227
+# ──────────────────────────────────────────────────────────────────
+
+# -- Per-model context window limits in tokens. Used by:
+# --   1. mcp_dispatch.check_context_limit — pre-dispatch validation
+# --   2. dispatch._max_output_bytes_for_model — dynamic output cap (#216)
+# --
+# -- Moved from mcp_dispatch.py to config.py in RONDO-206 because dispatch.py
+# -- (L1) cannot import from mcp_dispatch.py (L2) without creating a cycle
+# -- (mcp_dispatch imports finalize_dispatch from dispatch). config.py is
+# -- below both layers and is the right home for configuration data.
+MODEL_CONTEXT_LIMITS: dict[str, int] = {
+    # -- Claude family (Anthropic)
+    "haiku": 200_000,
+    "sonnet": 200_000,
+    "opus": 200_000,
+    "sonnet[1m]": 1_000_000,
+    "opus[1m]": 1_000_000,
+    # -- Gemini
+    "gemini-2.5-flash": 1_000_000,
+    "gemini-2.5-pro": 2_000_000,
+    "gemini-2.0-flash": 1_000_000,
+    # -- OpenAI
+    "gpt-4.1": 128_000,
+    "gpt-4.1-mini": 128_000,
+    # -- Grok
+    "grok-3": 131_072,
+    "grok-3-mini": 131_072,
+    # -- Mistral
+    "mistral-large-latest": 131_072,
+}
+
+# -- Default conservative limit for unknown models
+DEFAULT_CONTEXT_LIMIT = 100_000
+
+
 # ──────────────────────────────────────────────────────────────────
 #  COALESCE — Rondo-STD-109 rule 6
 # ──────────────────────────────────────────────────────────────────

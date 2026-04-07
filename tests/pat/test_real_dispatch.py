@@ -1474,17 +1474,26 @@ class TestAlwaysOnPipeline:
         # -- background forces subprocess regardless of model validity
         assert r["engine"] == "subprocess"
 
-    def test_routing_whitespace_in_model_not_stripped(self) -> None:
-        """RONDO-146 (Finding #220): whitespace in model name is NOT auto-stripped.
+    def test_routing_whitespace_in_model_is_stripped(self, monkeypatch) -> None:
+        """RONDO-206 Finding #220 FIX: whitespace in model name IS auto-stripped.
 
-        Documents current behavior: ' sonnet ' is treated as a different model
-        than 'sonnet'. Callers must trim before passing.
+        Prior behavior (RONDO-146): whitespace was preserved — ' sonnet ' was
+        treated as unknown model. This was documented-but-user-hostile.
+        RONDO-206 actually fixes it: leading/trailing whitespace is stripped
+        at the router entry so ' sonnet ' routes as 'sonnet'.
+
+        Case sensitivity is still preserved (see test_routing_case_sensitive_for_claude_models)
+        because opus[1m] has case-sensitive bracket syntax.
         """
         from rondo.mcp_dispatch import resolve_dispatch_engine
 
+        monkeypatch.delenv("CLAUDECODE", raising=False)
         r = resolve_dispatch_engine(model=" sonnet ", prompt="x")
-        # -- Whitespace makes it unknown — error engine
-        assert r["engine"] == "error"
+        # -- Whitespace is now stripped → valid Claude model → subprocess (outside CC)
+        assert r["engine"] == "subprocess", (
+            "#220 fix: ' sonnet ' must normalize to 'sonnet' and route correctly"
+        )
+        assert r["model"] == "sonnet"
 
     def test_routing_case_sensitive_for_claude_models(self) -> None:
         """RONDO-146 (Finding #220): Claude model match is case-sensitive."""

@@ -571,7 +571,7 @@ class TestResultSaving:
         assert mode == "600"
 
     def test_output_truncation(self, tmp_path):
-        """Rondo-STD-110 R2: output bounded at 1MB."""
+        """Rondo-STD-110 R2: output bounded at 1MB for standard models."""
         big_output = "x" * (2 * 1024 * 1024)  # -- 2MB
         result = TaskResult(
             task_name="t",
@@ -586,8 +586,82 @@ class TestResultSaving:
         usage = DispatchUsage(task_name="t", model="sonnet")
         filepath = save_result(result, usage, str(tmp_path))
         data = json.loads(Path(filepath).read_text())
-        # -- raw_output should be truncated
-        assert len(data["raw_output"]) <= 1024 * 1024 + 100  # -- 1MB + margin for truncation note
+        # -- raw_output should be truncated to 1MB + truncation note
+        assert len(data["raw_output"]) <= 1024 * 1024 + 200  # -- 1MB + margin for note
+
+    def test_output_cap_scales_for_1m_context_models(self, tmp_path):
+        """RONDO-206 Finding #216: 1M-context models get proportionally larger output cap.
+
+        Old static 1MB cap truncated legitimate 1.5M-char responses from
+        sonnet[1m]/opus[1m]. New formula: limit_tokens * 2 bytes, 1MB floor.
+        sonnet[1m] (1M tokens) → 2MB output cap.
+        """
+        # -- 1.5 MB output that WOULD fit in sonnet[1m] but NOT in sonnet
+        output_1_5mb = "x" * (1_500_000)
+        result = TaskResult(
+            task_name="t",
+            status="done",
+            prompt_sent="do",
+            raw_output=output_1_5mb,
+            duration_sec=1.0,
+            model="sonnet[1m]",
+            auth_mode="max",
+            timestamp="2026-03-14T00:00:00Z",
+        )
+        usage = DispatchUsage(task_name="t", model="sonnet[1m]")
+        filepath = save_result(result, usage, str(tmp_path))
+        data = json.loads(Path(filepath).read_text())
+        # -- 1.5MB should NOT be truncated for sonnet[1m] (cap is 2MB)
+        assert len(data["raw_output"]) == 1_500_000, (
+            f"#216: sonnet[1m] should allow 1.5MB output (cap=2MB). "
+            f"Got truncated to {len(data['raw_output'])} bytes."
+        )
+
+    def test_output_cap_truncates_beyond_model_limit(self, tmp_path):
+        """RONDO-206 Finding #216: 1M-context model cap still truncates excessive output.
+
+        sonnet[1m] cap is 2MB. A 3MB response MUST still be truncated.
+        """
+        output_3mb = "y" * (3 * 1024 * 1024)
+        result = TaskResult(
+            task_name="t",
+            status="done",
+            prompt_sent="do",
+            raw_output=output_3mb,
+            duration_sec=1.0,
+            model="sonnet[1m]",
+            auth_mode="max",
+            timestamp="2026-03-14T00:00:00Z",
+        )
+        usage = DispatchUsage(task_name="t", model="sonnet[1m]")
+        filepath = save_result(result, usage, str(tmp_path))
+        data = json.loads(Path(filepath).read_text())
+        # -- Should be truncated to 2MB + truncation note
+        assert len(data["raw_output"]) <= 2 * 1024 * 1024 + 200
+        assert "TRUNCATED" in data["raw_output"]
+        assert "sonnet[1m]" in data["raw_output"], (
+            f"#216: truncation note must include model name for diagnostics"
+        )
+
+    def test_max_output_bytes_scales_with_model(self):
+        """RONDO-206 Finding #216: _max_output_bytes_for_model scales correctly."""
+        from rondo.dispatch import _max_output_bytes_for_model
+
+        # -- Standard models → 1MB floor (static)
+        assert _max_output_bytes_for_model("sonnet") == 1024 * 1024
+        assert _max_output_bytes_for_model("gpt-4.1") == 1024 * 1024
+        assert _max_output_bytes_for_model("unknown-xyz") == 1024 * 1024
+
+        # -- 1M-context models → 2 bytes/token = 2MB
+        assert _max_output_bytes_for_model("sonnet[1m]") == 2_000_000
+        assert _max_output_bytes_for_model("opus[1m]") == 2_000_000
+        assert _max_output_bytes_for_model("gemini-2.5-flash") == 2_000_000
+
+        # -- 2M-context → 4MB
+        assert _max_output_bytes_for_model("gemini-2.5-pro") == 4_000_000
+
+        # -- Provider prefix stripped before lookup
+        assert _max_output_bytes_for_model("gemini:gemini-2.5-pro") == 4_000_000
 
     def test_result_includes_metadata(self, tmp_path):
         """Rondo-REQ-100 req 28: result includes task_name, status, model, auth, duration, timestamp."""

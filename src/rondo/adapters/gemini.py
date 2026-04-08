@@ -39,11 +39,14 @@ class GeminiAdapter(ProviderAdapter):
         default_model: str = "gemini-2.5-flash",
         temperature: float = 0.2,
         base_url: str = "https://generativelanguage.googleapis.com/v1beta",
+        max_output_tokens: int = 8192,
     ) -> None:
         self.api_key = api_key
         self.default_model = default_model
         self.temperature = temperature
         self.base_url = base_url.rstrip("/")
+        # -- RONDO-209 #247: default bumped so deep reviews aren't truncated
+        self.max_output_tokens = max_output_tokens
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Gemini generateContent API, return TaskResult.
@@ -86,7 +89,10 @@ class GeminiAdapter(ProviderAdapter):
         url = f"{self.base_url}/models/{use_model}:generateContent?key={self.api_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": self.temperature},
+            "generationConfig": {
+                "temperature": self.temperature,
+                "maxOutputTokens": self.max_output_tokens,  # -- #247
+            },
         }
 
         def _do_request() -> dict:

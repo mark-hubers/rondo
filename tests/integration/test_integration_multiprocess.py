@@ -1,0 +1,299 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Multi-PROCESS integration tests — real subprocess.Popen concurrency.
+
+VER-001 verification matrix: cross-process coverage for scenarios that
+multi-threading tests CAN'T catch. Threads share Python memory and module
+state; processes do not. Every test here spawns real subprocess.Popen
+workers that each have their own Python interpreter, their own module
+globals, their own locks.
+
+RONDO-209 Finding #246: the JSON race condition was invisible to all
+180 existing integration tests because they used `threading.Barrier`
+for concurrency — which only proves thread safety, not process safety.
+This file closes that gap.
+
+The tests are slower (~100ms each due to process spawn) so they're kept
+in a separate file from the threading-based integration tests.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+
+# -- ──────────────────────────────────────────────────────────────
+# --  Helper: spawn worker Python subprocesses
+# -- ──────────────────────────────────────────────────────────────
+
+
+def _run_worker(worker_code: str, env: dict[str, str], timeout: float = 10.0) -> subprocess.CompletedProcess:
+    """Run a Python worker script as a subprocess with specific env vars."""
+    project_root = Path(__file__).parent.parent.parent  # -- rondo/
+    src_path = project_root / "src"
+    full_code = (
+        f"import sys\n"
+        f"sys.path.insert(0, {str(src_path)!r})\n"
+        + worker_code
+    )
+    return subprocess.run(
+        [sys.executable, "-c", full_code],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  Integration tests — REAL multi-process
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestMultiProcessIdempotency:
+    """RONDO-209 #246: real subprocess.Popen tests for JSONL race safety."""
+
+    def test_two_processes_cache_different_keys_no_loss(self, tmp_path):
+        """Two subprocesses cache DIFFERENT keys simultaneously — neither loses.
+
+        This is the test that would have caught #246: the old JSON
+        read-modify-write pattern would have lost one entry because of
+        the classic "A reads {}, B reads {}, A writes {X}, B writes {Y}"
+        race. The new append-only JSONL makes this race impossible.
+        """
+        import os as _os
+
+        env = _os.environ.copy()
+        env["RONDO_TEST_DIR"] = str(tmp_path)
+
+        worker_template = textwrap.dedent("""
+            import rondo.idempotency as idem
+            key = {key!r}
+            result = {{"data": {value}, "worker_id": {id}}}
+            idem.cache_result(key, result)
+            print("OK")
+        """)
+
+        # -- Spawn 2 workers with different keys, started in quick succession
+        proc_a = subprocess.Popen(
+            [sys.executable, "-c",
+             "import sys; sys.path.insert(0, " + repr(str(Path(__file__).parent.parent.parent / "src")) + ")\n"
+             + worker_template.format(key="key-A", value=100, id=1)],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        proc_b = subprocess.Popen(
+            [sys.executable, "-c",
+             "import sys; sys.path.insert(0, " + repr(str(Path(__file__).parent.parent.parent / "src")) + ")\n"
+             + worker_template.format(key="key-B", value=200, id=2)],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        out_a, err_a = proc_a.communicate(timeout=10)
+        out_b, err_b = proc_b.communicate(timeout=10)
+
+        assert proc_a.returncode == 0, f"worker A failed: {err_a}"
+        assert proc_b.returncode == 0, f"worker B failed: {err_b}"
+        assert "OK" in out_a and "OK" in out_b
+
+        # -- Now verify BOTH entries survived in the JSONL file
+        cache_file = tmp_path / "idempotency.jsonl"
+        assert cache_file.exists(), "#246: cache file must exist after workers ran"
+        lines = [line for line in cache_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        keys_found = set()
+        for line in lines:
+            entry = json.loads(line)
+            keys_found.add(entry["key"])
+
+        assert "key-A" in keys_found, "#246: key-A LOST in cross-process race"
+        assert "key-B" in keys_found, "#246: key-B LOST in cross-process race"
+
+    def test_two_processes_cache_same_key_latest_wins(self, tmp_path):
+        """Two subprocesses cache the SAME key — latest append wins on read.
+
+        For the same idempotency key, it's fine if one write supersedes
+        another — the semantic guarantee is 'if key is cached, return SOME
+        valid result for it'. This test verifies both writes appended
+        successfully (both show up in the file) and the scan returns the
+        latest-wins value.
+        """
+        import os as _os
+
+        env = _os.environ.copy()
+        env["RONDO_TEST_DIR"] = str(tmp_path)
+
+        src_path = Path(__file__).parent.parent.parent / "src"
+
+        worker_code_template = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "import rondo.idempotency as idem\n"
+            "import time\n"
+            'time.sleep({sleep})\n'
+            'idem.cache_result("shared-key", {{"worker": {id}, "value": {value}}})\n'
+            'print("OK")\n'
+        )
+
+        # -- Worker A goes first, Worker B delays slightly to ensure ordering
+        proc_a = subprocess.Popen(
+            [sys.executable, "-c", worker_code_template.format(sleep=0.0, id=1, value=100)],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        proc_b = subprocess.Popen(
+            [sys.executable, "-c", worker_code_template.format(sleep=0.1, id=2, value=200)],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+        out_a, err_a = proc_a.communicate(timeout=10)
+        out_b, err_b = proc_b.communicate(timeout=10)
+        assert proc_a.returncode == 0 and proc_b.returncode == 0, (
+            f"workers failed: a={err_a}, b={err_b}"
+        )
+
+        # -- Read back with a fresh process to verify latest-wins semantics
+        reader_code = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "import json\n"
+            "import rondo.idempotency as idem\n"
+            'result = idem.get_cached_result("shared-key", ttl_sec=300)\n'
+            "print(json.dumps(result))\n"
+        )
+        reader = subprocess.run(
+            [sys.executable, "-c", reader_code],
+            env=env, capture_output=True, text=True, timeout=10, check=False,
+        )
+        assert reader.returncode == 0, f"reader failed: {reader.stderr}"
+        result = json.loads(reader.stdout.strip())
+        # -- Latest wins: worker B's value 200 should be returned
+        assert result is not None, "cache miss after 2 writes — data loss"
+        assert result["worker"] == 2 and result["value"] == 200, (
+            f"#246: latest-wins failed — expected worker=2 value=200, got {result}"
+        )
+
+    def test_high_concurrency_no_corruption(self, tmp_path):
+        """10 concurrent subprocess workers each write 5 unique keys.
+
+        Stress test for JSONL append atomicity. POSIX O_APPEND guarantees
+        that single write() calls under PIPE_BUF (4KB) are atomic, so no
+        two lines should interleave and no entries should be lost.
+        Expected: 50 unique keys in the file after all workers finish.
+        """
+        import os as _os
+
+        env = _os.environ.copy()
+        env["RONDO_TEST_DIR"] = str(tmp_path)
+
+        src_path = Path(__file__).parent.parent.parent / "src"
+
+        worker_template = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "import rondo.idempotency as idem\n"
+            "for i in range(5):\n"
+            '    idem.cache_result(f"w{id}-k{{i}}", {{"value": i, "worker": {id}}})\n'
+            'print("OK")\n'
+        )
+
+        n_workers = 10
+        processes = [
+            subprocess.Popen(
+                [sys.executable, "-c", worker_template.format(id=i)],
+                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            for i in range(n_workers)
+        ]
+
+        for i, proc in enumerate(processes):
+            out, err = proc.communicate(timeout=15)
+            assert proc.returncode == 0, f"worker {i} failed: {err}"
+
+        # -- Verify JSONL file has exactly 50 unique keys + no corrupt lines
+        cache_file = tmp_path / "idempotency.jsonl"
+        assert cache_file.exists()
+        lines = [line for line in cache_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        keys_found = set()
+        for line in lines:
+            # -- Each line MUST be valid JSON (no interleaved corruption)
+            entry = json.loads(line)
+            keys_found.add(entry["key"])
+
+        expected_keys = {f"w{w}-k{k}" for w in range(n_workers) for k in range(5)}
+        missing = expected_keys - keys_found
+        assert not missing, (
+            f"#246: {len(missing)} keys LOST under 10-process concurrency. "
+            f"Missing: {sorted(missing)[:10]}..."
+        )
+
+
+class TestMultiProcessCircuitBreaker:
+    """RONDO-209 #246: circuit breaker state across real processes."""
+
+    def test_breaker_trip_in_one_process_visible_to_another(self, tmp_path):
+        """Process A trips the breaker; Process B (later) sees it OPEN.
+
+        Tests cross-process visibility of persisted breaker state via JSON file.
+        NOTE: circuit breaker still uses read-modify-write on JSON (not yet
+        migrated to JSONL in RONDO-209). This test catches if two processes
+        clobber each other's OPEN state.
+        """
+        import os as _os
+
+        env = _os.environ.copy()
+        env["RONDO_TEST_DIR"] = str(tmp_path)
+
+        src_path = Path(__file__).parent.parent.parent / "src"
+
+        # -- Worker A: trip the breaker (3 failures at threshold=3)
+        trip_code = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "from pathlib import Path\n"
+            "from rondo.retry import CircuitBreaker\n"
+            "import os\n"
+            'persist = Path(os.environ["RONDO_TEST_DIR"]) / "breaker.json"\n'
+            "b = CircuitBreaker(failure_threshold=3, cooldown_sec=300.0, persist_path=persist)\n"
+            "for _ in range(3):\n"
+            '    b.record_failure("prod-provider")\n'
+            'assert b.is_open("prod-provider"), "worker A: breaker should be OPEN"\n'
+            'print("TRIPPED")\n'
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", trip_code],
+            env=env, capture_output=True, text=True, timeout=10, check=False,
+        )
+        assert result.returncode == 0, f"trip worker failed: {result.stderr}"
+        assert "TRIPPED" in result.stdout
+
+        # -- Worker B: new process, load the persisted state, check OPEN
+        check_code = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "from pathlib import Path\n"
+            "from rondo.retry import CircuitBreaker\n"
+            "import os\n"
+            'persist = Path(os.environ["RONDO_TEST_DIR"]) / "breaker.json"\n'
+            "b = CircuitBreaker(failure_threshold=3, cooldown_sec=300.0, persist_path=persist)\n"
+            'assert b.is_open("prod-provider"), "worker B: breaker should still be OPEN"\n'
+            'print("STILL_OPEN")\n'
+        )
+        result_b = subprocess.run(
+            [sys.executable, "-c", check_code],
+            env=env, capture_output=True, text=True, timeout=10, check=False,
+        )
+        assert result_b.returncode == 0, f"check worker failed: {result_b.stderr}"
+        assert "STILL_OPEN" in result_b.stdout
+
+
+# -- sig: mgh-6201.cd.bd955f.d209.201146

@@ -10,10 +10,21 @@ caused duplicate LLM API calls = duplicate cost + duplicate audit records.
 No client-side dedupe meant the same prompt+model could be billed twice.
 
 RONDO-205 Finding #241: cross-process dedupe via JSON file persistence.
-Multi-process and multi-worker deployments now share the cache through
-a flat JSON file at ~/.rondo/idempotency.json. Atomic write via tmp+rename
-prevents partial-read corruption. Rondo-STD-107 req 005: Rondo is
-stateless — no sqlite3. JSON file matches audit/spool/history persistence.
+Multi-process and multi-worker deployments share the cache through a
+file at ~/.rondo/idempotency.jsonl.
+
+RONDO-209 Finding #246: SWITCHED FROM JSON READ-MODIFY-WRITE TO APPEND-ONLY
+JSONL to eliminate the cross-process race. The previous implementation was:
+    read file → modify dict → atomic write (tmp+rename)
+Which was NOT atomic at the read-modify-write level. Two processes could:
+    A: read {} → write {X:result_A}
+    B: read {} (before A's write) → write {Y:result_B}  ← A's entry LOST
+The append-only JSONL pattern eliminates this race entirely:
+    - cache_result: O(1) append of a new line to the JSONL
+    - get_cached_result: linear scan of the file, latest entry wins
+    - Expired entries filtered out at read time
+    - Periodic compaction (when file grows beyond threshold) re-writes clean file
+This matches the proven pattern used by audit.py/spool.py/history.py.
 
 This module provides:
     compute_idempotency_key(prompt, model) — SHA-256 of prompt+model
@@ -21,7 +32,7 @@ This module provides:
     cache_result(key, result) — store result for future dedupe
 
 Default TTL: 5 minutes. Cache keyed by (prompt_hash, model).
-Thread-safe via lock. Cross-process via JSON file backing store.
+Thread-safe via lock. Cross-process via append-only JSONL backing store.
 """
 
 from __future__ import annotations
@@ -48,49 +59,112 @@ _cache_lock = threading.Lock()
 _file_lock = threading.Lock()
 
 
-def _default_cache_file() -> Path:
-    """Path to the cross-process idempotency JSON file — #241.
+# -- RONDO-209 #246: compaction threshold — rewrite JSONL when it exceeds
+# -- this size to prevent unbounded growth. Compaction runs opportunistically.
+_COMPACT_THRESHOLD_BYTES = 1024 * 1024  # -- 1 MB
 
-    Defaults to ~/.rondo/idempotency.json; honors RONDO_TEST_DIR for isolation.
-    Rondo-STD-107 req 005: JSON file matches audit/spool/history pattern.
+
+def _default_cache_file() -> Path:
+    """Path to the cross-process idempotency JSONL file.
+
+    RONDO-209 #246: switched from .json to .jsonl (append-only) to eliminate
+    cross-process read-modify-write race. Defaults to ~/.rondo/idempotency.jsonl;
+    honors RONDO_TEST_DIR for isolation.
     """
     test_dir = os.environ.get("RONDO_TEST_DIR")
     if test_dir:
-        return Path(test_dir) / "idempotency.json"
-    return Path(os.path.expanduser("~/.rondo/idempotency.json"))
+        return Path(test_dir) / "idempotency.jsonl"
+    return Path(os.path.expanduser("~/.rondo/idempotency.jsonl"))
 
 
-def _load_file_cache(path: Path) -> dict[str, dict[str, Any]]:
-    """Read the on-disk JSON file and return its contents as a dict.
+def _append_cache_entry(path: Path, key: str, payload: dict[str, Any], cached_at_wall: float) -> None:
+    """Append a single cache entry as one JSONL line — #246.
 
-    Returns empty dict on any read/parse error — caller treats as cache miss.
-    """
-    try:
-        if not path.exists():
-            return {}
-        raw = path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        if not isinstance(data, dict):
-            return {}
-        return data
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        logger.debug("Idempotency file read failed (non-fatal): %s", exc)
-        return {}
-
-
-def _save_file_cache(path: Path, data: dict[str, dict[str, Any]]) -> None:
-    """Atomically write the cache dict to the on-disk JSON file.
-
-    Uses tmp file + os.replace for atomicity — concurrent readers
-    never see a partial file. Non-fatal on any I/O error.
+    POSIX guarantees that a single write() < PIPE_BUF (typically 4KB) is
+    atomic. JSON lines are typically <1KB each so append() is race-safe.
+    This replaces the previous read-modify-write pattern that could lose
+    entries under concurrent cross-process access.
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_suffix(".tmp")
-        tmp_path.write_text(json.dumps(data, default=str), encoding="utf-8")
-        os.replace(tmp_path, path)
+        entry = {
+            "key": key,
+            "data": payload,
+            "cached_at_wall": cached_at_wall,
+        }
+        # -- Use mode='a' + single newline-terminated write for atomic append.
+        # -- open() with 'a' guarantees O_APPEND semantics on POSIX, so even
+        # -- concurrent writers won't interleave within a single line.
+        line = json.dumps(entry, default=str) + "\n"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line)
     except (OSError, TypeError, ValueError) as exc:
-        logger.debug("Idempotency file write failed (non-fatal): %s", exc)
+        logger.debug("Idempotency JSONL append failed (non-fatal): %s", exc)
+
+
+def _scan_cache_file(path: Path, ttl_sec: int) -> dict[str, tuple[Any, float]]:
+    """Scan the JSONL file and return the latest valid entry per key — #246.
+
+    Walks every line in the file. For each key, keeps the MOST RECENT entry
+    (by cached_at_wall). Skips entries expired beyond ttl_sec. Malformed
+    lines are silently skipped. Returns {key: (value, cached_at_wall)}.
+    """
+    result: dict[str, tuple[Any, float]] = {}
+    try:
+        if not path.exists():
+            return result
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError as exc:
+        logger.debug("Idempotency JSONL read failed (non-fatal): %s", exc)
+        return result
+
+    cutoff = time.time() - ttl_sec
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except (ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(entry, dict):
+            continue
+        key = entry.get("key")
+        cached_at = float(entry.get("cached_at_wall", 0.0))
+        if not isinstance(key, str) or cached_at <= cutoff:
+            continue
+        # -- Later entries win (append order = write order)
+        existing = result.get(key)
+        if existing is None or cached_at > existing[1]:
+            value = entry.get("data")
+            if value is not None:
+                result[key] = (value, cached_at)
+    return result
+
+
+def _compact_if_needed(path: Path) -> None:
+    """Rewrite the JSONL file with only non-expired entries — #246.
+
+    Runs opportunistically when the file exceeds _COMPACT_THRESHOLD_BYTES.
+    Uses atomic tmp+rename because this IS a read-modify-write operation,
+    but it's SAFE here because:
+      1. Lost entries on race = at worst re-dispatch a cached result (benign)
+      2. Compaction runs rarely, reducing race window to near-zero
+      3. Alternative (no compaction) risks unbounded file growth
+    """
+    try:
+        if not path.exists() or path.stat().st_size < _COMPACT_THRESHOLD_BYTES:
+            return
+        fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
+        tmp_path = path.with_suffix(".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            for k, (value, cached_at) in fresh.items():
+                f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
+        os.replace(tmp_path, path)
+        logger.debug("Idempotency JSONL compacted: %d live entries", len(fresh))
+    except (OSError, TypeError, ValueError) as exc:
+        logger.debug("Idempotency compaction failed (non-fatal): %s", exc)
 
 
 def _serialize_result(result: Any) -> dict[str, Any] | None:
@@ -121,11 +195,11 @@ def compute_idempotency_key(prompt: str, model: str) -> str:
 def get_cached_result(key: str, ttl_sec: int = DEFAULT_TTL_SEC) -> Any | None:
     """Return cached result if present AND within TTL. Else None.
 
-    Two-layer lookup (#241):
+    Two-layer lookup (#246 append-only JSONL):
       1. In-memory cache (fast path, current process)
-      2. JSON file (cross-process, slower)
+      2. JSONL file scan (cross-process, O(N) in file size)
 
-    Thread-safe. Expired entries are evicted on read from both layers.
+    Thread-safe. Expired entries filtered at scan time.
     """
     # -- Layer 1: in-memory (wall-clock because shared with file layer)
     with _cache_lock:
@@ -136,18 +210,14 @@ def get_cached_result(key: str, ttl_sec: int = DEFAULT_TTL_SEC) -> Any | None:
             # -- Expired — evict
             del _cache[key]
 
-    # -- Layer 2: JSON file backing store (#241 cross-process)
+    # -- Layer 2: JSONL file backing store (#246 append-only, race-safe)
+    path = _default_cache_file()
     with _file_lock:
-        file_data = _load_file_cache(_default_cache_file())
-    entry = file_data.get(key)
-    if not isinstance(entry, dict):
+        fresh = _scan_cache_file(path, ttl_sec=ttl_sec)
+    if key not in fresh:
         return None
-    cached_at_wall = float(entry.get("cached_at_wall", 0.0))
-    if time.time() - cached_at_wall > ttl_sec:
-        return None  # -- expired
-    value = entry.get("data")
-    if value is None:
-        return None
+    value, cached_at_wall = fresh[key]
+
     # -- Promote to in-memory so next read is fast
     with _cache_lock:
         _cache[key] = (value, cached_at_wall)
@@ -157,33 +227,23 @@ def get_cached_result(key: str, ttl_sec: int = DEFAULT_TTL_SEC) -> Any | None:
 def cache_result(key: str, result: Any) -> None:
     """Store result for future idempotency lookups.
 
-    Writes to BOTH in-memory (fast path) AND JSON file (#241 cross-process).
-    If file write fails, in-memory still works — cache is an optimization.
+    RONDO-209 #246: append-only JSONL write — NO read-modify-write race.
+    Writes to BOTH in-memory (fast path) AND JSONL file (cross-process).
     """
     now = time.time()
     with _cache_lock:
         _cache[key] = (result, now)
 
-    # -- #241 cross-process layer
+    # -- #246 cross-process layer: append-only, race-safe
     payload = _serialize_result(result)
     if payload is None:
         return  # -- not serializable → memory-only
 
+    path = _default_cache_file()
     with _file_lock:
-        path = _default_cache_file()
-        file_data = _load_file_cache(path)
-        file_data[key] = {
-            "data": payload,
-            "cached_at_wall": now,
-        }
-        # -- #241: opportunistic GC of expired entries during write
-        cutoff = now - DEFAULT_TTL_SEC
-        expired_keys = [
-            k for k, v in file_data.items() if isinstance(v, dict) and float(v.get("cached_at_wall", 0.0)) < cutoff
-        ]
-        for k in expired_keys:
-            del file_data[k]
-        _save_file_cache(path, file_data)
+        _append_cache_entry(path, key, payload, now)
+        # -- Opportunistic compaction when file grows beyond threshold
+        _compact_if_needed(path)
 
 
 def clear_cache() -> None:

@@ -246,11 +246,13 @@ class TestPipelineObservability:
         idem1.clear_cache()
 
     def test_idempotency_ttl_honored_in_file_layer(self, tmp_path, monkeypatch) -> None:
-        """RONDO-205 Finding #241: expired entries in JSON file are not returned.
+        """RONDO-209 #246: expired JSONL entries are filtered at scan time.
 
-        Write with wall-clock timestamp in the past, verify the fetch
-        returns None (TTL filter on read). Rondo-STD-107 req 005:
-        JSON file persistence, not SQLite (Rondo is stateless).
+        Write a stale entry DIRECTLY into the append-only JSONL file with
+        a wall-clock timestamp 1000s in the past, then verify get_cached_result
+        returns None because the TTL filter drops it. This test must use
+        proper JSONL format (one JSON object per line) so it actually
+        exercises the TTL filter, not a malformed-parse fallback.
         """
         import json as _json
         import time as _time
@@ -260,25 +262,41 @@ class TestPipelineObservability:
         monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
         idem.clear_cache()
 
-        # -- Write a stale entry directly into the JSON file layer
+        # -- Write a stale entry in PROPER JSONL format (one line per entry)
         cache_path = idem._default_cache_file()
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         stale_time = _time.time() - 1000.0  # -- 1000 seconds ago
+        stale_entry = {
+            "key": "stale-key",
+            "data": {"x": 1},
+            "cached_at_wall": stale_time,
+        }
+        cache_path.write_text(_json.dumps(stale_entry) + "\n", encoding="utf-8")
+
+        # -- Positive assertion: fixture is valid JSONL and contains the entry
+        assert cache_path.exists()
+        raw = cache_path.read_text(encoding="utf-8")
+        assert "stale-key" in raw
+        assert raw.endswith("\n"), "valid JSONL must end with newline"
+
+        # -- Primary assertion: TTL filter drops the stale entry
+        result = idem.get_cached_result("stale-key", ttl_sec=300)
+        assert result is None, "#246: stale entry leaked past TTL filter in JSONL scan"
+
+        # -- Negative assertion: fresh entry with same key IS returned
+        fresh_entry = {
+            "key": "stale-key",
+            "data": {"x": 2},
+            "cached_at_wall": _time.time(),
+        }
         cache_path.write_text(
-            _json.dumps(
-                {
-                    "stale-key": {
-                        "data": {"x": 1},
-                        "cached_at_wall": stale_time,
-                    }
-                }
-            ),
+            _json.dumps(stale_entry) + "\n" + _json.dumps(fresh_entry) + "\n",
             encoding="utf-8",
         )
-
-        # -- Fetch with default 300s TTL — should NOT return the stale value
-        result = idem.get_cached_result("stale-key", ttl_sec=300)
-        assert result is None, "#241: stale entry leaked past TTL filter in file layer"
+        result2 = idem.get_cached_result("stale-key", ttl_sec=300)
+        assert result2 == {"x": 2}, (
+            f"#246: latest-wins should return fresh entry, got {result2!r}"
+        )
 
         idem.clear_cache()
 

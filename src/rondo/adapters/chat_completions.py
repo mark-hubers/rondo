@@ -75,12 +75,17 @@ class ChatCompletionsAdapter(ProviderAdapter):
         api_key: str = "",
         default_model: str = "gpt-4.1",
         temperature: float = 0.2,
+        max_tokens: int = 8192,
     ) -> None:
         self.provider_name = provider_name
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.default_model = default_model
         self.temperature = temperature
+        # -- RONDO-209 #247: default bumped from provider-dependent (~2K-4K)
+        # -- to 8K so deep reviews aren't truncated mid-sentence. Budget cap
+        # -- still enforces cost limits via compute_cost_usd on actual usage.
+        self.max_tokens = max_tokens
         self.name = provider_name
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
@@ -124,6 +129,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
         payload = {
             "model": use_model,
             "temperature": self.temperature,
+            "max_tokens": self.max_tokens,  # -- #247: bumped default to 8K
             "messages": [
                 {"role": "user", "content": prompt},
             ],

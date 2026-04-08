@@ -176,31 +176,85 @@ class CircuitBreaker:
             return self._states[provider]
 
     def _save_state(self) -> None:
-        """Persist OPEN circuit states to disk — #236.
+        """Persist OPEN circuit states to disk — #236 + #246.
+
+        RONDO-209 #246: uses fcntl.flock() for cross-process exclusive lock
+        around the read-modify-write of the JSON state file. Without this,
+        two processes could race: A reads {}, B reads {}, A writes {X}, B
+        writes {Y} — losing A's entry. With flock, only one process holds
+        the write-lock at a time. The existing atomic tmp+replace ensures
+        no partial reads.
 
         Only persists providers whose cooldown has not yet expired.
-        Atomic write via tmp+replace to prevent partial-read corruption.
         Called on transitions only (OPEN/CLOSE), not every failure.
         """
+        import fcntl  # pylint: disable=import-outside-toplevel
+
         try:
             now = time.time()
-            payload: dict[str, dict[str, float]] = {}
-            with self._global_lock:
-                for provider, state in self._states.items():
-                    if state.open_until > now:
-                        payload[provider] = {
-                            "open_until": state.open_until,
-                            "failure_count": float(state.failure_count),
-                        }
             self._persist_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = self._persist_path.with_suffix(".tmp")
-            tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-            os.replace(tmp_path, self._persist_path)
+
+            # -- #246: merge with existing on-disk state to avoid losing
+            # -- entries written by other processes. Hold an exclusive lock
+            # -- from read through write to make the merge atomic cross-process.
+            lock_path = self._persist_path.with_suffix(".lock")
+            with open(lock_path, "a+", encoding="utf-8") as lock_f:
+                try:
+                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
+                except OSError as lock_exc:
+                    # -- Lock failed — fall back to best-effort write (rare, non-fatal)
+                    logger.debug("Breaker file lock failed (non-fatal): %s", lock_exc)
+
+                # -- Read existing state (other processes may have written here)
+                existing: dict[str, dict[str, float]] = {}
+                if self._persist_path.exists():
+                    try:
+                        existing_raw = self._persist_path.read_text(encoding="utf-8")
+                        loaded = json.loads(existing_raw)
+                        if isinstance(loaded, dict):
+                            existing = loaded
+                    except (OSError, ValueError, json.JSONDecodeError):
+                        existing = {}
+
+                # -- Merge: our in-memory state overrides existing for our providers
+                payload: dict[str, dict[str, float]] = {}
+                # -- Keep other processes' still-valid entries
+                for provider, entry in existing.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    open_until = float(entry.get("open_until", 0.0))
+                    if open_until > now:
+                        payload[provider] = {
+                            "open_until": open_until,
+                            "failure_count": float(entry.get("failure_count", 0.0)),
+                        }
+
+                # -- Add/update our in-memory OPEN states
+                with self._global_lock:
+                    for provider, state in self._states.items():
+                        if state.open_until > now:
+                            payload[provider] = {
+                                "open_until": state.open_until,
+                                "failure_count": float(state.failure_count),
+                            }
+                        elif provider in payload:
+                            # -- Our state says CLOSED — remove from merged payload
+                            del payload[provider]
+
+                # -- Atomic write via tmp+replace (lock still held)
+                tmp_path = self._persist_path.with_suffix(".tmp")
+                tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+                os.replace(tmp_path, self._persist_path)
+
+                try:
+                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                except OSError:
+                    pass
         except (OSError, TypeError, ValueError) as exc:
             logger.debug("Circuit breaker persist failed (non-fatal): %s", exc)
 
     def _load_state(self) -> None:
-        """Restore OPEN circuit states from disk — #236.
+        """Restore OPEN circuit states from disk — #236 + #246.
 
         Only loads states where open_until is still in the future (by
         wall clock). Expired entries are ignored. Non-fatal on any error.

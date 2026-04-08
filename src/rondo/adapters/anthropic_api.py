@@ -41,7 +41,7 @@ class AnthropicAPIAdapter(ProviderAdapter):
         api_key: str = "",
         default_model: str = "claude-sonnet-4-6",
         temperature: float = 0.2,
-        max_tokens: int = 4096,
+        max_tokens: int = 8192,  # -- RONDO-209 #247: bumped from 4096
         base_url: str = "https://api.anthropic.com/v1",
     ) -> None:
         self.api_key = api_key

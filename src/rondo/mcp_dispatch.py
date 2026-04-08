@@ -930,7 +930,12 @@ def _execute_dispatch(
                 "model": tr.model,
                 "prompt_sent": tr.prompt_sent[:500] if dry_run else "",
                 "prompt_length": len(tr.prompt_sent) if dry_run and tr.prompt_sent else 0,
-                "raw_output": tr.raw_output[:2000] if not dry_run else "",
+                # -- RONDO-211 #258: was [:2000] which silently truncated AI review
+                # -- output mid-sentence. RONDO-209 #247 bumped provider max_tokens
+                # -- to 8K but missed this Rondo-side cap, causing partial closure.
+                # -- MCP responses can handle multi-MB JSON; no need for an arbitrary
+                # -- 2000-char cap. If a future client needs a cap, add a parameter.
+                "raw_output": tr.raw_output if not dry_run else "",
                 "cost_usd": tr.cost_usd or 0.0,
                 "error_code": tr.error_code or "",
                 "error_message": tr.error_message or "",

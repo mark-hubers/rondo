@@ -1,17 +1,17 @@
 # Rondo Test Inventory
 
-**Total tests:** 1593  
-**Total files:** 31  
+**Total tests:** 1613  
+**Total files:** 42  
 **Generated:** 2026-04-07
 
 ## Summary by Layer
 
 | Layer | Files | Tests | Purpose |
 |-------|-------|-------|---------|
-| **unit/** | 22 | 1155 | Unit Tests — Pure logic, no I/O |
-| **integration/** | 4 | 145 | Integration Tests — Multiple fixes working together |
+| **unit/** | 26 | 1155 | Unit Tests — Pure logic, no I/O |
+| **integration/** | 6 | 165 | Integration Tests — Multiple fixes working together |
 | **e2e/** | 1 | 114 | End-to-End Tests — Full pipeline lifecycles |
-| **pat/** | 1 | 133 | Product Acceptance Tests — Real behavior, zero mocking |
+| **pat/** | 6 | 133 | Product Acceptance Tests — Real behavior, zero mocking |
 | **chaos/** | 2 | 15 | Chaos Tests — Failure injection |
 | **conventions/** | 1 | 31 | Convention Tests — Style/layering/security rules |
 
@@ -1084,25 +1084,7 @@
 - `test_invalid_tool_mode`
 - `test_valid_tool_modes`
 
-### `test_mcp.py` (143)
-
-**TestAuditSummaryTool** (1)
-- `test_returns_list`
-
-**TestBackgroundTTL** (2)
-- `test_expired_returns_expired`
-- `test_max_100_entries`
-
-**TestCloudDispatch** (9)
-- `test_count_exceeds_max`
-- `test_count_override`
-- `test_dry_run_returns_cloud_metadata`
-- `test_estimated_cost_in_metadata`
-- `test_invalid_profile_returns_error`
-- `test_profile_coding`
-- `test_profile_review`
-- `test_tier_high`
-- `test_tier_low`
+### `test_mcp_cursor_reviews.py` (7)
 
 **TestCursorP0ErrorCode** (1)
 - `test_audit_outcome_has_error_code`
@@ -1119,65 +1101,25 @@
 - `test_command_list_has_mcp`
 - `test_command_list_matches_cli`
 
+### `test_mcp_parallel_multi.py` (24)
+
+**TestCloudDispatch** (9)
+- `test_count_exceeds_max`
+- `test_count_override`
+- `test_dry_run_returns_cloud_metadata`
+- `test_estimated_cost_in_metadata`
+- `test_invalid_profile_returns_error`
+- `test_profile_coding`
+- `test_profile_review`
+- `test_tier_high`
+- `test_tier_low`
+
 **TestDiskBasedRetry** (5)
 - `test_load_from_disk`
 - `test_load_missing_returns_none`
 - `test_prune_old_retry_files`
 - `test_retry_checks_disk`
 - `test_save_only_on_failures`
-
-**TestDispatchEngineIntegration** (6)
-- `test_claude_model_in_session_returns_agent_plan`
-- `test_empty_model_returns_inline_plan`
-- `test_empty_prompt_and_model_is_error`
-- `test_force_new_subprocess`
-- `test_inline_plan_has_schema`
-- `test_ollama_model_dispatches_via_http`
-
-**TestDispatchInfoTool** (3)
-- `test_has_commands`
-- `test_has_design_principles`
-- `test_has_version`
-
-**TestDryRunPromptLength** (1)
-- `test_inline_dry_run_has_prompt_length`
-
-**TestHealthTool** (4)
-- `test_lightweight`
-- `test_providers_up_field`
-- `test_returns_api_status`
-- `test_returns_dispatch_health`
-
-**TestInlineDispatch** (4)
-- `test_inline_dry_run`
-- `test_inline_no_prompt_no_file_errors`
-- `test_inline_same_json_as_file`
-- `test_inline_with_done_when`
-
-**TestMCPDispatchE2E** (8)
-- `test_audit_records_after_dispatch`
-- `test_background_dry_run_returns_immediately`
-- `test_file_dry_run_e2e`
-- `test_full_tool_inventory`
-- `test_inline_dry_run_e2e`
-- `test_invalid_project_returns_error`
-- `test_metrics_after_dispatch`
-- `test_project_flag_dry_run`
-
-**TestMCPInputLimits** (3)
-- `test_benchmark_too_many_models`
-- `test_chain_too_many_steps`
-- `test_prompt_too_large`
-
-**TestMcpResource** (3)
-- `test_create_server_has_resource`
-- `test_help_resource_has_example`
-- `test_help_resource_returns_json`
-
-**TestMetricsTool** (3)
-- `test_has_cost_fields`
-- `test_has_reliability_fields`
-- `test_returns_json_string`
 
 **TestMultiReview** (7)
 - `test_default_providers_on_empty`
@@ -1192,6 +1134,25 @@
 - `test_parallel_one_failure_others_succeed`
 - `test_parallel_preserves_provider_order`
 - `test_parallel_uses_threads`
+
+### `test_mcp_router.py` (39)
+
+**TestDispatchEngineIntegration** (6)
+- `test_claude_model_in_session_returns_agent_plan`
+- `test_empty_model_returns_inline_plan`
+- `test_empty_prompt_and_model_is_error`
+- `test_force_new_subprocess`
+- `test_inline_plan_has_schema`
+- `test_ollama_model_dispatches_via_http`
+
+**TestDryRunPromptLength** (1)
+- `test_inline_dry_run_has_prompt_length`
+
+**TestInlineDispatch** (4)
+- `test_inline_dry_run`
+- `test_inline_no_prompt_no_file_errors`
+- `test_inline_same_json_as_file`
+- `test_inline_with_done_when`
 
 **TestResolveDispatchEngine** (28)
 - `test_1m_models_detected`
@@ -1223,11 +1184,76 @@
 - `test_unknown_model_returns_error`
 - `test_whitespace_in_model_is_stripped`
 
+### `test_mcp_run_status.py` (31)
+
+**TestBackgroundTTL** (2)
+- `test_expired_returns_expired`
+- `test_max_100_entries`
+
+**TestMCPDispatchE2E** (8)
+- `test_audit_records_after_dispatch`
+- `test_background_dry_run_returns_immediately`
+- `test_file_dry_run_e2e`
+- `test_full_tool_inventory`
+- `test_inline_dry_run_e2e`
+- `test_invalid_project_returns_error`
+- `test_metrics_after_dispatch`
+- `test_project_flag_dry_run`
+
+**TestMCPInputLimits** (3)
+- `test_benchmark_too_many_models`
+- `test_chain_too_many_steps`
+- `test_prompt_too_large`
+
 **TestRicherStatus** (4)
 - `test_brief_status_minimal`
 - `test_brief_status_no_tasks`
 - `test_inline_has_counts`
 - `test_status_has_counts`
+
+**TestRondoRunFile** (6)
+- `test_dry_run_returns_json`
+- `test_invalid_file_returns_error`
+- `test_max_budget_accepted`
+- `test_project_validation`
+- `test_returns_valid_json`
+- `test_tilde_expansion`
+
+**TestRondoRunStatus** (8)
+- `test_background_status_has_task_progress`
+- `test_brief_has_only_status_and_counts`
+- `test_completed_has_per_task_status`
+- `test_completed_has_task_output`
+- `test_empty_returns_dispatches`
+- `test_heartbeat_done_status`
+- `test_heartbeat_ultra_compact`
+- `test_unknown_id_returns_error`
+
+### `test_mcp_tools.py` (42)
+
+**TestAuditSummaryTool** (1)
+- `test_returns_list`
+
+**TestDispatchInfoTool** (3)
+- `test_has_commands`
+- `test_has_design_principles`
+- `test_has_version`
+
+**TestHealthTool** (4)
+- `test_lightweight`
+- `test_providers_up_field`
+- `test_returns_api_status`
+- `test_returns_dispatch_health`
+
+**TestMcpResource** (3)
+- `test_create_server_has_resource`
+- `test_help_resource_has_example`
+- `test_help_resource_returns_json`
+
+**TestMetricsTool** (3)
+- `test_has_cost_fields`
+- `test_has_reliability_fields`
+- `test_returns_json_string`
 
 **TestRondoBenchmark** (2)
 - `test_benchmark_ranks_by_speed`
@@ -1265,24 +1291,6 @@
 **TestRondoRetry** (2)
 - `test_retry_returns_json`
 - `test_retry_unknown_dispatch_errors`
-
-**TestRondoRunFile** (6)
-- `test_dry_run_returns_json`
-- `test_invalid_file_returns_error`
-- `test_max_budget_accepted`
-- `test_project_validation`
-- `test_returns_valid_json`
-- `test_tilde_expansion`
-
-**TestRondoRunStatus** (8)
-- `test_background_status_has_task_progress`
-- `test_brief_has_only_status_and_counts`
-- `test_completed_has_per_task_status`
-- `test_completed_has_task_output`
-- `test_empty_returns_dispatches`
-- `test_heartbeat_done_status`
-- `test_heartbeat_ultra_compact`
-- `test_unknown_id_returns_error`
 
 **TestRondoScheduleMCP** (2)
 - `test_schedule_create_dry_run`
@@ -1877,7 +1885,7 @@
 - `test_write_creates_file`
 
 
-## integration/ — Integration Tests — Multiple fixes working together (145 tests)
+## integration/ — Integration Tests — Multiple fixes working together (165 tests)
 
 ### `test_examples.py` (61)
 
@@ -1970,6 +1978,34 @@
 - `test_schema_version_survives_full_flow`
 - `test_successful_http_dispatch_full_pipeline`
 - `test_tenant_isolation_across_audit_and_spool`
+
+### `test_integration_observability.py` (10)
+
+**TestObservabilityIntegration** (10)
+- `test_audit_trail_distinct_dispatches_get_distinct_ids`
+- `test_bind_request_id_nested_binds_preserve_outer`
+- `test_get_request_id_returns_empty_outside_context`
+- `test_outcome_sanitize_before_persistence`
+- `test_reconcile_stuck_intents_closes_orphans`
+- `test_request_id_generation_is_unique_per_call`
+- `test_request_id_propagates_through_nested_log_events`
+- `test_sanitize_idempotent_multiple_passes_safe`
+- `test_sanitize_runs_before_audit_outcome_stores_scrubbed`
+- `test_sanitize_text_handles_mixed_content_integration`
+
+### `test_integration_reliability.py` (10)
+
+**TestReliabilityIntegration** (10)
+- `test_audit_trail_records_dispatches_while_breaker_is_open`
+- `test_breaker_and_audit_together_maintain_tenant_isolation`
+- `test_breaker_failure_resets_on_success`
+- `test_breaker_isolates_providers`
+- `test_breaker_opens_then_blocks_subsequent_dispatches`
+- `test_breaker_persists_across_restart_via_isolated_file`
+- `test_breaker_reopens_after_cooldown`
+- `test_breaker_state_file_tolerates_corrupt_json`
+- `test_empty_persist_file_is_handled`
+- `test_flaky_provider_succeeds_within_threshold`
 
 ### `test_live.py` (23)
 
@@ -2292,90 +2328,10 @@
 
 ## pat/ — Product Acceptance Tests — Real behavior, zero mocking (133 tests)
 
-### `test_real_dispatch.py` (133)
-
-**TestAlwaysOnPipeline** (67)
-- `test_adapter_exception_path_calls_finalize`
-- `test_agent_plan_has_schema_version`
-- `test_all_plans_have_schema_version`
-- `test_atomic_write_helper_creates_file`
-- `test_atomic_write_no_tmp_leftover`
-- `test_audit_dir_tenant_isolation`
-- `test_audit_log_auto_rotates_at_size_limit`
-- `test_audit_result_file_is_atomic`
-- `test_bind_request_id_explicit`
-- `test_bind_request_id_nested`
-- `test_bind_request_id_propagates`
-- `test_budget_cap_blocks_http_dispatch`
-- `test_circuit_breaker_expired_state_not_restored`
-- `test_circuit_breaker_isolates_providers`
-- `test_circuit_breaker_opens_after_threshold`
-- `test_circuit_breaker_persists_across_restart`
-- `test_circuit_breaker_recovers_on_success`
-- `test_config_hot_reload`
-- `test_context_limit_1m_models`
-- `test_context_limit_check_over_limit`
-- `test_context_limit_check_within_limit`
-- `test_context_limit_unknown_model_uses_default`
-- `test_dispatch_task_emits_structured_logs_with_request_id`
-- `test_dispatch_task_respects_existing_request_id`
-- `test_dry_run_provider_path_calls_finalize`
-- `test_finalize_failure_does_not_lose_result`
-- `test_idempotency_cache_crosses_process_boundary`
-- `test_idempotency_cache_expires`
-- `test_idempotency_cache_persists_across_memory_wipe`
-- `test_idempotency_cache_returns_cached`
-- `test_idempotency_cache_thread_safe`
-- `test_idempotency_key_stable`
-- `test_idempotency_ttl_honored_in_file_layer`
-- `test_invalidate_only_affects_current_tenant`
-- `test_key_cache_tenant_isolation`
-- `test_key_cache_thread_safe`
-- `test_multi_hop_fallback_cycle_detection`
-- `test_multi_hop_fallback_walks_chain`
-- `test_no_budget_cap_no_blocking`
-- `test_provider_down_path_calls_finalize`
-- `test_reconcile_stuck_intents`
-- `test_request_id_generation`
-- `test_retry_http_exhausts_attempts`
-- `test_retry_http_no_retry_on_401`
-- `test_retry_http_retries_on_500`
-- `test_routing_background_with_unknown_model`
-- `test_routing_case_sensitive_for_claude_models`
-- `test_routing_inline_preserves_project_in_all_engines`
-- `test_routing_new_suffix_with_provider_prefix`
-- `test_routing_whitespace_in_model_is_stripped`
-- `test_sanitize_detects_anthropic_specific`
-- `test_sanitize_detects_aws_temp_key`
-- `test_sanitize_detects_github_pat`
-- `test_sanitize_detects_gitlab_pat`
-- `test_sanitize_detects_google_api_key`
-- `test_sanitize_detects_jwt`
-- `test_sanitize_detects_slack_tokens`
-- `test_sanitize_runs_before_audit_outcome`
-- `test_structured_logger_emits_json`
-- `test_structured_logger_thread_isolation`
-- `test_subprocess_footgun_guard_blocks_auth_api`
-- `test_subprocess_footgun_guard_blocks_in_session`
-- `test_subprocess_footgun_opt_in_bypass`
-- `test_subprocess_footgun_override_emits_warning`
-- `test_token_estimate_empty_string`
-- `test_token_estimate_mixed_language`
-- `test_token_estimate_non_english_cjk`
+### `test_mcp_integration.py` (20)
 
 **TestAuditPipeline** (1)
 - `test_audit_file_is_valid_json`
-
-**TestBackgroundDispatch** (3)
-- `test_background_dry_run_returns_id`
-- `test_run_status_brief`
-- `test_run_status_heartbeat`
-
-**TestInSessionBehavior** (4)
-- `test_cloud_works_everywhere`
-- `test_inline_works_everywhere`
-- `test_session_detection_matches_environment`
-- `test_sonnet_routing_matches_context`
 
 **TestMCPIntegration** (4)
 - `test_agent_via_mcp_in_session`
@@ -2399,6 +2355,104 @@
 
 **TestMCPToolResponseValidity** (1)
 - `test_all_query_tools_return_valid_json`
+
+**TestSanitizeIntegrity** (2)
+- `test_normal_text_not_mangled`
+- `test_real_api_key_pattern_redacted`
+
+### `test_pipeline_observability.py` (30)
+
+**TestPipelineObservability** (30)
+- `test_agent_plan_has_schema_version`
+- `test_all_plans_have_schema_version`
+- `test_bind_request_id_explicit`
+- `test_bind_request_id_nested`
+- `test_bind_request_id_propagates`
+- `test_config_hot_reload`
+- `test_context_limit_1m_models`
+- `test_context_limit_check_over_limit`
+- `test_context_limit_check_within_limit`
+- `test_context_limit_unknown_model_uses_default`
+- `test_dispatch_task_emits_structured_logs_with_request_id`
+- `test_dispatch_task_respects_existing_request_id`
+- `test_idempotency_cache_crosses_process_boundary`
+- `test_idempotency_cache_expires`
+- `test_idempotency_cache_persists_across_memory_wipe`
+- `test_idempotency_cache_returns_cached`
+- `test_idempotency_cache_thread_safe`
+- `test_idempotency_key_stable`
+- `test_idempotency_ttl_honored_in_file_layer`
+- `test_request_id_generation`
+- `test_routing_background_with_unknown_model`
+- `test_routing_case_sensitive_for_claude_models`
+- `test_routing_inline_preserves_project_in_all_engines`
+- `test_routing_new_suffix_with_provider_prefix`
+- `test_routing_whitespace_in_model_is_stripped`
+- `test_structured_logger_emits_json`
+- `test_structured_logger_thread_isolation`
+- `test_token_estimate_empty_string`
+- `test_token_estimate_mixed_language`
+- `test_token_estimate_non_english_cjk`
+
+### `test_pipeline_reliability.py` (19)
+
+**TestPipelineReliability** (19)
+- `test_adapter_exception_path_calls_finalize`
+- `test_atomic_write_helper_creates_file`
+- `test_atomic_write_no_tmp_leftover`
+- `test_audit_log_auto_rotates_at_size_limit`
+- `test_audit_result_file_is_atomic`
+- `test_circuit_breaker_expired_state_not_restored`
+- `test_circuit_breaker_isolates_providers`
+- `test_circuit_breaker_opens_after_threshold`
+- `test_circuit_breaker_persists_across_restart`
+- `test_circuit_breaker_recovers_on_success`
+- `test_dry_run_provider_path_calls_finalize`
+- `test_finalize_failure_does_not_lose_result`
+- `test_multi_hop_fallback_cycle_detection`
+- `test_multi_hop_fallback_walks_chain`
+- `test_provider_down_path_calls_finalize`
+- `test_reconcile_stuck_intents`
+- `test_retry_http_exhausts_attempts`
+- `test_retry_http_no_retry_on_401`
+- `test_retry_http_retries_on_500`
+
+### `test_pipeline_security.py` (18)
+
+**TestPipelineSecurity** (18)
+- `test_audit_dir_tenant_isolation`
+- `test_budget_cap_blocks_http_dispatch`
+- `test_invalidate_only_affects_current_tenant`
+- `test_key_cache_tenant_isolation`
+- `test_key_cache_thread_safe`
+- `test_no_budget_cap_no_blocking`
+- `test_sanitize_detects_anthropic_specific`
+- `test_sanitize_detects_aws_temp_key`
+- `test_sanitize_detects_github_pat`
+- `test_sanitize_detects_gitlab_pat`
+- `test_sanitize_detects_google_api_key`
+- `test_sanitize_detects_jwt`
+- `test_sanitize_detects_slack_tokens`
+- `test_sanitize_runs_before_audit_outcome`
+- `test_subprocess_footgun_guard_blocks_auth_api`
+- `test_subprocess_footgun_guard_blocks_in_session`
+- `test_subprocess_footgun_opt_in_bypass`
+- `test_subprocess_footgun_override_emits_warning`
+
+### `test_real_providers.py` (7)
+
+**TestBackgroundDispatch** (3)
+- `test_background_dry_run_returns_id`
+- `test_run_status_brief`
+- `test_run_status_heartbeat`
+
+**TestInSessionBehavior** (4)
+- `test_cloud_works_everywhere`
+- `test_inline_works_everywhere`
+- `test_session_detection_matches_environment`
+- `test_sonnet_routing_matches_context`
+
+### `test_routing.py` (39)
 
 **TestPublicAccessors** (4)
 - `test_claude_models`
@@ -2456,10 +2510,6 @@
 - `test_llama`
 - `test_phi`
 - `test_qwen`
-
-**TestSanitizeIntegrity** (2)
-- `test_normal_text_not_mangled`
-- `test_real_api_key_pattern_redacted`
 
 
 ## chaos/ — Chaos Tests — Failure injection (15 tests)

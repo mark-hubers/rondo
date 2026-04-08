@@ -138,7 +138,12 @@ def check_health(provider_name: str, timeout: float = 5.0) -> HealthStatus:  # n
             checked_at=time.time(),
             error="health() returned False",
         )
-    except (OSError, ConnectionError, TimeoutError, Exception) as exc:  # noqa: BLE001
+    except (OSError, ConnectionError, TimeoutError) as exc:
+        # -- RONDO-209 #254: removed 'Exception' from the catch list — the OSError
+        # -- subclasses cover all real network/IO failures. A NameError or TypeError
+        # -- inside adapter.health() would have been silently turned into 'unhealthy'
+        # -- which then triggers misleading fallback walks. Now those propagate
+        # -- as crashes — the right behavior for programmer errors.
         latency_ms = (time.monotonic() - start) * 1000.0
         logger.warning("Health check failed for provider '%s': %s", provider_name, exc)
         return HealthStatus(

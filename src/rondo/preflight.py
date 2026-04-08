@@ -196,7 +196,10 @@ def _check_provider_health(result: PreflightResult) -> None:
                 result.checks.append(f"provider {name}: UP ({status.latency_ms:.0f}ms)")
             else:
                 result.warnings.append(f"provider {name}: DOWN — {status.error or 'health check failed'}")
-    except Exception as exc:  # noqa: BLE001
+    except (ImportError, OSError, AttributeError, KeyError, TypeError) as exc:
+        # -- RONDO-209 #254: narrowed from broad Exception. Real failure modes:
+        # -- ImportError (health module missing), OSError (network), AttributeError/
+        # -- KeyError/TypeError (config drift). Programmer errors propagate.
         result.warnings.append(f"Provider health check failed: {exc}")
 
 

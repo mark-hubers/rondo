@@ -52,7 +52,12 @@ def present_task(task: Task, index: int, total: int) -> dict:
             status_label = "PASS" if passed else "FAIL"
             print(f"  RESULT: {status_label} — {message}")
             summary["auto_result"] = auto_result
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — user-code boundary
+            # -- RONDO-209 #254: broad-except is INTENTIONAL — task.auto_fn is
+            # -- user-supplied Python code. We can't predict what exceptions it
+            # -- raises. We DO surface the type and message so user errors are
+            # -- visible (not silent). SystemExit/KeyboardInterrupt are BaseException
+            # -- subclasses and correctly NOT caught here.
             print(f"  ERROR: auto_fn raised {type(exc).__name__}: {exc}")
             summary["auto_error"] = str(exc)
     else:

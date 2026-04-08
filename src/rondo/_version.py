@@ -72,9 +72,13 @@ def bump_build() -> str:
 
 def _get_base_version() -> str:
     """Get base version from package metadata (pyproject.toml)."""
+    from importlib.metadata import PackageNotFoundError  # pylint: disable=import-outside-toplevel
+
     try:
         return _pkg_version("rondo")
-    except Exception:  # noqa: BLE001
+    except PackageNotFoundError:
+        # -- RONDO-209 #254: narrowed from broad Exception. PackageNotFoundError
+        # -- is the only legitimate failure mode (package not installed in dev env).
         return "0.0.0"
 
 

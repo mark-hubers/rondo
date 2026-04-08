@@ -91,17 +91,31 @@ def retry_http(
     Exponential backoff with optional jitter. Non-transient errors
     (4xx client errors other than 429) fail immediately.
     """
+    import urllib.error  # pylint: disable=import-outside-toplevel
+
     cfg = config or RetryConfig()
     delay = cfg.initial_delay_sec
     last_exc: Exception | None = None
 
+    # -- RONDO-209 #254: narrowed catch from 'Exception' to specific HTTP/network
+    # -- types so a programmer error (NameError, TypeError, etc.) inside fn() is
+    # -- NOT silently caught and treated as transient. Bug class: silent retry on
+    # -- typo. Now those propagate immediately as crashes — louder = better.
+    transient_types = (
+        urllib.error.HTTPError,
+        urllib.error.URLError,
+        TimeoutError,
+        ConnectionError,
+        OSError,
+    )
+
     for attempt in range(1, cfg.max_attempts + 1):
         try:
             return fn()
-        except Exception as exc:  # noqa: BLE001
+        except transient_types as exc:
             last_exc = exc
             if not is_transient_http_error(exc):
-                # -- Non-transient → fail immediately
+                # -- Non-transient (e.g., 4xx other than 429) → fail immediately
                 raise
             if attempt >= cfg.max_attempts:
                 # -- Last attempt — don't sleep, just fail

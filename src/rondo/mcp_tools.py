@@ -102,8 +102,12 @@ def rondo_health() -> str:
                 name: {"healthy": s.healthy, "latency_ms": s.latency_ms, "error": s.error}
                 for name, s in health_map.items()
             }
-    except Exception:  # noqa: BLE001
-        logger.debug("Provider health check unavailable")
+    except (ImportError, OSError, AttributeError, KeyError) as exc:
+        # -- RONDO-209 #254: narrowed from 'Exception' so a typo in
+        # -- get_all_providers_health() doesn't get silently swallowed.
+        # -- The legitimate failure modes are: ImportError (module not loaded),
+        # -- OSError (network/file), AttributeError/KeyError (config drift).
+        logger.debug("Provider health check unavailable: %s", exc)
 
     # -- Split health into two signals:
     # -- api_status: are providers reachable RIGHT NOW (live probe)

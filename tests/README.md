@@ -24,6 +24,24 @@ ace-build test
 .venv/bin/python -m pytest rondo/tests/pat/ -m ollama
 ```
 
+## Performance monitoring
+
+```bash
+# -- Show 20 slowest tests (useful for spotting slowdowns)
+.venv/bin/python -m pytest rondo/tests/ --durations=20
+
+# -- Only count tests, don't run them (fast structural sanity check)
+.venv/bin/python -m pytest rondo/tests/ --co -q
+
+# -- Full build with metrics captured in OB DB
+cd ~/git/mhubers/ace2 && ace-build full --product rondo
+```
+
+As of 2026-04-07, the slowest test is ~4 seconds (an e2e multi-task dry run).
+The full 1618-test suite runs in ~63 seconds total. If any test exceeds 5
+seconds, investigate — it's either doing real I/O that should be mocked or
+using `time.sleep()` when `threading.Barrier` would work better.
+
 ## Layer purpose
 
 | Layer | Purpose | Speed | External deps |

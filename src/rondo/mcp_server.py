@@ -12,6 +12,17 @@ import json
 import logging
 from typing import Any
 
+# -- RONDO-209 cycle break: import composition tools directly from mcp_compose
+# -- (was previously re-exported through mcp_dispatch which created a cycle).
+from rondo.mcp_compose import (  # noqa: F401
+    rondo_benchmark,
+    rondo_chain,
+    rondo_explain,
+    rondo_multi_review,
+    rondo_review_file,
+    rondo_summarize,
+)
+
 # -- Re-export dispatch functions for backward compatibility
 from rondo.mcp_dispatch import (  # noqa: F401
     _MAX_BACKGROUND_ENTRIES,
@@ -23,15 +34,9 @@ from rondo.mcp_dispatch import (  # noqa: F401
     _load_background_result,
     _prune_background,
     _save_background_result,
-    rondo_benchmark,
-    rondo_chain,
-    rondo_explain,
-    rondo_multi_review,
     rondo_retry,
-    rondo_review_file,
     rondo_run_file,
     rondo_run_status,
-    rondo_summarize,
 )
 from rondo.mcp_tools import (
     rondo_audit_summary,

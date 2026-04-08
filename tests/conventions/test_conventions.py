@@ -175,6 +175,7 @@ class TestImportLayering:
         "_version.py": set(),
         "metrics.py": set(),
         "mcp_server.py": {
+            "mcp_compose",  # -- RONDO-209: direct import (was via mcp_dispatch re-export)
             "mcp_dispatch",
             "mcp_tools",
             "providers",
@@ -219,6 +220,7 @@ class TestImportLayering:
             "providers",
             "schedule",
             "mcp_server",
+            "mcp_compose",  # -- RONDO-209 cycle break: lazy import in rondo_cloud()
             "health",
         },  # mcp_server: lazy import in rondo_cloud() only; health: lazy import in rondo_health() only
         "dispatch.py": {

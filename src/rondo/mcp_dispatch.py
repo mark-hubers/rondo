@@ -22,24 +22,12 @@ import logging
 import threading
 from typing import Any
 
-# -- Import tool functions from mcp_tools (Finding #195 split)
-from rondo.mcp_tools import (  # noqa: F401
-    _DEFAULT_AUDIT_DIR,
-    _resolve_dir,
-    rondo_audit_summary,
-    rondo_cloud,
-    rondo_cost,
-    rondo_diff,
-    rondo_dispatch_info,
-    rondo_health,
-    rondo_history,
-    rondo_metrics,
-    rondo_models,
-    rondo_schedule_create,
-    rondo_schedule_list,
-    rondo_spool_consume,
-    rondo_templates,
-)
+# -- RONDO-209 cycle break: removed re-export of mcp_tools functions.
+# -- Verified zero callers were importing them via mcp_dispatch — the re-export
+# -- was creating mcp_dispatch → mcp_tools → mcp_compose → mcp_dispatch cycle.
+# -- Callers should import from rondo.mcp_tools directly.
+# -- Kept ONLY the symbols actually USED inside mcp_dispatch (not re-exported).
+from rondo.mcp_tools import _DEFAULT_AUDIT_DIR, _resolve_dir  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -119,15 +107,10 @@ def _load_background_result(dispatch_id: str) -> dict | None:
     return None
 
 
-# -- Re-export composition tools for backward compatibility
-from rondo.mcp_compose import (  # noqa: E402, F401
-    rondo_benchmark,
-    rondo_chain,
-    rondo_explain,
-    rondo_multi_review,
-    rondo_review_file,
-    rondo_summarize,
-)
+# -- RONDO-209 cycle break: removed re-export of mcp_compose functions.
+# -- Verified zero callers were using "from rondo.mcp_dispatch import rondo_benchmark"
+# -- (etc.) so the re-export was dead weight that created a cyclic import.
+# -- Callers should import directly from rondo.mcp_compose for these tools.
 
 
 def rondo_retry(dispatch_id: str, model: str = "") -> str:

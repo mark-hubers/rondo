@@ -603,8 +603,9 @@ def rondo_cloud(
             }
         )
 
-    # -- Lazy import: mcp_server depends on mcp_tools at module level; this call is deferred to avoid circular load
-    from rondo.mcp_server import rondo_multi_review
+    # -- RONDO-209 cycle break: import from mcp_compose (the actual definition site)
+    # -- instead of mcp_server (which only re-exports). Removes mcp_tools→mcp_server cycle.
+    from rondo.mcp_compose import rondo_multi_review
 
     result_raw = rondo_multi_review(
         prompt=prompt,

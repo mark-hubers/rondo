@@ -1576,23 +1576,13 @@ class TestModelResolutionDeep:
             resolve_model("gpt4", task, RondoConfig())
 
 
-class TestErrorClassificationDeep:
-    """REQ-STD-108: error classification from stderr."""
-
-    def test_auth_error(self):
-        assert classify_error("credit balance is too low") == "ERR_AUTH"
-
-    def test_rate_limit_error(self):
-        assert classify_error("rate limit exceeded") == "ERR_RATE_LIMIT"
-
-    def test_nested_session_error(self):
-        assert classify_error("cannot be launched inside another") == "ERR_NESTED_SESSION"
-
-    def test_empty_stderr(self):
-        assert classify_error("") == "ERR_SUBPROCESS"
-
-    def test_unknown_error(self):
-        assert classify_error("something went wrong") == "ERR_SUBPROCESS"
+# -- RONDO-208: TestErrorClassificationDeep deleted — all 5 tests were
+# -- duplicates or near-duplicates of TestErrorClassification (see L268).
+# -- test_auth_error ≈ test_auth_error_credit (same input, lowercased)
+# -- test_rate_limit_error dup of test_rate_limit_error/test_rate_limit_lowercase
+# -- test_nested_session_error EXACT dup
+# -- test_empty_stderr EXACT dup
+# -- test_unknown_error ≈ test_generic_error (both → ERR_SUBPROCESS)
 
 
 class TestStreamJsonParsingDeep:

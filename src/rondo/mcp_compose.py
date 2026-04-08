@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,119 @@ def rondo_review_file(
     return json.dumps(result, indent=2)
 
 
+# -- RONDO-209 #248/#250: which error codes warrant a one-time serial retry
+# -- after the parallel batch finishes. The upstream API is likely throttling
+# -- under concurrent load, so a retry without sibling concurrency often works.
+_RETRYABLE_PROVIDER_ERRORS = frozenset({"ERR_PROVIDER_DOWN", "ERR_RATE_LIMIT"})
+
+
+def _multi_review_dispatch_one(provider_model: str, prompt: str) -> dict:
+    """RONDO-209 #248/#250: dispatch one provider, surface error_code+message.
+
+    Extracted from rondo_multi_review for cyclomatic complexity. Returns a
+    structured dict with status/output/cost/duration AND the underlying
+    error_code + error_message so callers can diagnose failures (HTTP 503,
+    rate limit, auth error) instead of just seeing 'partial empty'.
+    """
+    from rondo.mcp_dispatch import rondo_run_file  # pylint: disable=import-outside-toplevel
+
+    raw = rondo_run_file(
+        prompt=prompt,
+        model=provider_model,
+        dry_run=False,
+        done_when="Review complete. List specific findings as bullet points.",
+    )
+    r = json.loads(raw)
+    tasks = r.get("tasks", [])
+    task = tasks[0] if tasks else {}
+    return {
+        "provider": provider_model,
+        "status": r.get("status", "error"),
+        "output": task.get("raw_output", ""),
+        "cost_usd": r.get("total_cost_usd", 0),
+        "duration_sec": task.get("duration_sec", 0),
+        "error_code": task.get("error_code") or "",
+        "error_message": task.get("error_message") or "",
+        "attempt": 1,
+    }
+
+
+def _multi_review_run_parallel(provider_list: list[str], prompt: str) -> dict[str, dict]:
+    """RONDO-209: dispatch all providers in parallel + serial retry pass.
+
+    Returns results_map: {provider: result_dict}. Handles ThreadPoolExecutor
+    setup, concurrent collection, exception wrapping, and the post-batch
+    serial retry for transient failures (#248/#250).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed  # pylint: disable=import-outside-toplevel
+
+    results_map: dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=len(provider_list)) as pool:
+        futures = {pool.submit(_multi_review_dispatch_one, p, prompt): p for p in provider_list}
+        for future in as_completed(futures):
+            provider = futures[future]
+            try:
+                results_map[provider] = future.result()
+            except Exception as exc:  # noqa: BLE001
+                results_map[provider] = {
+                    "provider": provider,
+                    "status": "error",
+                    "output": "",
+                    "cost_usd": 0,
+                    "duration_sec": 0,
+                    "error_code": "ERR_INTERNAL",
+                    "error_message": str(exc),
+                    "attempt": 1,
+                }
+
+    # -- Serial retry pass for transient failures
+    _multi_review_serial_retry(
+        provider_list,
+        results_map,
+        set(_RETRYABLE_PROVIDER_ERRORS),
+        lambda p: _multi_review_dispatch_one(p, prompt),
+    )
+    return results_map
+
+
+def _multi_review_serial_retry(
+    provider_list: list[str],
+    results_map: dict[str, dict],
+    retryable_errors: set[str],
+    dispatch_fn: Callable[[str], dict],
+) -> None:
+    """RONDO-209 #248/#250: serial retry pass for transient provider failures.
+
+    After the parallel batch finishes, walk results_map for any provider
+    that returned a retryable error code (ERR_PROVIDER_DOWN, ERR_RATE_LIMIT)
+    and run ONE more dispatch attempt sequentially. This typically succeeds
+    because the upstream API throttle was triggered by the concurrent siblings,
+    not by anything intrinsic to the request.
+
+    Mutates results_map in place: replaces with retry result if retry
+    succeeded, otherwise keeps the first attempt's error and adds
+    retry_error_code/retry_error_message for diagnostics.
+    """
+    for provider in provider_list:
+        result = results_map.get(provider, {})
+        err_code = result.get("error_code", "")
+        if err_code not in retryable_errors:
+            continue
+        logger.info(
+            "Multi-review retry: %s previously failed with %s — retrying serially",
+            provider,
+            err_code,
+        )
+        retry_result = dispatch_fn(provider)
+        retry_result["attempt"] = 2
+        if retry_result.get("status") == "done":
+            results_map[provider] = retry_result
+        else:
+            results_map[provider]["attempt"] = 2
+            results_map[provider]["retry_error_code"] = retry_result.get("error_code", "")
+            results_map[provider]["retry_error_message"] = retry_result.get("error_message", "")
+
+
 # -- REQ-109 req 033: multi-provider parallel review
 def rondo_multi_review(
     prompt: str,
@@ -236,51 +350,8 @@ def rondo_multi_review(
                 }
             )
     else:
-        # -- REQ-109 req 052/088: concurrent dispatch via ThreadPoolExecutor
-        # -- Each thread gets its own adapter + HTTP connection (no shared mutable state)
-        from concurrent.futures import ThreadPoolExecutor, as_completed  # pylint: disable=import-outside-toplevel
-
-        def _dispatch_one(provider_model: str) -> dict:
-            """Dispatch to one provider — runs in its own thread."""
-            from rondo.mcp_dispatch import rondo_run_file  # pylint: disable=import-outside-toplevel
-
-            raw = rondo_run_file(
-                prompt=prompt,
-                model=provider_model,
-                dry_run=False,
-                done_when="Review complete. List specific findings as bullet points.",
-            )
-            r = json.loads(raw)
-            tasks = r.get("tasks", [])
-            task = tasks[0] if tasks else {}
-            output = task.get("raw_output", "")
-            return {
-                "provider": provider_model,
-                "status": r.get("status", "error"),
-                "output": output,
-                "cost_usd": r.get("total_cost_usd", 0),
-                "duration_sec": task.get("duration_sec", 0),
-            }
-
-        with ThreadPoolExecutor(max_workers=len(provider_list)) as pool:
-            futures = {pool.submit(_dispatch_one, p): p for p in provider_list}
-            # -- Collect results in original provider order
-            results_map: dict[str, dict] = {}
-            for future in as_completed(futures):
-                provider = futures[future]
-                try:
-                    results_map[provider] = future.result()
-                except Exception as exc:  # noqa: BLE001
-                    results_map[provider] = {
-                        "provider": provider,
-                        "status": "error",
-                        "output": "",
-                        "cost_usd": 0,
-                        "duration_sec": 0,
-                        "error": str(exc),
-                    }
-
-        # -- Preserve original provider order in output
+        # -- RONDO-209 #248/#250: parallel dispatch + serial retry for transient failures
+        results_map = _multi_review_run_parallel(provider_list, prompt)
         for provider in provider_list:
             result = results_map.get(provider, {"provider": provider, "status": "error"})
             per_provider.append(result)

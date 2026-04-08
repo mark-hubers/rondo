@@ -82,6 +82,157 @@ class TestMultiReview:
         assert result["status"] == "error"
         assert result["code"] == "ERR_INVALID_INPUT"
 
+    def test_provider_failure_surfaces_error_code_and_message(self) -> None:
+        """RONDO-209 #248/#250: per-provider results include error_code + error_message.
+
+        Before the fix, multi_review only returned status/output/cost/duration.
+        Callers saw 'partial empty' with no idea WHY (HTTP 503? rate limit? auth?).
+        Now the per-provider dict includes error_code + error_message.
+        """
+        from unittest.mock import patch
+
+        from rondo.mcp_server import rondo_multi_review
+
+        # -- Mock rondo_run_file to return a TaskResult-like error structure
+        def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
+            return json.dumps({
+                "status": "partial",
+                "tasks": [{
+                    "task_name": "test",
+                    "status": "error",
+                    "error_code": "ERR_PROVIDER_DOWN",
+                    "error_message": "Gemini HTTP 503: Service Unavailable",
+                    "raw_output": "",
+                    "duration_sec": 4.5,
+                    "cost_usd": 0.0,
+                }],
+                "total_cost_usd": 0.0,
+            })
+
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
+            result = json.loads(
+                rondo_multi_review(
+                    prompt="review", providers='["gemini:gemini-2.5-pro"]', dry_run=False
+                )
+            )
+
+        per_provider = result["per_provider"]
+        assert len(per_provider) == 1
+        provider_result = per_provider[0]
+
+        # -- #248/#250: error_code and error_message must be present
+        assert "error_code" in provider_result, "#248: error_code field missing"
+        assert "error_message" in provider_result, "#248: error_message field missing"
+        assert provider_result["error_code"] == "ERR_PROVIDER_DOWN"
+        assert "503" in provider_result["error_message"], (
+            f"#248: error_message must contain HTTP detail, got: {provider_result['error_message']!r}"
+        )
+
+    def test_provider_retry_on_transient_failure(self) -> None:
+        """RONDO-209 #248/#250: retryable errors get one serial retry attempt.
+
+        Pattern: parallel dispatch hits 503, serial retry afterward succeeds
+        because the upstream throttle was triggered by concurrent siblings.
+        """
+        from unittest.mock import patch
+
+        from rondo.mcp_server import rondo_multi_review
+
+        call_count = [0]
+
+        def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # -- First call: simulate 503
+                return json.dumps({
+                    "status": "partial",
+                    "tasks": [{
+                        "task_name": "t",
+                        "status": "error",
+                        "error_code": "ERR_PROVIDER_DOWN",
+                        "error_message": "Gemini HTTP 503",
+                        "raw_output": "",
+                        "duration_sec": 4.0,
+                        "cost_usd": 0.0,
+                    }],
+                    "total_cost_usd": 0.0,
+                })
+            # -- Second call (serial retry): succeeds
+            return json.dumps({
+                "status": "done",
+                "tasks": [{
+                    "task_name": "t",
+                    "status": "done",
+                    "raw_output": "Real review content here.",
+                    "duration_sec": 8.0,
+                    "cost_usd": 0.001,
+                    "error_code": None,
+                    "error_message": None,
+                }],
+                "total_cost_usd": 0.001,
+            })
+
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
+            result = json.loads(
+                rondo_multi_review(
+                    prompt="review", providers='["gemini:gemini-2.5-pro"]', dry_run=False
+                )
+            )
+
+        # -- Both calls should have happened (parallel + serial retry)
+        assert call_count[0] == 2, f"#248: expected 2 calls (initial + retry), got {call_count[0]}"
+
+        per_provider = result["per_provider"]
+        provider_result = per_provider[0]
+
+        # -- Final state should be the SUCCESSFUL retry
+        assert provider_result["status"] == "done", (
+            f"#248: retry should have succeeded, got status={provider_result['status']}"
+        )
+        assert provider_result["output"] == "Real review content here."
+        assert provider_result.get("attempt") == 2, (
+            f"#248: attempt should be 2 after retry, got {provider_result.get('attempt')}"
+        )
+
+    def test_non_retryable_error_does_not_retry(self) -> None:
+        """RONDO-209 #248: ERR_AUTH (400-class) should NOT retry.
+
+        Only ERR_PROVIDER_DOWN and ERR_RATE_LIMIT (transient/throttle errors)
+        warrant a retry. Auth failures, validation errors, etc. should fail
+        immediately without burning more API quota.
+        """
+        from unittest.mock import patch
+
+        from rondo.mcp_server import rondo_multi_review
+
+        call_count = [0]
+
+        def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
+            call_count[0] += 1
+            return json.dumps({
+                "status": "partial",
+                "tasks": [{
+                    "task_name": "t",
+                    "status": "error",
+                    "error_code": "ERR_AUTH",
+                    "error_message": "Invalid API key",
+                    "raw_output": "",
+                    "duration_sec": 0.5,
+                    "cost_usd": 0.0,
+                }],
+                "total_cost_usd": 0.0,
+            })
+
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
+            rondo_multi_review(
+                prompt="review", providers='["openai:gpt-4.1"]', dry_run=False
+            )
+
+        # -- Only ONE call (no retry for auth errors)
+        assert call_count[0] == 1, (
+            f"#248: ERR_AUTH should NOT trigger retry, got {call_count[0]} calls"
+        )
+
 
 class TestParallelDispatch:
     """REQ-109 req 052: multi_review dispatches concurrently."""

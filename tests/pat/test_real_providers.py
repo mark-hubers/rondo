@@ -41,7 +41,13 @@ class TestRealGemini:
         )
         tasks = result.get("tasks", [])
         assert len(tasks) == 1, f"Expected 1 task, got {len(tasks)}"
-        assert tasks[0]["status"] == "done", f"Task status: {tasks[0]['status']}"
+        # -- RONDO-211: skip on transient gemini errors instead of hard-fail
+        if tasks[0]["status"] != "done":
+            err_code = tasks[0].get("error_code", "")
+            err_msg = tasks[0].get("error_message", "")
+            if err_code in ("ERR_PROVIDER_DOWN", "ERR_RATE_LIMIT") or "503" in err_msg:
+                pytest.skip(f"Transient gemini issue: {err_code} {err_msg}")
+            pytest.fail(f"Task status: {tasks[0]['status']} {err_code} {err_msg}")
         assert "GEMINI_PAT_OK" in tasks[0].get("raw_output", ""), "Gemini did not return expected text"
 
     def test_gemini_returns_cost(self) -> None:

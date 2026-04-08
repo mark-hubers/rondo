@@ -1558,8 +1558,13 @@ class TestRealMultiProviderReview:
         r_gemini = gemini.dispatch(prompt=prompt, model="gemini-2.5-flash")
         r_grok = grok.dispatch(prompt=prompt, model="grok-3-fast")
 
-        assert r_gemini.status == "done", f"Gemini: {r_gemini.error_message}"
-        assert r_grok.status == "done", f"Grok: {r_grok.error_message}"
+        # -- RONDO-211: skip on transient upstream errors instead of hard-fail
+        for provider_name, r in [("Gemini", r_gemini), ("Grok", r_grok)]:
+            if r.status != "done":
+                err = r.error_message or ""
+                if "503" in err or "429" in err or "rate" in err.lower() or "unavailable" in err.lower():
+                    pytest.skip(f"Transient {provider_name} issue: {err}")
+                pytest.fail(f"{provider_name}: {err}")
         ## Both should return non-empty reviews
         assert len(r_gemini.raw_output) > 10, "Gemini review too short"
         assert len(r_grok.raw_output) > 10, "Grok review too short"
@@ -1585,8 +1590,15 @@ class TestRealMultiProviderReview:
         r_gemini = gemini.dispatch(prompt=prompt, model="gemini-2.5-flash")
         r_mistral = mistral.dispatch(prompt=prompt, model="mistral-small-latest")
 
-        assert r_gemini.status == "done", f"Gemini: {r_gemini.error_message}"
-        assert r_mistral.status == "done", f"Mistral: {r_mistral.error_message}"
+        # -- RONDO-211: skip on transient upstream errors instead of hard-fail.
+        # -- Multi-provider tests that hit real APIs are environmental — when
+        # -- gemini or mistral has a brownout, that is not a Rondo bug.
+        for provider_name, r in [("Gemini", r_gemini), ("Mistral", r_mistral)]:
+            if r.status != "done":
+                err = r.error_message or ""
+                if "503" in err or "429" in err or "rate" in err.lower() or "unavailable" in err.lower():
+                    pytest.skip(f"Transient {provider_name} issue: {err}")
+                pytest.fail(f"{provider_name}: {err}")
         ## Both should flag the SQL injection — check broad keyword set
         ## (models may rephrase: "injection", "parameterize", "sanitize", etc.)
         combined = (r_gemini.raw_output + r_mistral.raw_output).lower()

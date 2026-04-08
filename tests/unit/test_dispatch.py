@@ -640,7 +640,7 @@ class TestResultSaving:
         assert len(data["raw_output"]) <= 2 * 1024 * 1024 + 200
         assert "TRUNCATED" in data["raw_output"]
         assert "sonnet[1m]" in data["raw_output"], (
-            f"#216: truncation note must include model name for diagnostics"
+            "#216: truncation note must include model name for diagnostics"
         )
 
     def test_max_output_bytes_scales_with_model(self):

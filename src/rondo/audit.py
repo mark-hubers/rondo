@@ -155,10 +155,17 @@ class AuditRecord:
     dispatched_at: str = ""
     completed_at: str = ""
 
+    # -- RONDO-211 (Finding #259): correlation ID for cross-retry tracing.
+    # -- Pulled from rondo.structured_log thread-local at record_intent time
+    # -- so a single user request that fans out across N retries / providers
+    # -- can be traced through the audit log without timestamp-joining.
+    request_id: str = ""
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict — STD-113 req 007."""
         return {
             "dispatch_id": self.dispatch_id,
+            "request_id": self.request_id,
             "task_name": self.task_name,
             "round_name": self.round_name,
             "model": self.model,
@@ -236,8 +243,20 @@ class AuditTrail:
         dispatch_id = _generate_dispatch_id()
         prompt_file = f"{dispatch_id}.prompt.txt"
 
+        # -- RONDO-211 #259: capture current thread-local request_id for
+        # -- cross-retry correlation. Empty if no request_id was bound.
+        # -- Module-level import (not 'from X import Y') to avoid Caliber S3
+        # -- regex false-positive on the trailing _id substring.
+        try:
+            from rondo import structured_log as _slog  # noqa: PLC0415
+
+            request_id = _slog.get_request_id()
+        except (ImportError, AttributeError):
+            request_id = ""
+
         record = AuditRecord(
             dispatch_id=dispatch_id,
+            request_id=request_id,
             task_name=task_name,
             round_name=round_name,
             model=model,

@@ -1748,11 +1748,22 @@ class TestE2EReviewRealCloud:
             f.write("def add(a, b):\n    return a + b\n")
             path = f.name
         result = _run(["review", path, "--providers", "gemini", "--output", "json"], timeout=60)
-        assert result.returncode == 0
+        # -- RONDO-211 #255 + #256: was data["reviews"] which never existed
+        # -- in the review CLI output shape. The actual key is "per_provider".
+        # -- After #256, top-level returncode is non-zero on full provider
+        # -- failure, so we skip the test on transient gemini errors instead
+        # -- of hard-failing on environmental issues.
         data = json.loads(result.stdout)
-        assert len(data["reviews"]) == 1
-        assert data["reviews"][0]["status"] == "done"
-        assert len(data["reviews"][0]["output"]) > 10
+        assert len(data["per_provider"]) == 1
+        provider_result = data["per_provider"][0]
+        if provider_result["status"] != "done":
+            err_code = provider_result.get("error_code", "")
+            err_msg = provider_result.get("error_message", "")
+            if err_code in ("ERR_PROVIDER_DOWN", "ERR_RATE_LIMIT") or "503" in err_msg:
+                pytest.skip(f"Transient gemini issue: {err_code} {err_msg}")
+            pytest.fail(f"Unexpected provider failure: status={provider_result['status']} {err_code} {err_msg}")
+        assert result.returncode == 0
+        assert len(provider_result["output"]) > 10
 
 
 # -- ──────────────────────────────────────────────────────────────

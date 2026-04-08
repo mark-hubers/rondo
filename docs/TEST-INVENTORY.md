@@ -1,15 +1,15 @@
 # Rondo Test Inventory
 
-**Total tests:** 1613  
-**Total files:** 42  
-**Generated:** 2026-04-07
+**Total tests:** 1618  
+**Total files:** 44  
+**Generated:** 2026-04-07 (RONDO-208)
 
 ## Summary by Layer
 
 | Layer | Files | Tests | Purpose |
 |-------|-------|-------|---------|
-| **unit/** | 26 | 1155 | Unit Tests — Pure logic, no I/O |
-| **integration/** | 6 | 165 | Integration Tests — Multiple fixes working together |
+| **unit/** | 26 | 1145 | Unit Tests — Pure logic, no I/O |
+| **integration/** | 8 | 180 | Integration Tests — Multiple components together |
 | **e2e/** | 1 | 114 | End-to-End Tests — Full pipeline lifecycles |
 | **pat/** | 6 | 133 | Product Acceptance Tests — Real behavior, zero mocking |
 | **chaos/** | 2 | 15 | Chaos Tests — Failure injection |
@@ -17,7 +17,7 @@
 
 ---
 
-## unit/ — Unit Tests — Pure logic, no I/O (1155 tests)
+## unit/ — Unit Tests — Pure logic, no I/O (1145 tests)
 
 ### `test_ai_help.py` (50)
 
@@ -336,7 +336,7 @@
 **TestVersionFlag** (1)
 - `test_version_output`
 
-### `test_config.py` (87)
+### `test_config.py` (85)
 
 **TestAllConfigFields** (14)
 - `test_all_valid_efforts`
@@ -398,10 +398,9 @@
 **TestConfigPermissionModes** (1)
 - `test_all_permission_modes_valid`
 
-**TestConfigValidation** (3)
+**TestConfigValidation** (2)
 - `test_invalid_auth_rejected`
 - `test_invalid_model_rejected`
-- `test_valid_config_no_errors`
 
 **TestModelResolution** (3)
 - `test_cli_model_overrides_task`
@@ -439,7 +438,7 @@
 - `test_unknown_keys_produce_warning`
 - `test_unknown_toml_keys_ignored`
 
-**TestValidationErrors** (19)
+**TestValidationErrors** (18)
 - `test_empty_claude_binary`
 - `test_empty_report_dir`
 - `test_empty_results_dir`
@@ -458,14 +457,13 @@
 - `test_invalid_workers_high`
 - `test_invalid_workers_low`
 - `test_multiple_errors_returned`
-- `test_valid_config_no_errors`
 
 **TestZeroConfig** (3)
 - `test_default_config_all_fields_populated`
 - `test_default_config_validates`
 - `test_load_config_no_file`
 
-### `test_dispatch.py` (210)
+### `test_dispatch.py` (203)
 
 **TestAuditWiring** (1)
 - `test_interactive_dispatch_records_audit`
@@ -601,13 +599,6 @@
 - `test_rate_limit_error`
 - `test_rate_limit_lowercase`
 
-**TestErrorClassificationDeep** (5)
-- `test_auth_error`
-- `test_empty_stderr`
-- `test_nested_session_error`
-- `test_rate_limit_error`
-- `test_unknown_error`
-
 **TestExtractCodeBlocks** (5)
 - `test_multiple_blocks`
 - `test_never_raises`
@@ -634,9 +625,8 @@
 - `test_extract_no_files`
 - `test_extract_python_files`
 
-**TestFileExtractionSTD108** (3)
+**TestFileExtractionSTD108** (2)
 - `test_empty_output`
-- `test_extracts_python_files`
 - `test_no_duplicates`
 
 **TestGateExecution** (4)
@@ -765,12 +755,11 @@
 - `test_extract_structured_output_not_found`
 - `test_structured_output_preferred_over_text_parsing`
 
-**TestSubprocessCommand** (5)
+**TestSubprocessCommand** (4)
 - `test_basic_command_structure`
 - `test_effort_flag_added`
 - `test_max_budget_flag`
 - `test_permission_mode_flag`
-- `test_tool_mode_none`
 
 **TestTaskJsonParsing** (6)
 - `test_blocked_status_parsed`
@@ -1135,12 +1124,11 @@
 - `test_parallel_preserves_provider_order`
 - `test_parallel_uses_threads`
 
-### `test_mcp_router.py` (39)
+### `test_mcp_router.py` (38)
 
-**TestDispatchEngineIntegration** (6)
+**TestDispatchEngineIntegration** (5)
 - `test_claude_model_in_session_returns_agent_plan`
 - `test_empty_model_returns_inline_plan`
-- `test_empty_prompt_and_model_is_error`
 - `test_force_new_subprocess`
 - `test_inline_plan_has_schema`
 - `test_ollama_model_dispatches_via_http`
@@ -1885,7 +1873,7 @@
 - `test_write_creates_file`
 
 
-## integration/ — Integration Tests — Multiple fixes working together (165 tests)
+## integration/ — Integration Tests — Multiple components together (180 tests)
 
 ### `test_examples.py` (61)
 
@@ -1964,6 +1952,20 @@
 - `test_multi_task_accepts_parameters`
 - `test_multi_task_round_structure`
 
+### `test_integration_dispatch_chain.py` (10)
+
+**TestDispatchChainIntegration** (10)
+- `test_budget_cap_fires_before_circuit_breaker_check`
+- `test_config_hot_reload_is_thread_safe`
+- `test_full_cost_accumulation_across_session`
+- `test_full_mcp_chain_dry_run_happy_path`
+- `test_full_mcp_chain_error_path_produces_valid_error_response`
+- `test_multi_hop_fallback_first_hop_succeeds`
+- `test_multi_hop_fallback_no_claude_fallback`
+- `test_parallel_circuit_breaker_is_thread_safe`
+- `test_parallel_dispatch_thread_safety_no_audit_corruption`
+- `test_routing_is_deterministic_under_concurrent_calls`
+
 ### `test_integration_flow.py` (11)
 
 **TestMasterDispatchFlow** (11)
@@ -2006,6 +2008,15 @@
 - `test_breaker_state_file_tolerates_corrupt_json`
 - `test_empty_persist_file_is_handled`
 - `test_flaky_provider_succeeds_within_threshold`
+
+### `test_integration_rotation_costs.py` (5)
+
+**TestRotationAndCosts** (5)
+- `test_audit_rotation_during_active_dispatch_preserves_data`
+- `test_cost_tracking_survives_atomic_write_round_trip`
+- `test_http_adapter_chain_composition_via_retry_and_breaker`
+- `test_partial_success_parallel_dispatch_records_all_outcomes`
+- `test_timeout_error_record_flows_through_audit`
 
 ### `test_live.py` (23)
 

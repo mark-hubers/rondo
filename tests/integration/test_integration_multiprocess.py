@@ -406,6 +406,105 @@ class TestMultiProcessCircuitBreaker:
         assert "STILL_OPEN" in result_b.stdout
 
 
+class TestPartialWriteResilience:
+    """RONDO-209 #254: prove JSONL scanner handles partial writes gracefully.
+
+    Convergent finding from RONDO-209 round-3 AI review (GPT-4.1 + Grok-3):
+    'Append-only JSONL mitigates race conditions, but if multiple processes
+    crash mid-write, partial/corrupt lines may occur, breaking downstream
+    parsing.'
+
+    Validating this against actual Rondo code:
+    - POSIX O_APPEND guarantees single writes <PIPE_BUF (4KB) are atomic
+    - JSON entries are typically <1KB → covered by POSIX guarantee
+    - For pathological cases (e.g., huge entry, file truncated by another process),
+      _scan_cache_file already wraps json.loads in try/except, silently skipping
+      malformed lines
+    - Worst case: a corrupted line is dropped → cache miss → re-dispatch (benign)
+
+    These tests prove the resilience is REAL by intentionally writing
+    malformed/half-line data and verifying valid entries still survive.
+    """
+
+    def test_jsonl_scanner_skips_malformed_lines(self, tmp_path, monkeypatch):
+        """A half-written line in the middle of valid entries doesn't break scan."""
+        import json as _json
+        import time as _time
+
+        import rondo.idempotency as idem
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        idem.clear_cache()
+
+        cache_path = idem._default_cache_file()
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        now = _time.time()
+        good_1 = _json.dumps({"key": "good-1", "data": {"v": 1}, "cached_at_wall": now})
+        good_2 = _json.dumps({"key": "good-2", "data": {"v": 2}, "cached_at_wall": now})
+        # -- Pathological line: starts as JSON but gets truncated mid-string (simulates crash)
+        bad_line = '{"key": "corrupt", "data": {"v": 3}, "cached_at_'
+        # -- File: good, BAD, good — scanner must skip bad and return good entries
+        cache_path.write_text(
+            good_1 + "\n" + bad_line + "\n" + good_2 + "\n",
+            encoding="utf-8",
+        )
+
+        # -- Both good entries should be returned despite the bad line in the middle
+        result_1 = idem.get_cached_result("good-1", ttl_sec=300)
+        result_2 = idem.get_cached_result("good-2", ttl_sec=300)
+        result_corrupt = idem.get_cached_result("corrupt", ttl_sec=300)
+
+        assert result_1 == {"v": 1}, f"good-1 should survive partial write, got {result_1}"
+        assert result_2 == {"v": 2}, f"good-2 should survive partial write, got {result_2}"
+        assert result_corrupt is None, "corrupt entry should not be returned"
+
+        idem.clear_cache()
+
+    def test_jsonl_scanner_handles_empty_lines(self, tmp_path, monkeypatch):
+        """Blank lines (file truncation, partial flush) are silently skipped."""
+        import json as _json
+        import time as _time
+
+        import rondo.idempotency as idem
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        idem.clear_cache()
+
+        cache_path = idem._default_cache_file()
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        now = _time.time()
+        good = _json.dumps({"key": "alive", "data": {"v": 42}, "cached_at_wall": now})
+        # -- Blank lines, whitespace, then valid entry
+        cache_path.write_text(
+            "\n\n   \n" + good + "\n\n",
+            encoding="utf-8",
+        )
+
+        result = idem.get_cached_result("alive", ttl_sec=300)
+        assert result == {"v": 42}, f"valid entry must survive blank-line noise, got {result}"
+
+        idem.clear_cache()
+
+    def test_jsonl_scanner_handles_zero_byte_file(self, tmp_path, monkeypatch):
+        """A 0-byte cache file (created but never written) is treated as empty."""
+        import rondo.idempotency as idem
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        idem.clear_cache()
+
+        cache_path = idem._default_cache_file()
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.touch()  # -- 0 bytes
+        assert cache_path.stat().st_size == 0
+
+        # -- Should NOT raise; should return None for any key
+        result = idem.get_cached_result("anything", ttl_sec=300)
+        assert result is None
+        idem.clear_cache()
+
+
 class TestCrashRecovery:
     """RONDO-209 #252: process crash mid-dispatch + reconcile_stuck_intents."""
 

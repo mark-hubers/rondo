@@ -367,9 +367,24 @@ def rondo_multi_review(
 
     total_cost = sum(p.get("cost_usd", 0) for p in per_provider)
 
+    # -- RONDO-211 #256: top-level status reflects ACTUAL provider outcomes,
+    # -- not a hardcoded "done". Otherwise a caller checking top-level status
+    # -- would think the review succeeded when all providers actually failed
+    # -- (observed in RONDO-210 Phase B when gemini hit 503).
+    succeeded = sum(1 for p in per_provider if p.get("status") in ("done", "skipped"))
+    total_providers = len(per_provider)
+    if total_providers == 0:
+        top_status = "error"
+    elif succeeded == total_providers:
+        top_status = "done"
+    elif succeeded == 0:
+        top_status = "error"
+    else:
+        top_status = "partial"
+
     return json.dumps(
         {
-            "status": "done",
+            "status": top_status,
             "prompt": prompt[:200],
             "provider_count": len(provider_list),
             "per_provider": per_provider,

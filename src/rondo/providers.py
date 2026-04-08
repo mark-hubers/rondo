@@ -12,39 +12,19 @@ Import direction:
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from typing import Any
 
 from rondo.engine import TaskResult
 
+# -- RONDO-209: ProviderAdapter ABC moved to provider_base.py to break the
+# -- cyclic import (adapters/* → providers → adapters.health → adapters.factory).
+# -- Re-exported here for backward compat with all existing callers.
+from rondo.provider_base import ProviderAdapter
+
+# -- noqa to keep ProviderAdapter visible to "from rondo.providers import ProviderAdapter"
+__all__ = ["ProviderAdapter", "TaskResult", "Any"]
+
 logger = logging.getLogger(__name__)
-
-
-# -- ──────────────────────────────────────────────────────────────
-# --  REQ-109 req 001: Abstract base class
-# -- ──────────────────────────────────────────────────────────────
-
-
-class ProviderAdapter(ABC):
-    """Abstract provider adapter — REQ-109 req 001.
-
-    Every provider implements: dispatch, health, models.
-    All return TaskResult (req 004: model-agnostic output).
-    """
-
-    name: str = "base"
-
-    @abstractmethod
-    def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Send prompt to provider, return TaskResult."""
-
-    @abstractmethod
-    def health(self) -> bool:
-        """Check if provider is reachable."""
-
-    @abstractmethod
-    def models(self) -> list[str]:
-        """List available models from this provider."""
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -88,6 +68,7 @@ def is_legacy_ollama_model(model: str) -> bool:
 
     model_base = re.sub(r"[\d.:]+.*$", "", model.split("-")[0].lower())
     return model_base in _OLLAMA_PREFIXES
+
 
 # -- REQ-109 reqs 041-045: Provider tiers
 _TIER_NAMES = {"high", "default", "low"}

@@ -19,7 +19,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rondo.providers import ProviderAdapter
+    from rondo.provider_base import ProviderAdapter
 
 logger = logging.getLogger(__name__)
 

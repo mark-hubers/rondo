@@ -23,7 +23,7 @@ import time
 from typing import Any
 
 from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
-from rondo.providers import ProviderAdapter
+from rondo.provider_base import ProviderAdapter
 
 logger = logging.getLogger(__name__)
 

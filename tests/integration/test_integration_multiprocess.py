@@ -406,4 +406,94 @@ class TestMultiProcessCircuitBreaker:
         assert "STILL_OPEN" in result_b.stdout
 
 
+class TestCrashRecovery:
+    """RONDO-209 #252: process crash mid-dispatch + reconcile_stuck_intents."""
+
+    def test_sigkill_mid_dispatch_leaves_stuck_intent(self, tmp_path):
+        """Subprocess writes INTENT, then gets SIGKILL'd before OUTCOME.
+
+        Verifies the audit trail correctly records the orphan as STUCK
+        during a fresh AuditTrail instantiation (auto_reconcile on init).
+        Without proper recovery, orphan INTENTs would silently accumulate
+        in the JSONL forever and never be visible in metrics.
+        """
+        import os as _os
+        import signal
+        import time as _time
+
+        env = _os.environ.copy()
+        env["RONDO_TEST_DIR"] = str(tmp_path)
+
+        src_path = Path(__file__).parent.parent.parent / "src"
+
+        # -- Worker code: record INTENT, touch a sync file, then sleep forever
+        # -- (until parent SIGKILLs it). The sleep guarantees the worker is
+        # -- mid-dispatch when killed — no race window for the OUTCOME.
+        worker_code = (
+            "import sys, os, time\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "from rondo.audit import AuditConfig, AuditTrail\n"
+            "from pathlib import Path\n"
+            'audit_dir = os.environ["RONDO_TEST_DIR"]\n'
+            "audit = AuditTrail(config=AuditConfig(audit_dir=audit_dir), auto_reconcile=False)\n"
+            'audit.record_intent(task_name="will-crash", round_name="crash-test", model="gemini", prompt="long")\n'
+            '# -- Touch sync file so parent knows we passed the INTENT write\n'
+            'sync = Path(audit_dir) / "worker_ready.txt"\n'
+            'sync.write_text("ready")\n'
+            'time.sleep(60)  # block until killed\n'
+        )
+
+        proc = subprocess.Popen(
+            [sys.executable, "-c", worker_code],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+        # -- Wait for the worker to write its sync file (max 5 sec)
+        sync_file = tmp_path / "worker_ready.txt"
+        deadline = _time.monotonic() + 5.0
+        while _time.monotonic() < deadline:
+            if sync_file.exists():
+                break
+            _time.sleep(0.05)
+        else:
+            proc.kill()
+            proc.communicate(timeout=2)
+            raise AssertionError(
+                "#252: worker never reached sync point — crash test setup failed"
+            )
+
+        # -- SIGKILL the worker (simulates a hard crash, no cleanup, no OUTCOME)
+        _os.kill(proc.pid, signal.SIGKILL)
+        proc.communicate(timeout=5)
+        assert proc.returncode != 0, "worker should have died from SIGKILL"
+
+        # -- Verify the JSONL has the INTENT but NO matching OUTCOME yet
+        jsonl_path = tmp_path / "rondo_audit.jsonl"
+        assert jsonl_path.exists(), "audit JSONL must exist after worker crash"
+        before_content = jsonl_path.read_text(encoding="utf-8")
+        assert "will-crash" in before_content
+        assert '"status": "INTENT"' in before_content, (
+            "INTENT record must be in JSONL (worker reached the write point)"
+        )
+
+        # -- Now run reconcile via a fresh AuditTrail instance (recovery process)
+        # -- auto_reconcile=True (default) runs reconcile_stuck_intents at init.
+        # -- We don't bind the result — the constructor's side effect is the test.
+        from rondo.audit import AuditConfig, AuditTrail
+        AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+
+        # -- After auto-reconcile, the JSONL must contain a "stuck" outcome
+        after_content = jsonl_path.read_text(encoding="utf-8")
+        assert "stuck" in after_content, (
+            "#252: reconcile_stuck_intents must mark orphan INTENT as 'stuck'"
+        )
+
+        # -- The same task_name should appear with both INTENT and stuck outcome
+        lines = [line for line in after_content.splitlines() if line.strip()]
+        will_crash_records = [json.loads(line) for line in lines if "will-crash" in line]
+        statuses = {r.get("status") for r in will_crash_records}
+        assert "INTENT" in statuses, "INTENT record must remain"
+        assert "stuck" in statuses, "stuck OUTCOME must have been added by reconcile"
+
+
 # -- sig: mgh-6201.cd.bd955f.d209.201146

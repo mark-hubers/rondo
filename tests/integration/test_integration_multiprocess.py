@@ -237,6 +237,116 @@ class TestMultiProcessIdempotency:
         )
 
 
+class TestMultiProcessAuditRotation:
+    """RONDO-209 #251: audit rotation cross-process race safety."""
+
+    def test_concurrent_rotate_no_record_loss(self, tmp_path):
+        """Two processes rotating the same audit dir don't lose records.
+
+        Before #251 fix: _rotate_lock was threading.Lock (thread-scoped).
+        Two processes could both read content → both append to archive
+        (duplication) → both unlink jsonl (second unlink is no-op).
+        Worse: new INTENT written between A's read and A's unlink was LOST.
+
+        Fix: fcntl.flock() serializes rotation across processes.
+
+        This test spawns 2 subprocess workers both calling rotate().
+        After both finish, the archive must contain ALL original records
+        (not half, not duplicated, not lost).
+        """
+        import os as _os
+
+        env = _os.environ.copy()
+        env["RONDO_TEST_DIR"] = str(tmp_path)
+
+        src_path = Path(__file__).parent.parent.parent / "src"
+
+        # -- Setup: pre-populate audit JSONL with 10 records via a setup worker
+        setup_code = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "from rondo.audit import AuditConfig, AuditTrail\n"
+            "import os\n"
+            'audit = AuditTrail(config=AuditConfig(audit_dir=os.environ["RONDO_TEST_DIR"]))\n'
+            "for i in range(10):\n"
+            '    audit.record_intent(task_name=f"task-{i}", round_name="setup", model="gemini", prompt=f"p{i}")\n'
+            'print("SETUP_OK")\n'
+        )
+        setup = subprocess.run(
+            [sys.executable, "-c", setup_code],
+            env=env, capture_output=True, text=True, timeout=10, check=False,
+        )
+        assert setup.returncode == 0, f"setup failed: {setup.stderr}"
+
+        # -- Two concurrent rotators
+        rotate_code = (
+            "import sys\n"
+            "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
+            "from rondo.audit import AuditConfig, AuditTrail\n"
+            "import os\n"
+            'audit = AuditTrail(config=AuditConfig(audit_dir=os.environ["RONDO_TEST_DIR"]), auto_reconcile=False)\n'
+            "count = audit.rotate()\n"
+            'print(f"ROTATED:{count}")\n'
+        )
+        proc_a = subprocess.Popen(
+            [sys.executable, "-c", rotate_code],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        proc_b = subprocess.Popen(
+            [sys.executable, "-c", rotate_code],
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+        out_a, err_a = proc_a.communicate(timeout=10)
+        out_b, err_b = proc_b.communicate(timeout=10)
+        assert proc_a.returncode == 0 and proc_b.returncode == 0, (
+            f"rotators failed: a={err_a} b={err_b}"
+        )
+
+        # -- Parse rotate counts
+        def _parse_count(s: str) -> int:
+            for line in s.splitlines():
+                if line.startswith("ROTATED:"):
+                    return int(line.split(":", 1)[1])
+            return -1
+
+        count_a = _parse_count(out_a)
+        count_b = _parse_count(out_b)
+
+        # -- Under the lock, ONE process does the real rotation (returns N),
+        # -- the other sees an empty jsonl (returns 0). Total = N.
+        # -- Setup wrote 10 records, so count_a + count_b == 10 exactly.
+        assert count_a + count_b == 10, (
+            f"#251: rotate race corrupted record count — "
+            f"a={count_a} b={count_b} total={count_a + count_b} (expected 10)"
+        )
+
+        # -- The archive must contain exactly 10 lines (1 line per INTENT record)
+        archive_dir = tmp_path / "archive"
+        archive_files = list(archive_dir.glob("*.jsonl"))
+        assert archive_files, "archive file must exist after rotation"
+        all_archive_lines: list[str] = []
+        for af in archive_files:
+            all_archive_lines.extend(
+                line for line in af.read_text(encoding="utf-8").splitlines() if line.strip()
+            )
+        assert len(all_archive_lines) == 10, (
+            f"#251: expected 10 lines in archive, got {len(all_archive_lines)} "
+            f"(rotation race caused duplication or loss)"
+        )
+
+        # -- Each task name appears exactly once (no duplicates from double-rotate)
+        task_names = set()
+        for line in all_archive_lines:
+            entry = json.loads(line)
+            task_names.add(entry["task_name"])
+        expected = {f"task-{i}" for i in range(10)}
+        assert task_names == expected, (
+            f"#251: archive task names mismatch. Missing: {expected - task_names}, "
+            f"extra: {task_names - expected}"
+        )
+
+
 class TestMultiProcessCircuitBreaker:
     """RONDO-209 #246: circuit breaker state across real processes."""
 

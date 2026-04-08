@@ -342,37 +342,62 @@ class AuditTrail:
     def rotate(self) -> int:
         """Archive current JSONL to archive/YYYY-MM.jsonl — RONDO-29 / RONDO-204.
 
-        RONDO-204 (Finding #231): holds lock during rotation to prevent
-        concurrent writers from corrupting the archive.
+        RONDO-204 (Finding #231): threading.Lock prevents in-process race.
+        RONDO-209 (Finding #251): fcntl.flock() prevents CROSS-PROCESS race.
+        Without the file lock, two Rondo processes could both read the
+        same content, both append to the archive (duplication), and both
+        try to unlink the JSONL (second unlink is no-op, fine). Worse:
+        if process C appends a new INTENT between A's read and A's unlink,
+        C's entry is LOST. The file lock serializes rotation across all
+        processes that share the audit directory.
+
         RONDO-204 (Finding #229): also prunes archives older than
         config.archive_retention_months.
-        RONDO-204 (Finding #230): archive dir is inside audit_dir, which
-        is already tenant-scoped via _default_audit_dir(). Tenant isolation
-        inherits automatically.
 
         Returns number of lines archived (0 if nothing to rotate).
         """
-        with self._rotate_lock:
-            if not self._jsonl_path.exists():
-                return 0
-            content = self._jsonl_path.read_text(encoding="utf-8").strip()
-            if not content:
-                self._jsonl_path.unlink()
-                return 0
-            line_count = len(content.splitlines())
-            archive_dir = self._audit_dir / "archive"
-            archive_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now(UTC).strftime("%Y-%m")
-            archive_path = archive_dir / f"{timestamp}.jsonl"
-            # -- Append if archive already exists (multiple rotations in same month)
-            with archive_path.open("a", encoding="utf-8") as f:
-                f.write(content + "\n")
-            self._jsonl_path.unlink()
-            logger.info("Rotated %d audit records to %s", line_count, archive_path)
+        import fcntl  # pylint: disable=import-outside-toplevel
 
-            # -- RONDO-204 (Finding #229): prune old archives
-            self._prune_old_archives(archive_dir)
-            return line_count
+        with self._rotate_lock:
+            # -- #251: cross-process exclusive lock via .rotate.lock sentinel file
+            lock_path = self._audit_dir / ".rotate.lock"
+            try:
+                self._audit_dir.mkdir(parents=True, exist_ok=True)
+                with open(lock_path, "a+", encoding="utf-8") as lock_f:
+                    try:
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
+                    except OSError as lock_exc:
+                        logger.debug("Audit rotate file lock failed (non-fatal): %s", lock_exc)
+
+                    # -- All operations below run with both thread + process lock held
+                    if not self._jsonl_path.exists():
+                        return 0
+                    content = self._jsonl_path.read_text(encoding="utf-8").strip()
+                    if not content:
+                        self._jsonl_path.unlink()
+                        return 0
+                    line_count = len(content.splitlines())
+                    archive_dir = self._audit_dir / "archive"
+                    archive_dir.mkdir(parents=True, exist_ok=True)
+                    timestamp = datetime.now(UTC).strftime("%Y-%m")
+                    archive_path = archive_dir / f"{timestamp}.jsonl"
+                    # -- Append if archive already exists (multiple rotations in same month)
+                    with archive_path.open("a", encoding="utf-8") as f:
+                        f.write(content + "\n")
+                    self._jsonl_path.unlink()
+                    logger.info("Rotated %d audit records to %s", line_count, archive_path)
+
+                    # -- RONDO-204 (Finding #229): prune old archives
+                    self._prune_old_archives(archive_dir)
+
+                    try:
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                    except OSError:
+                        pass
+                    return line_count
+            except OSError as exc:
+                logger.debug("Audit rotate failed (non-fatal): %s", exc)
+                return 0
 
     def _prune_old_archives(self, archive_dir: Path) -> int:
         """Delete archive files older than archive_retention_months.

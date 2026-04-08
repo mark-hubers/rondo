@@ -431,11 +431,33 @@ class TestMCPDispatchE2E:
         assert "success_rate" in result
 
     def test_full_tool_inventory(self):
-        """All 8 MCP tools are registered."""
-        from rondo.mcp_server import create_mcp_server
+        """All expected MCP tools are importable from rondo.mcp_server.
 
-        server = create_mcp_server()
-        assert server is not None
+        Upgraded in RONDO-208: old version only asserted server is not None
+        (identical to test_create_server_has_resource in test_mcp_tools.py).
+        Now verifies the actual tool functions are exported — catches bugs
+        where a tool is defined but not added to the public surface.
+        """
+        import rondo.mcp_server as mcp_server
+
+        # -- Core dispatch tools
+        expected_tools = [
+            "rondo_run_file",
+            "rondo_health",
+            "rondo_metrics",
+            "rondo_history",
+            "rondo_dispatch_info",
+            "rondo_audit_summary",
+            "rondo_cost",
+            "rondo_spool_consume",
+        ]
+
+        missing = [name for name in expected_tools if not hasattr(mcp_server, name)]
+        assert not missing, f"MCP tools not exported: {missing}"
+
+        # -- And the server factory still works
+        server = mcp_server.create_mcp_server()
+        assert server is not None, "create_mcp_server() returned None"
 
 
 # -- sig: mgh-197b.ec.8d60f8.a5cf.7ea3fd

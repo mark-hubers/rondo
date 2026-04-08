@@ -305,10 +305,8 @@ class TestValidationErrors:
         errors = validate_config(config)
         assert len(errors) >= 3
 
-    def test_valid_config_no_errors(self):
-        config = RondoConfig()
-        errors = validate_config(config)
-        assert errors == []
+    # -- RONDO-208: removed test_valid_config_no_errors — exact duplicate of
+    # -- TestZeroConfig::test_default_config_validates (above).
 
 
 # -- Rondo-STD-109 Rule 9: Config loaded once, immutable (frozen dataclass)
@@ -609,10 +607,8 @@ class TestConfigValidation:
         errors = validate_config(RondoConfig(default_model="gpt-4"))
         assert any("model" in e.lower() for e in errors)
 
-    def test_valid_config_no_errors(self):
-        """Default config passes validation."""
-        errors = validate_config(RondoConfig())
-        assert len(errors) == 0
+    # -- RONDO-208: removed 2nd test_valid_config_no_errors — 3rd duplicate of
+    # -- TestZeroConfig::test_default_config_validates.
 
 
 class TestModelResolution:

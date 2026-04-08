@@ -1839,13 +1839,12 @@ class TestRoundValidation:
 
 
 class TestFileExtractionSTD108:
-    """STD-108: file path extraction from output."""
+    """STD-108: file path extraction edge cases.
 
-    def test_extracts_python_files(self):
-        text = "I modified src/main.py and tests/test_main.py"
-        files = extract_modified_files(text)
-        assert "src/main.py" in files
-        assert "tests/test_main.py" in files
+    RONDO-208: removed test_extracts_python_files — exact duplicate of
+    TestFileExtraction::test_extract_python_files (earlier in file). Kept
+    the deduplication + empty-output cases that ARE unique to this class.
+    """
 
     def test_no_duplicates(self):
         text = "Changed config.py then changed config.py again"
@@ -2025,13 +2024,8 @@ class TestSubprocessCommand:
         assert "--max-budget-usd" in cmd
         assert "0.5" in cmd
 
-    def test_tool_mode_none(self):
-        """tool_mode=none adds --tools '' (req 022)."""
-        config = RondoConfig()
-        task = Task(name="t", instruction="do", done_when="done", tool_mode="none")
-        cmd = _build_subprocess_cmd(config, "test", "sonnet", task=task)
-        idx = cmd.index("--tools")
-        assert cmd[idx + 1] == ""
+    # -- RONDO-208: removed test_tool_mode_none — exact duplicate of
+    # -- TestBuildSubprocessCmd::test_tool_mode_none_adds_tools_empty.
 
 
 class TestEnvironmentPrep:

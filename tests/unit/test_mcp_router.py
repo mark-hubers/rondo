@@ -469,12 +469,9 @@ class TestDispatchEngineIntegration:
         assert result.get("status") in ("done", "plan"), f"Expected done/plan, got: {result.get('status')}"
         assert result.get("engine") != "error", f"Should not be error: {result.get('reason', '')}"
 
-    def test_empty_prompt_and_model_is_error(self) -> None:
-        """No prompt + no model + no file = error."""
-        from rondo.mcp_server import rondo_run_file
-
-        result = json.loads(rondo_run_file(prompt="", model="", dry_run=True))
-        assert result["status"] == "error"
+    # -- RONDO-208: removed test_empty_prompt_and_model_is_error — exact
+    # -- duplicate of test_mcp_integration.py::TestMCPIntegration::test_no_prompt_no_file_is_error
+    # -- (PAT layer has it; unit layer is redundant for an MCP-server-level test).
 
 
 class TestInlineDispatch:

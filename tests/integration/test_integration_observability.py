@@ -113,9 +113,24 @@ class TestObservabilityIntegration:
             prompt=prompt_with_secret,
         )
 
-        # -- The JSONL record stores only the prompt_hash, not the raw prompt
+        # -- Positive assertions: record structure is correct (not just "no secret")
+        assert record is not None, "record_intent returned None"
+        assert record.dispatch_id.startswith("dsp_"), (
+            f"expected dispatch_id format 'dsp_...', got {record.dispatch_id!r}"
+        )
+        assert record.prompt_hash.startswith("sha256:"), (
+            "prompt_hash should start with 'sha256:' prefix"
+        )
+
+        # -- The JSONL record exists and contains expected structural fields
         jsonl_path = tmp_path / "rondo_audit.jsonl"
+        assert jsonl_path.exists(), "INTENT record must create JSONL file"
         content = jsonl_path.read_text(encoding="utf-8")
+        assert "leak-test" in content, "task_name must be recorded"
+        assert "prompt_hash" in content, "prompt_hash field must be in JSONL"
+        assert record.dispatch_id in content, "dispatch_id must be in JSONL"
+
+        # -- Negative assertion: the secret is NOT in any persistence
         assert fake_key not in content, (
             f"INTENT jsonl leaked secret: {fake_key[:10]}..."
         )

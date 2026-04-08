@@ -3,14 +3,17 @@
 # SPDX-License-Identifier: MIT
 """RONDO-210 Phase C — Real concurrent stress test.
 
+VER-001 verification matrix: cross-process coverage for scenarios that
+test_integration_multiprocess.py can't catch because it writes INTENT and
+OUTCOME back-to-back without real dispatch latency in between.
+
 5 subprocess workers dispatching concurrent real API calls to gemini-flash.
 Proves the cross-process locking work in RONDO-209 (idempotency JSONL,
 audit fcntl.flock, circuit breaker persistence) survives under real load.
 
-Unlike test_integration_multiprocess.py which uses mocked dispatches to
-prove cross-process semantics, this test hits real gemini and verifies
-no audit corruption, no lost idempotency entries, and no race errors
-under real latency and real concurrency.
+This test found finding #257: AuditTrail(auto_reconcile=True) false-positives
+peer workers' in-flight INTENTs as stuck under multi-process load. It stays
+as a hard-fail regression guard until #257 is fixed.
 
 Cost: ~$0.10-0.20 per run (20 calls against gemini-2.5-flash).
 Runtime: ~30-60 seconds.
@@ -282,4 +285,4 @@ def test_stress_real_concurrent_dispatch(tmp_path: Path) -> None:
         )
 
 
-# -- sig: mgh-6208.cd.bd955f.e4a1.stress1
+# -- sig: mgh-6208.cd.bd955f.e4a1.2c7a1c

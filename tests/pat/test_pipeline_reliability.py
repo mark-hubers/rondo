@@ -474,11 +474,13 @@ class TestPipelineReliability:
         trail.record_intent(task_name="stuck", round_name="r", model="gemini-2.5-flash", prompt="crash")
 
         # -- Reconcile
-        stuck_count = trail.reconcile_stuck_intents()
+        # -- RONDO-211 #257: stuck_after_sec=0 disables the in-flight age check
+        # -- (this test simulates an already-crashed INTENT with no age delay)
+        stuck_count = trail.reconcile_stuck_intents(stuck_after_sec=0)
         assert stuck_count == 1, f"Expected 1 stuck record, got {stuck_count}"
 
         # -- Second reconcile should find zero (already reconciled)
-        stuck_count_again = trail.reconcile_stuck_intents()
+        stuck_count_again = trail.reconcile_stuck_intents(stuck_after_sec=0)
         assert stuck_count_again == 0, "Second reconcile should be no-op"
 
 

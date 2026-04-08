@@ -312,7 +312,9 @@ class TestObservabilityIntegration:
         )
 
         # -- reconcile should mark both orphans
-        count = audit_trail.reconcile_stuck_intents()
+        # -- RONDO-211 #257: stuck_after_sec=0 to skip the in-flight age check
+        # -- (this test simulates already-crashed INTENTs that have no age delay)
+        count = audit_trail.reconcile_stuck_intents(stuck_after_sec=0)
         assert count == 2, (
             f"expected 2 orphans to be reconciled, got {count}"
         )

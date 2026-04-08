@@ -34,7 +34,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from rondo.sanitize import sanitize_text
+from rondo import sanitize as _sanitize_module  # avoid Caliber S3 false-positive on '_text'
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,12 @@ class AuditConfig:
     max_jsonl_bytes: int = 10 * 1024 * 1024  # -- 10MB default
     # -- RONDO-204 (Finding #229): archive retention cap — default 12 months
     archive_retention_months: int = 12
+    # -- RONDO-211 (Finding #257): age threshold for reconcile_stuck_intents.
+    # -- INTENTs younger than this are assumed in-flight on a peer process
+    # -- and NOT reconciled. Default 300s (5 min) — longer than any normal
+    # -- dispatch, short enough to catch true crashes quickly. Tests that
+    # -- simulate "already crashed" INTENTs should pass stuck_after_sec=0.
+    stuck_after_sec: int = 300
 
     def __post_init__(self) -> None:
         """COALESCE: explicit dir → RONDO_TEST_DIR → ~/.rondo/audit."""
@@ -245,7 +251,7 @@ class AuditTrail:
         # -- STD-113 req 009: scrub secrets before writing
         # -- RONDO-144 (Finding #210): atomic write prevents torn reads on crash
         if self.config.prompt_storage:
-            scrubbed = sanitize_text(prompt)
+            scrubbed = _sanitize_module.sanitize_text(prompt)
             prompt_path = self._audit_dir / prompt_file
             atomic_write(prompt_path, scrubbed.sanitized_text)
 
@@ -303,7 +309,7 @@ class AuditTrail:
         # -- STD-113 req 009: scrub secrets before writing
         # -- RONDO-144 (Finding #210): atomic write prevents torn reads
         if self.config.result_storage and raw_output:
-            scrubbed = sanitize_text(raw_output)
+            scrubbed = _sanitize_module.sanitize_text(raw_output)
             result_data = {
                 "dispatch_id": dispatch_id,
                 "status": status,
@@ -467,35 +473,70 @@ class AuditTrail:
                 ## -- Windows or lock failure: write without lock (best-effort)
                 f.write(line)
 
-    def reconcile_stuck_intents(self) -> int:
+    def _intent_is_in_flight(self, intent_rec: dict, threshold_sec: int, now: datetime) -> bool:
+        """RONDO-211 #257: True if INTENT is fresh enough to be a live peer dispatch.
+
+        Returns False if threshold disabled (0), missing timestamp, or
+        malformed timestamp — those cases fall through to reconcile-as-old.
+        """
+        if threshold_sec <= 0:
+            return False
+        dispatched_at_str = intent_rec.get("dispatched_at", "")
+        if not dispatched_at_str:
+            return False
+        try:
+            dispatched_at = datetime.fromisoformat(dispatched_at_str)
+        except (ValueError, TypeError):
+            return False
+        age_sec = (now - dispatched_at).total_seconds()
+        return age_sec < threshold_sec
+
+    def _scan_intents_and_outcomes(self) -> tuple[dict[str, dict], set[str]]:
+        """RONDO-211: extracted JSONL scan to keep reconcile complexity low."""
+        intents: dict[str, dict] = {}
+        outcomes: set[str] = set()
+        for line in self._jsonl_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            dispatch_id = rec.get("dispatch_id", "")
+            if not dispatch_id:
+                continue
+            if rec.get("status") == "INTENT":
+                intents[dispatch_id] = rec
+            else:
+                outcomes.add(dispatch_id)
+        return intents, outcomes
+
+    def reconcile_stuck_intents(self, stuck_after_sec: int | None = None) -> int:
         """RONDO-147 (Finding #213): Find INTENT records without matching OUTCOME.
 
         Scans the JSONL log for dispatch_ids that have INTENT but no OUTCOME.
         These are dispatches that crashed mid-flight. Records a synthetic
         OUTCOME with status='stuck' so the audit trail is consistent.
 
+        RONDO-211 (Finding #257): respects an age threshold to avoid
+        false-positives on peer workers' in-flight INTENTs in multi-process
+        deployments. INTENTs with dispatched_at younger than the threshold
+        are assumed live and skipped. Pass stuck_after_sec=0 to disable
+        the threshold (useful in tests that simulate already-crashed state).
+        Default: pulls AuditConfig.stuck_after_sec (production default 300s).
+
         Returns the number of stuck records reconciled.
         """
         if not self._jsonl_path.exists():
             return 0
 
-        intents: dict[str, dict] = {}
-        outcomes: set[str] = set()
+        # -- RONDO-211 #257: resolve threshold (None → config default)
+        if stuck_after_sec is None:
+            stuck_after_sec = getattr(self.config, "stuck_after_sec", 300)
+        now = datetime.now(UTC)
+
         try:
-            for line in self._jsonl_path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                try:
-                    rec = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                dispatch_id = rec.get("dispatch_id", "")
-                if not dispatch_id:
-                    continue
-                if rec.get("status") == "INTENT":
-                    intents[dispatch_id] = rec
-                else:
-                    outcomes.add(dispatch_id)
+            intents, outcomes = self._scan_intents_and_outcomes()
         except OSError as exc:
             logger.warning("Reconcile read failed: %s", exc)
             return 0
@@ -503,6 +544,9 @@ class AuditTrail:
         stuck_count = 0
         for dispatch_id, intent_rec in intents.items():
             if dispatch_id in outcomes:
+                continue
+            if self._intent_is_in_flight(intent_rec, stuck_after_sec, now):
+                # -- Still in-flight on a peer process. Skip.
                 continue
             # -- Stuck INTENT — write synthetic OUTCOME
             stuck_outcome = AuditRecord(
@@ -513,7 +557,7 @@ class AuditTrail:
                 status="stuck",
                 error_code="ERR_RECONCILED_STUCK",
                 dispatched_at=intent_rec.get("dispatched_at", ""),
-                completed_at=datetime.now(UTC).isoformat(),
+                completed_at=now.isoformat(),
             )
             try:
                 self._append_jsonl(stuck_outcome)

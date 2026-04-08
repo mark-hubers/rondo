@@ -578,8 +578,11 @@ class TestCrashRecovery:
         # -- Now run reconcile via a fresh AuditTrail instance (recovery process)
         # -- auto_reconcile=True (default) runs reconcile_stuck_intents at init.
         # -- We don't bind the result — the constructor's side effect is the test.
+        # -- RONDO-211 #257: stuck_after_sec=0 because the worker INTENT was just
+        # -- written seconds ago — without this override the new in-flight
+        # -- threshold (300s default) would correctly skip it as still-live.
         from rondo.audit import AuditConfig, AuditTrail
-        AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        AuditTrail(config=AuditConfig(audit_dir=str(tmp_path), stuck_after_sec=0))
 
         # -- After auto-reconcile, the JSONL must contain a "stuck" outcome
         after_content = jsonl_path.read_text(encoding="utf-8")

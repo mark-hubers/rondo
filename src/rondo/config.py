@@ -10,8 +10,11 @@ Config is frozen (immutable) after creation — thread-safe by design.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import tomllib
+import types
+import typing
 import warnings
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -87,7 +90,6 @@ def get_sanitized_tenant() -> str:
     Resolution: RONDO_TENANT → USER → 'default'.
     Sanitization: alphanumeric + underscore + hyphen only, max 64 chars.
     """
-    import os  # pylint: disable=import-outside-toplevel
     import re  # pylint: disable=import-outside-toplevel
 
     raw = os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
@@ -101,8 +103,6 @@ def resolve_rondo_dir(default: str, subdir: str) -> str:
     Used by MCP tools and dispatch to find audit/spool/results dirs.
     Honors RONDO_TEST_DIR env var for test isolation (RONDO-200 #217).
     """
-    import os  # pylint: disable=import-outside-toplevel
-
     test_dir = os.environ.get("RONDO_TEST_DIR")
     if test_dir:
         return os.path.join(test_dir, subdir)
@@ -177,8 +177,6 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
 
     def __post_init__(self) -> None:
         """RONDO_TEST_DIR: redirect audit+spool to tmp in tests (RONDO-28)."""
-        import os
-
         test_dir = os.environ.get("RONDO_TEST_DIR")
         if test_dir and self.audit_dir == "~/.rondo/audit":
             object.__setattr__(self, "audit_dir", os.path.join(test_dir, "audit"))
@@ -303,9 +301,6 @@ def _extract_allowed_types(type_hint: Any) -> set[type]:
         Optional[int] → {int}
         complex/unknown → empty set (skip checking)
     """
-    import types
-    import typing
-
     # -- String annotations (from __future__ import annotations) → resolve
     if isinstance(type_hint, str):
         # -- Simple type name

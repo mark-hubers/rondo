@@ -1041,6 +1041,17 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool
             }
         )
 
+    # -- U-32 (REQ-100 addendum): rondo_run_status MUST include completed task
+    # -- results inline with raw_output truncated to 2000 chars so callers
+    # -- don't need to read separate files. RONDO-212 moved the truncation
+    # -- from _execute_dispatch (producer) to here (consumer boundary) because
+    # -- rondo_multi_review needs the full output (see RONDO-211 finding #258).
+    # -- Shallow copy to avoid mutating _background_results storage.
+    if "tasks" in result and isinstance(result["tasks"], list):
+        truncated = dict(result)
+        truncated["tasks"] = [{**t, "raw_output": (t.get("raw_output") or "")[:2000]} for t in result["tasks"]]
+        return json.dumps(truncated, indent=2)
+
     return json.dumps(result, indent=2)
 
 

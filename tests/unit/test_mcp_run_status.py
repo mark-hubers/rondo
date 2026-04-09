@@ -198,6 +198,62 @@ class TestRondoRunStatus:
         result = json.loads(rondo_run_status("test-hb-done", heartbeat=True))
         assert result["s"] == "d"
 
+    def test_u32_run_status_truncates_raw_output_to_2000_chars(self):
+        """U-32 (REQ-100 addendum): rondo_run_status MUST truncate raw_output.
+
+        RONDO-212 regression guard — RONDO-211 fix for #258 removed the
+        truncation from _execute_dispatch (correct — multi_review needs full
+        output) but the truncation MUST still happen at the rondo_run_status
+        boundary per U-32. This test fails loudly if a future refactor moves
+        the cap in the wrong direction again.
+        """
+        from rondo.mcp_server import _background_results
+
+        long_output = "A" * 5000  ## 5000 chars — should be cut to 2000
+        _background_results["test-u32"] = {
+            "status": "done",
+            "done_count": 1,
+            "error_count": 0,
+            "pending_count": 0,
+            "tasks": [
+                {
+                    "name": "t1",
+                    "status": "done",
+                    "raw_output": long_output,
+                    "duration_sec": 1.0,
+                },
+            ],
+        }
+        result = json.loads(rondo_run_status("test-u32"))
+        assert "tasks" in result
+        assert len(result["tasks"]) == 1
+        assert len(result["tasks"][0]["raw_output"]) == 2000, (
+            f"U-32 violation: raw_output should be truncated to 2000 chars, "
+            f"got {len(result['tasks'][0]['raw_output'])}"
+        )
+        ## Verify original _background_results is NOT mutated (shallow copy guard)
+        assert len(_background_results["test-u32"]["tasks"][0]["raw_output"]) == 5000, (
+            "rondo_run_status must NOT mutate the stored background result; "
+            "it should shallow-copy before truncating for the response."
+        )
+
+    def test_u32_run_status_handles_missing_raw_output(self):
+        """U-32 guard: truncation must handle tasks with no raw_output key."""
+        from rondo.mcp_server import _background_results
+
+        _background_results["test-u32-missing"] = {
+            "status": "done",
+            "done_count": 1,
+            "error_count": 0,
+            "pending_count": 0,
+            "tasks": [
+                {"name": "t1", "status": "done", "duration_sec": 1.0},  ## no raw_output
+            ],
+        }
+        ## Must not raise KeyError/TypeError
+        result = json.loads(rondo_run_status("test-u32-missing"))
+        assert result["tasks"][0]["raw_output"] == ""
+
     def test_background_status_has_task_progress(self, tmp_path):
         """U-31: background dispatch status shows per-task progress."""
         import time

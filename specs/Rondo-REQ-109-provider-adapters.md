@@ -69,7 +69,7 @@ The adapter pattern isolates provider specifics: one class per provider, one int
 | 030 | Adapters MUST live in `rondo/src/rondo/adapters/` directory: `chat_completions.py`, `gemini.py`, `anthropic_api.py`, `ollama.py`, `factory.py` (construction), `auth.py` (keys), `health.py` (probes). `providers.py` handles routing + tiers + task model config. | MUST | Structure test |
 | 031 | `ChatCompletionsAdapter` handles OpenAI, Grok, Mistral via config (different `base_url`, same API shape). One class, three providers. | MUST | Multi-provider test |
 | 032 | Provider routing via `provider:model` prefix: `openai:gpt-4.1`, `gemini:flash`, `local:llama3.1:8b`. `parse_model()` splits on first `:`. No prefix → Claude. | MUST | Routing test |
-| 033 | `rondo_multi_review` MCP tool: dispatch same prompt to N providers, return per-provider findings + merged findings + cost/latency stats. Replaces `ai-review --all-providers`. | SHOULD | MCP test |
+| 033 | `rondo_multi_review` MCP tool: dispatch same prompt to N providers, return per-provider findings + merged findings + cost/latency stats. Replaces `ai-review --all-providers`. Top-level `status` MUST reflect actual provider outcomes: `"done"` if all providers returned `done` or `skipped`, `"error"` if all providers failed, `"partial"` if mixed. MUST NOT hardcode `status="done"` regardless of outcomes. RONDO-211 finding #256. | SHOULD | MCP test + status aggregation test |
 | 034 | API keys loaded from macOS Keychain via `keychain_item` field in config. Fallback to env var. Never in files or git. | MUST | Auth test |
 
 

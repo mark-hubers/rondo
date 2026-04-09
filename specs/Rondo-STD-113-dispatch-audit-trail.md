@@ -54,7 +54,7 @@ Overnight runs produce results but no explanation. A task failed — was the pro
 |----|-------------|----------|-------------|
 | 001 | Every dispatch produces an audit record BEFORE the subprocess launches (intent recorded) | MUST | Timing test |
 | 002 | Audit record updated AFTER dispatch completes (outcome recorded) | MUST | Completion test |
-| 003 | Audit record contains: dispatch_id (ULID), task_name, model, prompt_hash (SHA-256 of prompt), timestamp, duration_sec, cost_usd, status, exit_code | MUST | Schema test |
+| 003 | Audit record contains: dispatch_id (ULID), request_id (correlation ID from structured_log thread-local, empty if unbound), task_name, round_name, model, prompt_hash (SHA-256 of prompt), timestamp, duration_sec, cost_usd, status, exit_code | MUST | Schema test |
 | 004 | Full prompt text stored in separate file: `audit/{dispatch_id}.prompt.txt` | MUST | Prompt test |
 | 005 | Full result stored in separate file: `audit/{dispatch_id}.result.json` | MUST | Result test |
 | 006 | Files modified (heuristic extraction from output) stored in audit record | SHOULD | Files test |
@@ -68,6 +68,10 @@ Overnight runs produce results but no explanation. A task failed — was the pro
 | 014 | Overnight runs: morning report references dispatch_ids for failed tasks so Mark can audit | MUST | Report test |
 | 015 | Audit retention: keep forever by default. `audit_retention_days` config to auto-archive old files. | SHOULD | Retention test |
 | 016 | When OB-connected: dispatch_ids included in OAResult for cross-product traceability | SHOULD | Integration test |
+| 017 | `AuditTrail.reconcile_stuck_intents()` MUST scan the JSONL log for orphan INTENT records (no matching OUTCOME) and write a synthetic OUTCOME with `status="stuck"` and `error_code="ERR_RECONCILED_STUCK"` so the audit trail is consistent after crashes. Returns count of records reconciled. | MUST | Reconcile test |
+| 018 | `reconcile_stuck_intents(stuck_after_sec)` MUST respect an age threshold to avoid false-positives on peer workers' in-flight INTENTs in multi-process deployments. INTENTs whose `dispatched_at` is younger than the threshold are assumed live on another process and skipped. Default pulled from `AuditConfig.stuck_after_sec` (production default 300s). Callers override with `stuck_after_sec=0` to disable the threshold. Fixed RONDO-211 finding #257 (multi-process false-positive race). | MUST | Multi-process stress test |
+| 019 | `AuditConfig.stuck_after_sec: int = 300` — age threshold (seconds) used by auto-reconcile on AuditTrail init. Must be longer than any normal dispatch (0.5-60s typical, 2-3 min for multi-step) and short enough to catch true crashes within an SLA window. | MUST | Config default test |
+| 020 | `rondo_run_status` MCP tool MUST truncate `raw_output` in each task to 2000 chars per U-32 (REQ-100 addendum) at the response boundary. Truncation MUST NOT happen in `_execute_dispatch` (the producer) because `rondo_multi_review` needs full output. RONDO-211 finding #258 + RONDO-212 regression fix. | MUST | U-32 regression test |
 
 
 ---
@@ -85,6 +89,7 @@ Two-phase audit recording: phase 1 records intent BEFORE dispatch (task name, mo
 ```json
 {
   "dispatch_id": "dsp_01HRJ3...",
+  "request_id": "7f3e9a2c4b1d4e5f",
   "task_name": "review_forward",
   "round_name": "spec_review_round",
   "model": "claude-sonnet-4-6",
@@ -103,6 +108,9 @@ Two-phase audit recording: phase 1 records intent BEFORE dispatch (task name, mo
   "completed_at": "2026-03-20T03:14:34Z"
 }
 ```
+
+**Field notes:**
+- `request_id` — correlation ID for tracing a single user request across N retry attempts or multi-provider dispatches. Auto-captured from `rondo.structured_log` thread-local at `record_intent()` time via `get_request_id()`. Empty string if no request_id was bound. Added RONDO-211 finding #259.
 
 ---
 
@@ -362,3 +370,4 @@ CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-114. 16 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval record (Mark, Session 84). |
 | 1.2 | 2026-03-31 | Session 94: Added note on universal provider audit coverage per REQ-109 v1.2 req 026. Non-Claude CLI path now goes through shared finalization (was split-brain). |
+| 1.3 | 2026-04-08 | RONDO-211/212: (1) Added `request_id` to req 003 field list + data-model JSON example (finding #259). (2) Added reqs 017-020 for `reconcile_stuck_intents` with age threshold `stuck_after_sec` (finding #257 — fixes multi-process false-positive race that marked peer workers' in-flight INTENTs as stuck). (3) Added req 020 for U-32 truncation boundary clarification — truncation MUST happen at `rondo_run_status` consumer boundary, NOT in `_execute_dispatch` producer, because `rondo_multi_review` needs full output (finding #258 + RONDO-212 regression fix). |

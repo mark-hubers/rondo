@@ -26,7 +26,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return EXIT_FAILURE
 
 
-def _cmd_history(args: argparse.Namespace) -> int:
+def _cmd_history(args: argparse.Namespace) -> int:  # pylint: disable=too-many-return-statements
     """Execute 'rondo history' — show dispatch history.
 
     Rondo-REQ-104 req 005.
@@ -85,7 +85,7 @@ def _load_audit_records(audit_dir: str) -> list[dict]:
     return records
 
 
-def _cmd_audit(args: argparse.Namespace) -> int:
+def _cmd_audit(args: argparse.Namespace) -> int:  # pylint: disable=too-many-return-statements
     """Query dispatch audit trail — STD-113 reqs 011-013.
 
     Always-on: every dispatch records audit data. This command reads it.

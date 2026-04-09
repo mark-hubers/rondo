@@ -29,7 +29,6 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
 
     # -- REQ-103 req 016: JSON output
     if getattr(args, "json", False):
-
         print(
             json.dumps(
                 {
@@ -61,7 +60,8 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS if result.can_proceed else EXIT_FAILURE
 
-def _cmd_spool(args: argparse.Namespace) -> int:
+
+def _cmd_spool(args: argparse.Namespace) -> int:  # pylint: disable=too-many-branches
     """Manage result spool — REQ-101 reqs 047-049."""
     spool = SpoolManager(config=SpoolConfig(spool_dir=args.spool_dir))
 
@@ -108,6 +108,7 @@ def _cmd_spool(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS
 
+
 def _cmd_mcp(_args: argparse.Namespace) -> int:
     """Start MCP stdio server — IFS-104.
 
@@ -118,6 +119,7 @@ def _cmd_mcp(_args: argparse.Namespace) -> int:
 
     run_mcp()
     return EXIT_SUCCESS
+
 
 def _cmd_init(args: argparse.Namespace) -> int:
     """Create a starter round file or config — U-10 to U-14."""
@@ -193,6 +195,7 @@ def build_round() -> Round:
     print("  Next: rondo run round.py --dry-run")
     return EXIT_SUCCESS
 
+
 def _cmd_schedule(args: argparse.Namespace) -> int:
     """Create a launchd plist for recurring Rondo dispatch."""
     from rondo.schedule import generate_plist  # pylint: disable=import-outside-toplevel
@@ -222,6 +225,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
         print(f"\n# Install with: rondo schedule {args.file} --install")
 
     return EXIT_SUCCESS
+
 
 def _cmd_providers(args: argparse.Namespace) -> int:
     """Show all configured providers with health status — REQ-109 req 020."""
@@ -259,5 +263,6 @@ def _cmd_providers(args: argparse.Namespace) -> int:
         print(f"  {name:<12}  {health_label:<8}  {latency:>10}")
     print()
     return EXIT_SUCCESS
+
 
 # -- sig: mgh-6201.cd.bd955f.a4e5.32ef29

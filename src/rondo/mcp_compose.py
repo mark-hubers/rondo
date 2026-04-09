@@ -310,7 +310,7 @@ def _multi_review_serial_retry(
 
 
 # -- REQ-109 req 033: multi-provider parallel review
-def rondo_multi_review(
+def rondo_multi_review(  # pylint: disable=too-many-branches
     prompt: str,
     providers: str = "[]",
     dry_run: bool = False,

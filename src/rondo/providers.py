@@ -202,7 +202,7 @@ def _get_gemini_adapter(model_name: str) -> ProviderAdapter:
     return GeminiAdapter(api_key=api_key, default_model=model_name or "gemini-2.5-flash")
 
 
-def get_provider(model: str) -> ProviderAdapter | None:
+def get_provider(model: str) -> ProviderAdapter | None:  # pylint: disable=too-many-return-statements
     """Route model name to provider adapter — REQ-109 req 012, REQ-100 req 409.
 
     Returns None for Claude models (callers use dispatch_task directly).

@@ -31,7 +31,7 @@ EXIT_INTERRUPTED = 130  # -- standard Unix: 128 + SIGINT(2)
 #  Argument parser — Rondo-REQ-100 reqs 36-37, 41
 # ──────────────────────────────────────────────────────────────────
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-statements
     """Build the CLI argument parser.
 
     Rondo-REQ-100 req 36: CLI entry point.

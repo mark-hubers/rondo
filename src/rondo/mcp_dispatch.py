@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# pylint: disable=too-many-lines
 """Rondo dispatch — AI composition functions (multi-review, chain, benchmark, cloud).
 
 Rondo-IFS-104, Rondo-REQ-109.

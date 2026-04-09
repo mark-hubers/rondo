@@ -31,7 +31,7 @@ _PROVIDER_URLS: dict[str, str] = {
 }
 
 
-def get_adapter(provider: str, model: str = "") -> ProviderAdapter | None:
+def get_adapter(provider: str, model: str = "") -> ProviderAdapter | None:  # pylint: disable=too-many-return-statements
     """Return a configured adapter instance for the given provider.
 
     Loads API key from auth chain (env → keychain → 1password).

@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 #  run_round() — Rondo-REQ-100 req 45 (primary library entry point)
 # ──────────────────────────────────────────────────────────────────
 
+
 def run_round(
     round_def: Round,
     config: RondoConfig | None = None,
@@ -79,9 +80,82 @@ def run_round(
         return run_parallel(round_def, config)
     return run_sequential(round_def, config)
 
+
+# ──────────────────────────────────────────────────────────────────
+#  Sequential Runner — helpers (RONDO-225: extracted for complexity)
+# ──────────────────────────────────────────────────────────────────
+
+
+def _make_skip_result(task: Task, message: str, config: RondoConfig) -> TaskResult:
+    """Create a skipped TaskResult for timeout/circuit-breaker paths.
+
+    RONDO-225: extracted to deduplicate 2 near-identical blocks in run_sequential.
+    """
+    task.status = "skipped"
+    return TaskResult(
+        task_name=task.name,
+        status="skipped",
+        error_message=message,
+        model=config.default_model,
+        auth_mode=config.auth,
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+
+
+def _update_circuit_breaker(
+    error_code: str | None,
+    consecutive_errors: int,
+    last_error_code: str,
+    round_name: str,
+) -> tuple[int, str, bool]:
+    """Track consecutive same-error pattern and trip circuit breaker.
+
+    RONDO-225: extracted state machine from run_sequential for testability.
+    REQ-100 reqs 057-059: circuit breaker logic.
+
+    Returns (consecutive_errors, last_error_code, tripped).
+    """
+    if error_code and error_code == last_error_code:
+        consecutive_errors += 1
+    elif error_code:
+        consecutive_errors = 1
+        last_error_code = error_code
+    else:
+        consecutive_errors = 0
+        last_error_code = ""
+
+    tripped = consecutive_errors >= 3
+    if tripped:
+        logger.warning(
+            "Circuit breaker tripped: 3 consecutive %s in round '%s'",
+            last_error_code,
+            round_name,
+        )
+    return consecutive_errors, last_error_code, tripped
+
+
+def _finalize_round(result: RoundResult, start_time: float, results_dir: str) -> None:
+    """Finalize round: compute status, summary, timing, save, notify.
+
+    RONDO-225: extracted from run_sequential to reduce statement count.
+    """
+    result.status = calculate_round_status(result.task_results)
+
+    done_count = sum(1 for tr in result.task_results if tr.status == "done")
+    total = len(result.task_results)
+    result.summary = f"{done_count}/{total} tasks done"
+
+    result.completed_at = datetime.now(UTC).isoformat()
+    result.duration_sec = time.monotonic() - start_time
+
+    _save_round_summary(result, results_dir)
+    _notify_round(result)
+
+
 # ──────────────────────────────────────────────────────────────────
 #  Sequential Runner
 # ──────────────────────────────────────────────────────────────────
+
 
 def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
     """Execute a round sequentially: pre-gates → tasks → post-gates.
@@ -130,32 +204,16 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
         # -- REQ-100 req 075: round timeout enforcement
         elapsed = time.monotonic() - start_time
         if elapsed > config.round_timeout_sec:
-            task.status = "skipped"
             result.task_results.append(
-                TaskResult(
-                    task_name=task.name,
-                    status="skipped",
-                    error_message=f"round_timeout: {elapsed:.1f}s > {config.round_timeout_sec}s limit",
-                    model=config.default_model,
-                    auth_mode=config.auth,
-                    timestamp=datetime.now(UTC).isoformat(),
-                )
+                _make_skip_result(task, f"round_timeout: {elapsed:.1f}s > {config.round_timeout_sec}s limit", config)
             )
             result.usage.append(DispatchUsage(task_name=task.name))
             continue
 
         # -- Circuit breaker: skip remaining tasks after 3 consecutive same-error
         if breaker_tripped:
-            task.status = "skipped"
             result.task_results.append(
-                TaskResult(
-                    task_name=task.name,
-                    status="skipped",
-                    error_message=f"circuit_breaker: halted after 3 consecutive {last_error_code}",
-                    model=config.default_model,
-                    auth_mode=config.auth,
-                    timestamp=datetime.now(UTC).isoformat(),
-                )
+                _make_skip_result(task, f"circuit_breaker: halted after 3 consecutive {last_error_code}", config)
             )
             result.usage.append(DispatchUsage(task_name=task.name))
             continue
@@ -183,50 +241,23 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
             break
 
         # -- Circuit breaker tracking (REQ-100 req 057-058)
-        if task_result.error_code and task_result.error_code == last_error_code:
-            consecutive_errors += 1
-        elif task_result.error_code:
-            consecutive_errors = 1
-            last_error_code = task_result.error_code
-        else:
-            consecutive_errors = 0
-            last_error_code = ""
-
-        if consecutive_errors >= 3:
-            breaker_tripped = True
-            logger.warning(
-                "Circuit breaker tripped: 3 consecutive %s in round '%s'",
-                last_error_code,
-                round_def.name,
-            )
+        consecutive_errors, last_error_code, breaker_tripped = _update_circuit_breaker(
+            task_result.error_code, consecutive_errors, last_error_code, round_def.name
+        )
 
     # -- Phase 3: Post-gates (Rondo-REQ-100 req 7)
     if round_def.post_gates:
         result.post_gate_results = run_gates(round_def.post_gates)
 
-    # -- Calculate round status (Rondo-REQ-100 req 46 — DRY: reuse engine function)
-    result.status = calculate_round_status(result.task_results)
-
-    # -- Summary
-    done_count = sum(1 for tr in result.task_results if tr.status == "done")
-    total = len(result.task_results)
-    result.summary = f"{done_count}/{total} tasks done"
-
-    # -- Timing
-    result.completed_at = datetime.now(UTC).isoformat()
-    result.duration_sec = time.monotonic() - start_time
-
-    # -- Save round summary
-    _save_round_summary(result, config.results_dir)
-
-    # -- Rondo-REQ-105 req 001: notify on round completion
-    _notify_round(result)
-
+    # -- Phase 4: Finalize
+    _finalize_round(result, start_time, config.results_dir)
     return result
+
 
 # ──────────────────────────────────────────────────────────────────
 #  Internal helpers — extracted for DRY + pylint statement count
 # ──────────────────────────────────────────────────────────────────
+
 
 def _check_overage(usage: DispatchUsage, config: RondoConfig) -> str:
     """Finding #192: check overage and return action (continue/pause/stop)."""
@@ -235,11 +266,13 @@ def _check_overage(usage: DispatchUsage, config: RondoConfig) -> str:
         return config.on_overage
     return "continue"
 
+
 def _handle_rate_limit(usage: DispatchUsage, config: RondoConfig) -> None:
     """Finding #189: pause on rate limit before next dispatch."""
     if usage.rate_limit_status == "blocked" and config.rate_limit_backoff_sec > 0:
         logger.warning("Rate limited. Backing off %ds.", config.rate_limit_backoff_sec)
         time.sleep(config.rate_limit_backoff_sec)
+
 
 def _check_thresholds(task_result: TaskResult, usage: DispatchUsage, round_result: RoundResult) -> None:
     """FIX-684: wire threshold alerting into production dispatch path.
@@ -276,10 +309,12 @@ def _check_thresholds(task_result: TaskResult, usage: DispatchUsage, round_resul
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Threshold alerting unavailable: %s", exc)
 
+
 def _warn_file_conflicts(tasks: list[Task]) -> None:
     """Log warnings for file conflicts (advisory)."""
     for c in detect_file_conflicts(tasks):
         logger.warning("File conflict: %s", c)
+
 
 def detect_file_conflicts(tasks: list[Task]) -> list[str]:
     """STD-110 req 004: detect tasks that touch the same files.
@@ -297,6 +332,7 @@ def detect_file_conflicts(tasks: list[Task]) -> list[str]:
         if len(task_names) > 1:
             conflicts.append(f"{filepath} touched by: {', '.join(task_names)}")
     return conflicts
+
 
 def _dispatch_with_safety_net(
     task: Task,
@@ -326,6 +362,7 @@ def _dispatch_with_safety_net(
             DispatchUsage(task_name=task.name, model=config.default_model),
         )
 
+
 def _save_result_safe(
     task_result: TaskResult,
     usage: DispatchUsage,
@@ -336,6 +373,7 @@ def _save_result_safe(
         save_result(task_result, usage, results_dir)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Failed to save result for %s: %s", task_result.task_name, exc)
+
 
 def _notify_failure(task_result: TaskResult) -> None:
     """Send notification on dispatch failure — Rondo-REQ-105 req 002.
@@ -357,10 +395,10 @@ def _notify_failure(task_result: TaskResult) -> None:
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Failure notification failed (non-fatal): %s", exc)
 
+
 def _notify_round(result: RoundResult) -> None:
     """Send notification on round completion — Rondo-REQ-105 req 001."""
     try:
-
         total_cost = sum(u.cost_usd for u in result.usage)
         notify_round_complete(
             round_name=result.round_name,
@@ -370,6 +408,7 @@ def _notify_round(result: RoundResult) -> None:
         )
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Notification failed (non-fatal): %s", exc)
+
 
 def _save_round_summary(result: RoundResult, results_dir: str) -> None:
     """Save round summary JSON to results_dir. Logs on failure but never raises."""
@@ -383,6 +422,7 @@ def _save_round_summary(result: RoundResult, results_dir: str) -> None:
         filepath.chmod(0o600)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Failed to save round summary: %s", exc)
+
 
 def _build_summary_dict(result: RoundResult) -> dict:
     """Build serializable summary dict from RoundResult."""
@@ -404,5 +444,6 @@ def _build_summary_dict(result: RoundResult) -> dict:
         ],
         "total_cost_usd": sum(u.cost_usd for u in result.usage),
     }
+
 
 # -- sig: mgh-6201.cd.bd955f.34cd.35e2e7

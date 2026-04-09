@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 #  OvernightResult — aggregated output
 # ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class OvernightResult:  # pylint: disable=too-many-instance-attributes
     """Everything a consumer needs from an overnight run."""
@@ -56,9 +57,11 @@ class OvernightResult:  # pylint: disable=too-many-instance-attributes
     total_cost_usd: float = 0.0
     status: str = "pending"  # -- done, partial, error, stopped
 
+
 # ──────────────────────────────────────────────────────────────────
 #  EventLog — rolling 100-entry JSON file (Rondo-REQ-101 req 18)
 # ──────────────────────────────────────────────────────────────────
+
 
 class EventLog:
     """Rolling event log — keeps last 100 entries (Rondo-REQ-101 req 18)."""
@@ -96,9 +99,11 @@ class EventLog:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         path.write_text(json.dumps(self.entries, indent=2, default=str), encoding="utf-8")
 
+
 # ──────────────────────────────────────────────────────────────────
 #  Usage gating — Rondo-REQ-101 reqs 24-28
 # ──────────────────────────────────────────────────────────────────
+
 
 def check_usage_gate(
     usage: DispatchUsage,
@@ -126,14 +131,15 @@ def check_usage_gate(
 
     return "continue"
 
+
 # ──────────────────────────────────────────────────────────────────
 #  run_overnight() — Rondo-REQ-101 reqs 10-28
 # ──────────────────────────────────────────────────────────────────
 
+
 def _overnight_preflight(config: RondoConfig) -> bool:
     """Run preflight before overnight batch — Rondo-REQ-103 req 014."""
     try:
-
         preflight = run_preflight(config=config)
         if not preflight.can_proceed:
             logger.error("Overnight preflight FAILED: %s", preflight.errors)
@@ -145,7 +151,8 @@ def _overnight_preflight(config: RondoConfig) -> bool:
         logger.warning("Preflight check failed (continuing): %s", exc)
         return True
 
-def run_overnight(
+
+def run_overnight(  # pylint: disable=too-many-branches
     phases: list[Round],
     config: RondoConfig,
     *,
@@ -309,10 +316,10 @@ def run_overnight(
 
     return result
 
+
 def _write_overnight_spool(result: OvernightResult) -> None:
     """Write overnight result to spool for consumer pickup (REQ-101)."""
     try:
-
         test_dir = os.environ.get("RONDO_TEST_DIR")
         spool_kw = {"spool_dir": os.path.join(test_dir, "spool")} if test_dir else {}
         spool_result(
@@ -323,9 +330,11 @@ def _write_overnight_spool(result: OvernightResult) -> None:
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Overnight spool write failed (non-fatal): %s", exc)
 
+
 # ──────────────────────────────────────────────────────────────────
 #  Internal helpers
 # ──────────────────────────────────────────────────────────────────
+
 
 def _filter_phases(
     phases: list[Round],
@@ -346,6 +355,7 @@ def _filter_phases(
     selected_names = set(modes[mode])
     return [p for p in phases if p.name in selected_names]
 
+
 def _calculate_overnight_status(phase_results: list[RoundResult]) -> str:
     """Calculate overall overnight status from phase results.
 
@@ -365,9 +375,11 @@ def _calculate_overnight_status(phase_results: list[RoundResult]) -> str:
         return "partial"
     return "error"
 
+
 def _has_rate_limit_error(phase_result: RoundResult) -> bool:
     """Check if any task in phase had a rate limit error."""
     return any(tr.error_code == "ERR_RATE_LIMIT" for tr in phase_result.task_results)
+
 
 def _log_watchdog_events(phase_result: RoundResult, event_log: EventLog) -> None:
     """Log any watchdog timeout errors from phase results (Rondo-REQ-101 req 23)."""
@@ -382,5 +394,6 @@ def _log_watchdog_events(phase_result: RoundResult, event_log: EventLog) -> None
                     "phase": phase_result.round_name,
                 }
             )
+
 
 # -- sig: mgh-6201.cd.bd955f.f73d.2bc45c

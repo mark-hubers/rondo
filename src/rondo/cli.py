@@ -16,6 +16,7 @@ import argparse
 import sys
 from typing import Any
 
+from rondo._version import get_version
 from rondo.config import RondoConfig, load_config, validate_config  # noqa: F401 — re-export for test compat
 from rondo.engine import Round
 from rondo.runner import run_round
@@ -30,7 +31,6 @@ EXIT_INTERRUPTED = 130  # -- standard Unix: 128 + SIGINT(2)
 #  Argument parser — Rondo-REQ-100 reqs 36-37, 41
 # ──────────────────────────────────────────────────────────────────
 
-
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser.
 
@@ -42,7 +42,6 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rondo",
         description="Rondo — AI task automation for Claude Code",
     )
-    from rondo._version import get_version
 
     parser.add_argument("--version", action="version", version=f"rondo {get_version()}")
     parser.add_argument(
@@ -152,7 +151,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-
 def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     """Add flags shared between run and overnight subcommands."""
     parser.add_argument("--workers", type=int, default=None, help="Number of parallel workers")
@@ -182,17 +180,14 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--max-budget", type=float, default=None, dest="max_budget", help="Max cost per task in USD")
     parser.add_argument("--project", default=None, help="Working directory for dispatched tasks (U-15)")
 
-
 # -- RONDO-213: load_round_file + load_phases_file moved to rondo.engine
 # -- (leaf module) to break cycles. 3 modules imported them from cli.py,
 # -- creating cli → cli_commands → dispatch → cli and cli → mcp_dispatch → cli.
 # -- engine.py is the natural home (Round is defined there).
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Config construction — COALESCE: CLI → TOML → defaults
 # ──────────────────────────────────────────────────────────────────
-
 
 ## -- CLI arg name → RondoConfig field name (for non-None override)
 _ARG_TO_CONFIG = {
@@ -215,7 +210,6 @@ _BOOL_FLAGS = {
     "bare": "bare",
 }
 
-
 def _build_config(args: argparse.Namespace) -> RondoConfig:
     """Construct RondoConfig from CLI args with COALESCE."""
     overrides: dict = {}
@@ -236,15 +230,12 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
         cli_overrides=overrides if overrides else None,
     )
 
-
 # ──────────────────────────────────────────────────────────────────
 #  main() — Rondo-REQ-100 req 36
 # ──────────────────────────────────────────────────────────────────
 
-
 # -- Command dispatch table (extracted for complexity — max 15 per function)
 _COMMANDS: dict[str, Any] = {}  # -- populated after function defs
-
 
 def _dispatch_command(args: argparse.Namespace) -> int:
     """Route to the appropriate command handler."""
@@ -252,7 +243,6 @@ def _dispatch_command(args: argparse.Namespace) -> int:
     if handler:
         return handler(args)
     return EXIT_SUCCESS
-
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point, returns exit code per contract.
@@ -301,7 +291,6 @@ def main(argv: list[str] | None = None) -> int:
         # -- Top-level safety net: no raw tracebacks for users
         print(f"Unexpected error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
-
 
 def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     """REQ-109 req 026-027: route to provider adapter or Claude run_round.
@@ -381,15 +370,12 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
         )
     return run_round(round_def, config=config)
 
-
 # -- Import command handlers (split for module size)
 from rondo.cli_commands import register_commands  # noqa: E402
 
 register_commands(_COMMANDS)
 
-
 if __name__ == "__main__":
     sys.exit(main())
-
 
 # -- sig: mgh-6201.cd.bd955f.7648.92f73b

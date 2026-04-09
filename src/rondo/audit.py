@@ -28,6 +28,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -38,11 +39,9 @@ from rondo import sanitize as _sanitize_module  # avoid Caliber S3 false-positiv
 
 logger = logging.getLogger(__name__)
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Configuration — STD-113 req 008
 # -- ──────────────────────────────────────────────────────────────
-
 
 def _get_tenant_for_audit() -> str:
     """RONDO-200 (Finding #217): tenant scope for audit isolation.
@@ -55,7 +54,6 @@ def _get_tenant_for_audit() -> str:
 
     return get_sanitized_tenant()
 
-
 def _default_audit_dir() -> str:
     """Resolve audit dir: RONDO_TEST_DIR (test isolation) → ~/.rondo/audit/{tenant}.
 
@@ -67,7 +65,6 @@ def _default_audit_dir() -> str:
         return str(Path(test_dir) / "audit")
     tenant = _get_tenant_for_audit()
     return f"~/.rondo/audit/{tenant}"
-
 
 @dataclass
 class AuditConfig:
@@ -94,7 +91,6 @@ class AuditConfig:
         if not self.audit_dir:
             object.__setattr__(self, "audit_dir", _default_audit_dir())
 
-
 def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
     """RONDO-144 (Finding #210): atomic file write via temp + rename.
 
@@ -116,11 +112,9 @@ def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
                 pass
         raise
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Audit record — STD-113 req 003
 # -- ──────────────────────────────────────────────────────────────
-
 
 @dataclass
 class AuditRecord:
@@ -188,21 +182,17 @@ class AuditRecord:
             "completed_at": self.completed_at,
         }
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Audit trail — main interface
 # -- ──────────────────────────────────────────────────────────────
-
 
 def _generate_dispatch_id() -> str:
     """Generate a unique dispatch ID — STD-113 req 003."""
     return f"dsp_{uuid.uuid4().hex[:16]}"
 
-
 def _hash_prompt(prompt: str) -> str:
     """SHA-256 hash of prompt text — STD-113 req 003."""
     return f"sha256:{hashlib.sha256(prompt.encode()).hexdigest()}"
-
 
 class AuditTrail:
     """Two-phase dispatch audit trail — STD-113.
@@ -215,9 +205,8 @@ class AuditTrail:
         self.config = config or AuditConfig()
         self._audit_dir = Path(self.config.audit_dir).expanduser()
         # -- RONDO-204 (Finding #231): lock prevents concurrent rotation
-        import threading as _threading
 
-        self._rotate_lock = _threading.Lock()
+        self._rotate_lock = threading.Lock()
 
         self._audit_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._jsonl_path = self._audit_dir / "rondo_audit.jsonl"
@@ -498,7 +487,7 @@ class AuditTrail:
         line = json.dumps(record.to_dict()) + "\n"
         with self._jsonl_path.open("a", encoding="utf-8") as f:
             try:
-                import fcntl
+                import fcntl  # pylint: disable=import-outside-toplevel
 
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 f.write(line)
@@ -621,6 +610,5 @@ class AuditTrail:
                 logger.info("Auto-rotated %d audit records (size >= %d bytes)", rotated, max_bytes)
         except OSError as exc:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
-
 
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b4

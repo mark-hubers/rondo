@@ -34,13 +34,13 @@ from rondo.engine import (
     should_proceed,
     validate_round,
 )
+from rondo.notify import notify_round_complete
 
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────
 #  run_round() — Rondo-REQ-100 req 45 (primary library entry point)
 # ──────────────────────────────────────────────────────────────────
-
 
 def run_round(
     round_def: Round,
@@ -79,11 +79,9 @@ def run_round(
         return run_parallel(round_def, config)
     return run_sequential(round_def, config)
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Sequential Runner
 # ──────────────────────────────────────────────────────────────────
-
 
 def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
     """Execute a round sequentially: pre-gates → tasks → post-gates.
@@ -226,11 +224,9 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
 
     return result
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Internal helpers — extracted for DRY + pylint statement count
 # ──────────────────────────────────────────────────────────────────
-
 
 def _check_overage(usage: DispatchUsage, config: RondoConfig) -> str:
     """Finding #192: check overage and return action (continue/pause/stop)."""
@@ -239,13 +235,11 @@ def _check_overage(usage: DispatchUsage, config: RondoConfig) -> str:
         return config.on_overage
     return "continue"
 
-
 def _handle_rate_limit(usage: DispatchUsage, config: RondoConfig) -> None:
     """Finding #189: pause on rate limit before next dispatch."""
     if usage.rate_limit_status == "blocked" and config.rate_limit_backoff_sec > 0:
         logger.warning("Rate limited. Backing off %ds.", config.rate_limit_backoff_sec)
         time.sleep(config.rate_limit_backoff_sec)
-
 
 def _check_thresholds(task_result: TaskResult, usage: DispatchUsage, round_result: RoundResult) -> None:
     """FIX-684: wire threshold alerting into production dispatch path.
@@ -282,12 +276,10 @@ def _check_thresholds(task_result: TaskResult, usage: DispatchUsage, round_resul
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Threshold alerting unavailable: %s", exc)
 
-
 def _warn_file_conflicts(tasks: list[Task]) -> None:
     """Log warnings for file conflicts (advisory)."""
     for c in detect_file_conflicts(tasks):
         logger.warning("File conflict: %s", c)
-
 
 def detect_file_conflicts(tasks: list[Task]) -> list[str]:
     """STD-110 req 004: detect tasks that touch the same files.
@@ -305,7 +297,6 @@ def detect_file_conflicts(tasks: list[Task]) -> list[str]:
         if len(task_names) > 1:
             conflicts.append(f"{filepath} touched by: {', '.join(task_names)}")
     return conflicts
-
 
 def _dispatch_with_safety_net(
     task: Task,
@@ -335,7 +326,6 @@ def _dispatch_with_safety_net(
             DispatchUsage(task_name=task.name, model=config.default_model),
         )
 
-
 def _save_result_safe(
     task_result: TaskResult,
     usage: DispatchUsage,
@@ -346,7 +336,6 @@ def _save_result_safe(
         save_result(task_result, usage, results_dir)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Failed to save result for %s: %s", task_result.task_name, exc)
-
 
 def _notify_failure(task_result: TaskResult) -> None:
     """Send notification on dispatch failure — Rondo-REQ-105 req 002.
@@ -368,11 +357,9 @@ def _notify_failure(task_result: TaskResult) -> None:
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Failure notification failed (non-fatal): %s", exc)
 
-
 def _notify_round(result: RoundResult) -> None:
     """Send notification on round completion — Rondo-REQ-105 req 001."""
     try:
-        from rondo.notify import notify_round_complete
 
         total_cost = sum(u.cost_usd for u in result.usage)
         notify_round_complete(
@@ -383,7 +370,6 @@ def _notify_round(result: RoundResult) -> None:
         )
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("Notification failed (non-fatal): %s", exc)
-
 
 def _save_round_summary(result: RoundResult, results_dir: str) -> None:
     """Save round summary JSON to results_dir. Logs on failure but never raises."""
@@ -397,7 +383,6 @@ def _save_round_summary(result: RoundResult, results_dir: str) -> None:
         filepath.chmod(0o600)
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("Failed to save round summary: %s", exc)
-
 
 def _build_summary_dict(result: RoundResult) -> dict:
     """Build serializable summary dict from RoundResult."""
@@ -419,6 +404,5 @@ def _build_summary_dict(result: RoundResult) -> dict:
         ],
         "total_cost_usd": sum(u.cost_usd for u in result.usage),
     }
-
 
 # -- sig: mgh-6201.cd.bd955f.34cd.35e2e7

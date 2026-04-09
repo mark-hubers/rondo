@@ -580,7 +580,7 @@ class TestOvernightSpoolIntegration:
         ]
         config = RondoConfig(dry_run=True)
 
-        with patch("rondo.spool.spool_result") as mock_spool:
+        with patch("rondo.overnight.spool_result") as mock_spool:
             run_overnight(phases=phases, config=config)
             mock_spool.assert_called_once()
             call_kwargs = mock_spool.call_args[1]

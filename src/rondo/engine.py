@@ -14,6 +14,7 @@ Status vocabulary (shared with Rondo-STD-108):
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -174,12 +175,10 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
 
     def extract_json(self) -> dict[str, Any] | None:
         """U-26: Parse raw_output as JSON. Returns dict or None."""
-        import json as _json
-
         if not self.raw_output:
             return None
         try:
-            return _json.loads(self.raw_output)
+            return json.loads(self.raw_output)
         except (ValueError, TypeError):
             pass
         ## -- Try balanced-brace extraction for nested JSON (Finding #178)
@@ -193,19 +192,17 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
                     depth -= 1
                     if depth == 0:
                         candidate = self.raw_output[start : i + 1]
-                        return _json.loads(candidate)
+                        return json.loads(candidate)
         except (ValueError, TypeError):
             pass
         return None
 
     def extract_code_blocks(self) -> list[tuple[str, str]]:
         """U-27: Extract fenced code blocks. Returns list of (language, content)."""
-        import re as _re
-
         if not self.raw_output or not isinstance(self.raw_output, str):
             return []
         blocks: list[tuple[str, str]] = []
-        for match in _re.finditer(r"```(\w*)\n(.*?)```", self.raw_output, _re.DOTALL):
+        for match in re.finditer(r"```(\w*)\n(.*?)```", self.raw_output, re.DOTALL):
             lang = match.group(1) or ""
             content = match.group(2).rstrip("\n")
             blocks.append((lang, content))

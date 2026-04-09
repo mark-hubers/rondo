@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import stat
 import threading
 import tomllib
 import types
@@ -24,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # -- RONDO-202 (Finding #225): reload lock prevents mid-flight races.
 _config_lock = threading.RLock()
-
 
 # ──────────────────────────────────────────────────────────────────
 #  Model context limits — RONDO-200 Finding #216, #227
@@ -62,7 +62,6 @@ MODEL_CONTEXT_LIMITS: dict[str, int] = {
 # -- Default conservative limit for unknown models
 DEFAULT_CONTEXT_LIMIT = 100_000
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Shared directory constants — RONDO-213 cycle break
 # ──────────────────────────────────────────────────────────────────
@@ -78,7 +77,6 @@ DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 
 # -- Max tenant name length (RONDO-216 C1: prevents DoS via long env var)
 _MAX_TENANT_LEN = 64
-
 
 def get_sanitized_tenant() -> str:
     """Shared tenant resolution — DRY replacement for 3 separate copies.
@@ -96,7 +94,6 @@ def get_sanitized_tenant() -> str:
     sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", raw)[:_MAX_TENANT_LEN]
     return sanitized or "default"
 
-
 def resolve_rondo_dir(default: str, subdir: str) -> str:
     """Resolve Rondo data dir: RONDO_TEST_DIR → default.
 
@@ -108,11 +105,9 @@ def resolve_rondo_dir(default: str, subdir: str) -> str:
         return os.path.join(test_dir, subdir)
     return default
 
-
 # ──────────────────────────────────────────────────────────────────
 #  COALESCE — Rondo-STD-109 rule 6
 # ──────────────────────────────────────────────────────────────────
-
 
 def resolve(cli_value: Any, config_value: Any, default_value: Any) -> Any:
     """COALESCE: first non-None wins."""
@@ -122,11 +117,9 @@ def resolve(cli_value: Any, config_value: Any, default_value: Any) -> Any:
         return config_value
     return default_value
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Config dataclass — Rondo-STD-109 rules 9-10
 # ──────────────────────────────────────────────────────────────────
-
 
 @dataclass(frozen=True)
 class RondoConfig:  # pylint: disable=too-many-instance-attributes
@@ -181,11 +174,9 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
         if test_dir and self.audit_dir == "~/.rondo/audit":
             object.__setattr__(self, "audit_dir", os.path.join(test_dir, "audit"))
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Validation — Rondo-STD-109 rule 8
 # ──────────────────────────────────────────────────────────────────
-
 
 def validate_config(config: RondoConfig) -> list[str]:
     """Return list of validation errors (empty = valid).
@@ -199,7 +190,6 @@ def validate_config(config: RondoConfig) -> list[str]:
     _validate_relationships(config, errors)
     _validate_non_empty(config, errors)
     return errors
-
 
 def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
     """Validate enum-style fields against allowed values."""
@@ -223,7 +213,6 @@ def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
     if config.permission_mode not in valid_perms:
         errors.append(f"permission_mode must be one of {valid_perms}, got '{config.permission_mode}'")
 
-
 def _validate_ranges(config: RondoConfig, errors: list[str]) -> None:
     """Validate numeric fields against min/max bounds."""
     if config.workers < 1 or config.workers > 32:
@@ -241,7 +230,6 @@ def _validate_ranges(config: RondoConfig, errors: list[str]) -> None:
     if config.rate_limit_backoff_sec < 10 or config.rate_limit_backoff_sec > 600:
         errors.append(f"rate_limit_backoff_sec must be 10-600, got {config.rate_limit_backoff_sec}")
 
-
 def _validate_relationships(config: RondoConfig, errors: list[str]) -> None:
     """Validate cross-field relationships between config values."""
     if config.watchdog_timeout_sec >= config.task_timeout_sec:
@@ -250,7 +238,6 @@ def _validate_relationships(config: RondoConfig, errors: list[str]) -> None:
             f"task_timeout_sec ({config.task_timeout_sec}) — watchdog detects silence "
             f"within a task, so it must fire before the task times out"
         )
-
 
 def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
     """Validate string fields that must not be empty."""
@@ -273,7 +260,6 @@ def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
         elif not project_path.is_dir():
             errors.append(f"--project path is not a directory: {config.project}")
 
-
 # ──────────────────────────────────────────────────────────────────
 #  Config loading — Rondo-STD-109 rules 1-5, 7
 # ──────────────────────────────────────────────────────────────────
@@ -284,10 +270,8 @@ _CONFIG_FIELDS: set[str] = {f.name for f in fields(RondoConfig)}
 # -- Fields that are CLI-only (not settable via TOML)
 _CLI_ONLY: set[str] = {"dry_run"}
 
-
 # -- FIX-688: robust TOML type checking (replaces FIX-680 string-matching)
 _SIMPLE_TYPES: set[type] = {int, float, bool, str}
-
 
 def _extract_allowed_types(type_hint: Any) -> set[type]:
     """Extract concrete types from a type hint, handling Optional/Union.
@@ -326,7 +310,6 @@ def _extract_allowed_types(type_hint: Any) -> set[type]:
 
     return set()
 
-
 def _check_toml_type(field_name: str, value: Any, type_hint: Any) -> bool:
     """Warn if TOML value type doesn't match field type.
 
@@ -345,7 +328,6 @@ def _check_toml_type(field_name: str, value: Any, type_hint: Any) -> bool:
         )
         return True
     return False
-
 
 def load_config(
     *,
@@ -396,7 +378,6 @@ def load_config(
 
     return config
 
-
 def _load_toml(
     config_path: Path | str | None,
     search_dir: Path | str | None,
@@ -434,13 +415,11 @@ def _load_toml(
 
     return {}
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Config validation — REQ-109 req 089
 # -- ──────────────────────────────────────────────────────────────
 
 _VALID_TRUST = {"trusted", "untrusted"}
-
 
 def _validate_config(data: dict[str, Any]) -> dict[str, Any]:
     """Validate provider config types. Log warnings for invalid values, don't crash.
@@ -466,13 +445,11 @@ def _validate_config(data: dict[str, Any]) -> dict[str, Any]:
             logger.warning("Provider '%s' trust='%s' invalid — must be 'trusted' or 'untrusted'", name, trust)
     return data
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Raw TOML config reader — single cached reader for providers/cloud/auth
 # -- ──────────────────────────────────────────────────────────────
 
 _raw_config: dict[str, Any] | None = None
-
 
 def get_rondo_config(config_path: str = "") -> dict[str, Any]:
     """Load and cache raw ~/.rondo/config.toml as dict.
@@ -506,8 +483,6 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
     if path.is_file():
         # -- REQ-109 req 090: permission check (POSIX only)
         try:
-            import os
-            import stat
 
             file_stat = os.stat(path)
             if file_stat.st_mode & stat.S_IWOTH:
@@ -535,13 +510,11 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
             _raw_config = result
     return result
 
-
 def reset_rondo_config() -> None:
     """Clear cached config — used by tests."""
     global _raw_config  # noqa: PLW0603
     with _config_lock:
         _raw_config = None
-
 
 def reload_rondo_config(config_path: str = "") -> dict[str, Any]:
     """RONDO-200 (Finding #218) + RONDO-202 (Finding #225): Hot-reload config.
@@ -556,6 +529,5 @@ def reload_rondo_config(config_path: str = "") -> dict[str, Any]:
     with _config_lock:
         reset_rondo_config()
         return get_rondo_config(config_path=config_path)
-
 
 # -- sig: mgh-6201.cd.bd955f.1174.b6fb32

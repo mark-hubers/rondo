@@ -294,7 +294,7 @@ class TestPipelineSecurity:
         provider.dispatch.side_effect = fake_dispatch
         config = RondoConfig(max_budget_usd=0.08, audit_dir="")
 
-        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+        with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
             result = _dispatch_via_provider_or_claude(
                 round_def=round_def,
@@ -341,7 +341,7 @@ class TestPipelineSecurity:
         )
         config = RondoConfig(audit_dir="")  # -- no max_budget_usd
 
-        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+        with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
             result = _dispatch_via_provider_or_claude(
                 round_def=round_def,

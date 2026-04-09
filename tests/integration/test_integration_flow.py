@@ -107,7 +107,7 @@ class TestMasterDispatchFlow:
         )
         config = RondoConfig(audit_dir=str(tmp_path / "audit"))
 
-        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+        with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
             result = _dispatch_via_provider_or_claude(
                 round_def=round_def,
@@ -209,7 +209,7 @@ class TestMasterDispatchFlow:
         # -- Cap at $0.08 — tasks 1+2 cost $0.10 → task 3 MUST be blocked
         config = RondoConfig(max_budget_usd=0.08, audit_dir=str(tmp_path / "audit"))
 
-        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+        with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
             result = _dispatch_via_provider_or_claude(
                 round_def=round_def,
@@ -259,7 +259,7 @@ class TestMasterDispatchFlow:
         )
         config = RondoConfig(audit_dir=str(tmp_path / "audit"))
 
-        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+        with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
             _dispatch_via_provider_or_claude(
                 round_def=round_def,
@@ -332,7 +332,7 @@ class TestMasterDispatchFlow:
         clear_cache()
 
         provider = FakeProvider(content="cached response")
-        with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+        with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
             mock_get.return_value = (provider, "gemini-2.5-flash")
             # -- First call — hits provider
             result1 = rondo_run_file(
@@ -361,7 +361,7 @@ class TestMasterDispatchFlow:
         provider = FakeProvider()
 
         with caplog.at_level(logging.INFO, logger="rondo.structured_log"):
-            with patch("rondo.providers.get_provider_with_fallback") as mock_get:
+            with patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get:
                 mock_get.return_value = (provider, "gemini-2.5-flash")
                 rondo_run_file(prompt="structured log test", model="gemini:gemini-2.5-flash", dry_run=False)
 

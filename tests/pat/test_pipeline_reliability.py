@@ -39,7 +39,7 @@ class TestPipelineReliability:
             tasks=[Task(name="t1", instruction="hi", done_when="done")],
         )
 
-        with patch("rondo.dispatch.finalize_dispatch") as mock_finalize:
+        with patch("rondo.mcp_dispatch.finalize_dispatch") as mock_finalize:
             from rondo.engine import DispatchUsage, TaskResult
 
             mock_finalize.return_value = (
@@ -75,8 +75,8 @@ class TestPipelineReliability:
         )
 
         with (
-            patch("rondo.providers.get_provider_with_fallback") as mock_get,
-            patch("rondo.dispatch.finalize_dispatch") as mock_finalize,
+            patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get,
+            patch("rondo.mcp_dispatch.finalize_dispatch") as mock_finalize,
         ):
             from rondo.engine import DispatchUsage, TaskResult
 
@@ -119,8 +119,8 @@ class TestPipelineReliability:
         bad_provider.dispatch.side_effect = RuntimeError("simulated adapter crash")
 
         with (
-            patch("rondo.providers.get_provider_with_fallback") as mock_get,
-            patch("rondo.dispatch.finalize_dispatch") as mock_finalize,
+            patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get,
+            patch("rondo.mcp_dispatch.finalize_dispatch") as mock_finalize,
         ):
             from rondo.engine import DispatchUsage, TaskResult
 
@@ -165,8 +165,8 @@ class TestPipelineReliability:
         )
 
         with (
-            patch("rondo.providers.get_provider_with_fallback") as mock_get,
-            patch("rondo.dispatch.finalize_dispatch") as mock_finalize,
+            patch("rondo.mcp_dispatch.get_provider_with_fallback") as mock_get,
+            patch("rondo.mcp_dispatch.finalize_dispatch") as mock_finalize,
         ):
             mock_get.return_value = (good_provider, "gemini-2.5-flash")
             mock_finalize.side_effect = OSError("simulated finalize crash")

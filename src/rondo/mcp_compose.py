@@ -243,7 +243,7 @@ def _multi_review_run_parallel(provider_list: list[str], prompt: str) -> dict[st
             provider = futures[future]
             try:
                 results_map[provider] = future.result()
-            except Exception as exc:  # noqa: BLE001 — thread boundary
+            except Exception as exc:  # noqa: BLE001  # pylint: disable=broad-exception-caught
                 # -- RONDO-209 #254: broad-except is INTENTIONAL at thread boundaries.
                 # -- We collect results from N parallel providers; if one thread
                 # -- crashes for ANY reason (HTTP error, programmer bug, OOM), we

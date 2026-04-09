@@ -115,7 +115,7 @@ def detect_cc_version(binary: str = "claude") -> tuple[int, int, int] | None:
     Returns (major, minor, patch) or None if unavailable.
     Caches result — called once per process lifetime.
     """
-    global _cc_version_cache  # noqa: PLW0603
+    global _cc_version_cache  # noqa: PLW0603  # pylint: disable=global-statement
     if _cc_version_cache is not None:
         return _cc_version_cache
     try:

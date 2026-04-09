@@ -28,7 +28,7 @@ _DATA_FILE = Path(__file__).parent / "data" / "ai_help_data.json"
 
 def _load_data() -> dict[str, Any]:
     """Load AI help data from JSON file, cache on first call."""
-    global _help_data  # noqa: PLW0603
+    global _help_data  # noqa: PLW0603  # pylint: disable=global-statement
     if _help_data is not None:
         return _help_data
     _help_data = json.loads(_DATA_FILE.read_text(encoding="utf-8"))

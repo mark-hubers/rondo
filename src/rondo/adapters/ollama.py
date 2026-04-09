@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
+import urllib.error
+import urllib.request
 from typing import Any
 
 from rondo.engine import TaskResult
@@ -28,15 +31,10 @@ class OllamaAdapter(ProviderAdapter):
     name: str = "ollama"
 
     def __init__(self, endpoint: str = "") -> None:
-        import os
-
         self.endpoint = endpoint or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Ollama API, return TaskResult."""
-        import urllib.error
-        import urllib.request
-
         task_name = kwargs.get("task_name", f"ollama-{model}")
         start = time.monotonic()
 
@@ -79,9 +77,6 @@ class OllamaAdapter(ProviderAdapter):
 
     def health(self) -> bool:
         """Check if Ollama is running."""
-        import urllib.error
-        import urllib.request
-
         try:
             with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=5) as resp:  # nosec B310
                 return resp.status == 200
@@ -90,9 +85,6 @@ class OllamaAdapter(ProviderAdapter):
 
     def models(self) -> list[str]:
         """List models available in local Ollama."""
-        import urllib.error
-        import urllib.request
-
         try:
             with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=5) as resp:  # nosec B310
                 data = json.loads(resp.read().decode("utf-8"))

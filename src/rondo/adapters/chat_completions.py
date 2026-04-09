@@ -20,10 +20,13 @@ from __future__ import annotations
 import json
 import logging
 import time
+import urllib.error
+import urllib.request
 from typing import Any
 
 from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
 from rondo.provider_base import ProviderAdapter
+from rondo.retry import get_circuit_breaker, retry_http
 
 logger = logging.getLogger(__name__)
 
@@ -105,11 +108,6 @@ class ChatCompletionsAdapter(ProviderAdapter):
         RONDO-145 (Finding #211): wraps HTTP call in retry_http() with
         exponential backoff. Circuit breaker trips after 5 failures.
         """
-        import urllib.error
-        import urllib.request
-
-        from rondo.retry import get_circuit_breaker, retry_http
-
         task_name = kwargs.get("task_name", f"{self.provider_name}-{model}")
         use_model = model or self.default_model
         start = time.monotonic()
@@ -246,9 +244,6 @@ class ChatCompletionsAdapter(ProviderAdapter):
         reachable — the network path works. Only 5xx or network errors
         mean "down".
         """
-        import urllib.error
-        import urllib.request
-
         if not self.api_key:
             return False
         headers = {

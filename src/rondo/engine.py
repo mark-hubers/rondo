@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 # -- Status constants (Rondo-REQ-100 req 8)
@@ -462,8 +463,6 @@ def _validate_context_files(
     Checks: no traversal, no absolute (without root), no symlinks outside root, size cap.
     REQ-106 req 005: combined context_files + context_data size checked.
     """
-    from pathlib import Path
-
     errors: list[str] = []
     total_size = 0
 
@@ -569,7 +568,6 @@ def load_round_file(filepath: str) -> Round:
     Rondo-REQ-100 req 39: importlib.util.spec_from_file_location().
     """
     import importlib.util  # pylint: disable=import-outside-toplevel
-    from pathlib import Path  # pylint: disable=import-outside-toplevel
 
     path = Path(filepath)
     if not path.exists():
@@ -598,7 +596,6 @@ def load_phases_file(filepath: str) -> list[Round]:
     Same pattern as load_round_file() but expects build_phases() → list[Round].
     """
     import importlib.util  # pylint: disable=import-outside-toplevel
-    from pathlib import Path  # pylint: disable=import-outside-toplevel
 
     path = Path(filepath)
     if not path.exists():

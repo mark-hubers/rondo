@@ -27,6 +27,7 @@ import os
 import secrets
 import threading
 import time
+import urllib.error
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -70,8 +71,6 @@ def is_transient_http_error(exc: Exception) -> bool:
     Retry: 5xx server errors, 429 rate limit, network/connection errors.
     Do NOT retry: 4xx client errors (auth, bad request, not found).
     """
-    import urllib.error
-
     if isinstance(exc, urllib.error.HTTPError):
         # -- 5xx server errors and 429 rate limit are transient
         return exc.code >= 500 or exc.code == 429
@@ -91,8 +90,6 @@ def retry_http(
     Exponential backoff with optional jitter. Non-transient errors
     (4xx client errors other than 429) fail immediately.
     """
-    import urllib.error  # pylint: disable=import-outside-toplevel
-
     cfg = config or RetryConfig()
     delay = cfg.initial_delay_sec
     last_exc: Exception | None = None

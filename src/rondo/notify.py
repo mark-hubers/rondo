@@ -12,6 +12,7 @@ Import direction:
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -104,8 +105,6 @@ def _escape_applescript(s: str) -> str:
 
 def _send_macos(msg: str, title: str) -> None:
     """Send a macOS notification via osascript — Rondo-REQ-105 req 005."""
-    import os
-
     if os.environ.get("RONDO_TEST_DIR") and not os.environ.get("RONDO_NOTIFY_TEST"):
         return  # -- Suppress notifications during tests (unless explicitly testing notify)
     try:

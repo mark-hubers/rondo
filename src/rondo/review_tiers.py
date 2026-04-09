@@ -13,6 +13,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
+import tomllib
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,6 @@ def merge_ai_review_tiers(builtin: dict[str, dict[str, str]]) -> dict[str, dict[
         return merged
 
     try:
-        import tomllib
 
         with open(path, "rb") as f:
             data = tomllib.load(f)

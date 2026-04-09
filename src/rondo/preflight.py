@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 import shutil
+import sys
 from dataclasses import dataclass, field
 
 from rondo.config import RondoConfig
@@ -209,9 +211,6 @@ def _check_platform(result: PreflightResult) -> None:
     Reports which optional features are available on this OS.
     Core dispatch always works. macOS-only features noted as unavailable.
     """
-    import platform
-    import sys
-
     os_name = platform.system()  # -- Darwin, Linux, Windows
     arch = platform.machine()  # -- arm64, x86_64
     result.checks.append(f"platform: {os_name} {arch} (Python {sys.version.split()[0]})")

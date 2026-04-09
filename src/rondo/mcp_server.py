@@ -10,7 +10,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import sys
 from typing import Any
+
+from mcp.server import FastMCP
+
+from rondo.ai_help import get_ai_help
 
 # -- RONDO-209 cycle break: import composition tools directly from mcp_compose
 # -- (was previously re-exported through mcp_dispatch which created a cycle).
@@ -23,8 +29,6 @@ from rondo.mcp_compose import (  # noqa: F401
     rondo_review_file,
     rondo_summarize,
 )
-
-# -- Re-export dispatch functions for backward compatibility
 from rondo.mcp_dispatch import (  # noqa: F401
     _MAX_BACKGROUND_ENTRIES,
     _MAX_BENCHMARK_MODELS,
@@ -55,16 +59,16 @@ from rondo.mcp_tools import (
     rondo_templates,
 )
 
+# -- Re-export dispatch functions for backward compatibility
+from rondo.providers import load_providers_config, load_task_models
+
 
 def create_mcp_server() -> Any:
     """Create the FastMCP server with all tools registered.
 
     Separated from run() for testability.
     """
-    from mcp.server import FastMCP
-
     # -- REQ-109: load provider + routing config for tier resolution
-    from rondo.providers import load_providers_config, load_task_models
 
     load_providers_config()
     load_task_models()
@@ -78,7 +82,6 @@ def create_mcp_server() -> Any:
         description="Full API documentation: Round/Task schema, examples, commands. Read this first.",
     )
     def _help_resource() -> str:
-        from rondo.ai_help import get_ai_help
 
         return json.dumps(get_ai_help(), indent=2)
 
@@ -282,7 +285,6 @@ def create_mcp_server() -> Any:
 
     return mcp
 
-
 def run_mcp() -> None:
     """Start MCP server with stdio transport.
 
@@ -294,9 +296,6 @@ def run_mcp() -> None:
     a long-lived daemon would expose unauthenticated tools to anyone
     who can connect. The guard checks stdin is a pipe (not a terminal).
     """
-    import os
-    import sys
-
     # -- RONDO-108: refuse to start if stdin is a terminal (not piped)
     # -- MCP stdio servers are spawned by Claude Code with piped stdin.
     # -- If someone runs `rondo mcp` interactively, warn and require --force.
@@ -313,6 +312,5 @@ def run_mcp() -> None:
 
     mcp = create_mcp_server()
     mcp.run(transport="stdio")
-
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b9

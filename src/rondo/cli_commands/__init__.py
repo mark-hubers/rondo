@@ -22,8 +22,12 @@ EXIT_FAILURE = 1
 
 def register_commands(commands: dict) -> None:
     """Register all command handlers into the dispatch dict."""
-    from rondo.cli_commands.dispatch import _cmd_live, _cmd_overnight, _cmd_run
-    from rondo.cli_commands.infra import (
+    from rondo.cli_commands.dispatch import (  # pylint: disable=import-outside-toplevel
+        _cmd_live,
+        _cmd_overnight,
+        _cmd_run,
+    )
+    from rondo.cli_commands.infra import (  # pylint: disable=import-outside-toplevel
         _cmd_init,
         _cmd_mcp,
         _cmd_preflight,
@@ -31,14 +35,14 @@ def register_commands(commands: dict) -> None:
         _cmd_schedule,
         _cmd_spool,
     )
-    from rondo.cli_commands.observe import (
+    from rondo.cli_commands.observe import (  # pylint: disable=import-outside-toplevel
         _cmd_audit,
         _cmd_flaky,
         _cmd_history,
         _cmd_metrics,
         _cmd_report,
     )
-    from rondo.cli_commands.review import _cmd_review
+    from rondo.cli_commands.review import _cmd_review  # pylint: disable=import-outside-toplevel
 
     commands.update(
         {

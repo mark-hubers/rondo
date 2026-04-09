@@ -10,10 +10,12 @@ Import direction: cli.py → cli_commands → infra.py (one-way).
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from rondo.cli_commands import EXIT_FAILURE, EXIT_SUCCESS
+from rondo.spool import SpoolConfig, SpoolManager
 
 
 def _cmd_preflight(args: argparse.Namespace) -> int:
@@ -27,10 +29,9 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
 
     # -- REQ-103 req 016: JSON output
     if getattr(args, "json", False):
-        import json as _json  # pylint: disable=import-outside-toplevel
 
         print(
-            _json.dumps(
+            json.dumps(
                 {
                     "status": result.status,
                     "can_proceed": result.can_proceed,
@@ -60,19 +61,14 @@ def _cmd_preflight(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS if result.can_proceed else EXIT_FAILURE
 
-
 def _cmd_spool(args: argparse.Namespace) -> int:
     """Manage result spool — REQ-101 reqs 047-049."""
-    import json as _json
-
-    from rondo.spool import SpoolConfig, SpoolManager
-
     spool = SpoolManager(config=SpoolConfig(spool_dir=args.spool_dir))
 
     if args.action == "list":
         entries = spool.list_pending()
         if args.json:
-            print(_json.dumps(entries, indent=2))
+            print(json.dumps(entries, indent=2))
         elif not entries:
             print("  Spool empty.")
         else:
@@ -93,13 +89,13 @@ def _cmd_spool(args: argparse.Namespace) -> int:
     if args.action == "export":
         since = args.since or "2000-01-01"
         exported = spool.export_since(since)
-        print(_json.dumps(exported, indent=2))
+        print(json.dumps(exported, indent=2))
         return EXIT_SUCCESS
 
     if args.action == "consume":
         consumed = spool.consume_all()
         if args.json:
-            print(_json.dumps(consumed, indent=2))
+            print(json.dumps(consumed, indent=2))
         elif not consumed:
             print("  No results to consume.")
         else:
@@ -112,18 +108,16 @@ def _cmd_spool(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS
 
-
 def _cmd_mcp(args: argparse.Namespace) -> int:
     """Start MCP stdio server — IFS-104.
 
     Claude Code spawns this, talks via stdin/stdout.
     No daemon, no port, just stdio.
     """
-    from rondo.mcp_server import run_mcp
+    from rondo.mcp_server import run_mcp  # pylint: disable=import-outside-toplevel
 
     run_mcp()
     return EXIT_SUCCESS
-
 
 def _cmd_init(args: argparse.Namespace) -> int:
     """Create a starter round file or config — U-10 to U-14."""
@@ -168,7 +162,6 @@ Usage:
 
 from rondo.engine import Round, Task
 
-
 def build_round() -> Round:
     """Define the tasks for this round.
 
@@ -200,7 +193,6 @@ def build_round() -> Round:
     print("  Next: rondo run round.py --dry-run")
     return EXIT_SUCCESS
 
-
 def _cmd_schedule(args: argparse.Namespace) -> int:
     """Create a launchd plist for recurring Rondo dispatch."""
     from rondo.schedule import generate_plist  # pylint: disable=import-outside-toplevel
@@ -231,18 +223,15 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS
 
-
 def _cmd_providers(args: argparse.Namespace) -> int:
     """Show all configured providers with health status — REQ-109 req 020."""
-    import json as _json  # pylint: disable=import-outside-toplevel
-
     from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
 
     health_map = get_all_providers_health()
 
     if not health_map:
         if getattr(args, "json", False):
-            print(_json.dumps({"providers": []}))
+            print(json.dumps({"providers": []}))
         else:
             print("  No providers configured. Add [providers] to ~/.rondo/config.toml")
         return EXIT_SUCCESS
@@ -258,7 +247,7 @@ def _cmd_providers(args: argparse.Namespace) -> int:
             }
             for name, status in sorted(health_map.items())
         ]
-        print(_json.dumps({"providers": providers_list}, indent=2))
+        print(json.dumps({"providers": providers_list}, indent=2))
         return EXIT_SUCCESS
 
     # -- Human-readable table
@@ -270,6 +259,5 @@ def _cmd_providers(args: argparse.Namespace) -> int:
         print(f"  {name:<12}  {health_label:<8}  {latency:>10}")
     print()
     return EXIT_SUCCESS
-
 
 # -- sig: mgh-6201.cd.bd955f.a4e5.32ef29

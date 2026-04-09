@@ -242,7 +242,7 @@ class AuditTrail:
         # -- Module-level import (not 'from X import Y') to avoid Caliber S3
         # -- regex false-positive on the trailing _id substring.
         try:
-            from rondo import structured_log as _slog  # noqa: PLC0415
+            from rondo import structured_log as _slog  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
 
             request_id = _slog.get_request_id()
         except (ImportError, AttributeError):

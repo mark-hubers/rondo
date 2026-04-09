@@ -21,9 +21,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     from rondo.cli import (  # pylint: disable=import-outside-toplevel
         _build_config,
         _dispatch_with_provider,
-        load_round_file,
     )
     from rondo.config import validate_config  # pylint: disable=import-outside-toplevel
+    from rondo.engine import load_round_file  # pylint: disable=import-outside-toplevel
 
     try:
         round_def = load_round_file(args.file)
@@ -78,7 +78,7 @@ def _cmd_live(args: argparse.Namespace) -> int:
 
     Rondo-REQ-100 reqs 47-56.
     """
-    from rondo.cli import load_round_file  # pylint: disable=import-outside-toplevel
+    from rondo.engine import load_round_file  # pylint: disable=import-outside-toplevel
     from rondo.live import run_live  # pylint: disable=import-outside-toplevel
 
     try:
@@ -102,11 +102,9 @@ def _cmd_live(args: argparse.Namespace) -> int:
 
 def _cmd_overnight(args: argparse.Namespace) -> int:
     """Execute 'rondo overnight <file>' subcommand."""
-    from rondo.cli import (  # pylint: disable=import-outside-toplevel
-        _build_config,
-        load_phases_file,
-    )
+    from rondo.cli import _build_config  # pylint: disable=import-outside-toplevel
     from rondo.config import validate_config  # pylint: disable=import-outside-toplevel
+    from rondo.engine import load_phases_file  # pylint: disable=import-outside-toplevel
     from rondo.overnight import run_overnight  # pylint: disable=import-outside-toplevel
     from rondo.report import save_report  # pylint: disable=import-outside-toplevel
 

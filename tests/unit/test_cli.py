@@ -22,11 +22,16 @@ from rondo.cli import (
     EXIT_USAGE,
     _build_config,
     build_parser,
-    load_phases_file,
-    load_round_file,
     main,
 )
-from rondo.engine import DispatchUsage, Round, RoundResult, TaskResult
+from rondo.engine import (
+    DispatchUsage,
+    Round,
+    RoundResult,
+    TaskResult,
+    load_phases_file,  # -- RONDO-213: moved from cli to engine
+    load_round_file,  # -- RONDO-213: moved from cli to engine
+)
 from rondo.overnight import OvernightResult
 
 # ──────────────────────────────────────────────────────────────────

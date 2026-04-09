@@ -275,6 +275,7 @@ class TestImportLayering:
             "cli_commands",
             "cli",
             "config",
+            "engine",  # -- RONDO-213: load_round_file moved from cli to engine (leaf)
             "live",
             "overnight",
             "report",

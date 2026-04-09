@@ -61,6 +61,34 @@ DEFAULT_CONTEXT_LIMIT = 100_000
 
 
 # ──────────────────────────────────────────────────────────────────
+#  Shared directory constants — RONDO-213 cycle break
+# ──────────────────────────────────────────────────────────────────
+# -- Moved from mcp_tools.py to config.py in RONDO-213 because
+# -- mcp_dispatch.py imported these at the top level from mcp_tools,
+# -- creating the mcp_dispatch → mcp_tools → mcp_compose → mcp_dispatch
+# -- triangle (finding #254, 7 of 13 pylint R0401 cycles). config.py is
+# -- a leaf module (imports nothing from rondo.*), so it's the correct
+# -- home — same pattern as MODEL_CONTEXT_LIMITS moved in RONDO-206.
+
+DEFAULT_AUDIT_DIR = "~/.rondo/audit"
+DEFAULT_SPOOL_DIR = "~/.rondo/spool"
+
+
+def resolve_rondo_dir(default: str, subdir: str) -> str:
+    """Resolve Rondo data dir: RONDO_TEST_DIR → default.
+
+    Used by MCP tools and dispatch to find audit/spool/results dirs.
+    Honors RONDO_TEST_DIR env var for test isolation (RONDO-200 #217).
+    """
+    import os  # pylint: disable=import-outside-toplevel
+
+    test_dir = os.environ.get("RONDO_TEST_DIR")
+    if test_dir:
+        return os.path.join(test_dir, subdir)
+    return default
+
+
+# ──────────────────────────────────────────────────────────────────
 #  COALESCE — Rondo-STD-109 rule 6
 # ──────────────────────────────────────────────────────────────────
 

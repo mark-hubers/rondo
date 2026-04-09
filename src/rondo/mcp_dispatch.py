@@ -22,12 +22,11 @@ import logging
 import threading
 from typing import Any
 
-# -- RONDO-209 cycle break: removed re-export of mcp_tools functions.
-# -- Verified zero callers were importing them via mcp_dispatch — the re-export
-# -- was creating mcp_dispatch → mcp_tools → mcp_compose → mcp_dispatch cycle.
-# -- Callers should import from rondo.mcp_tools directly.
-# -- Kept ONLY the symbols actually USED inside mcp_dispatch (not re-exported).
-from rondo.mcp_tools import _DEFAULT_AUDIT_DIR, _resolve_dir  # noqa: E402
+# -- RONDO-213 cycle break: moved DEFAULT_AUDIT_DIR + _resolve_dir from
+# -- mcp_tools.py to config.py (leaf module). This eliminates the top-level
+# -- mcp_dispatch → mcp_tools edge that created the MCP triangle cycle
+# -- (mcp_dispatch → mcp_tools → mcp_compose → mcp_dispatch).
+from rondo.config import DEFAULT_AUDIT_DIR, resolve_rondo_dir  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ def _prune_background() -> None:
 
 def _get_retry_dir() -> str:
     """RONDO-106: resolve retry directory path."""
-    return _resolve_dir("~/.rondo/retry", "retry")
+    return resolve_rondo_dir("~/.rondo/retry", "retry")
 
 
 def _save_background_result(dispatch_id: str, result: dict) -> None:
@@ -208,7 +207,7 @@ def _dispatch_via_provider_or_claude(
     from rondo.providers import get_provider_with_fallback, parse_model
 
     # -- Build finalize_config + audit_trail upfront — used by ALL paths
-    audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
+    audit_dir = resolve_rondo_dir(DEFAULT_AUDIT_DIR, "audit")
     audit_trail = None
     try:
         audit_trail = AuditTrail(config=AuditConfig(audit_dir=audit_dir))
@@ -220,7 +219,7 @@ def _dispatch_via_provider_or_claude(
         if isinstance(config, RondoConfig)
         else RondoConfig(
             audit_dir=audit_dir,
-            results_dir=_resolve_dir("~/.rondo/results", "results"),
+            results_dir=resolve_rondo_dir("~/.rondo/results", "results"),
         )
     )
 
@@ -433,7 +432,7 @@ def _get_task_names(file_path: str, prompt: str) -> list[str]:
     if prompt:
         return ["inline-task"]
     try:
-        from rondo.cli import load_round_file as _load
+        from rondo.engine import load_round_file as _load
 
         rd = _load(file_path)
         return [t.name for t in rd.tasks]
@@ -489,7 +488,7 @@ def _build_round_and_config(
             tasks=[Task(name="inline-task", instruction=prompt, done_when=done_when)],
         )
     else:
-        from rondo.cli import load_round_file
+        from rondo.engine import load_round_file
 
         round_def = load_round_file(file_path)
 

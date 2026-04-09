@@ -13,9 +13,7 @@ Import direction:
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import sys
-from pathlib import Path
 from typing import Any
 
 from rondo.config import RondoConfig, load_config, validate_config  # noqa: F401 — re-export for test compat
@@ -185,61 +183,10 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project", default=None, help="Working directory for dispatched tasks (U-15)")
 
 
-# ──────────────────────────────────────────────────────────────────
-#  Dynamic loading — Rondo-REQ-100 req 39
-# ──────────────────────────────────────────────────────────────────
-
-
-def load_round_file(filepath: str) -> Round:
-    """Dynamically import a round definition file and call build_round().
-
-    Rondo-REQ-100 req 39: importlib.util.spec_from_file_location().
-    """
-    path = Path(filepath)
-    if not path.exists():
-        raise FileNotFoundError(f"Round file not found: {filepath}")
-
-    spec = importlib.util.spec_from_file_location("round_def", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load module spec from: {filepath}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, "build_round"):
-        raise AttributeError(f"Round file '{filepath}' must define a build_round() function")
-
-    result = module.build_round()
-
-    if not isinstance(result, Round):
-        raise TypeError(f"build_round() must return a Round, got {type(result).__name__}")
-
-    return result
-
-
-def load_phases_file(filepath: str) -> list[Round]:
-    """Dynamically import a phases file and call build_phases().
-
-    Same pattern as load_round_file() but expects build_phases() → list[Round].
-    """
-    path = Path(filepath)
-    if not path.exists():
-        raise FileNotFoundError(f"Phases file not found: {filepath}")
-
-    spec = importlib.util.spec_from_file_location("phases_def", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load module spec from: {filepath}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, "build_phases"):
-        raise AttributeError(f"Phases file '{filepath}' must define a build_phases() function")
-
-    result = module.build_phases()
-
-    if not isinstance(result, list):
-        raise TypeError(f"build_phases() must return a list[Round], got {type(result).__name__}")
-
-    return result
+# -- RONDO-213: load_round_file + load_phases_file moved to rondo.engine
+# -- (leaf module) to break cycles. 3 modules imported them from cli.py,
+# -- creating cli → cli_commands → dispatch → cli and cli → mcp_dispatch → cli.
+# -- engine.py is the natural home (Round is defined there).
 
 
 # ──────────────────────────────────────────────────────────────────

@@ -21,28 +21,16 @@ import logging
 from pathlib import Path
 from typing import Any
 
+# -- RONDO-213: moved DEFAULT_AUDIT_DIR, DEFAULT_SPOOL_DIR, resolve_rondo_dir
+# -- from this file to rondo.config (leaf module) to break the mcp_dispatch →
+# -- mcp_tools → mcp_compose → mcp_dispatch triangle cycle (finding #254).
+from rondo.config import DEFAULT_AUDIT_DIR, DEFAULT_SPOOL_DIR, resolve_rondo_dir
+
 logger = logging.getLogger(__name__)
-
-# -- ──────────────────────────────────────────────────────────────
-# --  Shared constants and helpers
-# -- ──────────────────────────────────────────────────────────────
-
-_DEFAULT_AUDIT_DIR = "~/.rondo/audit"
-_DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 
 # -- Finding #183: cache metrics to avoid reading JSONL 3-4x on morning check-in
 _metrics_cache: dict[str, Any] = {}
 _METRICS_CACHE_TTL = 30  # -- seconds
-
-
-def _resolve_dir(default: str, subdir: str) -> str:
-    """Resolve path: RONDO_TEST_DIR → default. Shared by MCP tools."""
-    import os
-
-    test_dir = os.environ.get("RONDO_TEST_DIR")
-    if test_dir:
-        return os.path.join(test_dir, subdir)
-    return default
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -61,8 +49,8 @@ def _get_cached_metrics() -> Any:
         return _metrics_cache["report"]
 
     report = compute_metrics(
-        audit_dir=_resolve_dir(_DEFAULT_AUDIT_DIR, "audit"),
-        spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool"),
+        audit_dir=resolve_rondo_dir(DEFAULT_AUDIT_DIR, "audit"),
+        spool_dir=resolve_rondo_dir(DEFAULT_SPOOL_DIR, "spool"),
     )
     _metrics_cache["report"] = report
     _metrics_cache["ts"] = now
@@ -140,7 +128,7 @@ def rondo_audit_summary(limit: int = 10) -> str:
 
     IFS-104 req 003: query tool for audit data.
     """
-    audit_path = Path(_resolve_dir(_DEFAULT_AUDIT_DIR, "audit")).expanduser() / "rondo_audit.jsonl"
+    audit_path = Path(resolve_rondo_dir(DEFAULT_AUDIT_DIR, "audit")).expanduser() / "rondo_audit.jsonl"
     if not audit_path.exists():
         return json.dumps({"recent": [], "total": 0})
 
@@ -210,7 +198,7 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     try:
         from rondo.history import aggregate_by_model, load_history, query_history
 
-        records = load_history(history_dir=_resolve_dir("~/.rondo/history", "history"))
+        records = load_history(history_dir=resolve_rondo_dir("~/.rondo/history", "history"))
         if model or status:
             records = query_history(
                 records,
@@ -231,7 +219,7 @@ def rondo_cost(days: int = 30) -> str:
     """
     from datetime import UTC, datetime, timedelta
 
-    audit_dir = _resolve_dir(_DEFAULT_AUDIT_DIR, "audit")
+    audit_dir = resolve_rondo_dir(DEFAULT_AUDIT_DIR, "audit")
     audit_path = Path(audit_dir).expanduser() / "rondo_audit.jsonl"
     cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
@@ -498,7 +486,7 @@ def rondo_spool_consume() -> str:
     try:
         from rondo.spool import SpoolConfig, SpoolManager
 
-        spool = SpoolManager(config=SpoolConfig(spool_dir=_resolve_dir(_DEFAULT_SPOOL_DIR, "spool")))
+        spool = SpoolManager(config=SpoolConfig(spool_dir=resolve_rondo_dir(DEFAULT_SPOOL_DIR, "spool")))
         consumed = spool.consume_all()
         return json.dumps({"consumed": consumed, "count": len(consumed)}, indent=2)
     except (ImportError, OSError, TypeError) as exc:

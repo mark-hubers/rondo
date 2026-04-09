@@ -553,4 +553,72 @@ def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
             task.status = status_map[task.name]
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Round file loading — RONDO-213 cycle break
+# -- ──────────────────────────────────────────────────────────────
+# -- Moved from cli.py to engine.py in RONDO-213 because 3 modules
+# -- (cli_commands/dispatch, mcp_dispatch, mcp_tools) imported
+# -- load_round_file from cli.py, creating cycles back to the CLI layer.
+# -- engine.py is a leaf module (imports nothing from rondo.*) so it's
+# -- the correct home — same pattern as config.py for shared constants.
+
+
+def load_round_file(filepath: str) -> Round:
+    """Dynamically import a round definition file and call build_round().
+
+    Rondo-REQ-100 req 39: importlib.util.spec_from_file_location().
+    """
+    import importlib.util  # pylint: disable=import-outside-toplevel
+    from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+    path = Path(filepath)
+    if not path.exists():
+        raise FileNotFoundError(f"Round file not found: {filepath}")
+
+    spec = importlib.util.spec_from_file_location("round_def", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module spec from: {filepath}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "build_round"):
+        raise AttributeError(f"Round file '{filepath}' must define a build_round() function")
+
+    result = module.build_round()
+
+    if not isinstance(result, Round):
+        raise TypeError(f"build_round() must return a Round, got {type(result).__name__}")
+
+    return result
+
+
+def load_phases_file(filepath: str) -> list[Round]:
+    """Dynamically import a phases file and call build_phases().
+
+    Same pattern as load_round_file() but expects build_phases() → list[Round].
+    """
+    import importlib.util  # pylint: disable=import-outside-toplevel
+    from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+    path = Path(filepath)
+    if not path.exists():
+        raise FileNotFoundError(f"Phases file not found: {filepath}")
+
+    spec = importlib.util.spec_from_file_location("phases_def", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module spec from: {filepath}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "build_phases"):
+        raise AttributeError(f"Phases file '{filepath}' must define a build_phases() function")
+
+    result = module.build_phases()
+
+    if not isinstance(result, list):
+        raise TypeError(f"build_phases() must return a list, got {type(result).__name__}")
+
+    return result
+
+
 # -- sig: mgh-6201.cd.bd955f.773b.af473b

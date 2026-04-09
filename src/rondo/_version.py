@@ -42,7 +42,7 @@ def _read_build_counter() -> tuple[str, int]:
 def _write_build_counter(date_str: str, build: int) -> None:
     """Write date + build counter to file."""
     try:
-        _BUILD_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _BUILD_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         _BUILD_FILE.write_text(
             json.dumps({"date": date_str, "build": build}),
             encoding="utf-8",

@@ -203,7 +203,7 @@ def save_result(
     Rondo-STD-108 rule 8: no credentials in output (enforced by env prep).
     """
     out_dir = Path(results_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     # -- Build result dict
     data = asdict(result)

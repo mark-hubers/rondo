@@ -80,7 +80,7 @@ def _save_background_result(dispatch_id: str, result: dict) -> None:
 
     retry_dir = Path(_get_retry_dir()).expanduser()
     try:
-        retry_dir.mkdir(parents=True, exist_ok=True)
+        retry_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         retry_path = retry_dir / f"{dispatch_id}.json"
         retry_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
         retry_path.chmod(0o600)  # -- STD-110 S5: restrictive permissions

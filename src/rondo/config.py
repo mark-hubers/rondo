@@ -73,6 +73,27 @@ DEFAULT_CONTEXT_LIMIT = 100_000
 DEFAULT_AUDIT_DIR = "~/.rondo/audit"
 DEFAULT_SPOOL_DIR = "~/.rondo/spool"
 
+# -- Max tenant name length (RONDO-216 C1: prevents DoS via long env var)
+_MAX_TENANT_LEN = 64
+
+
+def get_sanitized_tenant() -> str:
+    """Shared tenant resolution — DRY replacement for 3 separate copies.
+
+    RONDO-216 C1 (dual-sweep finding): audit.py, auth.py, spool.py each had
+    their own tenant derivation with different sanitization levels. Now ONE
+    shared function in config.py (leaf module) handles all three.
+
+    Resolution: RONDO_TENANT → USER → 'default'.
+    Sanitization: alphanumeric + underscore + hyphen only, max 64 chars.
+    """
+    import os  # pylint: disable=import-outside-toplevel
+    import re  # pylint: disable=import-outside-toplevel
+
+    raw = os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", raw)[:_MAX_TENANT_LEN]
+    return sanitized or "default"
+
 
 def resolve_rondo_dir(default: str, subdir: str) -> str:
     """Resolve Rondo data dir: RONDO_TEST_DIR → default.

@@ -86,7 +86,7 @@ def _append_cache_entry(path: Path, key: str, payload: dict[str, Any], cached_at
     entries under concurrent cross-process access.
     """
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         entry = {
             "key": key,
             "data": payload,

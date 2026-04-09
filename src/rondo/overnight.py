@@ -93,7 +93,7 @@ class EventLog:
         if not self.log_path:
             return
         path = Path(self.log_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         path.write_text(json.dumps(self.entries, indent=2, default=str), encoding="utf-8")
 
 

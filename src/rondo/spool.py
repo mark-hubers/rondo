@@ -75,10 +75,14 @@ def _validated_spool_path(spool_dir: Path, filename: str) -> Path | None:
 
 
 def _get_tenant_for_spool() -> str:
-    """RONDO-202 (Finding #224): derive tenant from env for spool isolation."""
-    import os as _os
+    """RONDO-202 (Finding #224): derive tenant from env for spool isolation.
 
-    return _os.environ.get("RONDO_TENANT") or _os.environ.get("USER") or "default"
+    RONDO-216 C1: delegates to shared get_sanitized_tenant() in config.py.
+    Was completely unsanitized — raw env var embedded in filesystem path.
+    """
+    from rondo.config import get_sanitized_tenant  # pylint: disable=import-outside-toplevel
+
+    return get_sanitized_tenant()
 
 
 def _default_spool_dir() -> str:

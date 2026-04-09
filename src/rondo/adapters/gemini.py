@@ -176,11 +176,16 @@ class GeminiAdapter(ProviderAdapter):
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             duration = time.monotonic() - start
             breaker.record_failure("gemini")
+            # -- RONDO-216 C4 (Cursor finding): redact API key from exception text.
+            # -- URLError/OSError can include the full URL with ?key=SECRET.
+            err_text = str(exc)
+            if self.api_key and self.api_key in err_text:
+                err_text = err_text.replace(self.api_key, "[REDACTED]")
             return TaskResult(
                 task_name=task_name,
                 status="error",
                 error_code=ERR_PROVIDER,
-                error_message=f"Gemini error: {exc}",
+                error_message=f"Gemini error: {err_text}",
                 model=use_model,
                 duration_sec=duration,
             )

@@ -47,18 +47,13 @@ logger = logging.getLogger(__name__)
 def _get_tenant_for_audit() -> str:
     """RONDO-200 (Finding #217): tenant scope for audit isolation.
 
-    Same logic as adapters/auth.py: RONDO_TENANT → USER → 'default'.
-
-    RONDO-214 C-2 (Cursor finding): sanitize tenant name to prevent path
-    traversal. A crafted RONDO_TENANT with '../' or '/' could escape the
-    expected ~/.rondo/audit/ directory structure.
+    RONDO-216 C1: now delegates to shared get_sanitized_tenant() in config.py.
+    Was a standalone copy with regex but no length cap. The shared version has
+    both regex + 64-char max + is used by audit, auth, and spool (DRY).
     """
-    import re  # pylint: disable=import-outside-toplevel
+    from rondo.config import get_sanitized_tenant  # pylint: disable=import-outside-toplevel
 
-    raw = os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
-    # -- Only allow alphanumeric, underscore, hyphen. Strip everything else.
-    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", raw)
-    return sanitized or "default"
+    return get_sanitized_tenant()
 
 
 def _default_audit_dir() -> str:
@@ -224,7 +219,7 @@ class AuditTrail:
 
         self._rotate_lock = _threading.Lock()
 
-        self._audit_dir.mkdir(parents=True, exist_ok=True)
+        self._audit_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._jsonl_path = self._audit_dir / "rondo_audit.jsonl"
         self._intent_times: dict[str, str] = {}  # -- dispatch_id → dispatched_at
         self._intent_request_ids: dict[str, str] = {}  # -- dispatch_id → request_id (RONDO-214 C-3)
@@ -404,12 +399,16 @@ class AuditTrail:
             # -- #251: cross-process exclusive lock via .rotate.lock sentinel file
             lock_path = self._audit_dir / ".rotate.lock"
             try:
-                self._audit_dir.mkdir(parents=True, exist_ok=True)
+                self._audit_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                 with open(lock_path, "a+", encoding="utf-8") as lock_f:
                     try:
                         fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
                     except OSError as lock_exc:
-                        logger.debug("Audit rotate file lock failed (non-fatal): %s", lock_exc)
+                        # -- RONDO-216 C3: ABORT rotation if lock fails.
+                        # -- Without the lock, read+archive+unlink is a race.
+                        # -- Was "non-fatal continue" — changed to abort.
+                        logger.warning("Audit rotate ABORTED — file lock failed: %s", lock_exc)
+                        return 0
 
                     # -- All operations below run with both thread + process lock held
                     if not self._jsonl_path.exists():
@@ -420,7 +419,7 @@ class AuditTrail:
                         return 0
                     line_count = len(content.splitlines())
                     archive_dir = self._audit_dir / "archive"
-                    archive_dir.mkdir(parents=True, exist_ok=True)
+                    archive_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                     timestamp = datetime.now(UTC).strftime("%Y-%m")
                     archive_path = archive_dir / f"{timestamp}.jsonl"
                     # -- Append if archive already exists (multiple rotations in same month)
@@ -505,8 +504,11 @@ class AuditTrail:
                 f.write(line)
                 f.flush()
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-            except (ImportError, OSError):
-                ## -- Windows or lock failure: write without lock (best-effort)
+            except (ImportError, OSError) as lock_exc:
+                ## -- Windows or lock failure: write without lock (best-effort).
+                ## -- RONDO-216 C3: append-only JSONL is POSIX-atomic for <PIPE_BUF,
+                ## -- so best-effort write is safe for small records. But log a warning.
+                logger.warning("Audit append without lock (best-effort): %s", lock_exc)
                 f.write(line)
 
     def _intent_is_in_flight(self, intent_rec: dict, threshold_sec: int, now: datetime) -> bool:

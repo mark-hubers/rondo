@@ -206,7 +206,7 @@ class CircuitBreaker:
 
         try:
             now = time.time()
-            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
             # -- #246: merge with existing on-disk state to avoid losing
             # -- entries written by other processes. Hold an exclusive lock
@@ -216,8 +216,11 @@ class CircuitBreaker:
                 try:
                     fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
                 except OSError as lock_exc:
-                    # -- Lock failed — fall back to best-effort write (rare, non-fatal)
-                    logger.debug("Breaker file lock failed (non-fatal): %s", lock_exc)
+                    # -- RONDO-216 C3: ABORT persist if lock fails.
+                    # -- Without the lock, read-merge-write overwrites peer state.
+                    # -- Was "non-fatal continue" — changed to abort.
+                    logger.warning("Breaker persist ABORTED — file lock failed: %s", lock_exc)
+                    return
 
                 # -- Read existing state (other processes may have written here)
                 existing: dict[str, dict[str, float]] = {}

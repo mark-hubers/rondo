@@ -217,7 +217,7 @@ def save_report(
     report = generate_report(result)
 
     out_dir = Path(config.report_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     date_str = datetime.now(UTC).strftime("%Y%m%d")
     filename = f"rondo-morning-{date_str}.md"

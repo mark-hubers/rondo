@@ -43,7 +43,7 @@ def log_dispatch(record: DispatchRecord, history_dir: str) -> None:
     One file per day: history-YYYY-MM-DD.jsonl
     """
     out_dir = Path(history_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     filepath = out_dir / f"history-{date_str}.jsonl"

@@ -389,7 +389,7 @@ def _save_round_summary(result: RoundResult, results_dir: str) -> None:
     """Save round summary JSON to results_dir. Logs on failure but never raises."""
     try:
         out_dir = Path(results_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         filepath = out_dir / "round-summary.json"
 
         data = _build_summary_dict(result)

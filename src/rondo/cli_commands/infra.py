@@ -137,7 +137,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
             print(f"Config already exists: {config_path}", file=sys.stderr)
             print("  Edit it directly, or remove it first to regenerate.", file=sys.stderr)
             return EXIT_FAILURE
-        config_dir.mkdir(parents=True, exist_ok=True)
+        config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         # -- Copy template from examples/
         template = Path(__file__).parent.parent.parent.parent / "examples" / "config.toml"
         if not template.exists():
@@ -213,7 +213,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
 
     plist = generate_plist(
         name=name,
-        command="/Users/markhubers/.local/bin/rondo",
+        command=__import__("shutil").which("rondo") or "rondo",  # -- RONDO-216 C5: was hardcoded path
         args=cmd_args,
         interval=args.interval,
         work_dir=str(Path(file_path).parent),

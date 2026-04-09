@@ -85,7 +85,7 @@ def _send_file(msg: str, log_file: str) -> None:
     """Append to notification log — Rondo-REQ-105 req 005."""
     try:
         path = Path(log_file)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         timestamp = datetime.now(UTC).isoformat()
         with open(path, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {msg}\n")

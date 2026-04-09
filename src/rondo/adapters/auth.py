@@ -43,11 +43,12 @@ _CACHE_TTL_SEC = 300  # 5 minutes (REQ-109 req 040)
 def _get_tenant() -> str:
     """RONDO-142: derive tenant scope from env var.
 
-    Defaults to RONDO_TENANT env var, falls back to USER, then 'default'.
-    Tenant scoping prevents one user's API key from being served to another
-    user's request through the shared cache.
+    RONDO-216 C1: delegates to shared get_sanitized_tenant() in config.py.
+    Was unsanitized — raw env var used as cache key. Now regex + length-capped.
     """
-    return os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
+    from rondo.config import get_sanitized_tenant  # pylint: disable=import-outside-toplevel
+
+    return get_sanitized_tenant()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -87,7 +88,7 @@ class KeychainBackend(KeyBackend):
                     "-s",
                     f"ace.ai-key.{provider}",
                     "-a",
-                    "markhubers",
+                    os.environ.get("USER", ""),  # -- RONDO-216 C5: was hardcoded "markhubers"
                     "-w",
                 ],
                 capture_output=True,

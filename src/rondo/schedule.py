@@ -57,20 +57,24 @@ def generate_plist(
 
     Returns the plist XML as a string. Optionally writes to output_dir.
     """
+    # -- RONDO-216 C6 (Cursor finding): escape XML special chars in interpolated values.
+    # -- Unescaped strings in plist XML can cause malformed plists or injection.
+    from html import escape as _xml_escape  # pylint: disable=import-outside-toplevel
+
     all_args = [command] + args
-    args_xml = "\n".join(f"        <string>{a}</string>" for a in all_args)
+    args_xml = "\n".join(f"        <string>{_xml_escape(a)}</string>" for a in all_args)
     interval_xml = _INTERVALS.get(interval, _INTERVALS["weekly"])
     log_dir = Path.home() / ".rondo" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     log_path = str(log_dir / f"{name}.log")
     work_dir = work_dir or str(Path.home())
 
     plist = _PLIST_TEMPLATE.format(
-        name=name,
+        name=_xml_escape(name),
         args_xml=args_xml,
         interval_xml=interval_xml,
-        log_path=log_path,
-        work_dir=work_dir,
+        log_path=_xml_escape(log_path),
+        work_dir=_xml_escape(work_dir),
     )
 
     if output_dir:

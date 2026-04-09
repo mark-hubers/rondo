@@ -411,7 +411,7 @@ def rondo_schedule_create(
 
     plist = generate_plist(
         name=sched_name,
-        command="/Users/markhubers/.local/bin/rondo",
+        command=__import__("shutil").which("rondo") or "rondo",  # -- RONDO-216 C5: was hardcoded path
         args=cmd_args,
         interval=interval,
         work_dir=str(Path(resolved).parent) if resolved else "",

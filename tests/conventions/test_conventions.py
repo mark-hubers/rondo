@@ -169,9 +169,9 @@ class TestImportLayering:
         "engine.py": set(),
         "config.py": set(),
         "sanitize.py": set(),
-        "audit.py": {"sanitize"},
+        "audit.py": {"sanitize", "config"},  # -- RONDO-216: shared tenant from config
         "flaky.py": set(),
-        "spool.py": set(),
+        "spool.py": {"config"},  # -- RONDO-216: shared tenant from config
         "_version.py": set(),
         "metrics.py": set(),
         "mcp_server.py": {

@@ -33,17 +33,17 @@
 
 [providers.gemini]
 enabled = true
-cheap_model = "gemini-2.5-flash"
-default_model = "gemini-2.5-flash"
-best_model = "gemini-2.5-pro"
+cheap_model = "gemini-2.5-flash-lite"   ## low — cheapest Google model
+default_model = "gemini-2.5-flash"      ## mid — fast balanced review
+best_model = "gemini-2.5-pro"           ## high — deepest code review
 trust = "trusted"
 ## Key: GEMINI_API_KEY env var, or macOS Keychain ace.ai-key.gemini
 
 [providers.openai]
 enabled = true
-cheap_model = "gpt-4o-mini"
-default_model = "gpt-4o"
-best_model = "gpt-4o"
+cheap_model = "gpt-4o-mini"            ## low — cheapest OpenAI
+default_model = "gpt-4.1-mini"         ## mid — balanced code + cost
+best_model = "gpt-4.1"                 ## high — best for deep code review
 trust = "trusted"
 ## Key: OPENAI_API_KEY env var, or macOS Keychain ace.ai-key.openai
 
@@ -57,9 +57,9 @@ trust = "untrusted"
 
 [providers.mistral]
 enabled = true
-cheap_model = "mistral-small-latest"
-default_model = "mistral-large-latest"
-best_model = "mistral-large-latest"
+cheap_model = "mistral-small-latest"    ## low — cheapest generalist
+default_model = "mistral-medium-latest" ## mid — balanced mid-tier
+best_model = "mistral-large-latest"     ## high — Mistral flagship
 trust = "trusted"
 ## Key: MISTRAL_API_KEY env var, or macOS Keychain ace.ai-key.mistral
 

@@ -512,4 +512,224 @@ def rondo_summarize(dispatch_json: str, dry_run: bool = False, model: str = "hai
     return result
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  Codebase review — RONDO-215 Option C
+# -- ──────────────────────────────────────────────────────────────
+
+# -- Per-provider preambles (calibrated from 4-model self-assessment 2026-04-09).
+# -- All 4 providers agreed: markdown fenced blocks, batched calls, structured output.
+# -- Differences are in FRAMING — what each provider focuses on.
+_REVIEW_PREAMBLES: dict[str, str] = {
+    "gemini": "You have deep context capacity. Focus on cross-module interactions, data flow across files, and architectural coherence.",
+    "openai": "Focus on line-by-line bugs, edge cases, and error handling gaps. Be surgical — cite exact line numbers.",
+    "grok": "Think adversarially. What assumptions are wrong? What breaks under stress or hostile input? Challenge the architecture.",
+    "mistral": "Focus on security: input validation, path traversal, credential handling, data exposure, and compliance patterns.",
+}
+
+_MAX_BATCH_CHARS = 80_000  # -- stay within all providers' practical context
+_DEFAULT_BATCH_SIZE = 4
+
+
+def _extract_module_summary(filepath: str, content: str) -> str:
+    """Extract module docstring + imports for architecture context."""
+    lines = content.split("\n")
+    summary_parts: list[str] = []
+
+    # -- Extract module docstring (first triple-quoted block)
+    in_docstring = False
+    docstring_lines: list[str] = []
+    for line in lines[:30]:  # -- only scan first 30 lines
+        if '"""' in line and not in_docstring:
+            in_docstring = True
+            docstring_lines.append(line.split('"""', 1)[-1] if line.count('"""') == 1 else line.split('"""')[1])
+            if line.count('"""') >= 2:
+                break
+            continue
+        if in_docstring:
+            if '"""' in line:
+                docstring_lines.append(line.split('"""')[0])
+                break
+            docstring_lines.append(line)
+    if docstring_lines:
+        summary_parts.append(" ".join(dl.strip() for dl in docstring_lines if dl.strip())[:200])
+
+    # -- Extract rondo imports (shows dependency graph)
+    imports = [ln.strip() for ln in lines if ln.strip().startswith(("from rondo.", "import rondo."))]
+    if imports:
+        summary_parts.append(
+            "imports: " + ", ".join(i.split("import")[0].strip().replace("from ", "") for i in imports[:5])
+        )
+
+    return f"- **{filepath}**: {' | '.join(summary_parts)}" if summary_parts else f"- **{filepath}**"
+
+
+def _build_batch_prompt(
+    batch_files: list[tuple[str, str]],
+    all_summaries: list[str],
+    focus: str,
+    batch_num: int,
+    total_batches: int,
+) -> str:
+    """Build a review prompt for one batch of files."""
+    parts: list[str] = []
+
+    parts.append(f"# Code Review — Batch {batch_num}/{total_batches}\n")
+
+    # -- Architecture summary (all modules, not just this batch)
+    parts.append("## Architecture Summary (all modules in this codebase)\n")
+    parts.extend(all_summaries)
+    parts.append("")
+
+    # -- Focus area
+    focus_text = focus or "reliability, error handling, DRY, security"
+    parts.append(f"## Focus: {focus_text}\n")
+
+    # -- Files in this batch
+    parts.append("## Files to review\n")
+    for filepath, content in batch_files:
+        parts.append(f"### file: {filepath}")
+        parts.append("```python")
+        parts.append(content)
+        parts.append("```\n")
+
+    # -- Output format (all 4 providers said structured template is best)
+    parts.append("## Output format")
+    parts.append("Return findings as a table. One row per finding:")
+    parts.append("| # | File | Line | Severity | Description | Recommendation |")
+    parts.append("|---|------|------|----------|-------------|----------------|")
+    parts.append("")
+    parts.append("Rate severity: HIGH / MEDIUM / LOW.")
+    parts.append("After the table, give a 2-sentence overall assessment of this batch.")
+
+    return "\n".join(parts)
+
+
+def _read_source_files(path_list: list[str]) -> tuple[list[tuple[str, str]], list[str]]:
+    """Read source files from paths. Returns (files, errors)."""
+    from pathlib import Path as _Path  # pylint: disable=import-outside-toplevel
+
+    files: list[tuple[str, str]] = []
+    errors: list[str] = []
+    for p in path_list:
+        fp = _Path(p).expanduser().resolve()
+        if not fp.is_file():
+            errors.append(f"Not found: {p}")
+            continue
+        try:
+            content = fp.read_text(encoding="utf-8")
+            files.append((str(fp.relative_to(fp.parent.parent.parent.parent)), content))
+        except (OSError, UnicodeDecodeError, ValueError):
+            files.append((str(fp.name), fp.read_text(encoding="utf-8", errors="replace")))
+    return files, errors
+
+
+def _batch_files(files: list[tuple[str, str]], batch_size: int, max_chars: int) -> list[list[tuple[str, str]]]:
+    """Group files into batches respecting size + char limits."""
+    batches: list[list[tuple[str, str]]] = []
+    current_batch: list[tuple[str, str]] = []
+    current_chars = 0
+    for fp, content in files:
+        if current_batch and (len(current_batch) >= batch_size or current_chars + len(content) > max_chars):
+            batches.append(current_batch)
+            current_batch = []
+            current_chars = 0
+        current_batch.append((fp, content))
+        current_chars += len(content)
+    if current_batch:
+        batches.append(current_batch)
+    return batches
+
+
+def _resolve_review_providers(providers_json: str) -> str:
+    """Resolve providers from config review_deep profile at high tier."""
+    if providers_json and providers_json != "[]":
+        return providers_json
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+    cfg = get_rondo_config()
+    profile = cfg.get("cloud", {}).get("profiles", {}).get("review_deep", {}).get("providers", [])
+    if not profile:
+        profile = ["gemini", "grok", "mistral", "openai"]
+    from rondo.providers import _providers_config, load_providers_config  # pylint: disable=import-outside-toplevel
+
+    load_providers_config()
+    resolved = []
+    for name in profile:
+        model = _providers_config.get(name, {}).get("best_model", "")
+        resolved.append(f"{name}:{model}" if model else name)
+    return json.dumps(resolved)
+
+
+def rondo_review_codebase(
+    paths: str = "[]",
+    focus: str = "",
+    providers: str = "[]",
+    batch_size: int = _DEFAULT_BATCH_SIZE,
+    dry_run: bool = False,
+) -> str:
+    """Review multiple source files with AI providers — RONDO-215 Option C.
+
+    Reads files, groups into batches, builds per-batch prompts with markdown
+    fenced code blocks and architecture context, dispatches via rondo_multi_review.
+
+    Calibrated from 4-model self-assessment (2026-04-09): all providers prefer
+    batched calls over full dump, markdown fenced format, structured output.
+
+    Args:
+        paths: JSON array of file paths to review (relative or absolute).
+        focus: Review focus — "reliability", "security", "dry", "architecture", or custom text.
+        providers: JSON array of provider:model strings. Default: review_deep profile.
+        batch_size: Files per batch (default 4, calibrated from provider self-assessment).
+        dry_run: Preview prompts without dispatching.
+    """
+    try:
+        path_list = json.loads(paths) if paths else []
+    except (json.JSONDecodeError, TypeError):
+        return json.dumps({"status": "error", "error": "Invalid paths JSON", "code": "ERR_INVALID_INPUT"})
+
+    if not path_list:
+        return json.dumps({"status": "error", "error": "No file paths provided", "code": "ERR_INVALID_INPUT"})
+
+    files, errors = _read_source_files(path_list)
+    if not files:
+        return json.dumps({"status": "error", "error": f"No readable files: {errors}", "code": "ERR_INVALID_INPUT"})
+
+    all_summaries = [_extract_module_summary(fp, content) for fp, content in files]
+    batches = _batch_files(files, batch_size, _MAX_BATCH_CHARS)
+    providers = _resolve_review_providers(providers)
+
+    batch_results: list[dict] = []
+    total_cost = 0.0
+    for i, batch in enumerate(batches, 1):
+        prompt = _build_batch_prompt(batch, all_summaries, focus, i, len(batches))
+
+        if dry_run:
+            batch_results.append(
+                {"batch": i, "files": [fp for fp, _ in batch], "prompt_length": len(prompt), "status": "dry_run"}
+            )
+            continue
+
+        result_json = rondo_multi_review(prompt=prompt, providers=providers, dry_run=False)
+        result = json.loads(result_json)
+        result["batch"] = i
+        result["files"] = [fp for fp, _ in batch]
+        batch_results.append(result)
+        total_cost += result.get("total_cost_usd", 0)
+
+    return json.dumps(
+        {
+            "status": "done" if not dry_run else "dry_run",
+            "total_files": len(files),
+            "total_batches": len(batches),
+            "batch_size": batch_size,
+            "focus": focus or "reliability, error handling, DRY, security",
+            "providers": json.loads(providers),
+            "total_cost_usd": total_cost,
+            "file_errors": errors,
+            "batches": batch_results,
+        },
+        indent=2,
+    )
+
+
 # -- sig: mgh-6201.cd.bd955f.7648.c0f05e

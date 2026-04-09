@@ -225,6 +225,12 @@
       "stability": "beta"
     },
     {
+      "name": "rondo_review_codebase",
+      "category": "cloud",
+      "description": "Deep codebase review: reads multiple source files, batches them with architecture context, sends actual code to AI providers. Calibrated per-provider prompts. RONDO-215.",
+      "stability": "beta"
+    },
+    {
       "name": "rondo_schedule_list",
       "category": "scheduling",
       "description": "List installed schedules",

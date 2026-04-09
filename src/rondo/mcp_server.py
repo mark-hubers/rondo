@@ -19,6 +19,7 @@ from rondo.mcp_compose import (  # noqa: F401
     rondo_chain,
     rondo_explain,
     rondo_multi_review,
+    rondo_review_codebase,
     rondo_review_file,
     rondo_summarize,
 )
@@ -211,6 +212,17 @@ def create_mcp_server() -> Any:
     )
     def _multi_review(prompt: str, providers: str = "[]", dry_run: bool = False) -> str:
         return rondo_multi_review(prompt=prompt, providers=providers, dry_run=dry_run)
+
+    @mcp.tool(
+        name="rondo_review_codebase",
+        description="Deep codebase review: reads multiple source files, batches them (4 per call), sends actual code to AI providers with architecture context. Calibrated per-provider prompts. Default: review_deep profile at high tier. RONDO-215.",
+    )
+    def _review_codebase(
+        paths: str = "[]", focus: str = "", providers: str = "[]", batch_size: int = 4, dry_run: bool = False
+    ) -> str:
+        return rondo_review_codebase(
+            paths=paths, focus=focus, providers=providers, batch_size=batch_size, dry_run=dry_run
+        )
 
     @mcp.tool(
         name="rondo_cloud",

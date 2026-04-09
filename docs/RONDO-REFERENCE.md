@@ -1,6 +1,6 @@
 # Rondo Reference — Complete System Guide
 
-**Product:** Rondo v0.6 | **Updated:** 2026-04-05 | **Tests:** 1,404 | **MCP Tools:** 22
+**Product:** Rondo v0.6 | **Updated:** 2026-04-05 | **Tests:** 1,404 | **MCP Tools:** 23
 
 *Define AI tasks in Python. Send them to any provider. Get structured results back.*
 
@@ -16,7 +16,7 @@
                           │  rondo run        rondo_run()   Round() │
                           │  rondo providers  rondo_cloud() Task()  │
                           │  rondo metrics    + 19 more     run()   │
-                          │  15 commands      22 tools      import  │
+                          │  15 commands      23 tools      import  │
                           └────────┬──────────┬──────────┬──────────┘
                                    │          │          │
                           ┌────────┴──────────┴──────────┴──────────┐
@@ -91,7 +91,7 @@ GEMINI_API_KEY   ace.ai-key.gemini   op://AI Keys/gemini/password
 
 ---
 
-## MCP Tools (22)
+## MCP Tools (23)
 
 Claude Code discovers these automatically when the Rondo MCP server is registered.
 Also exposes `rondo://help` resource for AI agent discovery (version, commands, schemas).
@@ -439,7 +439,7 @@ rondo/
 
 | Metric | Value |
 |--------|-------|
-| MCP tools | 22 |
+| MCP tools | 23 |
 | CLI commands | 14 |
 | Cloud adapters | 5 (Gemini, ChatCompletions, Anthropic, Ollama, Claude CLI) |
 | Cloud providers | 7 (Gemini, Grok, Mistral, OpenAI, Anthropic, Ollama, Claude) |

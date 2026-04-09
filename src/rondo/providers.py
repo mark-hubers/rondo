@@ -12,21 +12,27 @@ Import direction:
 from __future__ import annotations
 
 import logging
+import re
 import threading as _threading  # -- RONDO-218: providers config thread safety
+import tomllib
+from pathlib import Path
 from typing import Any
-
-from rondo.engine import TaskResult
 
 # -- RONDO-209: ProviderAdapter ABC moved to provider_base.py to break the
 # -- cyclic import (adapters/* → providers → adapters.health → adapters.factory).
 # -- Re-exported here for backward compat with all existing callers.
+from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+from rondo.adapters.auth import load_api_key
+from rondo.adapters.chat_completions import ChatCompletionsAdapter
+from rondo.adapters.gemini import GeminiAdapter
+from rondo.adapters.ollama import OllamaAdapter
+from rondo.engine import TaskResult
 from rondo.provider_base import ProviderAdapter
 
 # -- noqa to keep ProviderAdapter visible to "from rondo.providers import ProviderAdapter"
 __all__ = ["ProviderAdapter", "TaskResult", "Any"]
 
 logger = logging.getLogger(__name__)
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 D6: Claude uses dispatch_task() directly.
@@ -36,10 +42,8 @@ logger = logging.getLogger(__name__)
 # --  Phase 2 will extract Claude transport into a real adapter.
 # -- ──────────────────────────────────────────────────────────────
 
-
 # -- REQ-109 req 030: OllamaAdapter moved to adapters/ollama.py (Session 94)
 # -- Re-exported via top-level import for backward compatibility
-
 
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 req 012: Model → provider routing
@@ -65,8 +69,6 @@ def is_legacy_ollama_model(model: str) -> bool:
     disagreed on unprefixed Ollama names (llama3.1:8b, qwen2.5:32b).
     This function unifies the check — same regex logic as get_provider line 243.
     """
-    import re
-
     model_base = re.sub(r"[\d.:]+.*$", "", model.split("-")[0].lower())
     return model_base in _OLLAMA_PREFIXES
 
@@ -130,8 +132,6 @@ def get_ollama_adapter() -> ProviderAdapter:
     """Public accessor for OllamaAdapter singleton — avoids _private import."""
     global _ollama_adapter  # noqa: PLW0603
     if _ollama_adapter is None:
-        from rondo.adapters.ollama import OllamaAdapter
-
         _ollama_adapter = OllamaAdapter()
     return _ollama_adapter
 
@@ -173,9 +173,6 @@ def parse_model(model: str) -> tuple[str, str]:
 
 def _get_chat_completions_adapter(provider_name: str, model_name: str) -> ProviderAdapter:
     """Create a ChatCompletionsAdapter for the given provider — lazy import."""
-    from rondo.adapters.auth import load_api_key
-    from rondo.adapters.chat_completions import ChatCompletionsAdapter
-
     provider_urls = {
         "openai": "https://api.openai.com/v1",
         "grok": "https://api.x.ai/v1",
@@ -192,9 +189,6 @@ def _get_chat_completions_adapter(provider_name: str, model_name: str) -> Provid
 
 def _get_anthropic_adapter(model_name: str) -> ProviderAdapter:
     """Create an AnthropicAPIAdapter — lazy import."""
-    from rondo.adapters.anthropic_api import AnthropicAPIAdapter
-    from rondo.adapters.auth import load_api_key
-
     return AnthropicAPIAdapter(
         api_key=load_api_key("anthropic"),
         default_model=model_name or "claude-sonnet-4-6",
@@ -203,9 +197,6 @@ def _get_anthropic_adapter(model_name: str) -> ProviderAdapter:
 
 def _get_gemini_adapter(model_name: str) -> ProviderAdapter:
     """Create a GeminiAdapter — lazy import."""
-    from rondo.adapters.auth import load_api_key
-    from rondo.adapters.gemini import GeminiAdapter
-
     api_key = load_api_key("gemini")
 
     return GeminiAdapter(api_key=api_key, default_model=model_name or "gemini-2.5-flash")
@@ -236,7 +227,6 @@ def get_provider(model: str) -> ProviderAdapter | None:
         return None
 
     # -- Legacy: Ollama prefix matching (backward compat)
-    import re
 
     model_base = re.sub(r"[\d.:]+.*$", "", model_name.split("-")[0].lower())
     if model_base in _OLLAMA_PREFIXES:
@@ -288,7 +278,6 @@ _multi_review_overrides: dict[str, list[str]] = {}
 
 # -- Config-loaded overrides (populated by load_task_models)
 _task_model_overrides: dict[str, str] = {}
-
 
 _task_models_loaded: bool = False
 
@@ -373,9 +362,6 @@ def _get_fallback_provider(provider_name: str) -> str | None:
     REQ-109 req 015: reads [providers.<name>] fallback from config.toml.
     """
     try:
-        import tomllib
-        from pathlib import Path
-
         path = Path.home() / ".rondo" / "config.toml"
         if not path.is_file():
             return None

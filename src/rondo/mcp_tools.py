@@ -19,13 +19,28 @@ from __future__ import annotations
 import json
 import logging
 import threading as _threading  # -- RONDO-218: metrics cache thread safety
+import time
+import tomllib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 # -- RONDO-213: moved DEFAULT_AUDIT_DIR, DEFAULT_SPOOL_DIR, resolve_rondo_dir
 # -- from this file to rondo.config (leaf module) to break the mcp_dispatch →
 # -- mcp_tools → mcp_compose → mcp_dispatch triangle cycle (finding #254).
+from rondo._version import get_version
+from rondo.cli import build_parser
 from rondo.config import DEFAULT_AUDIT_DIR, DEFAULT_SPOOL_DIR, resolve_rondo_dir
+from rondo.history import aggregate_by_model, load_history, query_history
+from rondo.mcp_compose import rondo_multi_review
+from rondo.metrics import compute_metrics
+from rondo.providers import (
+    get_ollama_adapter,
+    load_task_models,
+    recommend_review_providers,
+)
+from rondo.schedule import generate_plist
+from rondo.spool import SpoolConfig, SpoolManager
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +50,12 @@ _metrics_cache: dict[str, Any] = {}
 _metrics_lock = _threading.Lock()
 _METRICS_CACHE_TTL = 30  # -- seconds
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Observability tools (read-only)
 # -- ──────────────────────────────────────────────────────────────
 
-
 def _get_cached_metrics() -> Any:
     """Return cached MetricsReport if fresh, else compute and cache."""
-    import time
-
-    from rondo.metrics import compute_metrics
-
     now = time.monotonic()
     with _metrics_lock:
         if _metrics_cache.get("report") and (now - _metrics_cache.get("ts", 0)) < _METRICS_CACHE_TTL:
@@ -61,7 +70,6 @@ def _get_cached_metrics() -> Any:
         _metrics_cache["ts"] = now
     return report
 
-
 def rondo_metrics() -> str:
     """Full metrics dashboard — cost, reliability, latency, tokens, health.
 
@@ -70,7 +78,6 @@ def rondo_metrics() -> str:
     """
     report = _get_cached_metrics()
     return json.dumps(report.to_dict(), indent=2)
-
 
 def rondo_health() -> str:
     """Quick health check — GREEN/YELLOW/RED with key numbers + per-provider status.
@@ -127,7 +134,6 @@ def rondo_health() -> str:
         result["providers"] = providers_result
     return json.dumps(result)
 
-
 def rondo_audit_summary(limit: int = 10) -> str:
     """Recent dispatch audit records — last N outcomes.
 
@@ -156,16 +162,12 @@ def rondo_audit_summary(limit: int = 10) -> str:
         }
     )
 
-
 def rondo_dispatch_info() -> str:
     """Rondo version, commands, capabilities, design principles.
 
     IFS-104 req 003: discovery tool for AI agents.
     Same data as `rondo --ai-help` but via MCP.
     """
-    from rondo._version import get_version
-    from rondo.cli import build_parser
-
     # -- U-55: derive command list from CLI parser (single source of truth)
     commands: list[str] = []
     parser = build_parser()
@@ -193,7 +195,6 @@ def rondo_dispatch_info() -> str:
         }
     )
 
-
 def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     """Query dispatch history — REQ-104 reqs 003-005.
 
@@ -201,7 +202,6 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     Filterable by model and status.
     """
     try:
-        from rondo.history import aggregate_by_model, load_history, query_history
 
         records = load_history(history_dir=resolve_rondo_dir("~/.rondo/history", "history"))
         if model or status:
@@ -216,14 +216,11 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     except (ImportError, OSError, TypeError) as exc:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
 
-
 def rondo_cost(days: int = 30) -> str:
     """Monthly cost dashboard — spend tracking per model.
 
     Reads audit trail for the last N days and aggregates cost.
     """
-    from datetime import UTC, datetime, timedelta
-
     audit_dir = resolve_rondo_dir(DEFAULT_AUDIT_DIR, "audit")
     audit_path = Path(audit_dir).expanduser() / "rondo_audit.jsonl"
     cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
@@ -258,19 +255,15 @@ def rondo_cost(days: int = 30) -> str:
         indent=2,
     )
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Management tools
 # -- ──────────────────────────────────────────────────────────────
-
 
 def rondo_models() -> str:
     """List available models with providers, tiers, and task recommendations.
 
     REQ-109: unified discovery — same provider catalog as --ai-help.
     """
-    from rondo.providers import get_ollama_adapter, load_task_models
-
     merged_models = load_task_models()
     providers = [
         {
@@ -322,7 +315,6 @@ def rondo_models() -> str:
         },
     ]
     # -- REQ-109 reqs 021-023: recommendations include cloud providers + multi-review defaults
-    from rondo.providers import recommend_review_providers  # pylint: disable=import-outside-toplevel
 
     def _provider_for(model: str) -> str:
         if ":" in model:
@@ -340,7 +332,6 @@ def rondo_models() -> str:
         {"providers": providers, "recommendations": recommendations, "multi_review_defaults": multi_defaults},
         indent=2,
     )
-
 
 def rondo_templates() -> str:
     """List pre-built round templates — reusable patterns for common tasks.
@@ -386,7 +377,6 @@ def rondo_templates() -> str:
     ]
     return json.dumps({"templates": templates, "count": len(templates)}, indent=2)
 
-
 def rondo_schedule_list() -> str:
     """List installed Rondo schedules (launchd plists)."""
     launch_dir = Path.home() / "Library" / "LaunchAgents"
@@ -397,7 +387,6 @@ def rondo_schedule_list() -> str:
             schedules.append({"name": name, "path": str(p)})
     return json.dumps({"schedules": schedules, "count": len(schedules)}, indent=2)
 
-
 def rondo_schedule_create(
     file_path: str,
     interval: str = "weekly",
@@ -406,8 +395,6 @@ def rondo_schedule_create(
     dry_run: bool = False,
 ) -> str:
     """Create a scheduled Rondo dispatch (generates launchd plist)."""
-    from rondo.schedule import generate_plist
-
     resolved = str(Path(file_path).expanduser().resolve()) if file_path else ""
     sched_name = name or (Path(file_path).stem if file_path else "unnamed")
     cmd_args = ["run", resolved]
@@ -435,7 +422,6 @@ def rondo_schedule_create(
     out_path = out_dir / f"com.rondo.{sched_name}.plist"
     out_path.write_text(plist, encoding="utf-8")
     return json.dumps({"status": "installed", "path": str(out_path), "name": sched_name, "interval": interval})
-
 
 def rondo_diff(current_json: str, previous_json: str = "") -> str:
     """Compare two dispatch results — U-59 to U-61.
@@ -481,7 +467,6 @@ def rondo_diff(current_json: str, previous_json: str = "") -> str:
         indent=2,
     )
 
-
 def rondo_spool_consume() -> str:
     """Consume all pending spool results — mailbox drain.
 
@@ -489,7 +474,6 @@ def rondo_spool_consume() -> str:
     This is how OB/ACE picks up overnight dispatch results.
     """
     try:
-        from rondo.spool import SpoolConfig, SpoolManager
 
         spool = SpoolManager(config=SpoolConfig(spool_dir=resolve_rondo_dir(DEFAULT_SPOOL_DIR, "spool")))
         consumed = spool.consume_all()
@@ -497,11 +481,9 @@ def rondo_spool_consume() -> str:
     except (ImportError, OSError, TypeError) as exc:
         return json.dumps({"consumed": [], "count": 0, "error": str(exc)})
 
-
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 reqs 046-063: Cloud dispatch orchestration
 # -- ──────────────────────────────────────────────────────────────
-
 
 def rondo_cloud(
     prompt: str,
@@ -522,9 +504,6 @@ def rondo_cloud(
         count: Number of providers (0 = use config default_count).
         dry_run: Preview without dispatching.
     """
-    import tomllib
-    from pathlib import Path
-
     # -- Load cloud config
     config_path = Path.home() / ".rondo" / "config.toml"
     cloud_cfg: dict = {}
@@ -602,7 +581,6 @@ def rondo_cloud(
 
     # -- RONDO-209 cycle break: import from mcp_compose (the actual definition site)
     # -- instead of mcp_server (which only re-exports). Removes mcp_tools→mcp_server cycle.
-    from rondo.mcp_compose import rondo_multi_review
 
     result_raw = rondo_multi_review(
         prompt=prompt,
@@ -622,6 +600,5 @@ def rondo_cloud(
     }
 
     return json.dumps(result, indent=2)
-
 
 # -- sig: mgh-6201.cd.bd955f.a104.d19501

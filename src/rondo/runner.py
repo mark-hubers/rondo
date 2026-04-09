@@ -343,10 +343,40 @@ def _dispatch_with_safety_net(
 
     If dispatch_task raises (shouldn't — it catches internally),
     convert to error result so subsequent tasks still run.
+
+    RONDO-227: pre/post dispatch hooks integrated (REQ-100-addendum reqs 100-114).
+    Pre-hooks transform the prompt before dispatch.
+    Post-hooks transform the result after dispatch.
     """
+    from rondo.hooks import (  # pylint: disable=import-outside-toplevel
+        HookError,
+        run_post_dispatch_hooks,
+        run_pre_dispatch_hooks,
+    )
+
     task.status = "in_progress"
+
+    # -- Pre-dispatch hooks (REQ-100-addendum req 100-105)
+    if task.pre_dispatch:
+        try:
+            hooked_prompt, _pre_trace = run_pre_dispatch_hooks(task.instruction, task, config)
+            task.instruction = hooked_prompt
+        except HookError as exc:
+            return (
+                TaskResult(
+                    task_name=task.name,
+                    status="error",
+                    error_code="ERR_HOOK_FAILED",
+                    error_message=str(exc),
+                    model=config.default_model,
+                    auth_mode=config.auth,
+                    timestamp=datetime.now(UTC).isoformat(),
+                ),
+                DispatchUsage(task_name=task.name, model=config.default_model),
+            )
+
     try:
-        return dispatch_task(task, config, round_name=round_name)
+        task_result, usage = dispatch_task(task, config, round_name=round_name)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         logger.warning("Dispatch safety net caught %s for task %s: %s", type(exc).__name__, task.name, exc)
         return (
@@ -361,6 +391,12 @@ def _dispatch_with_safety_net(
             ),
             DispatchUsage(task_name=task.name, model=config.default_model),
         )
+
+    # -- Post-dispatch hooks (REQ-100-addendum reqs 110-114)
+    if task.post_dispatch:
+        task_result, _post_trace = run_post_dispatch_hooks(task_result, usage, task)
+
+    return task_result, usage
 
 
 def _save_result_safe(

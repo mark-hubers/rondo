@@ -236,7 +236,7 @@ class TestImportLayering:
             "retry",  # -- RONDO-204 #235: circuit breaker parity for subprocess path
             "structured_log",  # -- RONDO-205 #242: request_id binding + log_event
         },
-        "runner.py": {"engine", "config", "dispatch", "parallel", "notify"},
+        "runner.py": {"engine", "config", "dispatch", "parallel", "notify", "hooks"},
         "parallel.py": {"engine", "config", "dispatch"},
         "overnight.py": {"engine", "config", "runner", "preflight", "spool"},
         "live.py": {"engine"},

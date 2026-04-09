@@ -76,6 +76,10 @@ class Task:  # pylint: disable=too-many-instance-attributes
     safe_parallel: bool = False  # -- REQ-101 req 058: safe for parallel dispatch
     human_input: str = ""  # -- Rondo-REQ-100 req 063: prompt for human before dispatch
 
+    # -- dispatch hooks (REQ-100-addendum-dispatch-hooks reqs 100-114)
+    pre_dispatch: list[Any] = field(default_factory=list)  # -- callables or "!shell" strings
+    post_dispatch: list[Any] = field(default_factory=list)  # -- callables or "!shell" strings
+
     # -- state (Rondo-REQ-100 req 8)
     status: str = "pending"  # -- pending → in_progress → terminal
 

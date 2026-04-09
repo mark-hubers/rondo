@@ -252,8 +252,6 @@ def _validate_non_empty(config: RondoConfig, errors: list[str]) -> None:
 
     # -- U-16: validate project path if set
     if config.project:
-        from pathlib import Path  # pylint: disable=import-outside-toplevel
-
         project_path = Path(config.project).expanduser()
         if not project_path.exists():
             errors.append(f"--project path does not exist: {config.project}")

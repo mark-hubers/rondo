@@ -737,7 +737,7 @@ def _finalize_dispatch(
 
 def _build_subprocess_cmd(
     config: RondoConfig,
-    prompt: str,
+    _prompt: str,
     model: str,
     *,
     task: Task | None = None,

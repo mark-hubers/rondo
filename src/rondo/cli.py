@@ -371,7 +371,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     return run_round(round_def, config=config)
 
 # -- Import command handlers (split for module size)
-from rondo.cli_commands import register_commands  # noqa: E402
+from rondo.cli_commands import register_commands  # noqa: E402  # pylint: disable=wrong-import-position
 
 register_commands(_COMMANDS)
 

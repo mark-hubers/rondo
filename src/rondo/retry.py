@@ -312,7 +312,7 @@ class CircuitBreaker:
                 transitioned = True
         if transitioned:
             self._save_state()  # -- #236: persist auto-close
-        return False if transitioned else True
+        return not transitioned
 
     def record_failure(self, provider: str) -> None:
         """Record a failure for this provider. Trip circuit if threshold reached."""

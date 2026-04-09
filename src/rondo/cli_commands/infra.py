@@ -108,7 +108,7 @@ def _cmd_spool(args: argparse.Namespace) -> int:
 
     return EXIT_SUCCESS
 
-def _cmd_mcp(args: argparse.Namespace) -> int:
+def _cmd_mcp(_args: argparse.Namespace) -> int:
     """Start MCP stdio server — IFS-104.
 
     Claude Code spawns this, talks via stdin/stdout.

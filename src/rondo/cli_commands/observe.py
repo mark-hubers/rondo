@@ -38,8 +38,6 @@ def _cmd_history(args: argparse.Namespace) -> int:
     filtered = query_history(records, model=args.model, status=args.status)
 
     if args.json:
-        import json  # pylint: disable=import-outside-toplevel
-
         print(json.dumps(filtered, indent=2, default=str))
     elif not filtered:
         print("  No dispatch history found.")

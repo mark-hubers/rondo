@@ -171,7 +171,7 @@ def rondo_dispatch_info() -> str:
     # -- U-55: derive command list from CLI parser (single source of truth)
     commands: list[str] = []
     parser = build_parser()
-    for action in parser._subparsers._actions:
+    for action in parser._subparsers._actions:  # pylint: disable=protected-access
         if hasattr(action, "choices") and action.choices:
             commands = sorted(action.choices.keys())
             break

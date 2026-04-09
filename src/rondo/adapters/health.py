@@ -76,7 +76,7 @@ def _get_configured_providers() -> list[str]:
         return []
 
 
-def check_health(provider_name: str, timeout: float = 5.0) -> HealthStatus:  # noqa: ARG001
+def check_health(provider_name: str, _timeout: float = 5.0) -> HealthStatus:
     """Call adapter.health() and return a fresh HealthStatus.
 
     REQ-109 req 017: key present + API reachable.

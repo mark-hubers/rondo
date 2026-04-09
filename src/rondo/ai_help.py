@@ -72,7 +72,7 @@ def _get_commands() -> list[dict[str, str]]:
 
     commands: list[dict[str, str]] = []
     parser = build_parser()
-    for action in parser._subparsers._actions:
+    for action in parser._subparsers._actions:  # pylint: disable=protected-access
         if hasattr(action, "choices") and action.choices:
             for name, sub in action.choices.items():
                 commands.append({"name": name, "description": sub.description or sub.format_usage().strip()})

@@ -169,8 +169,8 @@ class FlakyEngine:
                 groups[key] = []
             groups[key].append(outcome)
         # -- Sort each group chronologically
-        for key in groups:
-            groups[key].sort(key=lambda o: o.run_at)
+        for _key, outcomes in groups.items():
+            outcomes.sort(key=lambda o: o.run_at)
         return groups
 
     def get_summary(

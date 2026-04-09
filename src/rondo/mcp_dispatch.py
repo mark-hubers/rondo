@@ -77,6 +77,7 @@ _background_results: dict[str, dict] = {}
 _background_lock = threading.Lock()  # -- Thread-safe access to _background_results
 _MAX_BACKGROUND_ENTRIES = 100  # -- H-01
 
+
 def _prune_background() -> None:
     """H-01/H-02: evict oldest completed entries when over max. Thread-safe."""
     with _background_lock:
@@ -88,9 +89,11 @@ def _prune_background() -> None:
         for k, _ in completed[:to_remove]:
             del _background_results[k]
 
+
 def _get_retry_dir() -> str:
     """RONDO-106: resolve retry directory path."""
     return resolve_rondo_dir("~/.rondo/retry", "retry")
+
 
 def _save_background_result(dispatch_id: str, result: dict) -> None:
     """RONDO-106: persist background result to disk for cross-session retry.
@@ -116,6 +119,7 @@ def _save_background_result(dispatch_id: str, result: dict) -> None:
     except (OSError, TypeError) as exc:
         logger.debug("Retry save failed (non-fatal): %s", exc)
 
+
 def _load_background_result(dispatch_id: str) -> dict | None:
     """RONDO-106: load a background result from disk if not in memory."""
     retry_dir = Path(_get_retry_dir()).expanduser()
@@ -127,10 +131,12 @@ def _load_background_result(dispatch_id: str) -> dict | None:
             return None
     return None
 
+
 # -- RONDO-209 cycle break: removed re-export of mcp_compose functions.
 # -- Verified zero callers were using "from rondo.mcp_dispatch import rondo_benchmark"
 # -- (etc.) so the re-export was dead weight that created a cyclic import.
 # -- Callers should import directly from rondo.mcp_compose for these tools.
+
 
 def rondo_retry(dispatch_id: str, model: str = "") -> str:
     """Re-run failed tasks from a previous dispatch — U-56 to U-58.
@@ -166,6 +172,7 @@ def rondo_retry(dispatch_id: str, model: str = "") -> str:
         indent=2,
     )
 
+
 def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
     """U-47 + REQ-105: notify on completion via MCP session + macOS."""
     msg = (
@@ -177,7 +184,6 @@ def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
 
     # -- REQ-105: fire macOS notification (always, regardless of session)
     try:
-
         notify_round_complete(
             round_name=result.get("round_name", dispatch_id),
             status=result.get("status", "unknown"),
@@ -192,12 +198,12 @@ def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
     if session is None:
         return
     try:
-
         loop = asyncio.new_event_loop()
         loop.run_until_complete(session.send_log_message(level="info", data=msg))
         loop.close()
     except (AttributeError, TypeError, OSError, RuntimeError):
         pass  # -- U-49: best-effort, polling is fallback
+
 
 def _dispatch_via_provider_or_claude(
     round_def: Any,
@@ -258,7 +264,6 @@ def _dispatch_via_provider_or_claude(
             logger.warning("Pipeline finalization failed for %s: %s", task_name, exc)
             # -- RONDO-202 Finding #223: sanitize BEFORE returning even on finalize failure
             try:
-
                 sanitized_tr, _report = sanitize_task_result(tr, config=None)
                 return sanitized_tr
             except (TypeError, AttributeError):
@@ -309,6 +314,7 @@ def _dispatch_via_provider_or_claude(
         )
     return run_round(round_def, config=config)
 
+
 def _dispatch_one_task(
     task: Any,
     provider: Any,
@@ -350,6 +356,7 @@ def _dispatch_one_task(
             model=model,
         )
     return run_pipeline(tr, task.name, audit_record)
+
 
 def _run_provider_round(
     round_def: Any,
@@ -427,16 +434,17 @@ def _run_provider_round(
 
     return task_results
 
+
 def _get_task_names(file_path: str, prompt: str) -> list[str]:
     """U-31 + U-54: pre-populate task names for background progress tracking."""
     if prompt:
         return ["inline-task"]
     try:
-
         rd = load_round_file(file_path)
         return [t.name for t in rd.tasks]
     except (FileNotFoundError, AttributeError, TypeError, ImportError):
         return []
+
 
 def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str, str, str | None]:
     """Validate and resolve file_path + project. Returns (file_path, project, error_json)."""
@@ -463,6 +471,7 @@ def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str
 
     return file_path, project, None
 
+
 def _build_round_and_config(
     prompt: str,
     done_when: str,
@@ -480,7 +489,6 @@ def _build_round_and_config(
             tasks=[Task(name="inline-task", instruction=prompt, done_when=done_when)],
         )
     else:
-
         round_def = load_round_file(file_path)
 
     config_kwargs: dict = {
@@ -495,13 +503,16 @@ def _build_round_and_config(
 
     return round_def, RondoConfig(**config_kwargs)
 
+
 def _is_in_session() -> bool:
     """Detect if running inside a Claude Code session (CLAUDECODE env var)."""
     return bool(os.environ.get("CLAUDECODE"))
 
+
 # -- RONDO-146 (Finding #207): plan schema version
 # -- Bump when plan response format changes in a non-backward-compatible way
 PLAN_SCHEMA_VERSION = "1"
+
 
 def estimate_token_count(text: str) -> int:
     """Conservative token estimate — heterogeneous text aware.
@@ -532,6 +543,7 @@ def estimate_token_count(text: str) -> int:
     non_ascii_tokens = non_ascii_count * 2
     return ascii_tokens + non_ascii_tokens + 1  # -- +1 safety margin
 
+
 def check_context_limit(model: str, prompt: str) -> tuple[bool, int, int]:
     """Check if prompt fits in model's context window.
 
@@ -540,6 +552,7 @@ def check_context_limit(model: str, prompt: str) -> tuple[bool, int, int]:
     estimated = estimate_token_count(prompt)
     limit = MODEL_CONTEXT_LIMITS.get(model, DEFAULT_CONTEXT_LIMIT)
     return estimated <= limit, estimated, limit
+
 
 def resolve_dispatch_engine(
     model: str,
@@ -633,6 +646,7 @@ def resolve_dispatch_engine(
         project=project,
     )
 
+
 def _resolve_no_provider_model(
     model: str,
     prompt: str,
@@ -715,6 +729,7 @@ def _resolve_no_provider_model(
         "reason": f"Unknown model '{model}' — not a known Claude model or provider prefix",
     }
 
+
 def rondo_run_file(
     file_path: str = "",
     dry_run: bool = True,
@@ -762,6 +777,7 @@ def rondo_run_file(
             _session=_session,
         )
 
+
 def _idempotency_lookup(prompt: str, model: str, dry_run: bool, background: bool) -> tuple[str, str | None]:
     """RONDO-202 (Finding #227): look up cached result for (prompt, model).
 
@@ -783,6 +799,7 @@ def _idempotency_lookup(prompt: str, model: str, dry_run: bool, background: bool
     )
     return key, cached if isinstance(cached, str) else json.dumps(cached, indent=2)
 
+
 def _idempotency_store(key: str, result_str: str) -> None:
     """RONDO-202: cache successful results for future deduplication."""
     if not key:
@@ -790,6 +807,7 @@ def _idempotency_store(key: str, result_str: str) -> None:
 
     cache_result(key, result_str)
     log_event("INFO", "result cached for idempotency", component="mcp_dispatch", key=key[:16])
+
 
 def _rondo_run_file_inner(
     file_path: str,
@@ -841,9 +859,11 @@ def _rondo_run_file_inner(
     _provider, _model_name = parse_model(model.removesuffix(":new") if model.endswith(":new") else model)
     _clean_model = _model_name or model
 
-    dispatch_fn = lambda: _execute_dispatch(  # noqa: E731
-        prompt, done_when, file_path, _clean_model or model, model, dry_run, timeout_sec, project, max_budget
-    )
+    def dispatch_fn() -> dict:
+        """Closure wrapping _execute_dispatch with resolved model args."""
+        return _execute_dispatch(
+            prompt, done_when, file_path, _clean_model or model, model, dry_run, timeout_sec, project, max_budget
+        )
 
     if background and not dry_run:
         return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
@@ -851,6 +871,7 @@ def _rondo_run_file_inner(
     result_str = json.dumps(dispatch_fn(), indent=2)
     _idempotency_store(idempotency_key, result_str)
     return result_str
+
 
 def _execute_dispatch(
     prompt: str,
@@ -915,6 +936,7 @@ def _execute_dispatch(
     except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
         return {"status": "error", "error": str(exc)}
 
+
 def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, session: Any) -> str:
     """Launch dispatch in background thread, return dispatch_id JSON immediately."""
     dispatch_id = f"mcp-{uuid.uuid4().hex[:12]}"
@@ -949,7 +971,9 @@ def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, se
         indent=2,
     )
 
+
 _STATUS_SHORT = {"running": "w", "done": "d", "error": "e", "dispatched": "w"}
+
 
 def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool = False) -> str:
     """Check status of a background MCP dispatch.
@@ -1005,6 +1029,7 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool
         return json.dumps(truncated, indent=2)
 
     return json.dumps(result, indent=2)
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  MCP server setup (stdio transport)

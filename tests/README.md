@@ -1,6 +1,6 @@
 # Rondo Test Suite — Layer Guide
 
-**Total tests:** 1613+ across 7 layers
+**Total tests:** 1661 across 7 layers (47 test files)
 **Layout:** `rondo/tests/<layer>/` — each layer has a distinct purpose
 **Inventory:** see `rondo/docs/TEST-INVENTORY.md` for a full auto-generated listing
 
@@ -37,10 +37,28 @@ ace-build test
 cd ~/git/mhubers/ace2 && ace-build full --product rondo
 ```
 
-As of 2026-04-07, the slowest test is ~4 seconds (an e2e multi-task dry run).
-The full 1618-test suite runs in ~63 seconds total. If any test exceeds 5
-seconds, investigate — it's either doing real I/O that should be mocked or
-using `time.sleep()` when `threading.Barrier` would work better.
+As of 2026-04-09, the full 1661-test suite runs in ~23 seconds (parallel via
+pytest-xdist). The cloud suite (16 tests) runs in ~90 seconds with real API calls.
+If any unit/integration test exceeds 5 seconds, investigate — it's either doing
+real I/O that should be mocked or using `time.sleep()` when `threading.Barrier`
+would work better.
+
+## Rules for AI (CRITICAL — read before editing tests)
+
+1. **New tests:** Add freely to the correct layer dir.
+2. **NEVER weaken assertions to make code pass.** Fix the CODE, not the test.
+3. **NEVER delete a test** unless the feature it tests was explicitly removed.
+4. **Moving tests:** When refactoring test files, ensure the test COUNT does not decrease.
+5. **Cloud tests:** Must have `@pytest.mark.cloud`. Must skip on transient provider errors.
+6. **Skip-on-transient:** Use `pytest.skip("Transient...")` for provider 503/429, NEVER for code bugs.
+
+## Caliber Test Lock (future — CAL-SPIKE-59)
+
+When implemented, Caliber will enforce:
+- `tests/` folder is **append-only** for assertions
+- Removing an `assert` requires a `# rm: <reason>` comment approved by Mark
+- Editing BOTH `src/` and `tests/` in the same diff triggers enhanced review
+- Test count must not decrease per commit (tracked in OB quality snapshot)
 
 ## Layer purpose
 

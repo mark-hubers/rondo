@@ -147,22 +147,44 @@ def _compact_if_needed(path: Path) -> None:
     """Rewrite the JSONL file with only non-expired entries — #246.
 
     Runs opportunistically when the file exceeds _COMPACT_THRESHOLD_BYTES.
-    Uses atomic tmp+rename because this IS a read-modify-write operation,
-    but it's SAFE here because:
-      1. Lost entries on race = at worst re-dispatch a cached result (benign)
-      2. Compaction runs rarely, reducing race window to near-zero
-      3. Alternative (no compaction) risks unbounded file growth
+    RONDO-217: added fcntl.flock to prevent two processes compacting
+    simultaneously (Option B finding — 2/3 providers flagged this race).
+    If lock fails, skip compaction (try again next time).
     """
     try:
         if not path.exists() or path.stat().st_size < _COMPACT_THRESHOLD_BYTES:
             return
-        fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
-        tmp_path = path.with_suffix(".tmp")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            for k, (value, cached_at) in fresh.items():
-                f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
-        os.replace(tmp_path, path)
-        logger.debug("Idempotency JSONL compacted: %d live entries", len(fresh))
+
+        lock_path = path.with_suffix(".compact.lock")
+        try:
+            import fcntl  # pylint: disable=import-outside-toplevel
+
+            with open(lock_path, "a+", encoding="utf-8") as lock_f:
+                try:
+                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    # -- Another process is compacting — skip, try next time
+                    logger.debug("Idempotency compaction skipped — lock held by peer")
+                    return
+
+                fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
+                tmp_path = path.with_suffix(".tmp")
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    for k, (value, cached_at) in fresh.items():
+                        f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
+                os.replace(tmp_path, path)
+                logger.debug("Idempotency JSONL compacted: %d live entries", len(fresh))
+
+                fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+        except ImportError:
+            # -- Windows: no fcntl, fall back to unlocked compaction (benign)
+            fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
+            tmp_path = path.with_suffix(".tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                for k, (value, cached_at) in fresh.items():
+                    f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
+            os.replace(tmp_path, path)
+            logger.debug("Idempotency JSONL compacted (no lock): %d live entries", len(fresh))
     except (OSError, TypeError, ValueError) as exc:
         logger.debug("Idempotency compaction failed (non-fatal): %s", exc)
 

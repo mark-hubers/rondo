@@ -13,6 +13,7 @@ Import direction:
 from __future__ import annotations
 
 import logging
+import threading as _threading  # -- RONDO-217: health cache thread safety
 import time
 from dataclasses import dataclass
 
@@ -23,6 +24,8 @@ _HEALTH_TTL_SECONDS: float = 300.0
 
 # -- In-process cache: provider name → HealthStatus
 _HEALTH_CACHE: dict[str, HealthStatus] = {}
+_HEALTH_LOCK = _threading.Lock()
+_HEALTH_LOCK = _threading.Lock()
 
 
 @dataclass
@@ -160,7 +163,8 @@ def get_provider_health(provider_name: str) -> HealthStatus:
 
     REQ-109 req 018: cache result, re-check only when TTL expires.
     """
-    cached = _HEALTH_CACHE.get(provider_name)
+    with _HEALTH_LOCK:
+        cached = _HEALTH_CACHE.get(provider_name)
     if cached is not None:
         age = time.time() - cached.checked_at
         if age < _HEALTH_TTL_SECONDS:
@@ -168,7 +172,8 @@ def get_provider_health(provider_name: str) -> HealthStatus:
 
     # -- Cache miss or stale — perform fresh check
     status = check_health(provider_name)
-    _HEALTH_CACHE[provider_name] = status
+    with _HEALTH_LOCK:
+        _HEALTH_CACHE[provider_name] = status
 
     if not status.healthy:
         # -- REQ-109 req 019: log WARNING when provider is down
@@ -202,7 +207,8 @@ def get_all_providers_health() -> dict[str, HealthStatus]:
 
 def clear_health_cache() -> None:
     """Clear the in-process health cache. Used by tests and on config reload."""
-    _HEALTH_CACHE.clear()
+    with _HEALTH_LOCK:
+        _HEALTH_CACHE.clear()
 
 
 # -- sig: mgh-6201.cd.bd955f.a801.c34b91

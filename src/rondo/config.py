@@ -471,7 +471,7 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
     Returns:
         Raw TOML dict. Empty dict if file missing, invalid, or world-writable.
     """
-    global _raw_config  # noqa: PLW0603
+    global _raw_config  # noqa: PLW0603  # pylint: disable=global-statement
     # -- RONDO-202 (Finding #225): hold lock during read to prevent mid-reload race
     with _config_lock:
         if _raw_config is not None and not config_path:

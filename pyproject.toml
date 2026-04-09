@@ -42,3 +42,6 @@ source = ["rondo"]
 fail_under = 90
 show_missing = true
 skip_empty = true
+
+[tool.pylint."messages_control"]
+disable = ["cyclic-import"]

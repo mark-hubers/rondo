@@ -94,7 +94,7 @@ def load_providers_config(toml_data: dict | None = None) -> None:
     - Missing config file: empty config, no error — hardcoded defaults used.
     - Second call without toml_data: no-op (already loaded from file).
     """
-    global _providers_config, _providers_loaded  # noqa: PLW0603
+    global _providers_config, _providers_loaded  # noqa: PLW0603  # pylint: disable=global-statement,global-variable-not-assigned
     with _providers_lock:
         if toml_data is not None:
             _providers_config.update(toml_data.get("providers", {}))
@@ -130,7 +130,7 @@ _ollama_adapter: ProviderAdapter | None = None
 
 def get_ollama_adapter() -> ProviderAdapter:
     """Public accessor for OllamaAdapter singleton — avoids _private import."""
-    global _ollama_adapter  # noqa: PLW0603
+    global _ollama_adapter  # noqa: PLW0603  # pylint: disable=global-statement
     if _ollama_adapter is None:
         _ollama_adapter = OllamaAdapter()
     return _ollama_adapter
@@ -289,7 +289,7 @@ def load_task_models(config_path: str = "") -> dict[str, str]:
     Reads [routing.task_models] section from ~/.rondo/config.toml or given path.
     Called at startup (CLI, MCP) and idempotent.
     """
-    global _task_model_overrides, _task_models_loaded  # noqa: PLW0603
+    global _task_model_overrides, _task_models_loaded  # noqa: PLW0603  # pylint: disable=global-statement
     if _task_models_loaded and not config_path:
         merged = {**_DEFAULT_TASK_MODELS, **_task_model_overrides}
         return merged

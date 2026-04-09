@@ -67,7 +67,7 @@ def _default_audit_dir() -> str:
     return f"~/.rondo/audit/{tenant}"
 
 @dataclass
-class AuditConfig:
+class AuditConfig:  # pylint: disable=too-many-instance-attributes
     """Audit trail configuration — STD-113 req 008."""
 
     audit_dir: str = ""  # -- resolved in __post_init__
@@ -117,7 +117,7 @@ def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
 # -- ──────────────────────────────────────────────────────────────
 
 @dataclass
-class AuditRecord:
+class AuditRecord:  # pylint: disable=too-many-instance-attributes
     """One dispatch audit record — STD-113 req 003.
 
     Phase 1 (INTENT): dispatch_id, task_name, model, prompt_hash, dispatched_at.

@@ -19,7 +19,7 @@ from typing import Any
 
 
 @dataclass
-class DispatchRecord:
+class DispatchRecord:  # pylint: disable=too-many-instance-attributes
     """One dispatch event — Rondo-REQ-104 req 002."""
 
     round_name: str = ""

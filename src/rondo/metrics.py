@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class MetricsReport:
+class MetricsReport:  # pylint: disable=too-many-instance-attributes
     """Complete metrics snapshot — one call, everything OB needs."""
 
     # -- summary

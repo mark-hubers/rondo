@@ -10,10 +10,13 @@ Import direction: cli.py → cli_commands → observe.py (one-way).
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from rondo.cli_commands import EXIT_FAILURE, EXIT_SUCCESS
+from rondo.flaky import DispatchOutcome, FlakyEngine
+from rondo.metrics import compute_metrics
 
 
 def _cmd_report(args: argparse.Namespace) -> int:
@@ -71,8 +74,6 @@ def _cmd_history(args: argparse.Namespace) -> int:
 
 def _load_audit_records(audit_dir: str) -> list[dict]:
     """Load all records from audit JSONL — STD-113."""
-    import json as _json
-
     jsonl_file = Path(audit_dir).expanduser() / "rondo_audit.jsonl"
     if not jsonl_file.exists():
         return []
@@ -80,8 +81,8 @@ def _load_audit_records(audit_dir: str) -> list[dict]:
     for line in jsonl_file.read_text(encoding="utf-8").strip().split("\n"):
         if line.strip():
             try:
-                records.append(_json.loads(line))
-            except _json.JSONDecodeError:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
                 continue
     return records
 
@@ -134,14 +135,12 @@ def _cmd_audit(args: argparse.Namespace) -> int:
 
 def _cmd_audit_detail(args: argparse.Namespace, records: list[dict]) -> int:
     """Show detail for one dispatch_id."""
-    import json as _json
-
     matches = [r for r in records if r.get("dispatch_id") == args.dispatch_id]
     if not matches:
         print(f"No records for dispatch_id: {args.dispatch_id}")
         return EXIT_FAILURE
     if args.json:
-        print(_json.dumps(matches, indent=2))
+        print(json.dumps(matches, indent=2))
     else:
         for r in matches:
             print(
@@ -159,12 +158,10 @@ def _cmd_audit_detail(args: argparse.Namespace, records: list[dict]) -> int:
 
 def _cmd_audit_cost(args: argparse.Namespace, records: list[dict]) -> int:
     """Show total cost summary."""
-    import json as _json
-
     outcomes = [r for r in records if r.get("cost_usd")]
     total_cost = sum(r.get("cost_usd", 0) for r in outcomes)
     if args.json:
-        print(_json.dumps({"total_cost_usd": total_cost, "dispatch_count": len(outcomes)}))
+        print(json.dumps({"total_cost_usd": total_cost, "dispatch_count": len(outcomes)}))
     else:
         print(f"  Total cost: ${total_cost:.4f}")
         print(f"  Dispatches: {len(outcomes)}")
@@ -175,11 +172,9 @@ def _cmd_audit_cost(args: argparse.Namespace, records: list[dict]) -> int:
 
 def _cmd_audit_failed(args: argparse.Namespace, records: list[dict]) -> int:
     """Show only failed dispatches."""
-    import json as _json
-
     failed = [r for r in records if r.get("status") in ("error", "blocked", "timeout")]
     if args.json:
-        print(_json.dumps(failed, indent=2))
+        print(json.dumps(failed, indent=2))
     elif not failed:
         print("  No failed dispatches.")
     else:
@@ -191,10 +186,8 @@ def _cmd_audit_failed(args: argparse.Namespace, records: list[dict]) -> int:
 
 def _cmd_audit_list(args: argparse.Namespace, records: list[dict]) -> int:
     """Default: list all audit records with summary."""
-    import json as _json
-
     if args.json:
-        print(_json.dumps(records, indent=2))
+        print(json.dumps(records, indent=2))
         return EXIT_SUCCESS
     intents = [r for r in records if r.get("status") == "INTENT"]
     outcomes = [r for r in records if r.get("status") != "INTENT"]
@@ -216,10 +209,6 @@ def _cmd_flaky(args: argparse.Namespace) -> int:
 
     Reads audit trail, feeds into FlakyEngine, reports flip rates.
     """
-    import json as _json
-
-    from rondo.flaky import DispatchOutcome, FlakyEngine
-
     audit_dir = Path(args.audit_dir).expanduser()
     jsonl_file = audit_dir / "rondo_audit.jsonl"
 
@@ -233,8 +222,8 @@ def _cmd_flaky(args: argparse.Namespace) -> int:
         if not line.strip():
             continue
         try:
-            r = _json.loads(line)
-        except _json.JSONDecodeError:
+            r = json.loads(line)
+        except json.JSONDecodeError:
             continue
         # -- Only outcomes (not INTENTs)
         if r.get("status") == "INTENT":
@@ -255,7 +244,7 @@ def _cmd_flaky(args: argparse.Namespace) -> int:
     flaky_tasks = engine.get_flaky_tasks(threshold=args.threshold)
 
     if args.json:
-        print(_json.dumps([f.to_dict() for f in flaky_tasks], indent=2))
+        print(json.dumps([f.to_dict() for f in flaky_tasks], indent=2))
         return EXIT_SUCCESS
 
     if not flaky_tasks:
@@ -279,14 +268,10 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
     ALWAYS-ON: reads existing audit data, no new capture needed.
     Designed for OB dashboard, ACE health, and future MCP (IFS-104).
     """
-    import json as _json
-
-    from rondo.metrics import compute_metrics
-
     report = compute_metrics(audit_dir=args.audit_dir)
 
     if args.json:
-        print(_json.dumps(report.to_dict(), indent=2))
+        print(json.dumps(report.to_dict(), indent=2))
         return EXIT_SUCCESS
 
     print("  Rondo Metrics")

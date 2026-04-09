@@ -12,6 +12,7 @@ Import direction:
 from __future__ import annotations
 
 import logging
+import threading as _threading  # -- RONDO-218: providers config thread safety
 from typing import Any
 
 from rondo.engine import TaskResult
@@ -75,8 +76,10 @@ _TIER_NAMES = {"high", "default", "low"}
 _TIER_MAP = {"high": "best_model", "default": "default_model", "low": "cheap_model"}
 
 ## Cached provider config from TOML (populated by load_providers_config)
+## RONDO-218: added lock for thread-safe initialization
 _providers_config: dict[str, dict[str, str]] = {}
 _providers_loaded: bool = False
+_providers_lock = _threading.Lock()
 
 
 def load_providers_config(toml_data: dict | None = None) -> None:
@@ -90,18 +93,19 @@ def load_providers_config(toml_data: dict | None = None) -> None:
     - Second call without toml_data: no-op (already loaded from file).
     """
     global _providers_config, _providers_loaded  # noqa: PLW0603
-    if toml_data is not None:
-        _providers_config.update(toml_data.get("providers", {}))
-        _providers_loaded = True
-        return
-    if _providers_loaded:
-        return
-    ## Load from shared config reader
-    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+    with _providers_lock:
+        if toml_data is not None:
+            _providers_config.update(toml_data.get("providers", {}))
+            _providers_loaded = True
+            return
+        if _providers_loaded:
+            return
+        ## Load from shared config reader
+        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
 
-    data = get_rondo_config()
-    _providers_config.update(data.get("providers", {}))
-    _providers_loaded = True
+        data = get_rondo_config()
+        _providers_config.update(data.get("providers", {}))
+        _providers_loaded = True
 
 
 def resolve_tier(provider: str, tier: str) -> str:

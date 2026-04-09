@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading as _threading  # -- RONDO-218: metrics cache thread safety
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,9 @@ from rondo.config import DEFAULT_AUDIT_DIR, DEFAULT_SPOOL_DIR, resolve_rondo_dir
 logger = logging.getLogger(__name__)
 
 # -- Finding #183: cache metrics to avoid reading JSONL 3-4x on morning check-in
+# -- RONDO-218: added thread lock (same pattern as health cache in RONDO-217)
 _metrics_cache: dict[str, Any] = {}
+_metrics_lock = _threading.Lock()
 _METRICS_CACHE_TTL = 30  # -- seconds
 
 
@@ -45,15 +48,17 @@ def _get_cached_metrics() -> Any:
     from rondo.metrics import compute_metrics
 
     now = time.monotonic()
-    if _metrics_cache.get("report") and (now - _metrics_cache.get("ts", 0)) < _METRICS_CACHE_TTL:
-        return _metrics_cache["report"]
+    with _metrics_lock:
+        if _metrics_cache.get("report") and (now - _metrics_cache.get("ts", 0)) < _METRICS_CACHE_TTL:
+            return _metrics_cache["report"]
 
     report = compute_metrics(
         audit_dir=resolve_rondo_dir(DEFAULT_AUDIT_DIR, "audit"),
         spool_dir=resolve_rondo_dir(DEFAULT_SPOOL_DIR, "spool"),
     )
-    _metrics_cache["report"] = report
-    _metrics_cache["ts"] = now
+    with _metrics_lock:
+        _metrics_cache["report"] = report
+        _metrics_cache["ts"] = now
     return report
 
 

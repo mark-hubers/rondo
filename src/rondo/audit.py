@@ -48,8 +48,17 @@ def _get_tenant_for_audit() -> str:
     """RONDO-200 (Finding #217): tenant scope for audit isolation.
 
     Same logic as adapters/auth.py: RONDO_TENANT → USER → 'default'.
+
+    RONDO-214 C-2 (Cursor finding): sanitize tenant name to prevent path
+    traversal. A crafted RONDO_TENANT with '../' or '/' could escape the
+    expected ~/.rondo/audit/ directory structure.
     """
-    return os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
+    import re  # pylint: disable=import-outside-toplevel
+
+    raw = os.environ.get("RONDO_TENANT") or os.environ.get("USER") or "default"
+    # -- Only allow alphanumeric, underscore, hyphen. Strip everything else.
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", raw)
+    return sanitized or "default"
 
 
 def _default_audit_dir() -> str:
@@ -218,6 +227,7 @@ class AuditTrail:
         self._audit_dir.mkdir(parents=True, exist_ok=True)
         self._jsonl_path = self._audit_dir / "rondo_audit.jsonl"
         self._intent_times: dict[str, str] = {}  # -- dispatch_id → dispatched_at
+        self._intent_request_ids: dict[str, str] = {}  # -- dispatch_id → request_id (RONDO-214 C-3)
 
         # -- RONDO-204 (Finding #232): auto-reconcile stuck intents on init.
         # -- MUST run AFTER _jsonl_path is set — reconcile reads the JSONL.
@@ -279,6 +289,8 @@ class AuditTrail:
 
         # -- Finding #162: store dispatched_at for OUTCOME propagation
         self._intent_times[dispatch_id] = record.dispatched_at
+        # -- RONDO-214 C-3: store request_id for OUTCOME propagation
+        self._intent_request_ids[dispatch_id] = request_id
 
         logger.info("Audit INTENT: %s task=%s model=%s", dispatch_id, task_name, model)
         return record
@@ -308,6 +320,11 @@ class AuditTrail:
 
         outcome = AuditRecord(
             dispatch_id=dispatch_id,
+            # -- RONDO-214 C-3: inherit request_id from paired INTENT record
+            # -- so OUTCOME has the same correlation ID for cross-retry tracing.
+            # -- Without this, OUTCOME records had request_id="" even when
+            # -- the INTENT had a real request_id (Cursor deep-review finding).
+            request_id=self._intent_request_ids.get(dispatch_id, ""),
             task_name=task_name,
             round_name=round_name,
             model=model,

@@ -136,6 +136,14 @@ class AnthropicAPIAdapter(ProviderAdapter):
                     duration_sec=duration,
                 )
 
+            # -- RONDO-214 C-1: compute real cost from token counts (was 0.0)
+            from rondo.adapters.chat_completions import compute_cost_usd  # pylint: disable=import-outside-toplevel
+
+            usage = result.get("usage", {})
+            input_tokens = usage.get("input_tokens", 0)
+            output_tokens = usage.get("output_tokens", 0)
+            cost = compute_cost_usd(use_model, input_tokens, output_tokens)
+
             return TaskResult(
                 task_name=task_name,
                 status="done",
@@ -143,7 +151,7 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 model=use_model,
                 duration_sec=duration,
                 auth_mode="api",
-                cost_usd=0.0,
+                cost_usd=cost,
             )
         except urllib.error.HTTPError as exc:
             # -- REQ-109 req 068: distinct error codes by HTTP status

@@ -32,16 +32,27 @@ logger = logging.getLogger(__name__)
 # -- Source: provider pricing pages as of 2026-04. Update when prices change.
 # -- Tuple = (input_cost_per_1m, output_cost_per_1m)
 _COST_TABLE: dict[str, tuple[float, float]] = {
+    # -- (input_rate, output_rate) per 1M tokens
     # -- OpenAI
     "gpt-4.1": (2.00, 8.00),
     "gpt-4.1-mini": (0.15, 0.60),
     "gpt-4o": (2.50, 10.00),
+    "gpt-4o-mini": (0.15, 0.60),
     # -- Grok (xAI)
     "grok-3": (2.00, 10.00),
     "grok-3-mini": (0.30, 0.50),
     # -- Mistral
     "mistral-large-latest": (2.00, 6.00),
+    "mistral-medium-latest": (0.40, 1.00),
     "mistral-small-latest": (0.20, 0.60),
+    # -- Gemini (RONDO-214 C-1: was hardcoded 0.0 in gemini.py)
+    "gemini-2.5-pro": (1.25, 10.00),
+    "gemini-2.5-flash": (0.15, 0.60),
+    "gemini-2.5-flash-lite": (0.01, 0.04),
+    # -- Anthropic (RONDO-214 C-1: was hardcoded 0.0 in anthropic_api.py)
+    "claude-opus-4-6": (15.00, 75.00),
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5": (0.80, 4.00),
 }
 # -- Conservative default for unknown models (avoids silent zero-cost)
 _DEFAULT_COST = (1.00, 3.00)

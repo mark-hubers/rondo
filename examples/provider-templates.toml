@@ -1,0 +1,94 @@
+## ═══════════════════════════════════════════════════════════════
+## Rondo Provider Return Templates — Copy to ~/.rondo/config.toml
+## ═══════════════════════════════════════════════════════════════
+##
+## These templates tell each AI provider HOW to format its response
+## as structured JSON. Each is tuned from live testing to handle
+## that provider's specific quirks.
+##
+## HOW TO USE:
+##   1. Copy the sections you want to ~/.rondo/config.toml
+##   2. Edit to customize for your use case
+##   3. Run 'rondo learn' after changes to track if scores improve
+##
+## COALESCE ORDER:
+##   Your config.toml → code defaults → generic default
+##   If you don't add a section, the code default is used.
+##
+## ═══════════════════════════════════════════════════════════════
+
+
+## ─── GEMINI (Google) ─────────────────────────────────────────
+## Quirk: Gemini skips fields from compact JSON examples.
+## Fix: Explicit field list with each field on its own line.
+## Tested: Session 100 — 7/7 fields returned after this fix.
+
+[return_prompts.gemini]
+prompt = """
+RESPONSE FORMAT (mandatory):
+Respond with ONLY a JSON object. No markdown. No explanation outside JSON.
+You MUST include ALL of these top-level fields — do NOT skip any:
+  "passed": boolean (true if task succeeded)
+  "confidence": number 0.0 to 1.0
+  "result": string (your main answer)
+  "issues": array of strings (problems found, empty if none)
+  "suggestions": array of strings (improvements, empty if none)
+  "metadata": object (topic, scope, any extra context)
+  "_meta": object — REQUIRED, MUST be top-level — contains:
+    "quality": number 1-10 (rate your own answer)
+    "complete": boolean (did you fully answer)
+    "limitations": string (what you might have missed)
+"""
+
+
+## ─── GROK (xAI) ─────────────────────────────────────────────
+## Quirk: Grok nests _meta inside metadata instead of top-level.
+## Fix: Explicit "CRITICAL" warning about _meta placement.
+## Tested: Session 100 — _meta at top level after this fix.
+
+[return_prompts.grok]
+prompt = """
+You are a JSON API endpoint. Return ONLY a valid JSON object.
+CRITICAL: "_meta" MUST be a TOP-LEVEL field, NOT nested inside "metadata".
+Fields at top level: "passed" (boolean), "confidence" (number 0-1), "result" (string), "issues" (array), "suggestions" (array), "metadata" (object with context), "_meta" (object with quality 1-10, complete boolean, limitations string).
+No markdown. No explanation. JSON only.
+"""
+
+
+## ─── MISTRAL (France/EU) ────────────────────────────────────
+## Quirk: Mistral wraps JSON in markdown ```json fences.
+## Fix: Explicit "do NOT wrap in markdown code fences" instruction.
+## Tested: Session 100 — still wraps sometimes, but extract_json handles it.
+
+[return_prompts.mistral]
+prompt = """
+RESPONSE FORMAT (mandatory):
+Return ONLY valid JSON. Do NOT wrap in markdown code fences (no ```json). No text outside the JSON.
+Required top-level fields: "passed" (boolean), "confidence" (number 0-1), "result" (string), "issues" (array), "suggestions" (array), "metadata" (object), "_meta" (object with quality 1-10, complete boolean, limitations string).
+Include ALL fields.
+"""
+
+
+## ─── OPENAI ─────────────────────────────────────────────────
+## Quirk: None — follows structured instructions well.
+## OpenAI was the best performer on first test (7/7, quality 10).
+
+[return_prompts.openai]
+prompt = """
+RESPONSE FORMAT (mandatory):
+Return ONLY valid JSON. No markdown. No explanation outside JSON.
+Required fields: "passed" (boolean), "confidence" (float 0-1), "result" (string), "issues" (array of strings), "suggestions" (array of strings), "metadata" (object), "_meta" (object: quality number 1-10, complete boolean, limitations string).
+Include ALL fields even if empty.
+"""
+
+
+## ─── LOCAL (Ollama — small models) ──────────────────────────
+## Quirk: Small models (8B-32B) follow examples better than instructions.
+## Fix: Compact single-line JSON example they can copy.
+## Tested: Session 100 — Qwen 32B perfect compliance with this template.
+
+[return_prompts.local]
+prompt = """
+Reply with JSON only. No other text.
+{"passed": true/false, "confidence": 0.0-1.0, "result": "your answer", "issues": [], "suggestions": [], "metadata": {}, "_meta": {"quality": 1-10, "complete": true/false, "limitations": ""}}
+"""

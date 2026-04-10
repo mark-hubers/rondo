@@ -104,6 +104,17 @@ Adds three things to Rondo that make it usable without Python knowledge:
 | 474 | Provider-specific quirk handling: Grok nests `_meta` inside `metadata` → hoist out. Mistral wraps in markdown fences → strip. Others: pass through. New providers added as discovered. | SHOULD | Quirk test |
 | 475 | Extra fields beyond the 7 standard fields MUST be preserved (not stripped). Provider may return useful data we didn't ask for. | MUST | Preservation test |
 
+### Config Template Management (new — product-ready config)
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 480 | Code `_PROVIDER_TEMPLATES` dict = factory defaults. ALWAYS available. Used when no config.toml entry exists for a provider. | MUST | Fallback test |
+| 481 | `~/.rondo/config.toml` `[return_prompts.<provider>]` = user overrides. When present, WINS over code defaults (COALESCE). | MUST | Override test |
+| 482 | `rondo init --config` template MUST include a generic `[return_prompts.default]` section. Provider-specific templates (gemini, grok, etc.) go in `examples/provider-templates.toml`, NOT in the shipped template. | MUST | Template test |
+| 483 | `rondo init --config --update` MUST add NEW settings from the template to user's config WITHOUT overwriting existing user edits. New sections appended with `## NEW IN vX.Y` markers. | SHOULD | Update test |
+| 484 | Provider-specific templates in code (gemini, grok, mistral, openai, local) are tuned from live testing. They are the RECOMMENDED defaults, not the only option. Users can override any provider in their config.toml. | MUST | Doc |
+| 485 | `examples/provider-templates.toml` MUST contain copy-paste-ready sections for each supported provider with comments explaining why each template is tuned that way (quirks documented). | MUST | Example test |
+
 ### Task Chaining in YAML/JSON (new — simple subset only)
 
 | Req # | Requirement | Priority | Test |

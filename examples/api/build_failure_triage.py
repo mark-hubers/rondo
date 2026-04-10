@@ -15,10 +15,13 @@ HOW TO RUN:
 
 import json
 import os
-import shutil
 import sys
 
 from rondo import smart_return
+
+## Default: Anthropic API — works everywhere (inside Claude Code, terminal, CI).
+## Haiku is cheap ($0.001/call). Override: RONDO_MODEL=anthropic:claude-sonnet-4-6
+DEFAULT_MODEL = os.environ.get("RONDO_MODEL", "anthropic:claude-haiku-4-5")
 
 _mcp_dispatch = None
 
@@ -38,20 +41,14 @@ def _out(msg: str) -> None:
     sys.stdout.write(msg + "\n")
 
 
-def _can_dispatch() -> bool:
-    """Check if real dispatch is possible."""
-    if os.environ.get("CLAUDECODE"):
-        return False
-    return shutil.which("claude") is not None
-
-
-def _dispatch(prompt: str, model: str = "sonnet") -> dict | None:
+def _dispatch(prompt: str, model: str = "") -> dict | None:
     """Real AI dispatch via Rondo."""
+    use_model = model or DEFAULT_MODEL
     try:
         mod = _get_dispatch_module()
         raw = mod.rondo_run_file(  # type: ignore[union-attr]
             prompt=prompt,
-            model=model,
+            model=use_model,
             dry_run=False,
             timeout_sec=60,
         )
@@ -142,16 +139,14 @@ def triage_failures(baseline: list[dict], current: list[dict], sprint_id: str = 
             fixed.append(b)
             _out(f"    FIXED: {b['test']} (was {b['since']})")
 
-    ## Step 3: AI classification of regressions (if dispatch available)
-    can_classify = _can_dispatch()
+    ## Step 3: AI classification of regressions
     for reg in regressions:
-        if can_classify:
-            prompt = CLASSIFY_PROMPT.format(test=reg["test"], error=reg["error"])
-            result = _dispatch(prompt)
-            if result:
-                reg["ai_classification"] = result.get("result", "unknown")
-                reg["ai_confidence"] = result.get("confidence", 0.0)
-                _out(f"      AI: {result.get('result', '')[:50]}")
+        prompt = CLASSIFY_PROMPT.format(test=reg["test"], error=reg["error"])
+        result = _dispatch(prompt)
+        if result:
+            reg["ai_classification"] = result.get("result", "unknown")
+            reg["ai_confidence"] = result.get("confidence", 0.0)
+            _out(f"      AI: {result.get('result', '')[:50]}")
         reg["sprint"] = sprint_id
 
     return {
@@ -184,11 +179,6 @@ def main() -> None:
 
     if report["fixed"]:
         _out(f"-PASS- {report['fixed_count']} previously-known failure(s) now passing!")
-
-    if not _can_dispatch():
-        _out("")
-        _out("AI classification skipped (inside Claude Code).")
-        _out("Run from terminal for AI-powered failure classification.")
 
 
 if __name__ == "__main__":

@@ -6,33 +6,33 @@ REAL WORKFLOW THIS REPLACES:
   165 Cursor paste-backs in 90 days. Pure manual relay.
 
 SCRIPTED VERSION:
-  Send code to Claude (free on Max) + optionally cloud AIs ->
-  parse structured findings -> consensus check -> create sprint
-  findings automatically -> flag disagreements for human review.
+  Send code to Claude via API -> parse structured findings ->
+  optionally add cloud AI reviews -> consensus check -> create
+  sprint findings automatically.
 
 HOW TO RUN:
-  python examples/api/code_review_to_findings.py          # Claude only (free)
+  python examples/api/code_review_to_findings.py
   RONDO_CLOUD=1 python examples/api/code_review_to_findings.py  # + Gemini/Grok
 
-THE DECISION LOGIC:
-  - 1 provider: all findings are SINGLE (no consensus possible)
-  - 2+ providers agree on same issue -> CONFIRMED finding
-  - Only 1 provider flags it -> UNCONFIRMED (could be hallucination)
+REQUIRES: ANTHROPIC_API_KEY env var or macOS Keychain entry.
 """
 
 import json
 import os
-import shutil
 import sys
 
 from rondo import smart_return
 
-# -- Lazy import to avoid circular/missing-dep errors in test
+## Default model: Anthropic API (works from anywhere — inside Claude Code,
+## terminal, CI). Haiku is cheap ($0.001/call). Override with RONDO_MODEL.
+DEFAULT_MODEL = os.environ.get("RONDO_MODEL", "anthropic:claude-haiku-4-5")
+LIVE_CLOUD = os.environ.get("RONDO_CLOUD", "").lower() in ("1", "true", "yes")
+
 _mcp_dispatch = None
 
 
-def _get_dispatch_module() -> object:
-    """Lazy-load mcp_dispatch to avoid import errors when rondo not fully installed."""
+def _get_dispatch() -> object:
+    """Lazy-load mcp_dispatch module."""
     global _mcp_dispatch  # noqa: PLW0603
     if _mcp_dispatch is None:
         from rondo import mcp_dispatch  # pylint: disable=import-outside-toplevel
@@ -41,45 +41,19 @@ def _get_dispatch_module() -> object:
     return _mcp_dispatch
 
 
-LIVE_CLOUD = os.environ.get("RONDO_CLOUD", "").lower() in ("1", "true", "yes")
-
-
 def _out(msg: str) -> None:
-    """Write output line -- examples are user-facing, not library code."""
+    """Write output line."""
     sys.stdout.write(msg + "\n")
 
 
-def _can_dispatch() -> bool:
-    """Check if real dispatch is possible.
-
-    Dispatch works from terminal (claude -p). Inside Claude Code,
-    the engine routes Claude models to Agent (no subprocess dispatch).
-    """
-    if os.environ.get("CLAUDECODE"):
-        return False  ## Inside Claude Code -- subprocess dispatch blocked
-    return shutil.which("claude") is not None
-
-
-## --- Real Dispatch -----------------------------------------------
-## These call REAL AI. No mocks. No fakes. The AI actually reviews
-## your code and returns structured findings.
-
-REVIEW_PROMPT = """Review this Python code for security issues.
-Return your findings as JSON with this exact structure:
-{{"passed": false, "confidence": 0.9, "issues": ["issue 1", "issue 2"], "result": "summary"}}
-If no issues found, return: {{"passed": true, "confidence": 0.9, "issues": [], "result": "clean"}}
-
-Code to review:
-{code}"""
-
-
-def _dispatch(prompt: str, model: str = "sonnet") -> dict | None:
-    """Dispatch prompt via Rondo. Returns normalized response or None on failure."""
+def _dispatch(prompt: str, model: str = "") -> dict | None:
+    """Real AI dispatch via Rondo API. Always dispatches — no mocks."""
+    use_model = model or DEFAULT_MODEL
     try:
-        mod = _get_dispatch_module()
+        mod = _get_dispatch()
         raw = mod.rondo_run_file(  # type: ignore[union-attr]
             prompt=prompt,
-            model=model,
+            model=use_model,
             dry_run=False,
             timeout_sec=60,
         )
@@ -96,7 +70,6 @@ def _dispatch(prompt: str, model: str = "sonnet") -> dict | None:
         try:
             parsed = json.loads(output)
         except json.JSONDecodeError:
-            ## AI didn't return pure JSON -- wrap in normalized format
             parsed = {"passed": True, "result": output[:500], "issues": [], "confidence": 0.5}
         return smart_return.normalize_response(parsed)
     except (FileNotFoundError, OSError, json.JSONDecodeError, TypeError, KeyError) as exc:
@@ -105,14 +78,21 @@ def _dispatch(prompt: str, model: str = "sonnet") -> dict | None:
 
 
 def _dispatch_cloud(prompt: str, model: str = "gemini:flash") -> dict | None:
-    """Cloud AI dispatch -- only runs with RONDO_CLOUD=1. Returns None if disabled."""
+    """Cloud AI dispatch -- only with RONDO_CLOUD=1."""
     if not LIVE_CLOUD:
         return None
     return _dispatch(prompt, model)
 
 
-## --- Code to Review ----------------------------------------------
-## Real code with a known bug. Every AI should find the SQL injection.
+## --- Review Prompt -----------------------------------------------
+
+REVIEW_PROMPT = """Review this Python code for security issues.
+Return your findings as JSON with this exact structure:
+{{"passed": false, "confidence": 0.9, "issues": ["issue 1", "issue 2"], "result": "summary"}}
+If no issues found, return: {{"passed": true, "confidence": 0.9, "issues": [], "result": "clean"}}
+
+Code to review:
+{code}"""
 
 CODE_SAMPLE = '''def get_user(user_id):
     """Fetch user by ID from database."""
@@ -125,7 +105,7 @@ def update_email(user_id, new_email):
 '''
 
 
-## --- Issue Matching (same as before -- this is REAL logic) --------
+## --- Consensus Logic (real -- not mocked) -------------------------
 
 
 def _issues_match(issue_a: str, issue_b: str) -> bool:
@@ -138,12 +118,7 @@ def _issues_match(issue_a: str, issue_b: str) -> bool:
 
 
 def _find_consensus(reviews: list[dict]) -> list[dict]:
-    """Find issues that 2+ providers agree on.
-
-    Returns findings with confidence level:
-      CONFIRMED = 2+ providers agree
-      SINGLE = only 1 provider (can't consensus-check)
-    """
+    """Find issues that 2+ providers agree on."""
     all_issues: list[dict] = []
     provider_names = ["claude", "gemini", "grok"]
     for i, review in enumerate(reviews):
@@ -173,18 +148,11 @@ def _find_consensus(reviews: list[dict]) -> list[dict]:
                 "provider_count": len(matches),
             }
         )
-
     return findings
 
 
-## --- Sprint Integration (simulated -- real would call ace-sprint) -
-
-
 def _create_finding(finding: dict, sprint_id: str = "EXAMPLE-001") -> dict:
-    """Create a sprint finding record.
-
-    In production: subprocess.run(["ace-sprint", "finding", "add", ...])
-    """
+    """Create a sprint finding record."""
     return {
         "sprint": sprint_id,
         "issue": finding["issue"],
@@ -198,25 +166,21 @@ def _create_finding(finding: dict, sprint_id: str = "EXAMPLE-001") -> dict:
 
 
 def multi_ai_review(code: str, sprint_id: str = "EXAMPLE-001") -> dict:
-    """Send code to AI providers, find consensus, create findings.
-
-    Default: Claude only (free on Max plan).
-    With RONDO_CLOUD=1: also sends to Gemini and Grok.
-    """
+    """Send code to AI providers, find consensus, create findings."""
     reviews: list[dict] = []
 
-    ## Step 1: Claude review (always -- free on Max)
+    ## Step 1: Claude review via API (always — works everywhere)
     _out("  Step 1: Claude review...")
     prompt = REVIEW_PROMPT.format(code=code)
-    claude_result = _dispatch(prompt, model="sonnet")
+    claude_result = _dispatch(prompt)
     if claude_result:
         _out(f"    Claude: passed={claude_result['passed']}, issues={len(claude_result['issues'])}")
         reviews.append(claude_result)
     else:
-        _out("    Claude: dispatch failed")
-        return {"total_findings": 0, "actions": [], "error": "Claude dispatch failed"}
+        _out("    Claude dispatch failed")
+        return {"total_findings": 0, "actions": [], "error": "dispatch failed"}
 
-    ## Step 2: Cloud AI reviews (optional -- costs money)
+    ## Step 2: Cloud AI reviews (optional)
     gemini_result = _dispatch_cloud(prompt, model="gemini:flash")
     if gemini_result:
         _out(f"    Gemini: passed={gemini_result['passed']}, issues={len(gemini_result['issues'])}")
@@ -228,10 +192,10 @@ def multi_ai_review(code: str, sprint_id: str = "EXAMPLE-001") -> dict:
         reviews.append(grok_result)
 
     if not LIVE_CLOUD:
-        _out("    (Cloud reviews skipped -- set RONDO_CLOUD=1 to enable)")
+        _out("    (Set RONDO_CLOUD=1 for multi-provider consensus)")
 
-    ## Step 3: Find consensus
-    _out(f"  Step 2: Finding consensus across {len(reviews)} provider(s)...")
+    ## Step 3: Consensus
+    _out(f"  Step 2: Consensus across {len(reviews)} provider(s)...")
     findings = _find_consensus(reviews)
     confirmed = [f for f in findings if f["confidence"] == "CONFIRMED"]
     single = [f for f in findings if f["confidence"] == "SINGLE"]
@@ -255,21 +219,11 @@ def multi_ai_review(code: str, sprint_id: str = "EXAMPLE-001") -> dict:
 
 
 def main() -> None:
-    """Run multi-AI code review with real dispatch."""
+    """Run multi-AI code review with REAL dispatch."""
     _out("=== Multi-AI Code Review -> Sprint Findings ===")
+    _out(f"(Model: {DEFAULT_MODEL})")
     _out("")
 
-    if not _can_dispatch():
-        _out("Dispatch not available (inside Claude Code or claude CLI not in PATH).")
-        _out("Run from terminal for real AI dispatch:")
-        _out("  python examples/api/code_review_to_findings.py")
-        _out("  RONDO_CLOUD=1 python examples/api/code_review_to_findings.py")
-        _out("")
-        _out("Pipeline logic verified -- consensus + finding creation works.")
-        return
-
-    _out("(REAL dispatch -- no mocks)")
-    _out("")
     result = multi_ai_review(CODE_SAMPLE)
     _out("")
 
@@ -278,15 +232,8 @@ def main() -> None:
         return
 
     _out(f"Result: {result['total_findings']} findings from {result['providers_used']} provider(s)")
-    if result["total_findings"] < 1:
-        _out("  -WARNING- AI found no issues in code with obvious SQL injection")
-        _out("  This itself is a finding -- the AI missed a real bug")
-
     for action in result["actions"]:
         _out(f"  [{action['confidence']}] {action['issue'][:70]}")
-
-    _out("")
-    _out("The key: REAL AI calls, structured returns, Python decides.")
 
 
 if __name__ == "__main__":

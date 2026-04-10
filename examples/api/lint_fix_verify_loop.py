@@ -21,10 +21,13 @@ THE DECISION LOGIC:
 
 import json
 import os
-import shutil
 import sys
 
 from rondo import smart_return
+
+## Default: Anthropic API — works everywhere (inside Claude Code, terminal, CI).
+## Haiku is cheap ($0.001/call). Override: RONDO_MODEL=anthropic:claude-sonnet-4-6
+DEFAULT_MODEL = os.environ.get("RONDO_MODEL", "anthropic:claude-haiku-4-5")
 
 _mcp_dispatch = None
 
@@ -44,20 +47,14 @@ def _out(msg: str) -> None:
     sys.stdout.write(msg + "\n")
 
 
-def _can_dispatch() -> bool:
-    """Check if real dispatch is possible (not inside Claude Code)."""
-    if os.environ.get("CLAUDECODE"):
-        return False
-    return shutil.which("claude") is not None
-
-
-def _dispatch(prompt: str, model: str = "sonnet") -> dict | None:
+def _dispatch(prompt: str, model: str = "") -> dict | None:
     """Real AI dispatch via Rondo. Free on Claude Max plan."""
+    use_model = model or DEFAULT_MODEL
     try:
         mod = _get_dispatch_module()
         raw = mod.rondo_run_file(  # type: ignore[union-attr]
             prompt=prompt,
-            model=model,
+            model=use_model,
             dry_run=False,
             timeout_sec=60,
         )
@@ -160,11 +157,6 @@ def main() -> None:
     """Demonstrate lint-fix-verify loop with real AI."""
     _out("=== Lint-Fix-Verify Loop ===")
     _out("")
-
-    if not _can_dispatch():
-        _out("Dispatch not available (inside Claude Code or no claude CLI).")
-        _out("Run from terminal: python examples/api/lint_fix_verify_loop.py")
-        return
 
     _out("(REAL dispatch -- sending violations to Claude)")
     _out("")

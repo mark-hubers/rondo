@@ -1264,10 +1264,10 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | Req # | Requirement | Priority | Test |
 |-------|-------------|----------|------|
 | 110 | Round files MAY define `post_dispatch` as a list of callables `(result: TaskResult, usage: DispatchUsage) -> TaskResult`. Each callable receives the result and returns a (possibly modified) result. | MUST | Unit test |
-| 111 | Post-dispatch hooks run in order after dispatch completes but BEFORE finalize_dispatch (audit OUTCOME, sanitize, spool). | MUST | Order test |
+| 111 | Post-dispatch hooks run in order AFTER finalize_dispatch (audit, sanitize, spool). Hooks see sanitized output — prevents accidental secret leakage through hook code. Audit OUTCOME records the provider's actual result, not hook-modified data. | MUST | Order test |
 | 112 | If a post-dispatch hook raises, the ORIGINAL result (pre-hook) MUST be preserved and finalized. The hook failure is logged as WARNING. | MUST | Resilience test |
 | 113 | Post-dispatch hooks MUST be logged in the audit trail as `HOOK_POST` events. | MUST | Audit test |
-| 114 | Post-dispatch hooks MUST NOT modify `raw_output` to inject content that bypasses sanitization (STD-114). Sanitization runs AFTER hooks. | MUST | Security test |
+| 114 | Post-dispatch hooks receive sanitized output (sanitization already ran in finalize). Hooks MAY modify fields but MUST NOT re-inject sensitive data into `raw_output`. | MUST | Security test |
 
 ### Config-Level Hooks (Global)
 
@@ -1335,10 +1335,10 @@ def build_round():
   [dispatch to provider]
          |
          v
-  [post_dispatch hooks] → result in → modified result out
+  [finalize_dispatch] → audit, sanitize, spool (existing pipeline)
          |
          v
-  [finalize_dispatch] → audit, sanitize, spool (existing pipeline)
+  [post_dispatch hooks] → sanitized result in → modified result out
 ```
 
 Hooks are lightweight — they don't change the dispatch architecture. They add

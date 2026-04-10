@@ -274,7 +274,7 @@ def _handle_inline_prompt(args: argparse.Namespace) -> int:
     import sys as _sys  # pylint: disable=import-outside-toplevel
 
     from rondo.engine import Round, Task  # pylint: disable=import-outside-toplevel
-    from rondo.smart_return import validate_return_json  # pylint: disable=import-outside-toplevel
+    from rondo.smart_return import normalize_response, validate_return_json  # pylint: disable=import-outside-toplevel
 
     prompt = args.prompt
 
@@ -298,11 +298,12 @@ def _handle_inline_prompt(args: argparse.Namespace) -> int:
             print(tr.raw_output or tr.error_message or "No output")
         return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
-    # -- JSON output with smart return validation
+    # -- JSON output with smart return validation + normalization (REQ-111 reqs 440-475)
     tr = result.task_results[0]
     validated = validate_return_json(tr.raw_output or "")
-    print(_json.dumps(validated, indent=2, default=str))
-    return EXIT_SUCCESS if validated.get("_json_valid") else EXIT_FAILURE
+    normalized = normalize_response(validated)
+    print(_json.dumps(normalized, indent=2, default=str))
+    return EXIT_SUCCESS if normalized.get("_json_valid") else EXIT_FAILURE
 
 
 def main(argv: list[str] | None = None) -> int:

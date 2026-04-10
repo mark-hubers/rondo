@@ -154,6 +154,47 @@ class TestValidateReturnJSON:
         assert len(data["result"]) == 5000
 
 
+class TestConfigTemplateLoading:
+    """REQ-111 req 430: config.toml return prompt templates."""
+
+    def test_config_template_overrides_code(self, tmp_path) -> None:
+        """Config template takes precedence over hardcoded."""
+        import os
+
+        config = tmp_path / "config.toml"
+        config.write_text('[return_prompts.gemini]\nprompt = "CUSTOM GEMINI TEMPLATE"\n')
+        os.environ["RONDO_CONFIG"] = str(config)
+        try:
+            prompt = build_return_prompt(provider="gemini:flash")
+            assert "CUSTOM GEMINI TEMPLATE" in prompt
+        finally:
+            del os.environ["RONDO_CONFIG"]
+
+    def test_no_config_falls_through_to_code(self) -> None:
+        """No config file → uses hardcoded code template."""
+        import os
+
+        os.environ["RONDO_CONFIG"] = "/nonexistent/config.toml"
+        try:
+            prompt = build_return_prompt(provider="gemini:flash")
+            assert "passed" in prompt.lower()  # -- code template has this
+        finally:
+            del os.environ["RONDO_CONFIG"]
+
+    def test_config_default_template(self, tmp_path) -> None:
+        """Config [return_prompts.default] used for unknown providers."""
+        import os
+
+        config = tmp_path / "config.toml"
+        config.write_text('[return_prompts]\ndefault = "USE THIS DEFAULT"\n')
+        os.environ["RONDO_CONFIG"] = str(config)
+        try:
+            prompt = build_return_prompt(provider="newprovider:model")
+            assert "USE THIS DEFAULT" in prompt
+        finally:
+            del os.environ["RONDO_CONFIG"]
+
+
 class TestNormalizeResponse:
     """REQ-111 reqs 470-475: response normalization."""
 

@@ -7,7 +7,7 @@ so AI providers return structured JSON by default. Per-provider templates
 tuned for optimal JSON compliance.
 
 Import direction:
-    smart_return.py → imports config (RondoConfig only)
+    smart_return.py → no rondo imports (leaf module, stdlib only)
 """
 
 from __future__ import annotations
@@ -77,6 +77,41 @@ Reply with JSON only. No other text.
 }
 
 
+def _load_config_template(provider_key: str) -> str:
+    """Load return prompt template from ~/.rondo/config.toml if configured.
+
+    REQ-111 req 430: [return_prompts.<provider>] in config.toml.
+    Returns empty string if not configured (falls through to code templates).
+    """
+    try:
+        import os  # pylint: disable=import-outside-toplevel
+        import tomllib  # pylint: disable=import-outside-toplevel
+        from pathlib import Path  # pylint: disable=import-outside-toplevel
+
+        config_path = Path(os.environ.get("RONDO_CONFIG", "")) or Path.home() / ".rondo" / "config.toml"
+        if not config_path.is_file():
+            return ""
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        prompts = data.get("return_prompts", {})
+        # -- Provider-specific first, then default
+        if provider_key and provider_key in prompts:
+            return str(
+                prompts[provider_key].get("prompt", prompts[provider_key])
+                if isinstance(prompts[provider_key], dict)
+                else prompts[provider_key]
+            )
+        if "default" in prompts:
+            return str(
+                prompts["default"].get("prompt", prompts["default"])
+                if isinstance(prompts["default"], dict)
+                else prompts["default"]
+            )
+        return ""
+    except (OSError, KeyError, TypeError, ValueError):
+        return ""
+
+
 def build_return_prompt(
     provider: str = "",
     field_name: str = "",
@@ -100,9 +135,9 @@ def build_return_prompt(
     if custom_schema:
         return f"\nRESPONSE FORMAT: Return ONLY valid JSON matching this schema:\n{custom_schema}\n"
 
-    # -- Pick provider template or default
+    # -- COALESCE: config.toml template → code template → default (REQ-111 req 430-431)
     provider_key = provider.split(":")[0] if provider else ""
-    template = _PROVIDER_TEMPLATES.get(provider_key, _DEFAULT_RETURN_PROMPT)
+    template = _load_config_template(provider_key) or _PROVIDER_TEMPLATES.get(provider_key, _DEFAULT_RETURN_PROMPT)
 
     # -- COALESCE level 2: named field + defaults
     if field_name:

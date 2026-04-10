@@ -23,10 +23,14 @@ class TestYAMLLoader:
     def test_load_simple_yaml(self, tmp_path) -> None:
         """Basic YAML round file loads correctly."""
         f = tmp_path / "round.yaml"
-        f.write_text(yaml.dump({
-            "name": "test-round",
-            "tasks": [{"name": "t1", "instruction": "do something"}],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "name": "test-round",
+                    "tasks": [{"name": "t1", "instruction": "do something"}],
+                }
+            )
+        )
         result = load_round(str(f))
         assert isinstance(result, Round)
         assert result.name == "test-round"
@@ -36,14 +40,18 @@ class TestYAMLLoader:
     def test_yaml_multiple_tasks(self, tmp_path) -> None:
         """YAML with multiple tasks loads all tasks."""
         f = tmp_path / "multi.yaml"
-        f.write_text(yaml.dump({
-            "name": "multi",
-            "tasks": [
-                {"name": "t1", "instruction": "first"},
-                {"name": "t2", "instruction": "second", "model": "gemini:flash"},
-                {"name": "t3", "instruction": "third", "done_when": "done"},
-            ],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "name": "multi",
+                    "tasks": [
+                        {"name": "t1", "instruction": "first"},
+                        {"name": "t2", "instruction": "second", "model": "gemini:flash"},
+                        {"name": "t3", "instruction": "third", "done_when": "done"},
+                    ],
+                }
+            )
+        )
         result = load_round(str(f))
         assert len(result.tasks) == 3
         assert result.tasks[1].model == "gemini:flash"
@@ -52,31 +60,43 @@ class TestYAMLLoader:
     def test_yaml_unknown_field_rejected(self, tmp_path) -> None:
         """REQ-111 req 414: unknown task fields are rejected."""
         f = tmp_path / "bad.yaml"
-        f.write_text(yaml.dump({
-            "name": "bad",
-            "tasks": [{"name": "t1", "instruction": "hi", "bogus_field": True}],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "name": "bad",
+                    "tasks": [{"name": "t1", "instruction": "hi", "bogus_field": True}],
+                }
+            )
+        )
         with pytest.raises(ValueError, match="Unknown task fields"):
             load_round(str(f))
 
     def test_yaml_unknown_round_field_rejected(self, tmp_path) -> None:
         """Unknown round-level fields are rejected."""
         f = tmp_path / "bad.yaml"
-        f.write_text(yaml.dump({
-            "name": "bad",
-            "unknown_top": True,
-            "tasks": [{"name": "t1", "instruction": "hi"}],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "name": "bad",
+                    "unknown_top": True,
+                    "tasks": [{"name": "t1", "instruction": "hi"}],
+                }
+            )
+        )
         with pytest.raises(ValueError, match="Unknown round fields"):
             load_round(str(f))
 
     def test_yaml_missing_name_rejected(self, tmp_path) -> None:
         """Tasks missing name field are rejected."""
         f = tmp_path / "no_name.yaml"
-        f.write_text(yaml.dump({
-            "name": "test",
-            "tasks": [{"instruction": "no name here"}],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "name": "test",
+                    "tasks": [{"instruction": "no name here"}],
+                }
+            )
+        )
         with pytest.raises(ValueError, match="missing required 'name'"):
             load_round(str(f))
 
@@ -90,19 +110,27 @@ class TestYAMLLoader:
     def test_yml_extension_works(self, tmp_path) -> None:
         """REQ-111 req 412: .yml extension also works."""
         f = tmp_path / "round.yml"
-        f.write_text(yaml.dump({
-            "name": "yml-test",
-            "tasks": [{"name": "t1", "instruction": "hi"}],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "name": "yml-test",
+                    "tasks": [{"name": "t1", "instruction": "hi"}],
+                }
+            )
+        )
         result = load_round(str(f))
         assert result.name == "yml-test"
 
     def test_yaml_name_defaults_to_filename(self, tmp_path) -> None:
         """If name not provided, uses filename stem."""
         f = tmp_path / "my-review.yaml"
-        f.write_text(yaml.dump({
-            "tasks": [{"name": "t1", "instruction": "hi"}],
-        }))
+        f.write_text(
+            yaml.dump(
+                {
+                    "tasks": [{"name": "t1", "instruction": "hi"}],
+                }
+            )
+        )
         result = load_round(str(f))
         assert result.name == "my-review"
 
@@ -113,10 +141,14 @@ class TestJSONLoader:
     def test_load_simple_json(self, tmp_path) -> None:
         """Basic JSON round file loads correctly."""
         f = tmp_path / "round.json"
-        f.write_text(json.dumps({
-            "name": "json-test",
-            "tasks": [{"name": "t1", "instruction": "do something"}],
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "name": "json-test",
+                    "tasks": [{"name": "t1", "instruction": "do something"}],
+                }
+            )
+        )
         result = load_round(str(f))
         assert isinstance(result, Round)
         assert result.name == "json-test"
@@ -124,17 +156,23 @@ class TestJSONLoader:
     def test_json_with_all_task_fields(self, tmp_path) -> None:
         """JSON task with many fields loads correctly."""
         f = tmp_path / "full.json"
-        f.write_text(json.dumps({
-            "name": "full",
-            "tasks": [{
-                "name": "t1",
-                "instruction": "review code",
-                "done_when": "list all bugs",
-                "model": "gemini:flash",
-                "context_files": ["src/app.py"],
-                "bare": True,
-            }],
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "name": "full",
+                    "tasks": [
+                        {
+                            "name": "t1",
+                            "instruction": "review code",
+                            "done_when": "list all bugs",
+                            "model": "gemini:flash",
+                            "context_files": ["src/app.py"],
+                            "bare": True,
+                        }
+                    ],
+                }
+            )
+        )
         result = load_round(str(f))
         assert result.tasks[0].model == "gemini:flash"
         assert result.tasks[0].bare is True

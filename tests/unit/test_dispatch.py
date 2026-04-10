@@ -614,8 +614,7 @@ class TestResultSaving:
         data = json.loads(Path(filepath).read_text())
         # -- 1.5MB should NOT be truncated for sonnet[1m] (cap is 2MB)
         assert len(data["raw_output"]) == 1_500_000, (
-            f"#216: sonnet[1m] should allow 1.5MB output (cap=2MB). "
-            f"Got truncated to {len(data['raw_output'])} bytes."
+            f"#216: sonnet[1m] should allow 1.5MB output (cap=2MB). Got truncated to {len(data['raw_output'])} bytes."
         )
 
     def test_output_cap_truncates_beyond_model_limit(self, tmp_path):
@@ -640,9 +639,7 @@ class TestResultSaving:
         # -- Should be truncated to 2MB + truncation note
         assert len(data["raw_output"]) <= 2 * 1024 * 1024 + 200
         assert "TRUNCATED" in data["raw_output"]
-        assert "sonnet[1m]" in data["raw_output"], (
-            "#216: truncation note must include model name for diagnostics"
-        )
+        assert "sonnet[1m]" in data["raw_output"], "#216: truncation note must include model name for diagnostics"
 
     def test_max_output_bytes_scales_with_model(self):
         """RONDO-206 Finding #216: _max_output_bytes_for_model scales correctly."""

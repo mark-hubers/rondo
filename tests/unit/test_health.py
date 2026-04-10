@@ -127,12 +127,8 @@ class TestCheckHealth:
             result = check_health("fp240-down")
 
         assert result.healthy is False, "#240: OPEN breaker must return unhealthy"
-        assert "circuit breaker" in result.error.lower(), (
-            f"#240: error must mention breaker, got: {result.error!r}"
-        )
-        assert mock_adapter.health.call_count == 0, (
-            "#240: HTTP health call should be SKIPPED when breaker is OPEN"
-        )
+        assert "circuit breaker" in result.error.lower(), f"#240: error must mention breaker, got: {result.error!r}"
+        assert mock_adapter.health.call_count == 0, "#240: HTTP health call should be SKIPPED when breaker is OPEN"
 
     def test_closed_circuit_breaker_does_http_health_call(self, tmp_path) -> None:
         """RONDO-205 Finding #240: CLOSED breaker still calls adapter.health().
@@ -160,9 +156,7 @@ class TestCheckHealth:
             result = check_health("fp240-up")
 
         assert result.healthy is True
-        assert mock_adapter.health.call_count == 1, (
-            "#240: CLOSED breaker must allow real health call through"
-        )
+        assert mock_adapter.health.call_count == 1, "#240: CLOSED breaker must allow real health call through"
 
 
 # -- ──────────────────────────────────────────────────────────────

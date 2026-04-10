@@ -106,9 +106,7 @@ class TestReliabilityIntegration:
         for _ in range(3):
             isolated_breaker.record_failure("test-provider")
 
-        assert isolated_breaker.is_open("test-provider"), (
-            "precondition: breaker must be OPEN after threshold failures"
-        )
+        assert isolated_breaker.is_open("test-provider"), "precondition: breaker must be OPEN after threshold failures"
 
         # -- Callers that check the breaker should NOT call the provider
         # -- This is what dispatch.py does at the top of _dispatch_interactive
@@ -118,9 +116,7 @@ class TestReliabilityIntegration:
         else:
             provider.dispatch("test", "test-model")
 
-        assert provider.call_count == 0, (
-            "breaker-OPEN blocks the provider call entirely — no network hit"
-        )
+        assert provider.call_count == 0, "breaker-OPEN blocks the provider call entirely — no network hit"
 
     def test_breaker_reopens_after_cooldown(self, tmp_path):
         """After cooldown expires, breaker auto-closes on next is_open() check.
@@ -155,9 +151,7 @@ class TestReliabilityIntegration:
         assert b1.is_open("down")
 
         b2 = CircuitBreaker(failure_threshold=2, cooldown_sec=300.0, persist_path=persist)
-        assert b2.is_open("down"), (
-            "RONDO-205 #236: persisted OPEN state must survive restart"
-        )
+        assert b2.is_open("down"), "RONDO-205 #236: persisted OPEN state must survive restart"
 
     def test_flaky_provider_succeeds_within_threshold(self):
         """Provider fails 2 times, succeeds on 3rd — breaker does NOT open.
@@ -203,12 +197,8 @@ class TestReliabilityIntegration:
         for _ in range(3):
             isolated_breaker.record_failure("provider-a")
         assert isolated_breaker.is_open("provider-a")
-        assert not isolated_breaker.is_open("provider-b"), (
-            "provider-b should be untouched by provider-a's failures"
-        )
-        assert not isolated_breaker.is_open("provider-c"), (
-            "provider-c should be untouched too"
-        )
+        assert not isolated_breaker.is_open("provider-b"), "provider-b should be untouched by provider-a's failures"
+        assert not isolated_breaker.is_open("provider-c"), "provider-c should be untouched too"
 
     def test_audit_trail_records_dispatches_while_breaker_is_open(self, tmp_path):
         """Blocked dispatch attempts still flow through the audit trail.
@@ -264,17 +254,13 @@ class TestReliabilityIntegration:
         # -- Tenant A: 3 failures → breaker OPEN
         monkeypatch.setenv("RONDO_TENANT", "tenant-a")
         audit_a = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path / "audit-a")))
-        rec_a = audit_a.record_intent(
-            task_name="a-task", round_name="t", model="provider-x", prompt="a-prompt"
-        )
+        rec_a = audit_a.record_intent(task_name="a-task", round_name="t", model="provider-x", prompt="a-prompt")
         assert rec_a.dispatch_id != ""
 
         # -- Tenant B: clean run
         monkeypatch.setenv("RONDO_TENANT", "tenant-b")
         audit_b = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path / "audit-b")))
-        rec_b = audit_b.record_intent(
-            task_name="b-task", round_name="t", model="provider-x", prompt="b-prompt"
-        )
+        rec_b = audit_b.record_intent(task_name="b-task", round_name="t", model="provider-x", prompt="b-prompt")
         assert rec_b.dispatch_id != ""
 
         # -- Cross-tenant check: tenant-a's audit file must not contain tenant-b's data
@@ -296,9 +282,7 @@ class TestReliabilityIntegration:
         persist.write_text("{NOT_VALID_JSON}", encoding="utf-8")
 
         # -- Should not raise
-        breaker = CircuitBreaker(
-            failure_threshold=3, cooldown_sec=60.0, persist_path=persist
-        )
+        breaker = CircuitBreaker(failure_threshold=3, cooldown_sec=60.0, persist_path=persist)
 
         # -- And should start in the closed state (corrupt file treated as empty)
         assert not breaker.is_open("any-provider")
@@ -308,9 +292,7 @@ class TestReliabilityIntegration:
         persist = tmp_path / "breaker.json"
         persist.write_text("", encoding="utf-8")
 
-        breaker = CircuitBreaker(
-            failure_threshold=3, cooldown_sec=60.0, persist_path=persist
-        )
+        breaker = CircuitBreaker(failure_threshold=3, cooldown_sec=60.0, persist_path=persist)
         assert not breaker.is_open("any")
 
 

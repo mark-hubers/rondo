@@ -25,7 +25,6 @@ def build_cross_field_round() -> Round:
     """Build a cross-field relationship audit round."""
     return Round(
         name="cross-field-audit",
-
         pre_gates=[
             Gate(
                 name="Python source exists",
@@ -33,7 +32,6 @@ def build_cross_field_round() -> Round:
                 blocking=False,
             ),
         ],
-
         tasks=[
             # -- 1. Discover frozen dataclasses (sonnet — AST scanning)
             Task(
@@ -54,7 +52,6 @@ def build_cross_field_round() -> Round:
                 done_when="Table of all frozen dataclasses with grouped numeric fields",
                 model="sonnet",
             ),
-
             # -- 2. Check for _validate_relationships (sonnet — code search)
             Task(
                 name="Check Validation Functions",
@@ -75,7 +72,6 @@ def build_cross_field_round() -> Round:
                 done_when="Coverage matrix of relationship checks vs field pairs",
                 model="sonnet",
             ),
-
             # -- 3. AI relationship analysis (opus — reasoning required)
             Task(
                 name="Infer Missing Relationships",
@@ -104,7 +100,6 @@ def build_cross_field_round() -> Round:
                 done_when="Full relationship map with priorities and gap analysis",
                 model="opus",
             ),
-
             # -- 4. Generate fix recommendations (sonnet — code generation)
             Task(
                 name="Generate Fixes",
@@ -128,7 +123,6 @@ def build_cross_field_round() -> Round:
                 done_when="Validation code and test cases for all gaps",
                 model="sonnet",
             ),
-
             # -- 5. Summary report (haiku — aggregation)
             Task(
                 name="Audit Summary",
@@ -148,7 +142,6 @@ def build_cross_field_round() -> Round:
                 model="haiku",
             ),
         ],
-
         post_gates=[
             Gate(
                 name="Audit results recorded",

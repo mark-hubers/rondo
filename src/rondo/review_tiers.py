@@ -53,7 +53,6 @@ def merge_ai_review_tiers(builtin: dict[str, dict[str, str]]) -> dict[str, dict[
         return merged
 
     try:
-
         with open(path, "rb") as f:
             data = tomllib.load(f)
     except (OSError, UnicodeDecodeError, TypeError) as exc:

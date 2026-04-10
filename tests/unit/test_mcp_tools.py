@@ -24,8 +24,6 @@ from rondo.mcp_server import (
 # -- ──────────────────────────────────────────────────────────────
 
 
-
-
 class TestMetricsTool:
     """IFS-104: rondo_metrics tool returns dashboard data."""
 

@@ -198,6 +198,7 @@ def _build_verify() -> Round:
 # Entry points: run one step or run all as overnight phases
 # ──────────────────────────────────────────────────────────────────────
 
+
 def build_round() -> Round:
     """Default: run Step 1 (scan). Chain the rest manually or use overnight."""
     return _build_scan()

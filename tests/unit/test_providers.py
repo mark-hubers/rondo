@@ -1051,8 +1051,8 @@ class TestProviderConfigWiring:
         _p._providers_config.clear()
         _p._providers_loaded = False
         from rondo.mcp_server import create_mcp_server
-        with patch("rondo.mcp_server.load_providers_config", wraps=_p.load_providers_config) as mock_load:
 
+        with patch("rondo.mcp_server.load_providers_config", wraps=_p.load_providers_config) as mock_load:
             create_mcp_server()
             mock_load.assert_called()
 

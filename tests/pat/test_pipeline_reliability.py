@@ -19,7 +19,6 @@ import pytest
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "src"))
 
 
-
 class TestPipelineReliability:
     """RONDO-139 + RONDO-204 + RONDO-205: Retry, circuit breaker, multi-hop fallback, and pipeline integrity paths."""
 
@@ -312,9 +311,7 @@ class TestPipelineReliability:
             cooldown_sec=300.0,
             persist_path=persist_file,
         )
-        assert breaker_2.is_open("down-provider"), (
-            "After restart, breaker must still be OPEN — #236 persistence"
-        )
+        assert breaker_2.is_open("down-provider"), "After restart, breaker must still be OPEN — #236 persistence"
 
         # -- Other providers should be unaffected
         assert not breaker_2.is_open("healthy-provider"), "Non-failed providers start closed"
@@ -444,9 +441,7 @@ class TestPipelineReliability:
         from rondo.audit import AuditConfig, AuditTrail
 
         trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
-        record = trail.record_intent(
-            task_name="t", round_name="atomic-test", model="gemini-2.5-flash", prompt="hi"
-        )
+        record = trail.record_intent(task_name="t", round_name="atomic-test", model="gemini-2.5-flash", prompt="hi")
         trail.record_outcome(
             dispatch_id=record.dispatch_id,
             status="done",

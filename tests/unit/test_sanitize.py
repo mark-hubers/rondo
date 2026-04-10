@@ -438,9 +438,7 @@ class TestFalsePositiveGuards:
         fake_token = ("FAKE-TEST-" * 4) + "END"  # -- 43 chars, obviously fake
         text = f"Authorization: Bearer {fake_token}"
         result = sanitize_text(text)
-        assert result.secrets_found >= 1, (
-            f"#239: real bearer token must still be detected (got {result.secrets_found})"
-        )
+        assert result.secrets_found >= 1, f"#239: real bearer token must still be detected (got {result.secrets_found})"
         assert fake_token not in result.sanitized_text
 
     def test_password_function_call_not_redacted(self):
@@ -459,8 +457,7 @@ class TestFalsePositiveGuards:
             # -- password pattern must NOT match (but other patterns may)
             pattern_hits = [d.pattern_name for d in result.detections]
             assert "password" not in pattern_hits, (
-                f"#239: false positive on password pattern for: {text!r} "
-                f"→ detected {pattern_hits}"
+                f"#239: false positive on password pattern for: {text!r} → detected {pattern_hits}"
             )
 
     def test_password_quoted_literal_still_redacted(self):
@@ -472,9 +469,7 @@ class TestFalsePositiveGuards:
         ]
         for text in real_secrets:
             result = sanitize_text(text)
-            assert result.secrets_found >= 1, (
-                f"#239: real quoted password missed in: {text!r}"
-            )
+            assert result.secrets_found >= 1, f"#239: real quoted password missed in: {text!r}"
 
     def test_meta_references_not_redacted(self):
         """Words like 'api_key' or 'token' in prose are not secrets.
@@ -526,9 +521,7 @@ class TestFalsePositiveGuards:
         # -- Certificates may trigger high_entropy_base64 on the body,
         # -- but should NOT trigger private_key patterns.
         pattern_hits = [d.pattern_name for d in result.detections]
-        assert "private_key" not in pattern_hits, (
-            f"#239: certificate confused with private key: {pattern_hits}"
-        )
+        assert "private_key" not in pattern_hits, f"#239: certificate confused with private key: {pattern_hits}"
         assert "private_key_begin" not in pattern_hits
 
 

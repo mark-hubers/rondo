@@ -146,9 +146,7 @@ def _spawn_worker(worker_id: int, tmp_path: Path, src_path: Path) -> subprocess.
     )
 
 
-def _wait_all(
-    workers: list[subprocess.Popen], timeout_sec: int
-) -> list[tuple[int, str, str]]:
+def _wait_all(workers: list[subprocess.Popen], timeout_sec: int) -> list[tuple[int, str, str]]:
     """Wait for all workers to complete. Returns list of (rc, stdout, stderr).
 
     On timeout, kill any stragglers so we do not leak subprocesses.
@@ -197,9 +195,7 @@ def test_stress_real_concurrent_dispatch(tmp_path: Path) -> None:
     results = _wait_all(workers, timeout_sec=WORKER_TIMEOUT_SEC)
 
     ## ─── Assertion 1: all workers exited cleanly ───
-    failed_workers = [
-        (i, rc, err) for i, (rc, _out, err) in enumerate(results) if rc != 0
-    ]
+    failed_workers = [(i, rc, err) for i, (rc, _out, err) in enumerate(results) if rc != 0]
     if failed_workers:
         msg_lines = [f"Worker {i}: rc={rc}, stderr={err[:400]}" for i, rc, err in failed_workers]
         pytest.fail("Worker subprocess(es) failed:\n" + "\n".join(msg_lines))
@@ -220,8 +216,7 @@ def test_stress_real_concurrent_dispatch(tmp_path: Path) -> None:
     ## ─── Assertion 3: audit log integrity ───
     audit_file = _find_audit_jsonl(tmp_path)
     assert audit_file is not None, (
-        f"Expected audit JSONL under {tmp_path}, found none. "
-        f"Tree: {sorted(p.name for p in tmp_path.rglob('*'))[:20]}"
+        f"Expected audit JSONL under {tmp_path}, found none. Tree: {sorted(p.name for p in tmp_path.rglob('*'))[:20]}"
     )
 
     lines = [line for line in audit_file.read_text().splitlines() if line.strip()]
@@ -232,10 +227,7 @@ def test_stress_real_concurrent_dispatch(tmp_path: Path) -> None:
         try:
             parsed.append(json.loads(line))
         except json.JSONDecodeError as e:
-            pytest.fail(
-                f"Audit JSONL line {lineno} corrupted (torn write?): {line[:200]!r} "
-                f"(err: {e})"
-            )
+            pytest.fail(f"Audit JSONL line {lineno} corrupted (torn write?): {line[:200]!r} (err: {e})")
 
     ## ─── Assertion 3a: INTENT phase record count ───
     intent_records = [e for e in parsed if e.get("status") == "INTENT"]
@@ -280,9 +272,7 @@ def test_stress_real_concurrent_dispatch(tmp_path: Path) -> None:
     ## ─── Assertion 5: no worker leaked Python exceptions to stderr ───
     for i, (_rc, _out, err) in enumerate(results):
         ## "Traceback (most recent call last):" is the Python exception marker
-        assert "Traceback" not in err, (
-            f"Worker {i} leaked a Python traceback:\n{err[:800]}"
-        )
+        assert "Traceback" not in err, f"Worker {i} leaked a Python traceback:\n{err[:800]}"
 
 
 # -- sig: mgh-6208.cd.bd955f.e4a1.2c7a1c

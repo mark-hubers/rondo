@@ -17,7 +17,6 @@ import sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "src"))
 
 
-
 class TestPipelineSecurity:
     """RONDO-139 + RONDO-204 + RONDO-205: Sanitize detection patterns, footgun guards, budget caps, tenant isolation."""
 
@@ -220,9 +219,7 @@ class TestPipelineSecurity:
         assert result.error_code == "ERR_SUBPROCESS_FOOTGUN", (
             "#237: guard must fire for auth=api too, not just auth=max"
         )
-        assert "api" in result.error_message.lower(), (
-            "Error message should mention auth mode for diagnostics"
-        )
+        assert "api" in result.error_message.lower(), "Error message should mention auth mode for diagnostics"
 
     def test_subprocess_footgun_override_emits_warning(self, monkeypatch, caplog) -> None:
         """RONDO-205 Finding #237: override bypass must leave an audit trail.
@@ -254,13 +251,8 @@ class TestPipelineSecurity:
                 pass
 
         # -- #237: audit trail proof — warning must be logged
-        override_warnings = [
-            rec for rec in caplog.records
-            if "FOOTGUN OVERRIDE ACTIVE" in rec.message
-        ]
-        assert len(override_warnings) >= 1, (
-            "#237: override bypass must emit WARNING log (audit trail)"
-        )
+        override_warnings = [rec for rec in caplog.records if "FOOTGUN OVERRIDE ACTIVE" in rec.message]
+        assert len(override_warnings) >= 1, "#237: override bypass must emit WARNING log (audit trail)"
         # -- Verify warning includes task name for operator diagnosis
         assert "foot-override" in override_warnings[0].message
 
@@ -378,9 +370,7 @@ class TestPipelineSecurity:
         monkeypatch.setenv("XAI_API_KEY", "bob-secret-key")
         key_bob = auth.load_api_key("grok")
         # -- Bob must get HIS key, not Alice's cached one
-        assert key_bob == "bob-secret-key", (
-            f"Cross-tenant key leak: Bob got {key_bob!r} instead of bob-secret-key"
-        )
+        assert key_bob == "bob-secret-key", f"Cross-tenant key leak: Bob got {key_bob!r} instead of bob-secret-key"
 
         # -- Switch back to Alice — she should get her key from cache
         monkeypatch.setenv("RONDO_TENANT", "alice")

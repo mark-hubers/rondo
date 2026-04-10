@@ -82,9 +82,7 @@ class TestRotationAndCosts:
         combined = archive_content + current_content
 
         for did in pre_ids + post_ids:
-            assert did in combined, (
-                f"rotation lost dispatch_id {did} — data loss bug"
-            )
+            assert did in combined, f"rotation lost dispatch_id {did} — data loss bug"
 
     def test_cost_tracking_survives_atomic_write_round_trip(self, tmp_path):
         """Integration: atomic_write preserves cost_usd values through serialization.
@@ -107,9 +105,7 @@ class TestRotationAndCosts:
         atomic_write(target, json.dumps(asdict(tr), default=str))
 
         loaded = json.loads(target.read_text(encoding="utf-8"))
-        assert loaded["cost_usd"] == 0.00123456, (
-            f"cost precision lost: {loaded['cost_usd']} != 0.00123456"
-        )
+        assert loaded["cost_usd"] == 0.00123456, f"cost precision lost: {loaded['cost_usd']} != 0.00123456"
 
     def test_partial_success_parallel_dispatch_records_all_outcomes(self, tmp_path):
         """Parallel dispatch with mixed status records all outcomes.
@@ -210,9 +206,7 @@ class TestRotationAndCosts:
         assert "ERR_TIMEOUT" in jsonl
         assert "timeout-task" in jsonl
         # -- Verify the duration was preserved (not truncated)
-        outcome_line = [
-            line for line in jsonl.splitlines() if '"status": "error"' in line
-        ][0]
+        outcome_line = [line for line in jsonl.splitlines() if '"status": "error"' in line][0]
         parsed = json.loads(outcome_line)
         assert parsed["duration_sec"] == 300.0
 

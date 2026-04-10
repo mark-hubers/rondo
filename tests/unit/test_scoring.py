@@ -56,15 +56,17 @@ class TestComputeProviderScores:
         """json_valid and fields_complete are tracked."""
         outcomes = []
         for i in range(12):
-            outcomes.append({
-                "model": "gemini:flash",
-                "status": "done",
-                "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "cost_usd": 0.003,
-                "duration_sec": 2.0,
-                "json_valid": i < 10,  # -- 10/12 valid
-                "fields_complete": i < 8,  # -- 8/12 complete
-            })
+            outcomes.append(
+                {
+                    "model": "gemini:flash",
+                    "status": "done",
+                    "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "cost_usd": 0.003,
+                    "duration_sec": 2.0,
+                    "json_valid": i < 10,  # -- 10/12 valid
+                    "fields_complete": i < 8,  # -- 8/12 complete
+                }
+            )
         jsonl = tmp_path / "audit.jsonl"
         jsonl.write_text("\n".join(json.dumps(o) for o in outcomes))
 
@@ -104,21 +106,23 @@ class TestScoresCache:
         assert (tmp_path / "provider_scores.json").is_file()
 
 
-def _write_outcomes(
-    audit_dir, model: str, count: int, status: str = "done", cost: float = 0.003
-) -> None:
+def _write_outcomes(audit_dir, model: str, count: int, status: str = "done", cost: float = 0.003) -> None:
     """Helper: write N outcome records to a JSONL file."""
     jsonl = audit_dir / "audit.jsonl"
     existing = jsonl.read_text() if jsonl.exists() else ""
     lines = []
     for _ in range(count):
-        lines.append(json.dumps({
-            "model": model,
-            "status": status,
-            "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "cost_usd": cost,
-            "duration_sec": 2.5,
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "model": model,
+                    "status": status,
+                    "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "cost_usd": cost,
+                    "duration_sec": 2.5,
+                }
+            )
+        )
     jsonl.write_text(existing + "\n".join(lines) + "\n")
 
 

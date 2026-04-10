@@ -63,9 +63,7 @@ class TestObservabilityIntegration:
 
         assert len(structured) == 3, f"expected 3 events, got {len(structured)}"
         rids = {r["request_id"] for r in structured}
-        assert rids == {"test-rid-abcd1234"}, (
-            f"all events must share the bound request_id, got {rids}"
-        )
+        assert rids == {"test-rid-abcd1234"}, f"all events must share the bound request_id, got {rids}"
 
     def test_request_id_generation_is_unique_per_call(self):
         """new_request_id() returns unique IDs — no collisions in 1000 calls.
@@ -118,9 +116,7 @@ class TestObservabilityIntegration:
         assert record.dispatch_id.startswith("dsp_"), (
             f"expected dispatch_id format 'dsp_...', got {record.dispatch_id!r}"
         )
-        assert record.prompt_hash.startswith("sha256:"), (
-            "prompt_hash should start with 'sha256:' prefix"
-        )
+        assert record.prompt_hash.startswith("sha256:"), "prompt_hash should start with 'sha256:' prefix"
 
         # -- The JSONL record exists and contains expected structural fields
         jsonl_path = tmp_path / "rondo_audit.jsonl"
@@ -131,9 +127,7 @@ class TestObservabilityIntegration:
         assert record.dispatch_id in content, "dispatch_id must be in JSONL"
 
         # -- Negative assertion: the secret is NOT in any persistence
-        assert fake_key not in content, (
-            f"INTENT jsonl leaked secret: {fake_key[:10]}..."
-        )
+        assert fake_key not in content, f"INTENT jsonl leaked secret: {fake_key[:10]}..."
 
         # -- If a prompt file was written, it must NOT contain the raw secret
         if record.prompt_file:
@@ -143,9 +137,7 @@ class TestObservabilityIntegration:
                 prompt_path = tmp_path / record.prompt_file
             if prompt_path.exists():
                 prompt_content = prompt_path.read_text(encoding="utf-8")
-                assert fake_key not in prompt_content, (
-                    f"prompt_file leaked secret on disk: {prompt_path}"
-                )
+                assert fake_key not in prompt_content, f"prompt_file leaked secret on disk: {prompt_path}"
 
     def test_outcome_sanitize_before_persistence(self, tmp_path):
         """OUTCOME path: sanitize must run before audit.record_outcome stores raw_output.
@@ -166,9 +158,7 @@ class TestObservabilityIntegration:
 
         # -- Step 1: sanitize
         sanitized_tr, _report = sanitize_task_result(tr)
-        assert fake_github not in sanitized_tr.raw_output, (
-            "sanitize_task_result did not redact ghp_ pattern"
-        )
+        assert fake_github not in sanitized_tr.raw_output, "sanitize_task_result did not redact ghp_ pattern"
 
         # -- Step 2: persist via audit — must NOT contain the original secret
         audit_trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
@@ -195,23 +185,15 @@ class TestObservabilityIntegration:
         )
 
         jsonl_content = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
-        assert fake_github not in jsonl_content, (
-            f"OUTCOME jsonl leaked secret: {fake_github[:10]}..."
-        )
+        assert fake_github not in jsonl_content, f"OUTCOME jsonl leaked secret: {fake_github[:10]}..."
 
         # -- The raw_output is stored in a separate result_file (not inline in JSONL).
         # -- Find the result_file reference and verify its contents.
         result_files = list(tmp_path.glob("*.result.json"))
-        assert len(result_files) >= 1, (
-            "audit should have written a result_file for the OUTCOME"
-        )
+        assert len(result_files) >= 1, "audit should have written a result_file for the OUTCOME"
         result_content = result_files[0].read_text(encoding="utf-8")
-        assert fake_github not in result_content, (
-            f"result_file leaked secret on disk: {result_files[0]}"
-        )
-        assert "REDACTED" in result_content, (
-            "sanitize should have inserted [REDACTED:...] marker in result_file"
-        )
+        assert fake_github not in result_content, f"result_file leaked secret on disk: {result_files[0]}"
+        assert "REDACTED" in result_content, "sanitize should have inserted [REDACTED:...] marker in result_file"
 
     def test_sanitize_text_handles_mixed_content_integration(self):
         """sanitize_text with a realistic mixed payload (prose + code + secrets).
@@ -233,9 +215,7 @@ class TestObservabilityIntegration:
         result = sanitize_text(payload)
 
         # -- Should detect the openai_project_key and the bearer_token
-        assert result.secrets_found >= 2, (
-            f"expected ≥2 detections in mixed payload, got {result.secrets_found}"
-        )
+        assert result.secrets_found >= 2, f"expected ≥2 detections in mixed payload, got {result.secrets_found}"
         # -- Should NOT redact "bearer of bad news" (false positive from #239)
         assert "bad news" in result.sanitized_text
         # -- Should redact the actual keys
@@ -285,9 +265,7 @@ class TestObservabilityIntegration:
         audit_trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
 
         # -- Record 3 intents, 1 gets an outcome, 2 are "orphaned"
-        rec1 = audit_trail.record_intent(
-            task_name="completed", round_name="r", model="m", prompt="p1"
-        )
+        rec1 = audit_trail.record_intent(task_name="completed", round_name="r", model="m", prompt="p1")
         audit_trail.record_outcome(
             dispatch_id=rec1.dispatch_id,
             task_name="completed",
@@ -304,20 +282,14 @@ class TestObservabilityIntegration:
             files_modified=[],
         )
 
-        audit_trail.record_intent(
-            task_name="orphan-1", round_name="r", model="m", prompt="p2"
-        )
-        audit_trail.record_intent(
-            task_name="orphan-2", round_name="r", model="m", prompt="p3"
-        )
+        audit_trail.record_intent(task_name="orphan-1", round_name="r", model="m", prompt="p2")
+        audit_trail.record_intent(task_name="orphan-2", round_name="r", model="m", prompt="p3")
 
         # -- reconcile should mark both orphans
         # -- RONDO-211 #257: stuck_after_sec=0 to skip the in-flight age check
         # -- (this test simulates already-crashed INTENTs that have no age delay)
         count = audit_trail.reconcile_stuck_intents(stuck_after_sec=0)
-        assert count == 2, (
-            f"expected 2 orphans to be reconciled, got {count}"
-        )
+        assert count == 2, f"expected 2 orphans to be reconciled, got {count}"
 
         # -- The jsonl should now contain stuck outcomes for both
         content = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8")
@@ -341,9 +313,7 @@ class TestObservabilityIntegration:
 
         # -- Second pass: the already-sanitized text should have 0 new detections
         pass2 = sanitize_text(pass1.sanitized_text)
-        assert pass2.sanitized_text == pass1.sanitized_text, (
-            "sanitizing already-sanitized text should be a no-op"
-        )
+        assert pass2.sanitized_text == pass1.sanitized_text, "sanitizing already-sanitized text should be a no-op"
 
 
 # -- sig: mgh-6201.cd.bd955f.d207.9c2011

@@ -34,11 +34,7 @@ def _run_worker(worker_code: str, env: dict[str, str], timeout: float = 10.0) ->
     """Run a Python worker script as a subprocess with specific env vars."""
     project_root = Path(__file__).parent.parent.parent  # -- rondo/
     src_path = project_root / "src"
-    full_code = (
-        f"import sys\n"
-        f"sys.path.insert(0, {str(src_path)!r})\n"
-        + worker_code
-    )
+    full_code = f"import sys\nsys.path.insert(0, {str(src_path)!r})\n" + worker_code
     return subprocess.run(
         [sys.executable, "-c", full_code],
         env=env,
@@ -80,18 +76,28 @@ class TestMultiProcessIdempotency:
 
         # -- Spawn 2 workers with different keys, started in quick succession
         proc_a = subprocess.Popen(
-            [sys.executable, "-c",
-             "import sys; sys.path.insert(0, " + repr(str(Path(__file__).parent.parent.parent / "src")) + ")\n"
-             + worker_template.format(key="key-A", value=100, id=1)],
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, "
+                + repr(str(Path(__file__).parent.parent.parent / "src"))
+                + ")\n"
+                + worker_template.format(key="key-A", value=100, id=1),
+            ],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
         proc_b = subprocess.Popen(
-            [sys.executable, "-c",
-             "import sys; sys.path.insert(0, " + repr(str(Path(__file__).parent.parent.parent / "src")) + ")\n"
-             + worker_template.format(key="key-B", value=200, id=2)],
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, "
+                + repr(str(Path(__file__).parent.parent.parent / "src"))
+                + ")\n"
+                + worker_template.format(key="key-B", value=200, id=2),
+            ],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -139,7 +145,7 @@ class TestMultiProcessIdempotency:
             "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
             "import rondo.idempotency as idem\n"
             "import time\n"
-            'time.sleep({sleep})\n'
+            "time.sleep({sleep})\n"
             'idem.cache_result("shared-key", {{"worker": {id}, "value": {value}}})\n'
             'print("OK")\n'
         )
@@ -147,18 +153,22 @@ class TestMultiProcessIdempotency:
         # -- Worker A goes first, Worker B delays slightly to ensure ordering
         proc_a = subprocess.Popen(
             [sys.executable, "-c", worker_code_template.format(sleep=0.0, id=1, value=100)],
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         proc_b = subprocess.Popen(
             [sys.executable, "-c", worker_code_template.format(sleep=0.1, id=2, value=200)],
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
 
         out_a, err_a = proc_a.communicate(timeout=10)
         out_b, err_b = proc_b.communicate(timeout=10)
-        assert proc_a.returncode == 0 and proc_b.returncode == 0, (
-            f"workers failed: a={err_a}, b={err_b}"
-        )
+        assert proc_a.returncode == 0 and proc_b.returncode == 0, f"workers failed: a={err_a}, b={err_b}"
 
         # -- Read back with a fresh process to verify latest-wins semantics
         reader_code = (
@@ -171,7 +181,11 @@ class TestMultiProcessIdempotency:
         )
         reader = subprocess.run(
             [sys.executable, "-c", reader_code],
-            env=env, capture_output=True, text=True, timeout=10, check=False,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
         assert reader.returncode == 0, f"reader failed: {reader.stderr}"
         result = json.loads(reader.stdout.strip())
@@ -209,7 +223,10 @@ class TestMultiProcessIdempotency:
         processes = [
             subprocess.Popen(
                 [sys.executable, "-c", worker_template.format(id=i)],
-                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
             for i in range(n_workers)
         ]
@@ -232,8 +249,7 @@ class TestMultiProcessIdempotency:
         expected_keys = {f"w{w}-k{k}" for w in range(n_workers) for k in range(5)}
         missing = expected_keys - keys_found
         assert not missing, (
-            f"#246: {len(missing)} keys LOST under 10-process concurrency. "
-            f"Missing: {sorted(missing)[:10]}..."
+            f"#246: {len(missing)} keys LOST under 10-process concurrency. Missing: {sorted(missing)[:10]}..."
         )
 
 
@@ -274,7 +290,11 @@ class TestMultiProcessAuditRotation:
         )
         setup = subprocess.run(
             [sys.executable, "-c", setup_code],
-            env=env, capture_output=True, text=True, timeout=10, check=False,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
         assert setup.returncode == 0, f"setup failed: {setup.stderr}"
 
@@ -290,18 +310,22 @@ class TestMultiProcessAuditRotation:
         )
         proc_a = subprocess.Popen(
             [sys.executable, "-c", rotate_code],
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         proc_b = subprocess.Popen(
             [sys.executable, "-c", rotate_code],
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
 
         out_a, err_a = proc_a.communicate(timeout=10)
         out_b, err_b = proc_b.communicate(timeout=10)
-        assert proc_a.returncode == 0 and proc_b.returncode == 0, (
-            f"rotators failed: a={err_a} b={err_b}"
-        )
+        assert proc_a.returncode == 0 and proc_b.returncode == 0, f"rotators failed: a={err_a} b={err_b}"
 
         # -- Parse rotate counts
         def _parse_count(s: str) -> int:
@@ -327,9 +351,7 @@ class TestMultiProcessAuditRotation:
         assert archive_files, "archive file must exist after rotation"
         all_archive_lines: list[str] = []
         for af in archive_files:
-            all_archive_lines.extend(
-                line for line in af.read_text(encoding="utf-8").splitlines() if line.strip()
-            )
+            all_archive_lines.extend(line for line in af.read_text(encoding="utf-8").splitlines() if line.strip())
         assert len(all_archive_lines) == 10, (
             f"#251: expected 10 lines in archive, got {len(all_archive_lines)} "
             f"(rotation race caused duplication or loss)"
@@ -342,8 +364,7 @@ class TestMultiProcessAuditRotation:
             task_names.add(entry["task_name"])
         expected = {f"task-{i}" for i in range(10)}
         assert task_names == expected, (
-            f"#251: archive task names mismatch. Missing: {expected - task_names}, "
-            f"extra: {task_names - expected}"
+            f"#251: archive task names mismatch. Missing: {expected - task_names}, extra: {task_names - expected}"
         )
 
 
@@ -381,7 +402,11 @@ class TestMultiProcessCircuitBreaker:
         )
         result = subprocess.run(
             [sys.executable, "-c", trip_code],
-            env=env, capture_output=True, text=True, timeout=10, check=False,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
         assert result.returncode == 0, f"trip worker failed: {result.stderr}"
         assert "TRIPPED" in result.stdout
@@ -400,7 +425,11 @@ class TestMultiProcessCircuitBreaker:
         )
         result_b = subprocess.run(
             [sys.executable, "-c", check_code],
-            env=env, capture_output=True, text=True, timeout=10, check=False,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
         assert result_b.returncode == 0, f"check worker failed: {result_b.stderr}"
         assert "STILL_OPEN" in result_b.stdout
@@ -536,15 +565,18 @@ class TestCrashRecovery:
             'audit_dir = os.environ["RONDO_TEST_DIR"]\n'
             "audit = AuditTrail(config=AuditConfig(audit_dir=audit_dir), auto_reconcile=False)\n"
             'audit.record_intent(task_name="will-crash", round_name="crash-test", model="gemini", prompt="long")\n'
-            '# -- Touch sync file so parent knows we passed the INTENT write\n'
+            "# -- Touch sync file so parent knows we passed the INTENT write\n"
             'sync = Path(audit_dir) / "worker_ready.txt"\n'
             'sync.write_text("ready")\n'
-            'time.sleep(60)  # block until killed\n'
+            "time.sleep(60)  # block until killed\n"
         )
 
         proc = subprocess.Popen(
             [sys.executable, "-c", worker_code],
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
 
         # -- Wait for the worker to write its sync file (max 5 sec)
@@ -557,9 +589,7 @@ class TestCrashRecovery:
         else:
             proc.kill()
             proc.communicate(timeout=2)
-            raise AssertionError(
-                "#252: worker never reached sync point — crash test setup failed"
-            )
+            raise AssertionError("#252: worker never reached sync point — crash test setup failed")
 
         # -- SIGKILL the worker (simulates a hard crash, no cleanup, no OUTCOME)
         _os.kill(proc.pid, signal.SIGKILL)
@@ -571,9 +601,7 @@ class TestCrashRecovery:
         assert jsonl_path.exists(), "audit JSONL must exist after worker crash"
         before_content = jsonl_path.read_text(encoding="utf-8")
         assert "will-crash" in before_content
-        assert '"status": "INTENT"' in before_content, (
-            "INTENT record must be in JSONL (worker reached the write point)"
-        )
+        assert '"status": "INTENT"' in before_content, "INTENT record must be in JSONL (worker reached the write point)"
 
         # -- Now run reconcile via a fresh AuditTrail instance (recovery process)
         # -- auto_reconcile=True (default) runs reconcile_stuck_intents at init.
@@ -582,13 +610,12 @@ class TestCrashRecovery:
         # -- written seconds ago — without this override the new in-flight
         # -- threshold (300s default) would correctly skip it as still-live.
         from rondo.audit import AuditConfig, AuditTrail
+
         AuditTrail(config=AuditConfig(audit_dir=str(tmp_path), stuck_after_sec=0))
 
         # -- After auto-reconcile, the JSONL must contain a "stuck" outcome
         after_content = jsonl_path.read_text(encoding="utf-8")
-        assert "stuck" in after_content, (
-            "#252: reconcile_stuck_intents must mark orphan INTENT as 'stuck'"
-        )
+        assert "stuck" in after_content, "#252: reconcile_stuck_intents must mark orphan INTENT as 'stuck'"
 
         # -- The same task_name should appear with both INTENT and stuck outcome
         lines = [line for line in after_content.splitlines() if line.strip()]

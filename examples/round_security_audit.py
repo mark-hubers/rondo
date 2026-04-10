@@ -18,7 +18,9 @@ def _check_git_clean() -> tuple[bool, str]:
 
     result = subprocess.run(
         ["git", "status", "--porcelain"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.stdout.strip():
         return False, f"Working directory has {len(result.stdout.strip().splitlines())} uncommitted changes"

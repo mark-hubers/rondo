@@ -22,8 +22,6 @@ from rondo.mcp_server import (
 # -- ──────────────────────────────────────────────────────────────
 
 
-
-
 class TestRondoRunFile:
     """rondo_run_file: MCP dispatch tool."""
 
@@ -228,8 +226,7 @@ class TestRondoRunStatus:
         assert "tasks" in result
         assert len(result["tasks"]) == 1
         assert len(result["tasks"][0]["raw_output"]) == 2000, (
-            f"U-32 violation: raw_output should be truncated to 2000 chars, "
-            f"got {len(result['tasks'][0]['raw_output'])}"
+            f"U-32 violation: raw_output should be truncated to 2000 chars, got {len(result['tasks'][0]['raw_output'])}"
         )
         ## Verify original _background_results is NOT mutated (shallow copy guard)
         assert len(_background_results["test-u32"]["tasks"][0]["raw_output"]) == 5000, (

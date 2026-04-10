@@ -71,17 +71,14 @@ class TestDispatchChainIntegration:
         if adapter is not None:
             # -- REQ-109 req 016: adapter must NOT be a Claude subprocess shim
             assert "claude" not in type(adapter).__name__.lower(), (
-                f"REQ-109 req 016 violated: fallback returned Claude adapter: "
-                f"{type(adapter).__name__}"
+                f"REQ-109 req 016 violated: fallback returned Claude adapter: {type(adapter).__name__}"
             )
 
         # -- Even with a known provider prefix but no fallback config,
         # -- the function should never escalate to Claude
         adapter2, _ = get_provider_with_fallback("gemini:unknown-model-xyz")
         if adapter2 is not None:
-            assert "claude" not in type(adapter2).__name__.lower(), (
-                "REQ-109 req 016 violated even with gemini prefix"
-            )
+            assert "claude" not in type(adapter2).__name__.lower(), "REQ-109 req 016 violated even with gemini prefix"
 
     def test_full_mcp_chain_dry_run_happy_path(self, tmp_path, monkeypatch):
         """Full MCP chain: rondo_run_file dry_run → router → plan → JSON response.
@@ -106,9 +103,7 @@ class TestDispatchChainIntegration:
             f"dry_run should be plan/done/skipped, got {result.get('status')}"
         )
 
-    def test_full_mcp_chain_error_path_produces_valid_error_response(
-        self, tmp_path, monkeypatch
-    ):
+    def test_full_mcp_chain_error_path_produces_valid_error_response(self, tmp_path, monkeypatch):
         """MCP chain: invalid input → structured error response (not exception).
 
         The MCP entry point must NEVER raise unhandled exceptions — every
@@ -213,9 +208,7 @@ class TestDispatchChainIntegration:
             t.join()
 
         # -- 10 failures against threshold=5 → breaker must be OPEN
-        assert breaker.is_open("parallel-provider"), (
-            "10 concurrent failures should trip the breaker (threshold=5)"
-        )
+        assert breaker.is_open("parallel-provider"), "10 concurrent failures should trip the breaker (threshold=5)"
 
     def test_config_hot_reload_is_thread_safe(self, tmp_path):
         """RONDO-205 #225: config reload during dispatch holds the lock.
@@ -284,9 +277,7 @@ class TestDispatchChainIntegration:
 
         # -- All calls must return the same engine
         unique_engines = set(results)
-        assert len(unique_engines) == 1, (
-            f"router returned inconsistent results: {unique_engines}"
-        )
+        assert len(unique_engines) == 1, f"router returned inconsistent results: {unique_engines}"
         assert "http" in unique_engines
 
     def test_full_cost_accumulation_across_session(self, tmp_path):
@@ -330,9 +321,7 @@ class TestDispatchChainIntegration:
                     found_costs.append(record_data["cost_usd"])
 
         assert total_lines == 3, f"expected 3 history records, got {total_lines}"
-        assert set(found_costs) == set(costs), (
-            f"cost accumulation: expected {costs}, got {found_costs}"
-        )
+        assert set(found_costs) == set(costs), f"cost accumulation: expected {costs}, got {found_costs}"
 
 
 # -- sig: mgh-6201.cd.bd955f.d208.c9a011

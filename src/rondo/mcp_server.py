@@ -285,6 +285,7 @@ def create_mcp_server() -> Any:
 
     return mcp
 
+
 def run_mcp() -> None:
     """Start MCP server with stdio transport.
 
@@ -312,5 +313,6 @@ def run_mcp() -> None:
 
     mcp = create_mcp_server()
     mcp.run(transport="stdio")
+
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.98a7b9

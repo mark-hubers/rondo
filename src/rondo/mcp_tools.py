@@ -54,6 +54,7 @@ _METRICS_CACHE_TTL = 30  # -- seconds
 # --  Observability tools (read-only)
 # -- ──────────────────────────────────────────────────────────────
 
+
 def _get_cached_metrics() -> Any:
     """Return cached MetricsReport if fresh, else compute and cache."""
     now = time.monotonic()
@@ -70,6 +71,7 @@ def _get_cached_metrics() -> Any:
         _metrics_cache["ts"] = now
     return report
 
+
 def rondo_metrics() -> str:
     """Full metrics dashboard — cost, reliability, latency, tokens, health.
 
@@ -78,6 +80,7 @@ def rondo_metrics() -> str:
     """
     report = _get_cached_metrics()
     return json.dumps(report.to_dict(), indent=2)
+
 
 def rondo_health() -> str:
     """Quick health check — GREEN/YELLOW/RED with key numbers + per-provider status.
@@ -134,6 +137,7 @@ def rondo_health() -> str:
         result["providers"] = providers_result
     return json.dumps(result)
 
+
 def rondo_audit_summary(limit: int = 10) -> str:
     """Recent dispatch audit records — last N outcomes.
 
@@ -161,6 +165,7 @@ def rondo_audit_summary(limit: int = 10) -> str:
             "total": len(records),
         }
     )
+
 
 def rondo_dispatch_info() -> str:
     """Rondo version, commands, capabilities, design principles.
@@ -195,6 +200,7 @@ def rondo_dispatch_info() -> str:
         }
     )
 
+
 def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     """Query dispatch history — REQ-104 reqs 003-005.
 
@@ -202,7 +208,6 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     Filterable by model and status.
     """
     try:
-
         records = load_history(history_dir=resolve_rondo_dir("~/.rondo/history", "history"))
         if model or status:
             records = query_history(
@@ -215,6 +220,7 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
         return json.dumps({"records": recent, "aggregate": agg, "total": len(records)}, indent=2)
     except (ImportError, OSError, TypeError) as exc:
         return json.dumps({"records": [], "aggregate": {}, "total": 0, "error": str(exc)})
+
 
 def rondo_cost(days: int = 30) -> str:
     """Monthly cost dashboard — spend tracking per model.
@@ -255,9 +261,11 @@ def rondo_cost(days: int = 30) -> str:
         indent=2,
     )
 
+
 # -- ──────────────────────────────────────────────────────────────
 # --  Management tools
 # -- ──────────────────────────────────────────────────────────────
+
 
 def rondo_models() -> str:
     """List available models with providers, tiers, and task recommendations.
@@ -333,6 +341,7 @@ def rondo_models() -> str:
         indent=2,
     )
 
+
 def rondo_templates() -> str:
     """List pre-built round templates — reusable patterns for common tasks.
 
@@ -377,6 +386,7 @@ def rondo_templates() -> str:
     ]
     return json.dumps({"templates": templates, "count": len(templates)}, indent=2)
 
+
 def rondo_schedule_list() -> str:
     """List installed Rondo schedules (launchd plists)."""
     launch_dir = Path.home() / "Library" / "LaunchAgents"
@@ -386,6 +396,7 @@ def rondo_schedule_list() -> str:
             name = p.stem.replace("com.rondo.", "")
             schedules.append({"name": name, "path": str(p)})
     return json.dumps({"schedules": schedules, "count": len(schedules)}, indent=2)
+
 
 def rondo_schedule_create(
     file_path: str,
@@ -422,6 +433,7 @@ def rondo_schedule_create(
     out_path = out_dir / f"com.rondo.{sched_name}.plist"
     out_path.write_text(plist, encoding="utf-8")
     return json.dumps({"status": "installed", "path": str(out_path), "name": sched_name, "interval": interval})
+
 
 def rondo_diff(current_json: str, previous_json: str = "") -> str:
     """Compare two dispatch results — U-59 to U-61.
@@ -467,6 +479,7 @@ def rondo_diff(current_json: str, previous_json: str = "") -> str:
         indent=2,
     )
 
+
 def rondo_spool_consume() -> str:
     """Consume all pending spool results — mailbox drain.
 
@@ -474,16 +487,17 @@ def rondo_spool_consume() -> str:
     This is how OB/ACE picks up overnight dispatch results.
     """
     try:
-
         spool = SpoolManager(config=SpoolConfig(spool_dir=resolve_rondo_dir(DEFAULT_SPOOL_DIR, "spool")))
         consumed = spool.consume_all()
         return json.dumps({"consumed": consumed, "count": len(consumed)}, indent=2)
     except (ImportError, OSError, TypeError) as exc:
         return json.dumps({"consumed": [], "count": 0, "error": str(exc)})
 
+
 # -- ──────────────────────────────────────────────────────────────
 # --  REQ-109 reqs 046-063: Cloud dispatch orchestration
 # -- ──────────────────────────────────────────────────────────────
+
 
 def rondo_cloud(
     prompt: str,
@@ -600,5 +614,6 @@ def rondo_cloud(
     }
 
     return json.dumps(result, indent=2)
+
 
 # -- sig: mgh-6201.cd.bd955f.a104.d19501

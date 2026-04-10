@@ -78,14 +78,16 @@ class TestValidateReturnJSON:
 
     def test_valid_complete_json(self) -> None:
         """Valid JSON with all fields returns _json_valid=True, _fields_complete=True."""
-        response = json.dumps({
-            "passed": True,
-            "confidence": 0.95,
-            "result": "all good",
-            "issues": [],
-            "suggestions": ["add tests"],
-            "metadata": {"language": "python"},
-        })
+        response = json.dumps(
+            {
+                "passed": True,
+                "confidence": 0.95,
+                "result": "all good",
+                "issues": [],
+                "suggestions": ["add tests"],
+                "metadata": {"language": "python"},
+            }
+        )
         data = validate_return_json(response)
         assert data["_json_valid"] is True
         assert data["_fields_complete"] is True
@@ -94,12 +96,14 @@ class TestValidateReturnJSON:
 
     def test_partial_fields_still_valid(self) -> None:
         """JSON with 4+ standard fields counts as complete."""
-        response = json.dumps({
-            "passed": False,
-            "confidence": 0.8,
-            "result": "found bugs",
-            "issues": ["bug1"],
-        })
+        response = json.dumps(
+            {
+                "passed": False,
+                "confidence": 0.8,
+                "result": "found bugs",
+                "issues": ["bug1"],
+            }
+        )
         data = validate_return_json(response)
         assert data["_json_valid"] is True
         assert data["_fields_complete"] is True  # -- 4 of 6
@@ -136,7 +140,9 @@ class TestValidateReturnJSON:
 
     def test_nested_json_extraction(self) -> None:
         """Nested braces don't confuse the extractor."""
-        response = 'Answer: {"passed": false, "result": "found {brackets} in code", "confidence": 0.7, "issues": ["nested"]}'
+        response = (
+            'Answer: {"passed": false, "result": "found {brackets} in code", "confidence": 0.7, "issues": ["nested"]}'
+        )
         data = validate_return_json(response)
         assert data["_json_valid"] is True
         assert data["passed"] is False

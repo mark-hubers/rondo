@@ -15,8 +15,6 @@ import json
 # -- ──────────────────────────────────────────────────────────────
 
 
-
-
 class TestMultiReview:
     """REQ-109 req 033: multi-provider review tool."""
 
@@ -95,25 +93,27 @@ class TestMultiReview:
 
         # -- Mock rondo_run_file to return a TaskResult-like error structure
         def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
-            return json.dumps({
-                "status": "partial",
-                "tasks": [{
-                    "task_name": "test",
-                    "status": "error",
-                    "error_code": "ERR_PROVIDER_DOWN",
-                    "error_message": "Gemini HTTP 503: Service Unavailable",
-                    "raw_output": "",
-                    "duration_sec": 4.5,
-                    "cost_usd": 0.0,
-                }],
-                "total_cost_usd": 0.0,
-            })
+            return json.dumps(
+                {
+                    "status": "partial",
+                    "tasks": [
+                        {
+                            "task_name": "test",
+                            "status": "error",
+                            "error_code": "ERR_PROVIDER_DOWN",
+                            "error_message": "Gemini HTTP 503: Service Unavailable",
+                            "raw_output": "",
+                            "duration_sec": 4.5,
+                            "cost_usd": 0.0,
+                        }
+                    ],
+                    "total_cost_usd": 0.0,
+                }
+            )
 
         with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
             result = json.loads(
-                rondo_multi_review(
-                    prompt="review", providers='["gemini:gemini-2.5-pro"]', dry_run=False
-                )
+                rondo_multi_review(prompt="review", providers='["gemini:gemini-2.5-pro"]', dry_run=False)
             )
 
         per_provider = result["per_provider"]
@@ -144,39 +144,45 @@ class TestMultiReview:
             call_count[0] += 1
             if call_count[0] == 1:
                 # -- First call: simulate 503
-                return json.dumps({
-                    "status": "partial",
-                    "tasks": [{
-                        "task_name": "t",
-                        "status": "error",
-                        "error_code": "ERR_PROVIDER_DOWN",
-                        "error_message": "Gemini HTTP 503",
-                        "raw_output": "",
-                        "duration_sec": 4.0,
-                        "cost_usd": 0.0,
-                    }],
-                    "total_cost_usd": 0.0,
-                })
+                return json.dumps(
+                    {
+                        "status": "partial",
+                        "tasks": [
+                            {
+                                "task_name": "t",
+                                "status": "error",
+                                "error_code": "ERR_PROVIDER_DOWN",
+                                "error_message": "Gemini HTTP 503",
+                                "raw_output": "",
+                                "duration_sec": 4.0,
+                                "cost_usd": 0.0,
+                            }
+                        ],
+                        "total_cost_usd": 0.0,
+                    }
+                )
             # -- Second call (serial retry): succeeds
-            return json.dumps({
-                "status": "done",
-                "tasks": [{
-                    "task_name": "t",
+            return json.dumps(
+                {
                     "status": "done",
-                    "raw_output": "Real review content here.",
-                    "duration_sec": 8.0,
-                    "cost_usd": 0.001,
-                    "error_code": None,
-                    "error_message": None,
-                }],
-                "total_cost_usd": 0.001,
-            })
+                    "tasks": [
+                        {
+                            "task_name": "t",
+                            "status": "done",
+                            "raw_output": "Real review content here.",
+                            "duration_sec": 8.0,
+                            "cost_usd": 0.001,
+                            "error_code": None,
+                            "error_message": None,
+                        }
+                    ],
+                    "total_cost_usd": 0.001,
+                }
+            )
 
         with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
             result = json.loads(
-                rondo_multi_review(
-                    prompt="review", providers='["gemini:gemini-2.5-pro"]', dry_run=False
-                )
+                rondo_multi_review(prompt="review", providers='["gemini:gemini-2.5-pro"]', dry_run=False)
             )
 
         # -- Both calls should have happened (parallel + serial retry)
@@ -209,29 +215,29 @@ class TestMultiReview:
 
         def mock_run_file(prompt: str = "", model: str = "", **kwargs: object) -> str:
             call_count[0] += 1
-            return json.dumps({
-                "status": "partial",
-                "tasks": [{
-                    "task_name": "t",
-                    "status": "error",
-                    "error_code": "ERR_AUTH",
-                    "error_message": "Invalid API key",
-                    "raw_output": "",
-                    "duration_sec": 0.5,
-                    "cost_usd": 0.0,
-                }],
-                "total_cost_usd": 0.0,
-            })
-
-        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
-            rondo_multi_review(
-                prompt="review", providers='["openai:gpt-4.1"]', dry_run=False
+            return json.dumps(
+                {
+                    "status": "partial",
+                    "tasks": [
+                        {
+                            "task_name": "t",
+                            "status": "error",
+                            "error_code": "ERR_AUTH",
+                            "error_message": "Invalid API key",
+                            "raw_output": "",
+                            "duration_sec": 0.5,
+                            "cost_usd": 0.0,
+                        }
+                    ],
+                    "total_cost_usd": 0.0,
+                }
             )
 
+        with patch("rondo.mcp_dispatch.rondo_run_file", side_effect=mock_run_file):
+            rondo_multi_review(prompt="review", providers='["openai:gpt-4.1"]', dry_run=False)
+
         # -- Only ONE call (no retry for auth errors)
-        assert call_count[0] == 1, (
-            f"#248: ERR_AUTH should NOT trigger retry, got {call_count[0]} calls"
-        )
+        assert call_count[0] == 1, f"#248: ERR_AUTH should NOT trigger retry, got {call_count[0]} calls"
 
 
 class TestParallelDispatch:

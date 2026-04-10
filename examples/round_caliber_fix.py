@@ -19,7 +19,9 @@ def _run_caliber() -> tuple[bool, str]:
     """Auto gate: run Caliber check and report results."""
     result = subprocess.run(
         [sys.executable, CALIBER_CLI, TARGET, "--json"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     try:
         data = json.loads(result.stdout)
@@ -36,7 +38,9 @@ def _get_failures() -> str:
     """Get Caliber failure details for Claude's instruction."""
     result = subprocess.run(
         [sys.executable, CALIBER_CLI, TARGET],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     return result.stdout
 

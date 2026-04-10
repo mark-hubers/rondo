@@ -27,6 +27,7 @@ class TestPreDispatchHooks:
 
     def test_single_hook_transforms_prompt(self) -> None:
         """Single callable hook modifies the prompt."""
+
         def upper_hook(prompt, _task, _config):
             return prompt.upper()
 
@@ -39,6 +40,7 @@ class TestPreDispatchHooks:
 
     def test_hooks_chain_in_order(self) -> None:
         """Req 101: hooks chain — output of N is input to N+1."""
+
         def add_prefix(prompt, _task, _config):
             return f"PREFIX:{prompt}"
 
@@ -52,6 +54,7 @@ class TestPreDispatchHooks:
 
     def test_hook_error_raises_hook_error(self) -> None:
         """Req 102: hook exception → HookError with hook name."""
+
         def bad_hook(_prompt, _task, _config):
             raise ValueError("intentional failure")
 
@@ -61,6 +64,7 @@ class TestPreDispatchHooks:
 
     def test_hook_error_includes_trace(self) -> None:
         """Req 103: even on error, trace includes the failed hook."""
+
         def ok_hook(prompt, _task, _config):
             return prompt
 
@@ -73,6 +77,7 @@ class TestPreDispatchHooks:
 
     def test_hook_must_return_string(self) -> None:
         """Req 100: hook returning non-str raises TypeError."""
+
         def bad_return(_prompt, _task, _config):
             return 42
 
@@ -114,6 +119,7 @@ class TestPostDispatchHooks:
 
     def test_single_hook_transforms_result(self) -> None:
         """Single callable hook modifies the result."""
+
         def tag_hook(result, _usage):
             result.raw_output = f"[TAGGED] {result.raw_output}"
             return result
@@ -127,6 +133,7 @@ class TestPostDispatchHooks:
 
     def test_hook_failure_preserves_original(self) -> None:
         """Req 112: if hook raises, ORIGINAL result is preserved."""
+
         def bad_hook(_result, _usage):
             raise ValueError("boom")
 
@@ -139,6 +146,7 @@ class TestPostDispatchHooks:
 
     def test_hook_must_return_task_result(self) -> None:
         """Req 110: hook returning non-TaskResult → error, original preserved."""
+
         def bad_return(_result, _usage):
             return "not a TaskResult"
 
@@ -151,6 +159,7 @@ class TestPostDispatchHooks:
 
     def test_hooks_chain_in_order(self) -> None:
         """Post-hooks chain: output of hook N is input to hook N+1."""
+
         def hook_a(result, _usage):
             result.raw_output += ":A"
             return result
@@ -172,6 +181,7 @@ class TestHookTraceFormat:
 
     def test_trace_has_required_fields(self) -> None:
         """Trace entries must have hook, duration_ms, status."""
+
         def noop(prompt, _task, _config):
             return prompt
 

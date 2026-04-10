@@ -83,9 +83,7 @@ class TestPipelineObservability:
         monkeypatch.delenv("CLAUDECODE", raising=False)
         r = resolve_dispatch_engine(model=" sonnet ", prompt="x")
         # -- Whitespace is now stripped → valid Claude model → subprocess (outside CC)
-        assert r["engine"] == "subprocess", (
-            "#220 fix: ' sonnet ' must normalize to 'sonnet' and route correctly"
-        )
+        assert r["engine"] == "subprocess", "#220 fix: ' sonnet ' must normalize to 'sonnet' and route correctly"
         assert r["model"] == "sonnet"
 
     def test_routing_case_sensitive_for_claude_models(self) -> None:
@@ -202,9 +200,7 @@ class TestPipelineObservability:
 
         # -- Fetch should succeed via SQLite fallback
         result = idem.get_cached_result(key)
-        assert result is not None, (
-            "#241: cache miss after in-memory wipe — SQLite fallback broken"
-        )
+        assert result is not None, "#241: cache miss after in-memory wipe — SQLite fallback broken"
         assert result["status"] == "done"
         assert result["raw_output"] == "shared result"
         assert result["cost_usd"] == 0.001
@@ -238,9 +234,7 @@ class TestPipelineObservability:
         assert idem1.cache_size() == 0, "reloaded module has empty in-memory cache"
 
         found = idem1.get_cached_result(key)
-        assert found is not None, (
-            "#241: fresh-process read failed — SQLite backing store not shared"
-        )
+        assert found is not None, "#241: fresh-process read failed — SQLite backing store not shared"
         assert found["result"] == "from-process-a"
 
         idem1.clear_cache()
@@ -294,15 +288,11 @@ class TestPipelineObservability:
             encoding="utf-8",
         )
         result2 = idem.get_cached_result("stale-key", ttl_sec=300)
-        assert result2 == {"x": 2}, (
-            f"#246: latest-wins should return fresh entry, got {result2!r}"
-        )
+        assert result2 == {"x": 2}, f"#246: latest-wins should return fresh entry, got {result2!r}"
 
         idem.clear_cache()
 
-    def test_dispatch_task_emits_structured_logs_with_request_id(
-        self, tmp_path, monkeypatch, caplog
-    ) -> None:
+    def test_dispatch_task_emits_structured_logs_with_request_id(self, tmp_path, monkeypatch, caplog) -> None:
         """RONDO-205 Finding #242: dispatch_task wires structured_log + binds request_id.
 
         Previously: structured_log module existed but nothing called log_event.
@@ -340,15 +330,12 @@ class TestPipelineObservability:
             structured_records.append(payload)
 
         assert len(structured_records) >= 2, (
-            f"#242: expected at least 2 structured records (start + complete), "
-            f"got {len(structured_records)}"
+            f"#242: expected at least 2 structured records (start + complete), got {len(structured_records)}"
         )
 
         # -- All records from this dispatch must share a request_id
         request_ids = {rec["request_id"] for rec in structured_records if rec.get("request_id")}
-        assert len(request_ids) == 1, (
-            f"#242: multiple request_ids across same dispatch: {request_ids}"
-        )
+        assert len(request_ids) == 1, f"#242: multiple request_ids across same dispatch: {request_ids}"
         rid = request_ids.pop()
         assert len(rid) == 32, f"#242: request_id should be 32-char UUID hex, got: {rid!r}"
 
@@ -358,9 +345,7 @@ class TestPipelineObservability:
         assert start_events[0]["task"] == "fp242-task"
         assert start_events[0]["component"] == "dispatch"
 
-    def test_dispatch_task_respects_existing_request_id(
-        self, tmp_path, monkeypatch, caplog
-    ) -> None:
+    def test_dispatch_task_respects_existing_request_id(self, tmp_path, monkeypatch, caplog) -> None:
         """RONDO-205 Finding #242: don't rebind if caller already bound one.
 
         When mcp_dispatch.rondo_run_file binds a request_id and then calls
@@ -397,8 +382,7 @@ class TestPipelineObservability:
                 rids_seen.add(payload.get("request_id", ""))
 
         assert rids_seen == {expected_rid}, (
-            f"#242: dispatch_task rebound request_id. "
-            f"expected={expected_rid}, got={rids_seen}"
+            f"#242: dispatch_task rebound request_id. expected={expected_rid}, got={rids_seen}"
         )
 
     def test_request_id_generation(self) -> None:
@@ -537,23 +521,17 @@ class TestPipelineObservability:
         # -- 10 CJK chars ≈ 10-20 real tokens. New formula: 10*2+1 = 21.
         cjk_short = "你好世界再见中国日本" * 1  # 10 CJK chars
         cjk_tokens = estimate_token_count(cjk_short)
-        assert cjk_tokens >= 20, (
-            f"#238: CJK undercount still present. Got {cjk_tokens} for 10 CJK chars."
-        )
+        assert cjk_tokens >= 20, f"#238: CJK undercount still present. Got {cjk_tokens} for 10 CJK chars."
 
         # -- Old broken formula would have given len(20 CJK)//4+1 = 6 tokens
         cjk_long = "你好世界再见中国日本" * 2  # 20 CJK chars
         cjk_long_tokens = estimate_token_count(cjk_long)
-        assert cjk_long_tokens >= 40, (
-            f"#238: 20 CJK chars should be ≥40 tokens. Got {cjk_long_tokens}."
-        )
+        assert cjk_long_tokens >= 40, f"#238: 20 CJK chars should be ≥40 tokens. Got {cjk_long_tokens}."
 
         # -- ASCII remains close to old (no regression for English)
         ascii_text = "hello world" * 10  # 110 ASCII chars
         ascii_tokens = estimate_token_count(ascii_text)
-        assert 25 <= ascii_tokens <= 35, (
-            f"#238: English token estimate should stay ~28. Got {ascii_tokens}."
-        )
+        assert 25 <= ascii_tokens <= 35, f"#238: English token estimate should stay ~28. Got {ascii_tokens}."
 
     def test_token_estimate_mixed_language(self) -> None:
         """RONDO-205 Finding #238: mixed ASCII + non-ASCII text is summed.
@@ -566,9 +544,7 @@ class TestPipelineObservability:
         mixed = "Translate: 你好"  # 11 ASCII + 2 CJK
         tokens = estimate_token_count(mixed)
         # -- 11 ASCII = ceil(11/4) = 3; 2 CJK = 4; + safety 1 = 8
-        assert tokens >= 7, (
-            f"#238: mixed text must sum both portions. Got {tokens}."
-        )
+        assert tokens >= 7, f"#238: mixed text must sum both portions. Got {tokens}."
 
     def test_token_estimate_empty_string(self) -> None:
         """RONDO-205 Finding #238: empty string returns 1, never 0.

@@ -19,8 +19,6 @@ from rondo.mcp_server import (
 # -- ──────────────────────────────────────────────────────────────
 
 
-
-
 class TestResolveDispatchEngine:
     """RONDO-129/131: Pure routing logic — every input combination, no mocking."""
 
@@ -223,9 +221,7 @@ class TestResolveDispatchEngine:
 
         # -- Lowercase bracket model works (matches VALID_MODELS)
         result = resolve_dispatch_engine(model="opus[1m]", prompt="hi")
-        assert result["engine"] in ("subprocess", "agent"), (
-            "opus[1m] should route as valid Claude model"
-        )
+        assert result["engine"] in ("subprocess", "agent"), "opus[1m] should route as valid Claude model"
 
         # -- Uppercase version is NOT normalized — would fail
         result_upper = resolve_dispatch_engine(model="OPUS[1M]", prompt="hi")

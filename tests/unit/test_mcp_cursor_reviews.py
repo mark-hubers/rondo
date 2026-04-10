@@ -22,8 +22,6 @@ from rondo.mcp_server import (
 # -- ──────────────────────────────────────────────────────────────
 
 
-
-
 class TestCursorP0ErrorCode:
     """U-52: error_code flows to audit OUTCOME."""
 

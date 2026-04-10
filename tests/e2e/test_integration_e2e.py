@@ -213,15 +213,15 @@ class TestE2EExampleRounds:
     """Validate that example round files load without errors."""
 
     def test_round_hello_dry_run(self):
-        result = _run(["run", "examples/round_hello.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_hello.py", "--dry-run"], timeout=10)
         assert "skipped" in result.stdout.lower() or result.returncode in (0, 1)
 
     def test_round_file_check_dry_run(self):
-        result = _run(["run", "examples/round_file_check.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_file_check.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)  # loads successfully
 
     def test_round_multi_task_dry_run(self):
-        result = _run(["run", "examples/round_multi_task.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_multi_task.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
 
@@ -230,23 +230,23 @@ class TestE2EAllExampleRounds:
     """Validate ALL example round files load via dry-run."""
 
     def test_round_code_review_dry_run(self):
-        result = _run(["run", "examples/round_code_review.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_code_review.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
     def test_round_doc_sweep_dry_run(self):
-        result = _run(["run", "examples/round_doc_sweep.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_doc_sweep.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
     def test_round_refactor_audit_dry_run(self):
-        result = _run(["run", "examples/round_refactor_audit.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_refactor_audit.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
     def test_round_test_generator_dry_run(self):
-        result = _run(["run", "examples/round_test_generator.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_test_generator.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
     def test_round_caliber_fix_dry_run(self):
-        result = _run(["run", "examples/round_caliber_fix.py", "--dry-run"], timeout=10)
+        result = _run(["run", "examples/rounds/round_caliber_fix.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
 
@@ -364,11 +364,11 @@ class TestE2EOvernightDryRun:
     """Validate overnight mode works via CLI."""
 
     def test_overnight_dry_run(self):
-        result = _run(["overnight", "examples/phases_overnight.py", "--dry-run"], timeout=15)
+        result = _run(["overnight", "examples/rounds/phases_overnight.py", "--dry-run"], timeout=15)
         assert result.returncode in (0, 1)
 
     def test_overnight_generates_report(self):
-        result = _run(["overnight", "examples/phases_overnight.py", "--dry-run"], timeout=15)
+        result = _run(["overnight", "examples/rounds/phases_overnight.py", "--dry-run"], timeout=15)
         # Overnight always tries to generate a report
         assert result.returncode in (0, 1)
 

@@ -233,7 +233,7 @@ class TestExampleFilesLoad:
     )
     def test_yaml_example_loads(self, filename) -> None:
         """Each YAML example file loads without errors."""
-        examples_dir = os.path.join(os.path.dirname(__file__), "..", "..", "examples")
+        examples_dir = os.path.join(os.path.dirname(__file__), "..", "..", "examples", "rounds")
         filepath = os.path.join(examples_dir, filename)
         if not os.path.exists(filepath):
             pytest.skip(f"Example file not found: {filepath}")
@@ -243,7 +243,7 @@ class TestExampleFilesLoad:
 
     def test_python_example_loads(self) -> None:
         """Python example file loads without errors."""
-        examples_dir = os.path.join(os.path.dirname(__file__), "..", "..", "examples")
+        examples_dir = os.path.join(os.path.dirname(__file__), "..", "..", "examples", "rounds")
         filepath = os.path.join(examples_dir, "04-with-hooks.py")
         if not os.path.exists(filepath):
             pytest.skip("Example file not found")

@@ -20,12 +20,13 @@ from rondo.engine import Round
 
 # -- Example directory (tests live in rondo/tests/integration/ now — RONDO-203)
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+ROUNDS_DIR = EXAMPLES_DIR / "rounds"
 
 # -- All round_*.py files (both spec and practical)
-ALL_ROUND_FILES = sorted(EXAMPLES_DIR.glob("round_*.py"))
+ALL_ROUND_FILES = sorted(ROUNDS_DIR.glob("round_*.py"))
 
 # -- All files with build_phases() (overnight examples)
-ALL_PHASE_FILES = sorted(EXAMPLES_DIR.glob("phases_*.py"))
+ALL_PHASE_FILES = sorted(ROUNDS_DIR.glob("phases_*.py"))
 
 # -- Spec-mandated examples (must be under 50 lines)
 SPEC_EXAMPLES = {"round_hello.py", "round_file_check.py", "round_multi_task.py"}
@@ -38,7 +39,7 @@ SPEC_EXAMPLES = {"round_hello.py", "round_file_check.py", "round_multi_task.py"}
 
 def _load_example(name: str):
     """Dynamically import an example file and return the module."""
-    path = EXAMPLES_DIR / name
+    path = ROUNDS_DIR / name
     assert path.exists(), f"Example file not found: {path}"
     spec = importlib.util.spec_from_file_location(f"example_{name}", path)
     module = importlib.util.module_from_spec(spec)

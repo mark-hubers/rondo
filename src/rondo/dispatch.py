@@ -602,7 +602,29 @@ def _dispatch_interactive(
             return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
         # -- Handle non-zero exit (Rondo-REQ-100 req 27)
+        # -- RONDO-259: non-zero exit with valid assistant output = hook failure,
+        # -- not dispatch failure. Parse the response instead of returning error.
         if returncode != 0:
+            assistant_text = _collect_assistant_text(
+                parse_stream_json_events(stdout.split("\n"), task_name=task.name)[0]
+            )
+            if assistant_text.strip():
+                # -- AI responded despite hook failure — parse normally
+                logger.warning("Non-zero exit (%d) but assistant responded — parsing output", returncode)
+                return _parse_and_build_result(
+                    task,
+                    config,
+                    model,
+                    timestamp,
+                    prompt,
+                    stdout,
+                    "",
+                    returncode,
+                    duration,
+                    audit_trail=audit_trail,
+                    audit_record=audit_record,
+                    round_name=round_name,
+                )
             breaker.record_failure("claude_cli")  # -- #235
             result, usage = _make_error_result(
                 task.name,

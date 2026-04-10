@@ -21,6 +21,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # -- Default score weights (REQ-109 addendum req 301)
+REFERENCE_MAX_COST_USD = 0.05
+REFERENCE_MAX_LATENCY_SEC = 10.0
+
 DEFAULT_WEIGHTS = {
     "success": 0.5,
     "cost": 0.3,
@@ -71,26 +74,35 @@ def compute_provider_scores(audit_dir: str = "") -> dict[str, dict[str, Any]]:
 
 
 def _load_recent_outcomes(audit_path: Path) -> list[dict]:
-    """Load OUTCOME records from JSONL within the score window."""
+    """Load OUTCOME records from JSONL within the score window.
+
+    RONDO-240: fixed time comparison — was lexicographic string compare,
+    now parses ISO timestamps properly.
+    """
     cutoff = time.time() - SCORE_WINDOW_SEC
+    cutoff_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(cutoff))
     records: list[dict] = []
 
     for jsonl_file in sorted(audit_path.glob("*.jsonl")):
         try:
-            for line in jsonl_file.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                try:
-                    rec = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                # -- Only OUTCOME records (status != "INTENT")
-                if rec.get("status") == "INTENT":
-                    continue
-                # -- Within time window
-                completed = rec.get("completed_at", "")
-                if completed and completed > time.strftime("%Y-%m-%d", time.gmtime(cutoff)):
-                    records.append(rec)
+            with jsonl_file.open(encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except json.JSONDecodeError:
+                        logger.debug("Invalid JSON in %s, skipping line", jsonl_file)
+                        continue
+                    # -- Only OUTCOME records (status != "INTENT")
+                    if rec.get("status") == "INTENT":
+                        continue
+                    # -- Within time window (ISO 8601 strings compare correctly
+                    # -- when format is consistent: YYYY-MM-DDTHH:MM:SS)
+                    completed = rec.get("completed_at", "")
+                    if completed and completed >= cutoff_iso:
+                        records.append(rec)
         except OSError as exc:
             logger.debug("Failed to read %s: %s", jsonl_file, exc)
 
@@ -126,11 +138,11 @@ def _score_provider(provider: str, records: list[dict]) -> dict[str, Any]:
     w = DEFAULT_WEIGHTS
     score = success_rate * w["success"]
     if avg_cost > 0:
-        score += (1.0 - min(avg_cost / 0.05, 1.0)) * w["cost"]  # -- $0.05 as reference max
+        score += (1.0 - min(avg_cost / REFERENCE_MAX_COST_USD, 1.0)) * w["cost"]  # -- $0.05 as reference max
     else:
         score += w["cost"]  # -- free = perfect cost score
     if avg_latency > 0:
-        score += (1.0 - min(avg_latency / 10.0, 1.0)) * w["latency"]  # -- 10s as reference max
+        score += (1.0 - min(avg_latency / REFERENCE_MAX_LATENCY_SEC, 1.0)) * w["latency"]  # -- 10s as reference max
     else:
         score += w["latency"]  # -- instant = perfect latency score
 
@@ -167,6 +179,7 @@ def save_scores_cache(scores: dict[str, dict[str, Any]], cache_dir: str = "") ->
         "providers": scores,
     }
     cache_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    cache_file.chmod(0o600)  # -- owner-only read/write
     logger.info("Provider scores cached to %s (%d providers)", cache_file, len(scores))
 
 

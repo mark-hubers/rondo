@@ -158,7 +158,7 @@ def validate_return_json(response: str) -> dict[str, Any]:
         _fields_complete (bool): did it include all standard fields?
         + all parsed fields from the response
     """
-    standard_fields = {"passed", "confidence", "result", "issues", "suggestions", "metadata"}
+    standard_fields = {"passed", "confidence", "result", "issues", "suggestions", "metadata", "_meta"}
 
     # -- Try direct parse
     try:
@@ -212,6 +212,10 @@ def normalize_response(data: dict[str, Any]) -> dict[str, Any]:
     - Missing fields → fill with defaults
     - Extra fields → preserved (not stripped)
     """
+    data = dict(data)  # -- don't mutate caller's dict
+    if "metadata" in data and isinstance(data["metadata"], dict):
+        data["metadata"] = dict(data["metadata"])  # -- copy metadata too
+
     # -- REQ-111 req 474: Grok nests _meta inside metadata
     metadata = data.get("metadata", {})
     if isinstance(metadata, dict) and "_meta" in metadata and "_meta" not in data:

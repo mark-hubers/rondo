@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 1.1
+**Version:** 1.3
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none

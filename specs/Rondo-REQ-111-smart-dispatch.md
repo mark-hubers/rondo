@@ -91,7 +91,7 @@ Adds three things to Rondo that make it usable without Python knowledge:
 | 442 | `rondo learn` CLI command MUST compute per-provider scores from last 7 days of audit data: json_success_rate, fields_complete_rate, avg_self_quality, avg_cost, avg_latency, sample_count. | MUST | Compute test |
 | 443 | Scores cached in `~/.rondo/learned/provider_scores.json`. Rebuilt from audit JSONL on demand (no separate data store, per REQ-003 never-lose-data). | MUST | Cache test |
 | 444 | `rondo providers --scores` MUST show per-provider scores table. | SHOULD | CLI test |
-| 445 | json_success_rate feeds into REQ-109-addendum adaptive scoring (req 301 formula) as an additional quality signal. | SHOULD | Integration test |
+| 445 | json_success_rate feeds into REQ-109 (Adaptive Provider Scoring section) adaptive scoring (req 301 formula) as an additional quality signal. | SHOULD | Integration test |
 
 ### Task Chaining in YAML/JSON (new — simple subset only)
 
@@ -138,7 +138,7 @@ No new modules needed for core path. Adds:
 | JSON return parsing | REQ-100 reqs 029-031, U-26 | Adds smart defaults |
 | Prompt size limits | REQ-100 req 003 (500KB) | Extends to stdin |
 | Provider routing | REQ-109 reqs 011-028 | Adds return_prompt |
-| Adaptive scoring | REQ-109-addendum reqs 300-324 | Adds json_success_rate |
+| Adaptive scoring | REQ-109 (Adaptive Provider Scoring section) reqs 300-324 | Adds json_success_rate |
 | Audit fields | STD-113 req 003 | Adds json_valid, fields_complete |
 
 ---

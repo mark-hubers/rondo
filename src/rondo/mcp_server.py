@@ -119,7 +119,7 @@ def create_mcp_server() -> Any:
     )
     def _run(
         file_path: str = "",
-        dry_run: bool = True,
+        dry_run: bool = False,
         model: str = "sonnet",
         project: str = "",
         max_budget: float = 0.0,

@@ -864,11 +864,12 @@ def _rondo_run_file_inner(
         reason=engine.get("reason", "")[:120],
     )
 
-    # -- RONDO-254: inside Claude Code, inline/agent plans route to
-    # -- claude --bare -p subprocess (free on Max, controlled prompting).
-    # -- Footgun guard in dispatch.py now allows --bare through.
-    # -- Fallback: Python library callers without _session → Anthropic API.
-    if _is_in_session() and engine["engine"] in ("inline", "agent"):
+    # -- RONDO-254/255: inline/agent plans → subprocess dispatch.
+    # -- MCP server does NOT have CLAUDECODE env var, so _is_in_session()
+    # -- is False. Use _session (from MCP ctx) OR CLAUDECODE (from Python).
+    # -- Either signal means we're serving Claude Code → subprocess is safe.
+    in_cc = _is_in_session() or _session is not None
+    if in_cc and engine["engine"] in ("inline", "agent"):
         # -- Re-resolve to subprocess: use the Claude model name directly
         # -- (dispatch.py build_command adds --bare --system-prompt-file)
         agent_model = str(engine.get("model", "sonnet"))

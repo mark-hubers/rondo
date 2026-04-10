@@ -482,12 +482,16 @@ def _pre_dispatch_guards(
         _attach_metrics(result, config)
         return result, DispatchUsage(task_name=task.name, model=model)
 
-    # -- #237: footgun guard (both auth modes)
+    # -- #237/#254: footgun guard — relaxed for non-bare subprocess dispatch.
+    # -- RONDO-254: non-bare subprocess uses Max plan OAuth (free, works).
+    # -- bare subprocess kills OAuth (needs API key, blocked unless overridden).
+    # -- prepare_env always strips CLAUDECODE to prevent nested session guard.
     in_claude_code = bool(os.environ.get("CLAUDECODE"))
     is_claude_model = model in VALID_MODELS
     override_active = bool(os.environ.get("RONDO_ALLOW_IN_SESSION_SUBPROCESS"))
+    use_bare = config.bare if (task is None or task.bare is None) else task.bare
 
-    if in_claude_code and is_claude_model and not override_active:
+    if in_claude_code and is_claude_model and use_bare and not override_active:
         auth_detail = "max plan" if config.auth == "max" else "API key"
         logger.error(
             "Subprocess footgun blocked: in-session Claude model '%s' routed to claude -p (%s). "
@@ -808,6 +812,16 @@ def _build_subprocess_cmd(
             cmd.append("--bare")
         else:
             logger.info("--bare skipped: CC version %s < %s", cc_ver, _BARE_MIN_VERSION)
+
+    # -- RONDO-254: inject Rondo's dispatch rules via --system-prompt
+    # -- Works with or without --bare. Controlled prompting: Rondo's rules
+    # -- replace the default system prompt. Free on Max (no --bare needed).
+    if config.dispatch_system_prompt:
+        cmd.extend(["--system-prompt", config.dispatch_system_prompt])
+    else:
+        prompt_file = Path("~/.rondo/prompts/default.txt").expanduser()
+        if prompt_file.exists():
+            cmd.extend(["--system-prompt-file", str(prompt_file)])
 
     # -- REQ-100 reqs 022-024: tool_mode controls tool access
     if task:

@@ -491,6 +491,7 @@ def _build_round_and_config(
     timeout_sec: int,
     project: str,
     max_budget: float,
+    bare: bool = True,
 ) -> tuple:
     """Build Round + RondoConfig for dispatch — extracted for complexity."""
     if prompt:
@@ -505,6 +506,7 @@ def _build_round_and_config(
         "default_model": model,
         "dry_run": dry_run,
         "task_timeout_sec": timeout_sec,
+        "bare": bare,
     }
     if project:
         config_kwargs["project"] = project
@@ -759,7 +761,11 @@ def rondo_run_file(
         2. Inline: prompt="Search for X" — creates one-task round in memory (U-33)
 
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
-    Strips CLAUDECODE env var to avoid nested session errors.
+
+    _session: MCP tools pass the host session (for notifications). When _session
+    is set, inline/agent routing returns JSON plans for the host to execute.
+    When _session is None (Python library) and CLAUDECODE is set, inline/agent
+    routes instead to anthropic: + API model id so callers get task results.
     """
     # -- RONDO-202 (Finding #227): wire structured_log request_id for tracing
 
@@ -858,6 +864,34 @@ def _rondo_run_file_inner(
         reason=engine.get("reason", "")[:120],
     )
 
+    # -- RONDO-254: inside Claude Code, inline/agent plans route to
+    # -- claude --bare -p subprocess (free on Max, controlled prompting).
+    # -- Footgun guard in dispatch.py now allows --bare through.
+    # -- Fallback: Python library callers without _session → Anthropic API.
+    if _is_in_session() and engine["engine"] in ("inline", "agent"):
+        # -- Re-resolve to subprocess: use the Claude model name directly
+        # -- (dispatch.py build_command adds --bare --system-prompt-file)
+        agent_model = str(engine.get("model", "sonnet"))
+        if agent_model == "current":
+            agent_model = "sonnet"  # -- default for inline (no model specified)
+        dispatch_model = agent_model if agent_model in {"sonnet", "opus", "haiku"} else "sonnet"
+        model = dispatch_model
+        engine = {
+            "engine": "subprocess",
+            "status": "plan",
+            "schema_version": "1",
+            "model": dispatch_model,
+            "reason": "RONDO-254: inline/agent → subprocess (free on Max)",
+            "_bare": False,  # -- NO --bare: keep Max plan OAuth auth
+        }
+        log_event(
+            "INFO",
+            "engine re-resolved (inline/agent → bare subprocess)",
+            component="mcp_dispatch",
+            engine="subprocess",
+            model=dispatch_model,
+        )
+
     if engine["engine"] in ("inline", "agent"):
         return json.dumps(engine, indent=2)
 
@@ -868,11 +902,21 @@ def _rondo_run_file_inner(
 
     _provider, _model_name = parse_model(model.removesuffix(":new") if model.endswith(":new") else model)
     _clean_model = _model_name or model
+    _use_bare = engine.get("_bare", True)  # -- RONDO-254: inline routes set _bare=False
 
     def dispatch_fn() -> dict:
         """Closure wrapping _execute_dispatch with resolved model args."""
         return _execute_dispatch(
-            prompt, done_when, file_path, _clean_model or model, model, dry_run, timeout_sec, project, max_budget
+            prompt,
+            done_when,
+            file_path,
+            _clean_model or model,
+            model,
+            dry_run,
+            timeout_sec,
+            project,
+            max_budget,
+            bare=_use_bare,
         )
 
     if background and not dry_run:
@@ -893,6 +937,7 @@ def _execute_dispatch(
     timeout_sec: int,
     project: str,
     max_budget: float,
+    bare: bool = True,
 ) -> dict:
     """Run the actual dispatch — called synchronously or from background thread."""
     try:
@@ -907,6 +952,7 @@ def _execute_dispatch(
             timeout_sec,
             project,
             max_budget,
+            bare=bare,
         )
 
         result = _dispatch_via_provider_or_claude(round_def, config, model, prompt, dry_run, run_round)

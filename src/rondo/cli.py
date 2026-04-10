@@ -391,6 +391,16 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_FAILURE
 
 
+def _inject_return_template(prompt: str, model: str) -> str:
+    """REQ-111: append smart return template to prompt for structured JSON output."""
+    try:
+        from rondo.smart_return import build_return_prompt  # pylint: disable=import-outside-toplevel
+
+        return f"{prompt}\n{build_return_prompt(provider=model)}"
+    except (ImportError, TypeError):
+        return prompt
+
+
 def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     """REQ-109 req 026-027: route to provider adapter or Claude run_round.
 
@@ -456,7 +466,8 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
                         model=config.default_model,
                         prompt=task.instruction or "",
                     )
-                tr = provider.dispatch(prompt=task.instruction, model=config.default_model, task_name=task.name)
+                dispatch_prompt = _inject_return_template(task.instruction or "", config.default_model)
+                tr = provider.dispatch(prompt=dispatch_prompt, model=config.default_model, task_name=task.name)
                 usage = DispatchUsage(task_name=task.name, model=config.default_model, cost_usd=tr.cost_usd or 0.0)
                 # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
                 tr, usage = _finalize_dispatch(tr, usage, config, audit_trail, audit_record, round_name=round_def.name)

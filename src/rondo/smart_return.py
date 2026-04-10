@@ -88,7 +88,8 @@ def _load_config_template(provider_key: str) -> str:
         import tomllib  # pylint: disable=import-outside-toplevel
         from pathlib import Path  # pylint: disable=import-outside-toplevel
 
-        config_path = Path(os.environ.get("RONDO_CONFIG", "")) or Path.home() / ".rondo" / "config.toml"
+        env_config = os.environ.get("RONDO_CONFIG", "")
+        config_path = Path(env_config) if env_config else Path.home() / ".rondo" / "config.toml"
         if not config_path.is_file():
             return ""
         with open(config_path, "rb") as f:

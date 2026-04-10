@@ -124,6 +124,21 @@ Adds three things to Rondo that make it usable without Python knowledge:
 | 452 | Template variables: `{{task_name.field}}` in instruction — replaced with field value from named task's result. Only dot-separated `name.field` allowed — no nested expressions, no function calls. Validated at parse time. | SHOULD | Template test |
 | 453 | Circular dependencies MUST be detected at load time and rejected. | MUST | Cycle test |
 
+### In-Session Dispatch (the 90% use case — RONDO-253)
+
+Mark's primary use of Rondo is from inside Claude Code. Three distinct dispatch paths based on model parameter:
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 460 | When `model=""` (empty or omitted) inside Claude Code, `rondo_run` MUST return an `inline_dispatch_plan`. The host (Claude Code, via `rondo-dispatch` skill) executes the prompt in the current session using the current model. Cost: $0 on Max plan. | MUST | MCP inline test |
+| 461 | When `model` is a Claude model name (sonnet/opus/haiku) inside Claude Code, `rondo_run` MUST return an `agent_dispatch_plan`. The host spawns an Agent with the specified model. Cost: $0 on Max plan. | MUST | MCP agent test |
+| 462 | When `model` has a provider prefix (`anthropic:X`, `gemini:X`, `grok:X`, etc.), `rondo_run` MUST dispatch via HTTP adapter regardless of session context. The `anthropic:` prefix explicitly means "use the paid API, not Max plan." | MUST | HTTP dispatch test |
+| 463 | The `rondo-dispatch` skill MUST teach Claude Code to auto-execute inline plans: extract the `prompt` field, execute it directly (as the current model), return results in Rondo's structured JSON format. Raw plan JSON MUST NOT be shown to the user. | MUST | Skill behavior test |
+| 464 | The `rondo-dispatch` skill MUST teach Claude Code to auto-execute agent plans: spawn an Agent with the `model` and `prompt` from the plan, collect results. | MUST | Skill agent test |
+| 465 | The `anthropic:` prefix MUST resolve Claude shorthand names to API model IDs: `anthropic:haiku` -> `claude-haiku-4-5`, `anthropic:sonnet` -> `claude-sonnet-4-6`, `anthropic:opus` -> `claude-opus-4-6`. | MUST | Alias test |
+| 466 | Python library callers (`_session=None`) inside Claude Code: inline/agent plans MUST fall back to `anthropic:` API adapter automatically. Library callers cannot execute host plans. | MUST | Library fallback test |
+| 467 | Inline dispatch prompts MUST be executed without session CLAUDE.md rules applied — controlled prompting. Answer ONLY what the prompt asks, no extras. This is the equivalent of `--bare` for in-session work. | SHOULD | Bare inline test |
+
 ---
 
 ## 3. Architecture
@@ -162,6 +177,8 @@ No new modules needed for core path. Adds:
 | Provider routing | REQ-109 reqs 011-028 | Adds return_prompt |
 | Adaptive scoring | REQ-109 (Adaptive Provider Scoring section) reqs 300-324 | Adds json_success_rate |
 | Audit fields | STD-113 req 003 | Adds json_valid, fields_complete |
+| In-session dispatch | REQ-100 reqs 082-088 (inline/agent plans) | Skill execution, alias resolution |
+| Library fallback | REQ-100 engine routing (mcp_dispatch.py) | API adapter for Python callers |
 
 ---
 

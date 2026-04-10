@@ -88,9 +88,7 @@ class TestAPIExamplesQuality:
     def test_has_main_guard(self, example_file: Path) -> None:
         """Every example has if __name__ == '__main__' guard."""
         content = example_file.read_text(encoding="utf-8")
-        assert '__name__' in content and '__main__' in content, (
-            f"{example_file.name} must have __main__ guard"
-        )
+        assert "__name__" in content and "__main__" in content, f"{example_file.name} must have __main__ guard"
 
 
 # -- sig: mgh-6201.cd.bd955f.ea01.e35e50

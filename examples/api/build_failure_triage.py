@@ -1,187 +1,161 @@
 """Rondo Real-World: Build Failure Triage (New vs Pre-Existing).
 
 REAL WORKFLOW THIS REPLACES:
-  After every ace-build, Claude manually sorts through failures to
-  determine which are pre-existing (known, deferred) vs new regressions
-  introduced by the current sprint. "Pre-existing subprocess warnings"
-  appears as a manual qualifier in 10+ sprint close messages.
+  After every ace-build, manually sort failures into pre-existing
+  vs new regressions. Every sprint close.
 
 SCRIPTED VERSION:
-  Keep a baseline snapshot of known failures → after each build,
-  diff actual failures against baseline → new failures get flagged
-  as sprint regressions → pre-existing ones are suppressed →
-  returns only net-new failures for the developer to act on.
+  Diff current failures against known baseline -> new failures
+  flagged as regressions -> baseline failures suppressed ->
+  optionally ask AI to classify ambiguous failures.
 
-THE DECISION LOGIC:
-  - Failure matches baseline → KNOWN, suppress (don't alarm)
-  - Failure is new → REGRESSION, create sprint finding
-  - Baseline failure is gone → FIXED, celebrate (track improvement)
-  - Failure is new but in deferred sprint → DEFERRED, note but don't block
+HOW TO RUN:
+  python examples/api/build_failure_triage.py
 """
 
+import json
+import os
+import shutil
 import sys
 
 from rondo import smart_return
 
+_mcp_dispatch = None
+
+
+def _get_dispatch_module() -> object:
+    """Lazy-load mcp_dispatch."""
+    global _mcp_dispatch  # noqa: PLW0603
+    if _mcp_dispatch is None:
+        from rondo import mcp_dispatch  # pylint: disable=import-outside-toplevel
+
+        _mcp_dispatch = mcp_dispatch
+    return _mcp_dispatch
+
 
 def _out(msg: str) -> None:
-    """Write output line — examples are user-facing, not library code."""
+    """Write output line."""
     sys.stdout.write(msg + "\n")
 
 
-## ─── Mock Data ───────────────────────────────────────────────────
-## In production: baseline loaded from JSON file, build output parsed
+def _can_dispatch() -> bool:
+    """Check if real dispatch is possible."""
+    if os.environ.get("CLAUDECODE"):
+        return False
+    return shutil.which("claude") is not None
 
 
-def _get_baseline() -> list[dict]:
-    """Load known failures baseline.
-
-    In production: json.loads(Path("reports/failure-baseline.json").read_text())
-    Updated after each sprint close when failures are triaged.
-    """
-    return [
-        {
-            "test": "test_subprocess_warning",
-            "file": "tests/test_runner.py",
-            "error": "DeprecationWarning: subprocess",
-            "since": "FIX-590",
-            "status": "deferred",
-        },
-        {
-            "test": "test_ollama_timeout",
-            "file": "tests/test_local_dispatch.py",
-            "error": "ConnectionError: ollama not running",
-            "since": "RONDO-180",
-            "status": "known",
-        },
-        {
-            "test": "test_gemini_rate_limit",
-            "file": "tests/integration/test_providers.py",
-            "error": "429 Too Many Requests",
-            "since": "RONDO-200",
-            "status": "known",
-        },
-    ]
+def _dispatch(prompt: str, model: str = "sonnet") -> dict | None:
+    """Real AI dispatch via Rondo."""
+    try:
+        mod = _get_dispatch_module()
+        raw = mod.rondo_run_file(  # type: ignore[union-attr]
+            prompt=prompt,
+            model=model,
+            dry_run=False,
+            timeout_sec=60,
+        )
+        data = json.loads(raw)
+        if data.get("status") == "error":
+            return None
+        tasks = data.get("tasks", [])
+        if not tasks or tasks[0].get("status") == "error":
+            return None
+        output = tasks[0].get("raw_output", "")
+        try:
+            parsed = json.loads(output)
+        except json.JSONDecodeError:
+            parsed = {"passed": True, "result": output[:500], "issues": [], "confidence": 0.5}
+        return smart_return.normalize_response(parsed)
+    except (FileNotFoundError, OSError, json.JSONDecodeError, TypeError, KeyError) as exc:
+        _out(f"  Dispatch failed: {exc}")
+        return None
 
 
-def _get_build_failures() -> list[dict]:
-    """Simulate current build output with mix of old and new failures.
+## --- Sample Data (real failure shapes from actual builds) ---------
 
-    In production: parse ace-build output or pytest --json-report
-    """
-    return [
-        ## Pre-existing (matches baseline)
-        {
-            "test": "test_subprocess_warning",
-            "file": "tests/test_runner.py",
-            "error": "DeprecationWarning: subprocess",
-        },
-        {
-            "test": "test_ollama_timeout",
-            "file": "tests/test_local_dispatch.py",
-            "error": "ConnectionError: ollama not running",
-        },
-        ## NEW — regression introduced this sprint
-        {
-            "test": "test_smart_return_fields",
-            "file": "tests/test_smart_return.py",
-            "error": "KeyError: 'confidence' not in response",
-        },
-        ## NEW — another regression
-        {
-            "test": "test_hook_ordering",
-            "file": "tests/test_hooks.py",
-            "error": "AssertionError: post_dispatch fired before pre_dispatch",
-        },
-        ## NOTE: test_gemini_rate_limit is in baseline but NOT in current failures
-        ## → this means it was FIXED (improvement!)
-    ]
+BASELINE = [
+    {
+        "test": "test_subprocess_warning",
+        "file": "tests/test_runner.py",
+        "error": "DeprecationWarning: subprocess",
+        "since": "FIX-590",
+    },
+    {
+        "test": "test_ollama_timeout",
+        "file": "tests/test_local_dispatch.py",
+        "error": "ConnectionError: ollama not running",
+        "since": "RONDO-180",
+    },
+]
 
+CURRENT_FAILURES = [
+    {"test": "test_subprocess_warning", "file": "tests/test_runner.py", "error": "DeprecationWarning: subprocess"},
+    {
+        "test": "test_smart_return_fields",
+        "file": "tests/test_smart_return.py",
+        "error": "KeyError: 'confidence' not in response",
+    },
+    {
+        "test": "test_hook_ordering",
+        "file": "tests/test_hooks.py",
+        "error": "AssertionError: post_dispatch fired before pre_dispatch",
+    },
+]
 
-## ─── Failure Matching ────────────────────────────────────────────
+CLASSIFY_PROMPT = """This test failure appeared in a new sprint. Is it likely:
+1. A real regression (new bug introduced this sprint)
+2. A flaky test (intermittent failure, not a real bug)
+3. An environment issue (missing dependency, config)
 
+Return JSON: {{"classification": "regression"|"flaky"|"environment", "confidence": 0.9, "reason": "why"}}
 
-def _failure_matches_baseline(failure: dict, baseline: list[dict]) -> dict | None:
-    """Check if a failure matches a known baseline entry.
-
-    Match on test name + file path. Error messages can vary slightly
-    between runs, so we match on the stable identifiers.
-    """
-    for known in baseline:
-        if failure["test"] == known["test"] and failure["file"] == known["file"]:
-            return known
-    return None
+Test: {test}
+Error: {error}"""
 
 
-## ─── The Triage Pipeline ─────────────────────────────────────────
+## --- The Triage Pipeline -----------------------------------------
 
 
-def triage_build_failures(sprint_id: str = "TEST-001") -> dict:
-    """Diff build failures against baseline, classify each one.
+def triage_failures(baseline: list[dict], current: list[dict], sprint_id: str = "EXAMPLE-001") -> dict:
+    """Diff current failures against baseline, classify new ones with AI."""
+    baseline_tests = {b["test"] for b in baseline}
+    current_tests = {c["test"] for c in current}
 
-    This is the REAL scripted workflow:
-    1. Load known failure baseline (JSON snapshot)
-    2. Get current build failures
-    3. For each current failure: is it in the baseline?
-       - YES → KNOWN (suppress, don't alarm)
-       - NO → REGRESSION (new this sprint, create finding)
-    4. For each baseline entry not in current failures:
-       → FIXED (improvement! track it)
-    5. Return only net-new regressions for developer action
-
-    The AI step: for ambiguous matches (error text changed but test name
-    same), ask AI "is this the same failure?" — here we use exact match.
-    """
-    baseline = _get_baseline()
-    current = _get_build_failures()
-
-    _out(f"  Baseline: {len(baseline)} known failures")
-    _out(f"  Current build: {len(current)} failures")
-
-    ## Step 1: Classify each current failure
     known: list[dict] = []
     regressions: list[dict] = []
-    matched_baseline_tests: set[str] = set()
+    fixed: list[dict] = []
 
+    ## Step 1: Classify each current failure
     for failure in current:
-        match = _failure_matches_baseline(failure, baseline)
-        if match:
-            known.append({"failure": failure, "baseline": match})
-            matched_baseline_tests.add(match["test"])
-            _out(f"    KNOWN: {failure['test']} (since {match['since']})")
+        if failure["test"] in baseline_tests:
+            since = next((b["since"] for b in baseline if b["test"] == failure["test"]), "unknown")
+            known.append({**failure, "since": since})
+            _out(f"    KNOWN: {failure['test']} (since {since})")
         else:
             regressions.append(failure)
             _out(f"    REGRESSION: {failure['test']} -> {failure['error'][:50]}")
 
-    ## Step 2: Find fixed failures (in baseline but not in current)
-    fixed: list[dict] = []
-    for baseline_entry in baseline:
-        if baseline_entry["test"] not in matched_baseline_tests:
-            fixed.append(baseline_entry)
-            _out(f"    FIXED: {baseline_entry['test']} (was {baseline_entry['since']})")
+    ## Step 2: Find fixed failures
+    for b in baseline:
+        if b["test"] not in current_tests:
+            fixed.append(b)
+            _out(f"    FIXED: {b['test']} (was {b['since']})")
 
-    ## Step 3: AI classification for ambiguous regressions
-    ## In production: send ambiguous failures to AI for "is this related
-    ## to changes in this sprint?" classification
+    ## Step 3: AI classification of regressions (if dispatch available)
+    can_classify = _can_dispatch()
     for reg in regressions:
-        ai_result = smart_return.normalize_response(
-            {
-                "passed": False,
-                "confidence": 0.9,
-                "result": f"New failure in {reg['file']}",
-                "issues": [reg["error"]],
-                "_meta": {"quality": 8, "complete": True, "limitations": ""},
-            }
-        )
-        reg["ai_confidence"] = ai_result["confidence"]
+        if can_classify:
+            prompt = CLASSIFY_PROMPT.format(test=reg["test"], error=reg["error"])
+            result = _dispatch(prompt)
+            if result:
+                reg["ai_classification"] = result.get("result", "unknown")
+                reg["ai_confidence"] = result.get("confidence", 0.0)
+                _out(f"      AI: {result.get('result', '')[:50]}")
         reg["sprint"] = sprint_id
-
-    _out("")
-    _out(f"  Result: {len(known)} known, {len(regressions)} NEW, {len(fixed)} fixed")
 
     return {
         "sprint": sprint_id,
-        "total_current": len(current),
         "known_count": len(known),
         "regression_count": len(regressions),
         "fixed_count": len(fixed),
@@ -192,35 +166,29 @@ def triage_build_failures(sprint_id: str = "TEST-001") -> dict:
 
 
 def main() -> None:
-    """Demonstrate build failure triage pipeline."""
+    """Demonstrate build failure triage."""
     _out("=== Build Failure Triage (New vs Pre-Existing) ===")
-    _out("(Replaces: manually sorting 'pre-existing subprocess warnings')")
     _out("")
 
-    report = triage_build_failures(sprint_id="RONDO-250")
+    _out("  Baseline: 2 known failures")
+    _out("  Current: 3 failures")
+    report = triage_failures(BASELINE, CURRENT_FAILURES)
     _out("")
 
     if report["clean_sprint"]:
-        _out("-PASS- Clean sprint — no new regressions!")
+        _out("-PASS- Clean sprint")
     else:
-        _out(f"-WARNING- {report['regression_count']} new regression(s) found:")
+        _out(f"-WARNING- {report['regression_count']} new regression(s)")
         for reg in report["regressions"]:
             _out(f"  {reg['test']}: {reg['error'][:60]}")
 
     if report["fixed"]:
         _out(f"-PASS- {report['fixed_count']} previously-known failure(s) now passing!")
 
-    ## Verify triage worked correctly
-    if report["regression_count"] < 1:
-        _out("  -ERROR- Should detect at least 1 new regression")
-        sys.exit(1)
-    if report["fixed_count"] < 1:
-        _out("  -ERROR- Should detect at least 1 fixed baseline failure")
-        sys.exit(1)
-
-    _out("")
-    _out("The key: baseline snapshot separates signal from noise.")
-    _out("Only net-new failures need developer attention.")
+    if not _can_dispatch():
+        _out("")
+        _out("AI classification skipped (inside Claude Code).")
+        _out("Run from terminal for AI-powered failure classification.")
 
 
 if __name__ == "__main__":

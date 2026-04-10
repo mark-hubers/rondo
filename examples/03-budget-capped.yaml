@@ -1,0 +1,33 @@
+# Rondo Example 03: Budget-Capped Batch
+# Usage: rondo run examples/03-budget-capped.yaml --max-budget 0.50
+#
+# Run multiple tasks but stop if total cost exceeds budget.
+# Rondo enforces the cap BEFORE each dispatch (predictive, not reactive).
+# You never pay more than you planned.
+
+name: budget-review
+tasks:
+  - name: architecture
+    instruction: "Review the architecture of this codebase"
+    model: gemini:flash
+    done_when: "Describe the architecture with a diagram"
+
+  - name: security
+    instruction: "Scan for OWASP Top 10 vulnerabilities"
+    model: gemini:flash
+    done_when: "List any vulnerabilities found"
+
+  - name: performance
+    instruction: "Identify performance bottlenecks"
+    model: gemini:flash
+    done_when: "List bottlenecks with recommendations"
+
+  - name: testing
+    instruction: "Assess test coverage gaps"
+    model: gemini:flash
+    done_when: "List untested code paths"
+
+  - name: docs
+    instruction: "Find documentation gaps"
+    model: gemini:flash
+    done_when: "List undocumented public functions"

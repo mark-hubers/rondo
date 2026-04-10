@@ -1,0 +1,22 @@
+# Rondo Example 02: Multi-Provider Review
+# Usage: rondo run examples/02-multi-provider.yaml
+#
+# Same task sent to 3 different AI providers. Compare their answers.
+# Each provider has its own strengths — Rondo dispatches to all of them.
+
+name: multi-provider-review
+tasks:
+  - name: gemini-review
+    instruction: "Review this code for security vulnerabilities"
+    model: gemini:flash
+    done_when: "List vulnerabilities with severity ratings"
+
+  - name: grok-review
+    instruction: "Review this code for security vulnerabilities"
+    model: grok:grok-3
+    done_when: "List vulnerabilities with severity ratings"
+
+  - name: local-review
+    instruction: "Review this code for security vulnerabilities"
+    model: local:qwen2.5:32b
+    done_when: "List vulnerabilities with severity ratings"

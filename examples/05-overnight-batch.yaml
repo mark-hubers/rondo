@@ -1,0 +1,28 @@
+# Rondo Example 05: Overnight Batch
+# Usage: rondo run examples/05-overnight-batch.yaml
+#
+# Multiple tasks that run unattended overnight.
+# Results spool to ~/.rondo/spool/ for morning review.
+# Budget cap ensures you don't wake up to a surprise bill.
+
+name: overnight-sweep
+tasks:
+  - name: lint-audit
+    instruction: "Run a thorough lint audit of the entire codebase"
+    model: gemini:flash
+    done_when: "Categorize all issues by severity"
+
+  - name: dependency-check
+    instruction: "Check all dependencies for known CVEs and outdated versions"
+    model: gemini:flash
+    done_when: "List each dependency with version, latest, and any CVEs"
+
+  - name: api-review
+    instruction: "Review all public API endpoints for consistency and documentation"
+    model: grok:grok-3
+    done_when: "List endpoints with their HTTP methods, params, and doc status"
+
+  - name: test-gaps
+    instruction: "Identify code paths with no test coverage"
+    model: gemini:flash
+    done_when: "List untested functions with file and line number"

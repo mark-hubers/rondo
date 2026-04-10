@@ -342,7 +342,6 @@ def rondo_multi_review(  # pylint: disable=too-many-branches
         provider_list = ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
 
     per_provider: list[dict] = []
-    all_findings: list[str] = []
 
     if dry_run:
         for provider in provider_list:
@@ -361,9 +360,6 @@ def rondo_multi_review(  # pylint: disable=too-many-branches
         for provider in provider_list:
             result = results_map.get(provider, {"provider": provider, "status": "error"})
             per_provider.append(result)
-            output = result.get("output", "")
-            if output:
-                all_findings.append(f"[{provider}]: {output}")
 
     total_cost = sum(p.get("cost_usd", 0) for p in per_provider)
 
@@ -388,7 +384,6 @@ def rondo_multi_review(  # pylint: disable=too-many-branches
             "prompt": prompt[:200],
             "provider_count": len(provider_list),
             "per_provider": per_provider,
-            "merged_findings": "\n\n---\n\n".join(all_findings),
             "total_cost_usd": total_cost,
         },
         indent=2,

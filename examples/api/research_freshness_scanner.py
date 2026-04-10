@@ -18,9 +18,9 @@ import sys
 
 from rondo import smart_return
 
-## Default: Anthropic API — works everywhere (inside Claude Code, terminal, CI).
-## Haiku is cheap ($0.001/call). Override: RONDO_MODEL=anthropic:claude-sonnet-4-6
-DEFAULT_MODEL = os.environ.get("RONDO_MODEL", "anthropic:claude-haiku-4-5")
+## Default model. Inside Claude Code: auto-falls back to Anthropic API.
+## From terminal: dispatches via claude -p. Override with RONDO_MODEL env var.
+DEFAULT_MODEL = os.environ.get("RONDO_MODEL", "sonnet")
 
 _mcp_dispatch = None
 

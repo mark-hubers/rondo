@@ -62,6 +62,23 @@ def is_claude_model(model: str) -> bool:
     return model in _CLAUDE_MODELS
 
 
+def claude_shorthand_to_anthropic_api_id(shorthand: str) -> str:
+    """Map Claude Code session shorthand to an Anthropic API model id.
+
+    Used when Python library callers run inside Claude Code (CLAUDECODE set):
+    they cannot execute inline/agent host plans, so dispatch falls back to
+    the HTTP adapter (anthropic:...) with a concrete API model name.
+    """
+    mapping = {
+        "sonnet": "claude-sonnet-4-6",
+        "haiku": "claude-haiku-4-5",
+        "opus": "claude-opus-4-6",
+        "sonnet[1m]": "claude-sonnet-4-6",
+        "opus[1m]": "claude-opus-4-6",
+    }
+    return mapping.get(shorthand, "claude-sonnet-4-6")
+
+
 def is_legacy_ollama_model(model: str) -> bool:
     """Public accessor: check if model name matches legacy Ollama prefix.
 
@@ -166,6 +183,9 @@ def parse_model(model: str) -> tuple[str, str]:
                     return prefix, resolved
                 # -- Tier not configured — fall through with tier as model name
                 logger.warning("Tier '%s' not configured for provider '%s'", model_part, prefix)
+            # -- RONDO-253: anthropic:sonnet → anthropic:claude-sonnet-4-6
+            if prefix == "anthropic" and model_part in _CLAUDE_MODELS:
+                return prefix, claude_shorthand_to_anthropic_api_id(model_part)
             return prefix, model_part
     # -- No prefix → Claude model name or legacy Ollama name
     return "", model

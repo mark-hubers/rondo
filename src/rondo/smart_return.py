@@ -39,9 +39,18 @@ Include ALL fields even if empty. Be thorough in metadata.
 _PROVIDER_TEMPLATES: dict[str, str] = {
     "gemini": """
 RESPONSE FORMAT (mandatory):
-Respond with a JSON object exactly matching this structure. No markdown. No explanation outside JSON.
-{"passed": true, "confidence": 0.95, "result": "your answer", "issues": [], "suggestions": [], "metadata": {}, "_meta": {"quality": 8, "complete": true, "limitations": ""}}
-Replace values with your actual assessment. Include ALL fields.
+Respond with ONLY a JSON object. No markdown. No explanation outside JSON.
+You MUST include ALL of these top-level fields — do NOT skip any:
+  "passed": boolean (true if task succeeded)
+  "confidence": number 0.0 to 1.0
+  "result": string (your main answer)
+  "issues": array of strings (problems found, empty if none)
+  "suggestions": array of strings (improvements, empty if none)
+  "metadata": object (topic, scope, any extra context)
+  "_meta": object — REQUIRED, MUST be top-level — contains:
+    "quality": number 1-10 (rate your own answer)
+    "complete": boolean (did you fully answer)
+    "limitations": string (what you might have missed)
 """.strip(),
     "grok": """
 You are a JSON API endpoint. Return ONLY a valid JSON object.

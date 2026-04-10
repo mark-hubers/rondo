@@ -1,6 +1,6 @@
 """Rondo Example 04: Dispatch Hooks.
 
-Usage: rondo run examples/04-with-hooks.py
+Usage: rondo run examples/rounds/04-with-hooks.py
 
 Hooks let you process prompts BEFORE dispatch and results AFTER.
 Pre-hooks: sanitize, transform, enrich prompts.

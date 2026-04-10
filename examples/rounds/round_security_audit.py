@@ -5,8 +5,8 @@ The audit trail (STD-113) records every dispatch automatically.
 Flakiness detection (REQ-107) tracks results over time.
 
 This is a REAL working round — run with:
-    rondo run examples/round_security_audit.py --dry-run --verbose
-    rondo run examples/round_security_audit.py --bare --max-budget 0.50
+    rondo run examples/rounds/round_security_audit.py --dry-run --verbose
+    rondo run examples/rounds/round_security_audit.py --bare --max-budget 0.50
 """
 
 from rondo.engine import Gate, Round, Task

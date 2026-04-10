@@ -6,13 +6,13 @@ previous step's JSON output, does its work, writes its own JSON.
 Usage (run each step, or run all via overnight):
 
     # -- Step by step (like piping commands):
-    rondo run examples/demo_pipeline.py
+    rondo run examples/rounds/demo_pipeline.py
 
     # -- All at once (overnight mode):
     rondo overnight examples/demo_pipeline.py
 
     # -- Dry run (see prompts without invoking Claude):
-    rondo run examples/demo_pipeline.py --dry-run
+    rondo run examples/rounds/demo_pipeline.py --dry-run
 """
 
 import json

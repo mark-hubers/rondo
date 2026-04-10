@@ -1,5 +1,5 @@
 # Rondo Example 05: Overnight Batch
-# Usage: rondo run examples/05-overnight-batch.yaml
+# Usage: rondo run examples/rounds/05-overnight-batch.yaml
 #
 # Multiple tasks that run unattended overnight.
 # Results spool to ~/.rondo/spool/ for morning review.

@@ -15,7 +15,7 @@ rondo_multi_review(
     prompt="Review this architecture for scalability issues",
     providers='["gemini:flash", "grok:grok-3", "mistral:large"]'
 )
-→ Returns per-provider findings + merged analysis
+→ Returns per-provider findings (each with status, output, cost, duration)
 ```
 
 ## 3. File Review (rondo_review_file)

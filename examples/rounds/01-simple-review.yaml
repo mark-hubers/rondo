@@ -1,5 +1,5 @@
 # Rondo Example 01: Simple Code Review
-# Usage: rondo run examples/01-simple-review.yaml
+# Usage: rondo run examples/rounds/01-simple-review.yaml
 #
 # The simplest possible round file. One task, one instruction.
 # Rondo handles provider selection, prompt engineering, and JSON output.

@@ -1,5 +1,5 @@
 # Rondo Example 03: Budget-Capped Batch
-# Usage: rondo run examples/03-budget-capped.yaml --max-budget 0.50
+# Usage: rondo run examples/rounds/03-budget-capped.yaml --max-budget 0.50
 #
 # Run multiple tasks but stop if total cost exceeds budget.
 # Rondo enforces the cap BEFORE each dispatch (predictive, not reactive).

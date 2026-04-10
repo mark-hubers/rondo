@@ -1,40 +1,48 @@
 # Rondo CLI Examples
 
 10 examples showing every way to use Rondo from the command line.
-Each example is a one-liner you can copy-paste and run.
 
-## Quick Start
+## Prerequisites
+
+- Rondo installed (`pip install -e rondo/`)
+- At least one provider key set (e.g., `GEMINI_API_KEY`)
+- Run `rondo providers` to check which providers are available
+
+## Examples
 
 ```bash
-# 1. Simple prompt → JSON
+# 1. Simple prompt → structured JSON back
 rondo "What is Docker?"
 
 # 2. Choose a specific provider
 rondo "Explain Kubernetes" --model gemini:flash
 
-# 3. Pipe data in
+# 3. Pipe data in via stdin
 echo "import os; os.system('rm -rf /')" | rondo "Is this code safe?"
 
-# 4. Review a file
-rondo "Review this code for bugs" ./src/app.py
-
-# 5. Named return field
+# 4. Named return field — scripts always know where to find the answer
 rondo "Find security issues" --field vulnerabilities
 
-# 6. Plain text mode (no JSON)
+# 5. Plain text mode (skip JSON, get human-readable output)
 rondo "Explain Docker in simple terms" --text
 
-# 7. Dry run (see what would be sent)
-rondo run examples/01-simple-review.yaml --dry-run
+# 6. Run a YAML round file (multiple tasks defined in YAML)
+rondo run examples/rounds/01-simple-review.yaml --dry-run
 
-# 8. Budget-capped batch
-rondo run examples/03-budget-capped.yaml --max-budget 0.50
+# 7. Budget-capped batch (stops before exceeding limit)
+rondo run examples/rounds/03-budget-capped.yaml --max-budget 0.50
 
-# 9. Multi-provider comparison
-rondo run examples/02-multi-provider.yaml
+# 8. Multi-provider comparison (same task to 3 AIs)
+rondo run examples/rounds/02-multi-provider.yaml --dry-run
 
-# 10. Chain commands (pipe JSON output to next step)
-rondo "Find bugs" --field bugs < app.py | jq '.bugs[]' | rondo "Fix this bug"
+# 9. View provider health and learned scores
+rondo providers
+rondo learn
+
+# 10. Chain commands — use jq to extract fields for the next step
+rondo "Find bugs" --field bugs < app.py | jq -r '.bugs[]' | while read bug; do
+    rondo "Fix this bug: $bug" --field fix
+done
 ```
 
 ## Output Format
@@ -53,5 +61,12 @@ Default: structured JSON with smart return fields.
 }
 ```
 
-Use `--text` for plain text output.
-Use `--field <name>` to put the main answer in a named field.
+- `--text` → plain text (no JSON)
+- `--field <name>` → main answer in a named field
+- `--model <provider:model>` → choose provider
+
+## If Something Fails
+
+- `rondo providers` → check which providers are up
+- `rondo learn` → see provider quality scores
+- Add `--dry-run` to any command to see what would be sent without dispatching

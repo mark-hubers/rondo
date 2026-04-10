@@ -1240,6 +1240,373 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | Round state serialization | THEORY | Specced for JSON-based recovery | Phase 1 build |
 
 
+
+
+---
+
+## Dispatch Hooks (Session 100 — merged from addendum)
+
+## Requirements
+
+### Pre-Dispatch Hooks
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 100 | Round files MAY define `pre_dispatch` as a list of callables `(prompt: str, task: Task, config: RondoConfig) -> str`. Each callable receives the prompt and returns a (possibly modified) prompt. | MUST | Unit test |
+| 101 | Pre-dispatch hooks run in order. Output of hook N is input to hook N+1. Final output is the dispatched prompt. | MUST | Chain test |
+| 102 | If a pre-dispatch hook raises an exception, the task MUST be marked `error` with `ERR_HOOK_FAILED` and the hook name in `error_message`. The dispatch MUST NOT proceed. | MUST | Error test |
+| 103 | Pre-dispatch hooks MUST be logged in the audit trail (STD-113) as a `HOOK_PRE` event with hook name and duration. | MUST | Audit test |
+| 104 | Pre-dispatch hooks MAY be Python callables OR shell commands (string starting with `!`). Shell hooks receive prompt on stdin, return modified prompt on stdout. Exit code != 0 = error. | SHOULD | Shell hook test |
+| 105 | Pre-dispatch hooks MUST NOT have access to API keys or provider credentials. They receive the prompt and task metadata only. | MUST | Security test |
+
+### Post-Dispatch Hooks
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 110 | Round files MAY define `post_dispatch` as a list of callables `(result: TaskResult, usage: DispatchUsage) -> TaskResult`. Each callable receives the result and returns a (possibly modified) result. | MUST | Unit test |
+| 111 | Post-dispatch hooks run in order after dispatch completes but BEFORE finalize_dispatch (audit OUTCOME, sanitize, spool). | MUST | Order test |
+| 112 | If a post-dispatch hook raises, the ORIGINAL result (pre-hook) MUST be preserved and finalized. The hook failure is logged as WARNING. | MUST | Resilience test |
+| 113 | Post-dispatch hooks MUST be logged in the audit trail as `HOOK_POST` events. | MUST | Audit test |
+| 114 | Post-dispatch hooks MUST NOT modify `raw_output` to inject content that bypasses sanitization (STD-114). Sanitization runs AFTER hooks. | MUST | Security test |
+
+### Config-Level Hooks (Global)
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 120 | `~/.rondo/config.toml` MAY define `[hooks.pre_dispatch]` and `[hooks.post_dispatch]` as lists of shell commands that apply to ALL dispatches. | SHOULD | Config test |
+| 121 | Round-file hooks run AFTER config-level hooks (COALESCE: config-global first, then round-specific). | MUST | Order test |
+| 122 | `rondo hooks list` CLI command MUST show all active hooks (config + current round file). | SHOULD | CLI test |
+
+---
+
+## Data Model Changes
+
+```python
+@dataclass
+class Task:
+    # ... existing fields ...
+    pre_dispatch: list[Callable | str] = field(default_factory=list)
+    post_dispatch: list[Callable | str] = field(default_factory=list)
+```
+
+---
+
+## Example Usage
+
+```python
+from rondo.engine import Round, Task
+
+def redact_pii(prompt: str, task, config) -> str:
+    """Remove email addresses from prompts before dispatch."""
+    import re
+    return re.sub(r'\b[\w.]+@[\w.]+\.\w+\b', '[REDACTED]', prompt)
+
+def log_cost(result, usage):
+    """Log cost after each dispatch."""
+    if usage.cost_usd > 0.10:
+        print(f"  HIGH COST: ${usage.cost_usd:.4f} for {result.task_name}")
+    return result
+
+def build_round():
+    return Round(
+        name="reviewed-dispatch",
+        tasks=[
+            Task(
+                name="analyze",
+                instruction="Review this code for security issues",
+                pre_dispatch=[redact_pii],
+                post_dispatch=[log_cost],
+            ),
+        ],
+    )
+```
+
+---
+
+## Architecture
+
+```
+  Round file defines hooks
+         |
+         v
+  [pre_dispatch hooks] → prompt in → modified prompt out
+         |
+         v
+  [dispatch to provider]
+         |
+         v
+  [post_dispatch hooks] → result in → modified result out
+         |
+         v
+  [finalize_dispatch] → audit, sanitize, spool (existing pipeline)
+```
+
+Hooks are lightweight — they don't change the dispatch architecture. They add
+two extension points in the existing `_dispatch_with_safety_net` path.
+
+---
+
+
+
+---
+
+## Usability — Self-Service Round Authoring (Session 93 — merged from addendum)
+
+## Requirements
+
+### DRY-RUN + PREFLIGHT (resolves REQ-103 Q3: OPEN → DECIDED)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-01 | `--dry-run` MUST skip preflight entirely — dry-run shows prompts only, no dispatch, no Claude binary needed | MUST |
+| U-02 | `--dry-run` inside a Claude Code session (CLAUDECODE env set) MUST work — it only formats prompts, never spawns subprocess | MUST |
+| U-03 | When `--dry-run` is active, output MUST show: task name, model, prompt text, context files, done_when criteria — enough to verify the round file is correct | MUST |
+| U-04 | `--skip-preflight` flag MUST be available on `rondo run` and `rondo overnight` — logged as WARNING in audit, never silent | SHOULD |
+
+**Decision (REQ-103 Q3):** `--skip-preflight` is allowed. It MUST log a warning.
+`--dry-run` always skips preflight (no dispatch = no preflight needed).
+
+### AI-HELP ENRICHMENT
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-05 | `rondo --ai-help` MUST include the full Round dataclass schema: field names, types, defaults, descriptions | MUST |
+| U-06 | `rondo --ai-help` MUST include the full Task dataclass schema: all fields including instruction, context_files, done_when, model, mode, auto_fn | MUST |
+| U-07 | `rondo --ai-help` MUST include a minimal round file example (copy-paste ready) showing `from rondo.engine import Round, Task` and `def build_round() -> Round:` | MUST |
+| U-08 | `rondo --ai-help` MUST include the Gate/GateResult schema for users writing gated rounds | SHOULD |
+| U-09 | `rondo --ai-help` output MUST be valid JSON (parseable by AI agents via `--ai-help | jq`) | MUST |
+
+### INIT SCAFFOLDING
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-10 | `rondo init` MUST create a starter round file in the current directory | MUST |
+| U-11 | `rondo init` MUST generate a valid Python file with `build_round() -> Round:` that runs with `rondo run` immediately (no edits needed for hello-world) | MUST |
+| U-12 | `rondo init --name <name>` MUST set the round name and first task name from the flag | SHOULD |
+| U-13 | Generated file MUST include comments explaining each field and common patterns | MUST |
+| U-14 | `rondo init` MUST NOT overwrite an existing file — error with message | MUST |
+
+### PROJECT/WORKDIR FLAG
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-15 | `rondo run --project <path>` MUST set the working directory for all dispatched tasks to `<path>` | MUST |
+| U-16 | `--project` path MUST be validated: directory exists, is readable | MUST |
+| U-17 | When `--project` is set, `claude -p` subprocess MUST be spawned with `cwd=<path>` so tasks have access to that project's files and MCP servers | MUST |
+| U-18 | `--project` MUST be available on `rondo run`, `rondo live`, and `rondo overnight` | MUST |
+| U-19 | If `--project` is not set, default is CWD (current behavior, no change) | MUST |
+
+### EXAMPLE ROUNDS (implements existing REQ-100-052/053/054)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-20 | `examples/round_hello.py` — 1 task, no gates, simplest possible round. Must run with `rondo run examples/round_hello.py --dry-run` | MUST |
+| U-21 | `examples/round_file_check.py` — auto task (check file exists) + pre-gate (verify CWD). Demonstrates auto_fn and gate patterns | MUST |
+| U-22 | `examples/round_multi_task.py` — 3 tasks with model hints, context_files, different done_when criteria. Parallel-ready | MUST |
+| U-23 | `examples/round_overnight.py` — multi-phase overnight round file. Demonstrates build_phases() for `rondo overnight` | SHOULD |
+| U-24 | All example files MUST be tested in the test suite (test_examples.py) — living docs, not dead code | MUST |
+| U-25 | All example files MUST have header comments with usage: `rondo run examples/X.py --dry-run` | MUST |
+
+### RESULT PARSING HELPERS
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-26 | `TaskResult.extract_json()` MUST attempt to parse `raw_output` as JSON, returning dict or None | SHOULD |
+| U-27 | `TaskResult.extract_code_blocks()` MUST extract fenced code blocks from `raw_output`, returning list of (language, content) tuples | SHOULD |
+| U-28 | `TaskResult.extract_table()` MUST extract markdown tables from `raw_output`, returning list of dicts (header→value) | MAY |
+| U-29 | Parsing helpers MUST be best-effort — never raise, return None/empty on failure | MUST |
+| U-30 | Parsing helpers MUST NOT modify the original `raw_output` — they are read-only views | MUST |
+
+### MCP DISPATCH STATUS (USH production feedback — Finding #165, #166)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-31 | `rondo_run_status` MUST return per-task progress: task name + status (done/running/pending) for each task in the round | MUST |
+| U-32 | `rondo_run_status` MUST include completed task results inline (raw_output truncated to 2000 chars) so callers don't need to read separate files | MUST |
+
+### INLINE TASK DISPATCH (USH production feedback — Finding #167)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-33 | `rondo_run` MUST accept an optional `prompt` parameter for one-off tasks without a round file. When `prompt` is set, Rondo creates an in-memory Round with one Task using the prompt as instruction | MUST |
+| U-34 | Inline dispatch MUST accept `done_when` parameter (defaults to "Task completed. Return results.") | SHOULD |
+| U-35 | Inline dispatch MUST return the same JSON structure as file-based dispatch | MUST |
+
+### MCP DISPATCH OBSERVABILITY (USH production feedback)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-36 | Background dispatch SHOULD track running cost (sum of completed task costs) in status response | SHOULD |
+| U-37 | `dispatched_at` field in audit OUTCOME records MUST be populated from the INTENT record timestamp (Finding #162) | MUST |
+| U-38 | `round_name` MUST flow from Round.name through dispatch to audit records (Finding #163) | MUST |
+| U-39 | `max_budget` documentation MUST note that budget cap only works with `auth: "api"`, not `auth: "max"` (Finding #164) | MUST |
+
+### MCP STATUS ENRICHMENT (RONDO-44)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-40 | `rondo_run_file()` result MUST include `done_count`, `error_count`, `pending_count` integer fields — callers see progress at a glance without parsing task array | MUST |
+| U-41 | Each task in the result `tasks` array MUST include `error_code` and `error_message` fields (empty string if no error) | MUST |
+| U-42 | Background dispatch status (`rondo_run_status`) MUST include `done_count` and `error_count` when tasks complete | SHOULD |
+| U-43 | Python API SHOULD support `on_task_complete` callback on `dispatch_task()` — called after each task finishes with the `TaskResult` | SHOULD |
+| U-44 | Polling `rondo_run_status` MUST be lightweight: no file reads, no DB queries, no AI calls — in-memory dict lookup only | MUST |
+| U-45 | `rondo_run_status(brief=True)` MUST return only `{status, done_count, error_count, pending_count}` — minimal tokens for polling loops | MUST |
+| U-46 | `rondo://help` resource and `--ai-help` MUST document the polling pattern: brief=True for cheap polling, brief=False for full results when done | MUST |
+| U-47 | Background dispatch SHOULD use MCP `report_progress` to push per-task completion to client without polling — capture Context.session before tool returns, use in background thread | SHOULD |
+| U-48 | When progress notifications are available, final status SHOULD be pushed as a completion notification so client never needs to poll | SHOULD |
+| U-49 | Progress notifications MUST be best-effort — if push fails, polling via `rondo_run_status` remains the fallback (MCP spec: notifications can be dropped) | MUST |
+| U-50 | `rondo_run_status(heartbeat=True)` MUST return ultra-compact response: single-letter keys `{"s":"w","d":2,"e":0,"p":1}` (~10 tokens). Status codes: `w`=working, `d`=done, `e`=error. For tight polling loops. | SHOULD |
+| U-51 | `rondo://help` resource MUST document the 3 polling tiers: heartbeat (~10 tokens), brief (~40 tokens), full (~300+ tokens) with guidance on when to use each | MUST |
+
+### CURSOR REVIEW FIXES (Session 93 — Multi-AI Review)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-52 | `_finalize_dispatch` MUST pass `error_code` from TaskResult to `record_outcome` — audit JSONL must capture error types for failure analytics | MUST |
+| U-53 | MCP tool functions (`rondo_metrics`, `rondo_health`, `rondo_audit_summary`, `rondo_spool_consume`) MUST honor `RONDO_TEST_DIR` env var for path resolution — test/production path parity | MUST |
+| U-54 | Background dispatch with `prompt=` (inline) MUST pre-populate `task_names=["inline-task"]` in status — callers see pending rows before completion | MUST |
+| U-55 | `rondo_dispatch_info` command list MUST be derived from `build_parser()` or a shared constant — no hardcoded list that drifts from CLI | MUST |
+
+---
+
+## Gap Check: Cross-Spec Impact
+
+| This Addendum | Affects | How |
+|--------------|---------|-----|
+| U-01/U-02 (dry-run skip preflight) | REQ-103 Q3 | **Resolves** — Q3 answered: yes, skip allowed with warning |
+| U-04 (--skip-preflight) | REQ-103 | **New flag** — add to preflight spec |
+| U-05–U-09 (--ai-help) | IFS-100 | **New interface** — ai-help is a machine-readable API surface |
+| U-15–U-19 (--project) | STD-109 | **New config field** — add to COALESCE chain |
+| U-20–U-25 (examples) | REQ-100-052/053/054 | **Implements** existing reqs — no spec change needed |
+| U-26–U-30 (result helpers) | STD-100 | **Extends** data standards — new methods on TaskResult |
+| U-31/U-32 (per-task status) | IFS-104 | **Extends** MCP server — richer status response |
+| U-33–U-35 (inline dispatch) | IFS-104 | **New interface** — prompt-based dispatch without files |
+| U-37/U-38 (audit fixes) | STD-113 | **Bug fix** — dispatched_at + round_name propagation |
+| U-39 (budget docs) | STD-109 | **Documentation** — max_budget limitation on Max plan |
+
+## Cross-Spec Updates Required
+
+| Spec | Section | Update |
+|------|---------|--------|
+| REQ-103 | §11 Open Questions | Q3 → DECIDED (U-01, U-04) |
+| REQ-103 | Requirements table | Add req 027: `--skip-preflight` flag |
+| IFS-100 | Interface definition | Add `--ai-help` as formal interface |
+| IFS-104 | MCP tools | U-31/U-32 per-task status, U-33–U-35 inline dispatch |
+| STD-109 | Configuration table | Add `project` field + `max_budget` limitation note |
+| STD-113 | Audit trail | U-37 dispatched_at propagation, U-38 round_name flow |
+| STD-100 | Data Model | Add extract methods to TaskResult |
+| REQ-100 | Package layout | Add `examples/` directory with 4 files |
+
+---
+
+## Verification Matrix
+
+| Req | Test Type | Test Description |
+|-----|-----------|-----------------|
+| U-01 | Unit | `--dry-run` with no claude binary works |
+| U-02 | Unit | `--dry-run` with CLAUDECODE env set works |
+| U-03 | Unit | Dry-run output contains task name, prompt, model |
+| U-05 | Unit | `--ai-help` JSON contains Round schema |
+| U-06 | Unit | `--ai-help` JSON contains Task schema with all fields |
+| U-07 | Unit | `--ai-help` JSON contains example round file |
+| U-10 | Unit | `rondo init` creates valid file |
+| U-11 | E2E | Generated file runs with `rondo run --dry-run` |
+| U-15 | Unit | `--project` sets subprocess CWD |
+| U-20–U-23 | E2E | Each example runs with `--dry-run` |
+| U-24 | Integration | test_examples.py imports and validates all examples |
+| U-26 | Unit | extract_json() parses valid JSON from output |
+| U-29 | Unit | extract_json() returns None on invalid output |
+| U-31 | Unit | rondo_run_status returns per-task name + status |
+| U-32 | Unit | rondo_run_status includes raw_output in completed tasks |
+| U-33 | Unit | rondo_run(prompt="...") creates in-memory round and dispatches |
+| U-35 | Unit | Inline dispatch returns same JSON as file-based |
+| U-37 | Unit | Audit OUTCOME has dispatched_at from INTENT |
+| U-38 | Unit | Audit OUTCOME has round_name from Round.name |
+| U-40 | Unit | Result JSON has done_count, error_count, pending_count integers |
+| U-41 | Unit | Task entries have error_code and error_message fields |
+| U-44 | Unit | rondo_run_status returns from in-memory dict (no I/O) |
+
+---
+
+## Build Order
+
+| Phase | Reqs | Why This Order |
+|-------|------|---------------|
+| 1 | U-01, U-02 | Unblocks testing everything else from inside CC |
+| 2 | U-05–U-09 | Unblocks AI agents discovering the API |
+| 3 | U-10–U-14 | Unblocks first-time users creating round files |
+| 4 | U-20–U-25 | Living examples for learning and testing |
+| 5 | U-15–U-19 | --project flag for cross-repo dispatching |
+| 6 | U-26–U-30 | Result helpers for structured consumption |
+| 7 | U-03, U-04 | Polish: better dry-run output, --skip-preflight |
+| 8 | U-31, U-32 | Per-task status + results in status response (RONDO-42) |
+| 9 | U-33–U-35 | Inline task dispatch without round file (RONDO-43) |
+| 10 | U-37, U-38 | Audit bug fixes: dispatched_at + round_name |
+| 11 | U-36, U-39 | Polish: running cost, budget doc |
+| 12 | U-40–U-44 | Status enrichment: counts, error levels, Python callback (RONDO-44) |
+
+---
+
+### RETRY FAILED TASKS (RONDO-62)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-56 | `rondo_retry(dispatch_id)` MCP tool MUST re-dispatch only failed/error tasks from a previous dispatch | MUST |
+| U-57 | Retry MUST use the same round file and config as the original dispatch | MUST |
+| U-58 | Retry result MUST include which tasks were re-run and which were skipped (already done) | MUST |
+
+### DIFF — WHAT'S NEW (RONDO-63)
+
+| # | Requirement | Priority |
+|---|-------------|----------|
+| U-59 | `rondo_diff(current, previous)` MUST compare two dispatch results and report new items | MUST |
+| U-60 | Diff output MUST show: new items, removed items, unchanged count | MUST |
+| U-61 | `rondo_diff` MUST be available as MCP tool for AI consumption | MUST |
+
+---
+
+## USH Production Feedback (Session 93 — First Real Use)
+
+**Source:** USH Claude session, 4-task parallel dispatch via MCP, 2026-03-30.
+
+### What Worked (Validated)
+- MCP dispatch from inside CC (no separate terminal)
+- dry_run=true default (safe first)
+- background=true with polling
+- 4 parallel workers (5 min vs 20+ min sequential)
+- Structured JSON results
+- Auto audit trail
+- Results persisted to files
+
+### Feature Requests (New Requirements)
+
+| # | Request | Finding | Sprint |
+|---|---------|---------|--------|
+| U-31 | Per-task progress in `rondo_run_status` (not just "running") | #165 | RONDO-42 |
+| U-32 | Task results returned IN the status response (no file reading needed) | #166 | RONDO-42 |
+| U-33 | Inline task dispatch: `rondo_run(prompt="...")` without round file | #167 | RONDO-43 |
+| U-34 | Running cost shown during background dispatch | — | Future |
+| U-35 | Completion notification (push result vs polling) | — | Future (needs MCP notification spec) |
+| U-36 | `--project` inherits target project's MCP servers | — | Future (CC architecture limitation) |
+
+### Bugs Found
+
+| # | Bug | Finding | Severity |
+|---|-----|---------|----------|
+| B-1 | `dispatched_at` empty in audit OUTCOME | #162 | Medium |
+| B-2 | `round_name` not flowing to audit | #163 | Low |
+| B-3 | `max_budget` misleading on Max plan (no-op) | #164 | Medium |
+
+---
+
+## Change Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 0.1 | 2026-03-30 | Initial — 30 requirements across 6 features. Resolves REQ-103 Q3. Implements REQ-100-052/053/054. |
+| 0.3 | 2026-03-30 | Status enrichment: +5 reqs (U-40 to U-44). Counts, error levels, Python callback. Phase 12. RONDO-44. |
+| 0.2 | 2026-03-30 | USH production feedback: +9 requirements (U-31 to U-39) in proper tables. 3 categories: MCP status (U-31/32), inline dispatch (U-33-35), observability fixes (U-36-39). 6 verification matrix entries. 4 new build phases (8-11). 6 findings (#162-167). Cross-spec updates for IFS-104, STD-113, STD-109. |
+
 ## 35. Change History
 
 | Version | Date | What Changed |
@@ -1255,4 +1622,6 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.9 | 2026-03-23 | Gemini R7 findings: +4 reqs (074-077, renumbered from 057-060) Task Safety — task_timeout_sec, round_timeout_sec, Popen timeout enforcement, timeout_exceeded error status. Total: 60 reqs. |
 | 1.0 | 2026-03-25 | 4-AI cross-review fixes (OpenAI/Gemini/Mistral/Grok): Replaced `running` with `in_progress` throughout (CORE-STD-001 alignment). Filled §4 Architecture/Design (layer diagram, component interactions, dispatch detail, tool_mode vs permission_mode). Filled §5 Data Model (dataclass inventory). Filled §6 Data Boundary (canonical data path, config file locations, clarified Rondo-has-no-DB vs CORE-STD-022 indirect relationship). Filled §13 Integration Points. Added §12 Tactical Solutions (TAC-RON-001, TAC-RON-002). Renumbered Live Mode reqs 47-56 to 061-070 in proper table format. Clarified timeout coordination with Rondo-REQ-101 watchdog (req 057). Added CORE-STD-001 to dependencies. Annotated parallel.py/overnight.py/report.py as Rondo-REQ-101 scope in package layout. Clarified "zero external dependencies" applies to core engine, not consumer scripts. Total: 70 reqs. |
 | 1.1 | 2026-03-25 | Grok cross-review fixes: (C1) Task state machine diagram now shows `pending` as explicit initial state with forward-only transition restrictions. Added D9 (7-state vocabulary DEC). (C2) Added reqs 071-073: --bare flag detection, flag precedence (stream-json mandatory, --bare additive), Caliber bypass warning. (M4) §6 Data Boundary clarified two distinct storage paths (results_dir vs spool) with owner/purpose/lifecycle table. (M7) Added D10 (dataclass timestamp domain semantics DEC). (M8) Live mode clarified: no subprocess dispatch, no ThreadPoolExecutor, no spool — in-process tool calls only. Total: 73 reqs. |
+| 1.3 | 2026-04-09 | Merged dispatch hooks + usability addendums. |
+| 1.3a | 2026-04-09 | Merged dispatch hooks addendum (reqs 100-122) + usability addendum (U-1 to U-36). Eliminated addendum files — one spec per feature. Session 100. |
 | 1.2 | 2026-04-05 | FIX-674: ErrorPayload dataclass on TaskResult — structured error recovery guidance (code, message, recovery, transient, layer, provider). 12 error codes mapped to recovery messages. Report renders recovery in action items, notify includes recovery in failure messages. FIX-680: TOML type validation at load (wrong types warn + fallback to default). FIX-682: 4 bad-config E2E tests. |

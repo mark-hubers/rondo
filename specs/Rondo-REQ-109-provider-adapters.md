@@ -678,7 +678,7 @@ COALESCE resolution: OAPayload.runtime.model → routing table → provider.defa
 | # | Question | Impact | Status |
 |---|----------|--------|--------|
 | Q1 | Should adapters support streaming responses? | Affects progress reporting for long dispatches | OPEN |
-| Q2 | Should affinity tracking influence automatic routing (not just suggestions)? | Automation vs control | OPEN — advisory only for now |
+| Q2 | Should affinity tracking influence automatic routing (not just suggestions)? | Automation vs control | DECIDED — yes, with COALESCE (manual config always wins). See Adaptive Provider Scoring section reqs 300-324. Session 100. |
 | Q3 | Should there be a provider "marketplace" for sharing adapter configs? | Multi-user, future scope | OPEN — not in v1 |
 | Q4 | Should ContainerAdapter support Apple Containers natively? | macOS-specific optimization | OPEN — Docker first |
 
@@ -804,6 +804,103 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | Phase 2: Claude as real adapter | THEORY | DeepSeek-R1 validated architecture | When beneficial |
 
 
+
+
+---
+
+## Adaptive Provider Scoring (Session 100 — merged from addendum)
+
+## Requirements
+
+### Provider Score Computation
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 300 | `compute_provider_score(provider, task_type)` MUST return a float 0.0-1.0 based on historical dispatch data for that provider+task_type combination. | MUST | Unit test |
+| 301 | Score formula: `success_rate * 0.5 + (1 - normalized_cost) * 0.3 + (1 - normalized_latency) * 0.2`. Weights are configurable via `[scoring.weights]` in config.toml. | MUST | Formula test |
+| 302 | Minimum 10 dispatches required before a provider gets a learned score. Below threshold → score is None (use default map). | MUST | Threshold test |
+| 303 | Score window: only dispatches from the last 7 days are used. Older data decays — prevents stale scores from a provider that improved/degraded. | MUST | Window test |
+| 304 | `success_rate` = dispatches with status "done" / total dispatches (excluding "skipped"). | MUST | Calculation test |
+| 305 | Score computation MUST be cached for 5 minutes (same TTL as health cache). Recomputing on every dispatch is wasteful. | MUST | Cache test |
+
+### Adaptive Routing
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 310 | `recommend_model(task_type)` MUST use COALESCE: `manual_config → learned_best → default_map → "sonnet"`. | MUST | COALESCE test |
+| 311 | `learned_best` = provider+model with highest score for this task_type (from req 300). | MUST | Selection test |
+| 312 | When learned scoring changes the recommended provider (vs what default_map would pick), a `log_event("INFO", "adaptive routing")` MUST be emitted with old and new provider. | MUST | Logging test |
+| 313 | `rondo providers --scores` CLI command MUST show per-provider scores with breakdown (success_rate, avg_cost, avg_latency, sample_count, score). | SHOULD | CLI test |
+| 314 | MCP `rondo_health()` response MUST include `provider_scores` dict when scores are available. | SHOULD | MCP test |
+
+### Safety Rails
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 320 | Manual config ALWAYS wins over learned scoring (COALESCE rule). A user who sets a provider in config.toml MUST NOT be overridden by scoring. | MUST | Override test |
+| 321 | If the learned-best provider is currently DOWN (health check), fall back to the next-highest-scoring healthy provider. | MUST | Fallback test |
+| 322 | Scoring MUST NOT create feedback loops: if Provider A scores highest and gets all traffic, Provider B never gets dispatches to improve its score. Mitigation: 10% exploration rate — 1 in 10 dispatches goes to a random non-top provider. | SHOULD | Exploration test |
+| 323 | `[scoring.enabled]` config flag (default: true). Users can disable learned routing entirely. | MUST | Config test |
+| 324 | Score data is read-only for the scoring module. It reads from dispatch history (REQ-104). It does NOT write its own data store. | MUST | Read-only test |
+
+---
+
+## Data Source
+
+Scoring reads from existing dispatch history (REQ-104 `DispatchRecord`):
+- `provider`: which provider handled the dispatch
+- `model`: which model was used
+- `status`: done/error/blocked
+- `cost_usd`: actual cost
+- `duration_sec`: wall-clock time
+- `task_type`: from the task definition (if set)
+
+No new tables or storage needed. This is a **read-only consumer** of existing data.
+
+---
+
+## Score Formula Detail
+
+```
+score = (success_rate * w_success) + ((1 - norm_cost) * w_cost) + ((1 - norm_latency) * w_latency)
+
+where:
+  success_rate = done_count / (done_count + error_count)
+  norm_cost = (avg_cost - min_cost) / (max_cost - min_cost)  # 0=cheapest, 1=most expensive
+  norm_latency = (avg_latency - min_latency) / (max_latency - min_latency)
+  w_success = 0.5 (default)
+  w_cost = 0.3 (default)
+  w_latency = 0.2 (default)
+
+  If only one provider has data, norm_cost = 0, norm_latency = 0 (no comparison possible).
+```
+
+---
+
+## Example
+
+After 50 dispatches for `code-review`:
+
+| Provider | Success | Avg Cost | Avg Latency | Score |
+|----------|---------|----------|-------------|-------|
+| gemini:flash | 95% | $0.003 | 2.1s | 0.87 |
+| grok:grok-3 | 88% | $0.008 | 3.4s | 0.68 |
+| mistral:large | 92% | $0.005 | 2.8s | 0.78 |
+
+Result: `recommend_model("code-review")` returns `gemini:flash` (highest score),
+unless user has manual config override.
+
+```
+$ rondo providers --scores
+  Provider        Success  Avg Cost  Avg Latency  Score  Sample
+  ────────────    ───────  ────────  ───────────  ─────  ──────
+  gemini:flash    95%      $0.003    2.1s         0.87   47
+  grok:grok-3     88%      $0.008    3.4s         0.68   38
+  mistral:large   92%      $0.005    2.8s         0.78   22
+```
+
+---
+
 ## 35. Change History
 
 | Version | Date | What Changed |
@@ -812,5 +909,6 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-31 | **Split-brain fix (Session 94).** Removed ClaudeCLIAdapter (D6). Added shared finalization pipeline reqs 026-029 (D7). Phased approach: Phase 1 fixes pipeline gap, Phase 2 extracts Claude into real adapter (D8). recommend_model to TOML config (D9). New architecture diagram: two transports, one finalization. Risk added: split-brain anti-pattern. Feature maturity updated to reflect built state. AI body review: Qwen 32B (architectural) + DeepSeek-R1 8B (contrarian). Cross-product verified: CORE-ADR-001 already mandates this design, no changes needed to OB/Caliber/ACE specs. |
 | 1.3 | 2026-04-01 | **Multi-provider adapter architecture (Session 94 continued).** Updated req 002: 3 adapter classes not 6 (ChatCompletions handles OpenAI+Grok+Mistral). Updated req 005: TOML config schema with per-provider subtables. Added reqs 030-034: adapters/ directory structure, ChatCompletionsAdapter, provider:model routing (parse_model), rondo_multi_review MCP tool, Keychain auth. Based on analysis of ai_review.py (1260 lines, 5 providers) + Cursor design review. v0.7 roadmap: 9 sprints (RONDO-114 to RONDO-122). |
+| 1.6 | 2026-04-09 | Merged adaptive scoring addendum (reqs 300-324). Resolved Q2: OPEN → DECIDED (yes, with COALESCE). Session 100. |
 | 1.5 | 2026-04-02 | **Cloud dispatch + tiers + cost controls (Session 96).** Added 23 requirements (041-063): provider tiers (3 per provider), cloud dispatch (`--cloud` flag + profiles + count), cost controls (per-dispatch cap, monthly budget), failure policy (partial result default), data sensitivity + provider trust. Updated config TOML with full provider examples, cloud profiles, auth section. Updated MCP section (rondo_multi_review BUILT). Updated feature maturity (8 features BUILT, 4 DESIGNED). 6 new decisions (D10-D14). 4 new failure modes. Reviewed by 4 AI bodies (Qwen 32B, Gemini 2.5 Flash, OpenAI GPT-4.1, Cursor). Sprint plan: B (tiers), C (cloud orchestration), D (health), E (affinity). |
 | 1.4 | 2026-04-02 | **KeyBackend interface (Session 94 final).** Fixed req 006: Keychain service name `ace.ai-key.<provider>` (was `ace2-<provider>`, mismatched ai-keys.py). Updated req 007: shared `load_api_key()` in `adapters/auth.py`. Added reqs 035-040: precedence (env→keychain→1password), KeyBackend interface, auto mode, 1Password CLI integration, config metadata only, key caching with TTL. 3 AI body reviews (DeepSeek + Qwen + Cursor) confirmed pluggable design. |

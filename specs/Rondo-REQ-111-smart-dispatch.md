@@ -93,6 +93,17 @@ Adds three things to Rondo that make it usable without Python knowledge:
 | 444 | `rondo providers --scores` MUST show per-provider scores table. | SHOULD | CLI test |
 | 445 | json_success_rate feeds into REQ-109 (Adaptive Provider Scoring section) adaptive scoring (req 301 formula) as an additional quality signal. | SHOULD | Integration test |
 
+### Response Normalization (new — common format regardless of provider)
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 470 | `normalize_response(raw, provider)` MUST produce a common JSON shape regardless of which provider answered. Users MUST NOT need to know which provider handled their request. | MUST | Normalization test |
+| 471 | Normalization MUST: strip markdown fences (```json...```), hoist nested `_meta` to top level, ensure all 7 standard fields present (fill missing with defaults), preserve any extra fields the provider added. | MUST | Field test |
+| 472 | Standard field defaults when missing: `passed=null`, `confidence=0.0`, `result=""`, `issues=[]`, `suggestions=[]`, `metadata={}`, `_meta={"quality":0,"complete":false,"limitations":"not provided"}`. | MUST | Default test |
+| 473 | Normalization runs AFTER `validate_return_json` and BEFORE output to user. Pipeline: raw → extract_json → validate → normalize → output. | MUST | Order test |
+| 474 | Provider-specific quirk handling: Grok nests `_meta` inside `metadata` → hoist out. Mistral wraps in markdown fences → strip. Others: pass through. New providers added as discovered. | SHOULD | Quirk test |
+| 475 | Extra fields beyond the 7 standard fields MUST be preserved (not stripped). Provider may return useful data we didn't ask for. | MUST | Preservation test |
+
 ### Task Chaining in YAML/JSON (new — simple subset only)
 
 | Req # | Requirement | Priority | Test |

@@ -154,4 +154,52 @@ class TestValidateReturnJSON:
         assert len(data["result"]) == 5000
 
 
+class TestNormalizeResponse:
+    """REQ-111 reqs 470-475: response normalization."""
+
+    def test_grok_nested_meta_hoisted(self) -> None:
+        """Req 474: Grok nests _meta inside metadata → hoist to top level."""
+        from rondo.smart_return import normalize_response
+
+        data = {
+            "passed": True,
+            "confidence": 0.95,
+            "result": "answer",
+            "issues": [],
+            "suggestions": [],
+            "metadata": {
+                "topic": "security",
+                "_meta": {"quality": 8, "complete": True, "limitations": "none"},
+            },
+        }
+        normalized = normalize_response(data)
+        assert "_meta" in normalized
+        assert normalized["_meta"]["quality"] == 8
+        assert "_meta" not in normalized["metadata"]
+
+    def test_missing_fields_filled_with_defaults(self) -> None:
+        """Req 472: missing standard fields get defaults."""
+        from rondo.smart_return import normalize_response
+
+        data = {"passed": True, "result": "answer"}
+        normalized = normalize_response(data)
+        assert normalized["confidence"] == 0.0
+        assert normalized["issues"] == []
+        assert normalized["suggestions"] == []
+        assert normalized["_meta"]["quality"] == 0
+
+    def test_extra_fields_preserved(self) -> None:
+        """Req 475: provider-specific extra fields are NOT stripped."""
+        from rondo.smart_return import normalize_response
+
+        data = {"passed": True, "result": "answer", "custom_field": "kept"}
+        normalized = normalize_response(data)
+        assert normalized["custom_field"] == "kept"
+
+    def test_openai_template_exists(self) -> None:
+        """OpenAI has a dedicated template."""
+        prompt = build_return_prompt(provider="openai:gpt-4.1")
+        assert "passed" in prompt.lower()
+
+
 # -- sig: mgh-6201.cd.bd955f.5ead.e35e50

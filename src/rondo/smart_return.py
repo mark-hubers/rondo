@@ -45,8 +45,21 @@ Replace values with your actual assessment. Include ALL fields.
 """.strip(),
     "grok": """
 You are a JSON API endpoint. Return ONLY a valid JSON object.
-Fields: "passed" (boolean), "confidence" (number 0-1), "result" (string), "issues" (array), "suggestions" (array), "metadata" (object with context), "_meta" (object with quality 1-10, complete boolean, limitations string).
+CRITICAL: "_meta" MUST be a TOP-LEVEL field, NOT nested inside "metadata".
+Fields at top level: "passed" (boolean), "confidence" (number 0-1), "result" (string), "issues" (array), "suggestions" (array), "metadata" (object with context), "_meta" (object with quality 1-10, complete boolean, limitations string).
 No markdown. No explanation. JSON only.
+""".strip(),
+    "mistral": """
+RESPONSE FORMAT (mandatory):
+Return ONLY valid JSON. Do NOT wrap in markdown code fences (no ```json). No text outside the JSON.
+Required top-level fields: "passed" (boolean), "confidence" (number 0-1), "result" (string), "issues" (array), "suggestions" (array), "metadata" (object), "_meta" (object with quality 1-10, complete boolean, limitations string).
+Include ALL fields.
+""".strip(),
+    "openai": """
+RESPONSE FORMAT (mandatory):
+Return ONLY valid JSON. No markdown. No explanation outside JSON.
+Required fields: "passed" (boolean), "confidence" (float 0-1), "result" (string), "issues" (array of strings), "suggestions" (array of strings), "metadata" (object), "_meta" (object: quality number 1-10, complete boolean, limitations string).
+Include ALL fields even if empty.
 """.strip(),
     "local": """
 Reply with JSON only. No other text.
@@ -141,6 +154,46 @@ def validate_return_json(response: str) -> dict[str, Any]:
         "_fields_complete": False,
         "_parse_error": True,
     }
+
+
+def normalize_response(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize provider responses to a common JSON shape.
+
+    REQ-111 reqs 470-475: regardless of which provider answered,
+    the user always gets the same field structure.
+
+    Handles:
+    - Grok: _meta nested inside metadata → hoist to top level
+    - Missing fields → fill with defaults
+    - Extra fields → preserved (not stripped)
+    """
+    # -- REQ-111 req 474: Grok nests _meta inside metadata
+    metadata = data.get("metadata", {})
+    if isinstance(metadata, dict) and "_meta" in metadata and "_meta" not in data:
+        data["_meta"] = metadata.pop("_meta")
+
+    # -- REQ-111 req 472: ensure all standard fields present with defaults
+    defaults = {
+        "passed": None,
+        "confidence": 0.0,
+        "result": "",
+        "issues": [],
+        "suggestions": [],
+        "metadata": {},
+        "_meta": {"quality": 0, "complete": False, "limitations": "not provided"},
+    }
+    for field_name, default_value in defaults.items():
+        if field_name not in data:
+            data[field_name] = default_value
+
+    # -- Ensure _meta has all sub-fields
+    meta = data.get("_meta", {})
+    if isinstance(meta, dict):
+        meta.setdefault("quality", 0)
+        meta.setdefault("complete", False)
+        meta.setdefault("limitations", "not provided")
+
+    return data
 
 
 # -- sig: mgh-6201.cd.bd955f.5ead.a3bcd0

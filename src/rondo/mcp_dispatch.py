@@ -492,6 +492,11 @@ def _build_round_and_config(
     project: str,
     max_budget: float,
     bare: bool = True,
+    rules: str = "",
+    allowed_tools: str = "",
+    max_turns: int = 0,
+    add_dir: str = "",
+    json_schema: str = "",
 ) -> tuple:
     """Build Round + RondoConfig for dispatch — extracted for complexity."""
     if prompt:
@@ -512,11 +517,12 @@ def _build_round_and_config(
         "task_timeout_sec": timeout_sec,
         "bare": bare,
         "dispatch_system_prompt": global_toml.get("dispatch_system_prompt", ""),
-        "claude_p_rules": global_toml.get("claude_p_rules", ""),
-        "claude_p_allowed_tools": global_toml.get("claude_p_allowed_tools", "Read,Grep,Glob"),
-        "claude_p_max_turns": global_toml.get("claude_p_max_turns", 5),
-        "claude_p_add_dir": global_toml.get("claude_p_add_dir", ""),
-        "claude_p_json_schema": global_toml.get("claude_p_json_schema", ""),
+        # -- RONDO-258: COALESCE per-call → config.toml → code default
+        "claude_p_rules": rules or global_toml.get("claude_p_rules", ""),
+        "claude_p_allowed_tools": allowed_tools or global_toml.get("claude_p_allowed_tools", "Read,Grep,Glob"),
+        "claude_p_max_turns": max_turns if max_turns > 0 else global_toml.get("claude_p_max_turns", 5),
+        "claude_p_add_dir": add_dir or global_toml.get("claude_p_add_dir", ""),
+        "claude_p_json_schema": json_schema or global_toml.get("claude_p_json_schema", ""),
     }
     if project:
         config_kwargs["project"] = project
@@ -763,6 +769,11 @@ def rondo_run_file(
     prompt: str = "",
     done_when: str = "Task completed. Return results.",
     _session: Any = None,
+    rules: str = "",
+    allowed_tools: str = "",
+    max_turns: int = 0,
+    add_dir: str = "",
+    json_schema: str = "",
 ) -> str:
     """Run a round file or inline prompt — MCP dispatch tool.
 
@@ -772,10 +783,12 @@ def rondo_run_file(
 
     Default dry_run=True for safety. Set dry_run=False for real dispatch.
 
-    _session: MCP tools pass the host session (for notifications). When _session
-    is set, inline/agent routing returns JSON plans for the host to execute.
-    When _session is None (Python library) and CLAUDECODE is set, inline/agent
-    routes instead to anthropic: + API model id so callers get task results.
+    Per-call overrides (RONDO-258, REQ-111 reqs 478-479):
+        rules: --system-prompt override (replaces config.toml claude_p_rules)
+        allowed_tools: --allowedTools override (e.g. "Read,Edit,Bash")
+        max_turns: --max-turns override (0 = use config default)
+        add_dir: --add-dir override (additional directory access)
+        json_schema: --json-schema override (platform-enforced structured output)
     """
     # -- RONDO-202 (Finding #227): wire structured_log request_id for tracing
 
@@ -801,6 +814,11 @@ def rondo_run_file(
             prompt=prompt,
             done_when=done_when,
             _session=_session,
+            rules=rules,
+            allowed_tools=allowed_tools,
+            max_turns=max_turns,
+            add_dir=add_dir,
+            json_schema=json_schema,
         )
 
 
@@ -846,6 +864,11 @@ def _rondo_run_file_inner(
     prompt: str,
     done_when: str,
     _session: Any,
+    rules: str = "",
+    allowed_tools: str = "",
+    max_turns: int = 0,
+    add_dir: str = "",
+    json_schema: str = "",
 ) -> str:
     """Inner dispatch body — extracted for complexity budget. RONDO-202."""
     file_path, project, err = _validate_run_inputs(file_path, project, prompt)
@@ -928,6 +951,11 @@ def _rondo_run_file_inner(
             project,
             max_budget,
             bare=_use_bare,
+            rules=rules,
+            allowed_tools=allowed_tools,
+            max_turns=max_turns,
+            add_dir=add_dir,
+            json_schema=json_schema,
         )
 
     if background and not dry_run:
@@ -949,6 +977,11 @@ def _execute_dispatch(
     project: str,
     max_budget: float,
     bare: bool = True,
+    rules: str = "",
+    allowed_tools: str = "",
+    max_turns: int = 0,
+    add_dir: str = "",
+    json_schema: str = "",
 ) -> dict:
     """Run the actual dispatch — called synchronously or from background thread."""
     try:
@@ -964,6 +997,11 @@ def _execute_dispatch(
             project,
             max_budget,
             bare=bare,
+            rules=rules,
+            allowed_tools=allowed_tools,
+            max_turns=max_turns,
+            add_dir=add_dir,
+            json_schema=json_schema,
         )
 
         result = _dispatch_via_provider_or_claude(round_def, config, model, prompt, dry_run, run_round)

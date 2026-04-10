@@ -115,7 +115,7 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_run",
-        description="Run AI tasks. Two modes: file_path= for round files, OR prompt= for one-off tasks. dry_run=True previews. background=True for async.",
+        description="Run AI tasks. prompt= for one-off tasks, file_path= for round files. Override config with rules=, allowed_tools=, max_turns=, add_dir=, json_schema=.",
     )
     def _run(
         file_path: str = "",
@@ -127,6 +127,11 @@ def create_mcp_server() -> Any:
         background: bool = False,
         prompt: str = "",
         done_when: str = "Task completed. Return results.",
+        rules: str = "",
+        allowed_tools: str = "",
+        max_turns: int = 0,
+        add_dir: str = "",
+        json_schema: str = "",
         ctx: Any = None,
     ) -> str:
         # -- U-47: capture session for background progress notifications
@@ -147,6 +152,11 @@ def create_mcp_server() -> Any:
             prompt=prompt,
             done_when=done_when,
             _session=session,
+            rules=rules,
+            allowed_tools=allowed_tools,
+            max_turns=max_turns,
+            add_dir=add_dir,
+            json_schema=json_schema,
         )
 
     @mcp.tool(

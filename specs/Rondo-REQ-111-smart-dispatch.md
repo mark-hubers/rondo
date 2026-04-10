@@ -163,6 +163,18 @@ All settings live in `~/.rondo/config.toml` as top-level keys. Per-call override
 
 **COALESCE order:** per-call arg -> config.toml -> code default.
 
+### Per-Call Overrides — wired to MCP, API, and CLI (RONDO-258)
+
+All dispatch settings MUST be overridable per-call on all 3 interfaces:
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 478 | `rondo_run` MCP tool MUST accept optional params: `rules`, `allowed_tools`, `max_turns`, `add_dir`, `json_schema`. When provided, they override config.toml for that call. | MUST | MCP param test |
+| 479 | `rondo_run_file()` Python API MUST accept the same params. When provided, they override config.toml for that call. | MUST | API param test |
+| 480 | `rondo` CLI MUST accept `--rules`, `--allowed-tools`, `--max-turns`, `--add-dir`, `--json-schema` flags. When provided, they override config.toml for that call. | SHOULD | CLI flag test |
+| 481 | Per-call overrides MUST work on all dispatch paths: claude -p subprocess, Agent, and HTTP adapters. | MUST | Cross-path test |
+| 482 | Integration tests MUST use real dispatch (no mocks). Tests call `rondo_run_file()` with per-call overrides and verify the subprocess received the correct flags. | MUST | Integration test |
+
 ---
 
 ## 3. Architecture

@@ -144,7 +144,7 @@ Also exposes `rondo://help` resource for AI agent discovery (version, commands, 
 
 ---
 
-## CLI Commands (15)
+## CLI Commands (16)
 
 | Command | What it does |
 |---------|-------------|

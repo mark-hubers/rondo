@@ -235,6 +235,7 @@ class TestImportLayering:
             "metrics",
             "retry",  # -- RONDO-204 #235: circuit breaker parity for subprocess path
             "structured_log",  # -- RONDO-205 #242: request_id binding + log_event
+            "smart_return",  # -- REQ-111: auto-rating in finalize
         },
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify", "hooks"},
         "parallel.py": {"engine", "config", "dispatch"},
@@ -288,6 +289,7 @@ class TestImportLayering:
             "audit",
             "flaky",
             "metrics",
+            "scoring",  # -- REQ-111: rondo learn command
         },
         "cli_commands/infra.py": {
             "cli_commands",

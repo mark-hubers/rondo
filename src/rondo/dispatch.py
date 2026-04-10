@@ -58,6 +58,7 @@ logger = logging.getLogger(__name__)
 # -- output bytes (conservative: ~4 chars per token for ASCII).
 _MAX_OUTPUT_BYTES = 1024 * 1024  # -- 1MB fallback for unknown models
 
+
 def _max_output_bytes_for_model(model: str) -> int:
     """Return the output byte cap for a given model — RONDO-206 #216.
 
@@ -86,18 +87,20 @@ def _max_output_bytes_for_model(model: str) -> int:
     # -- Scale output cap with context — 2 bytes per token, 1MB floor
     return max(_MAX_OUTPUT_BYTES, limit_tokens * 2)
 
+
 # -- Rondo-REQ-100 req 071: CC version detection (cached per process)
 _cc_version_cache: tuple[int, int, int] | None = None
 _BARE_MIN_VERSION = (2, 1, 81)
 
+
 def _attach_metrics(result: TaskResult, config: RondoConfig) -> None:
     """Attach metrics to result — ALWAYS-ON, every path."""
     try:
-
         report = compute_metrics(audit_dir=config.audit_dir)
         result.metrics = report.to_dict()
     except (ImportError, OSError, TypeError):
         pass
+
 
 def _get_audit_trail(config: RondoConfig) -> AuditTrail | None:
     """Create AuditTrail if audit_dir is configured — STD-113."""
@@ -108,6 +111,7 @@ def _get_audit_trail(config: RondoConfig) -> AuditTrail | None:
     except (OSError, TypeError) as exc:
         logger.debug("Audit trail init failed (non-fatal): %s", exc)
         return None
+
 
 def detect_cc_version(binary: str = "claude") -> tuple[int, int, int] | None:
     """Detect Claude Code version via `claude --version`.
@@ -135,9 +139,11 @@ def detect_cc_version(binary: str = "claude") -> tuple[int, int, int] | None:
         pass
     return None
 
+
 # ──────────────────────────────────────────────────────────────────
 #  Environment Preparation — Rondo-REQ-100 reqs 13, 17, 18
 # ──────────────────────────────────────────────────────────────────
+
 
 def prepare_env(config: RondoConfig) -> dict[str, str]:
     """Build child process environment.
@@ -157,11 +163,13 @@ def prepare_env(config: RondoConfig) -> dict[str, str]:
 
     return env
 
+
 # ──────────────────────────────────────────────────────────────────
 #  Model Resolution — Rondo-REQ-100 reqs 20-23
 # ──────────────────────────────────────────────────────────────────
 
 VALID_MODELS: set[str] = {"opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]"}
+
 
 def resolve_model(
     cli_model: str | None,
@@ -178,9 +186,11 @@ def resolve_model(
         raise ValueError(f"Invalid model '{model}' for task '{task.name}'. Valid: {sorted(VALID_MODELS)}")
     return model
 
+
 # ──────────────────────────────────────────────────────────────────
 #  Result Saving — Rondo-REQ-100 req 15, Rondo-STD-110 S5, R2
 # ──────────────────────────────────────────────────────────────────
+
 
 def save_result(
     result: TaskResult,
@@ -226,9 +236,11 @@ def save_result(
 
     return str(filepath)
 
+
 # ──────────────────────────────────────────────────────────────────
 #  Dispatch — Rondo-REQ-100 reqs 12-28, Rondo-STD-108, Rondo-STD-110
 # ──────────────────────────────────────────────────────────────────
+
 
 def dispatch_task(
     task: Task,
@@ -343,6 +355,7 @@ def dispatch_task(
         )
         return r, u
 
+
 def _dispatch_auto(
     task: Task,
     config: RondoConfig,
@@ -384,6 +397,7 @@ def _dispatch_auto(
             ),
             DispatchUsage(task_name=task.name, model=model),
         )
+
 
 def _make_error_result(
     task_name: str,
@@ -434,6 +448,7 @@ def _make_error_result(
         ),
         DispatchUsage(task_name=task_name, model=model),
     )
+
 
 def _pre_dispatch_guards(
     task: Task,
@@ -510,6 +525,7 @@ def _pre_dispatch_guards(
         )
 
     return None  # -- No guard tripped — proceed with dispatch
+
 
 def _dispatch_interactive(
     task: Task,
@@ -651,6 +667,7 @@ def _dispatch_interactive(
         )
         return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
+
 def finalize_dispatch(
     result: TaskResult,
     usage: DispatchUsage,
@@ -665,6 +682,7 @@ def finalize_dispatch(
     audit/sanitize/spool/history/metrics run for every result.
     """
     return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
+
 
 def _finalize_dispatch(
     result: TaskResult,
@@ -693,7 +711,20 @@ def _finalize_dispatch(
     except (TypeError, AttributeError) as exc:
         logger.debug("Sanitize failed (non-fatal): %s", exc)
 
-    # -- STD-113: record audit OUTCOME (now with sanitized raw_output)
+    # -- REQ-111 reqs 440-441: auto-rate JSON response quality
+    _json_valid = None
+    _fields_complete = None
+    if result.raw_output and result.status == "done":
+        try:
+            from rondo.smart_return import validate_return_json  # pylint: disable=import-outside-toplevel
+
+            rating = validate_return_json(result.raw_output)
+            _json_valid = rating.get("_json_valid")
+            _fields_complete = rating.get("_fields_complete")
+        except (ImportError, TypeError, ValueError):
+            pass  # -- smart_return not available or response not ratable
+
+    # -- STD-113: record audit OUTCOME (now with sanitized raw_output + auto-rating)
     if audit_trail and audit_record:
         try:
             audit_trail.record_outcome(
@@ -710,6 +741,8 @@ def _finalize_dispatch(
                 input_tokens=usage.input_tokens,
                 output_tokens=usage.output_tokens,
                 files_modified=result.files_modified,
+                json_valid=_json_valid,
+                fields_complete=_fields_complete,
             )
         except (OSError, TypeError) as exc:
             logger.debug("Audit outcome failed (non-fatal): %s", exc)
@@ -734,6 +767,7 @@ def _finalize_dispatch(
     _log_to_history(result, usage, config)
 
     return result, usage
+
 
 def _build_subprocess_cmd(
     config: RondoConfig,
@@ -788,6 +822,7 @@ def _build_subprocess_cmd(
 
     return cmd
 
+
 def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:
     """Add cost/output/session flags — extracted for complexity (Rondo-REQ-100 reqs 078-081)."""
     if config.max_budget_usd is not None:
@@ -801,6 +836,7 @@ def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:
         cmd.extend(["--system-prompt", prompt_val])
     # -- req 081: don't clutter CC session store
     cmd.append("--no-session-persistence")
+
 
 def _run_with_watchdog(
     proc: subprocess.Popen,
@@ -837,6 +873,7 @@ def _run_with_watchdog(
 
     rc = proc.returncode if proc.returncode is not None else -1
     return "".join(stdout_parts), "".join(stderr_parts), rc, timed_out.is_set()
+
 
 def _run_subprocess(
     cmd: list[str],
@@ -897,6 +934,7 @@ def _run_subprocess(
         timer.cancel()
 
     return stdout or "", stderr or "", proc.returncode, timed_out.is_set()
+
 
 def _parse_and_build_result(
     task: Task,
@@ -969,6 +1007,7 @@ def _parse_and_build_result(
     # -- ALWAYS-ON: shared finalizer for all paths (Cursor Session 92 review)
     return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
+
 def _log_to_history(
     result: TaskResult,
     usage: DispatchUsage,
@@ -976,7 +1015,6 @@ def _log_to_history(
 ) -> None:
     """Log dispatch result to JSONL history — Rondo-REQ-104 req 001."""
     try:
-
         record = DispatchRecord(
             round_name="",  # -- set by caller if available
             task_name=result.task_name,
@@ -994,5 +1032,6 @@ def _log_to_history(
         log_dispatch(record, history_dir)
     except (ImportError, OSError, TypeError) as exc:
         logger.debug("History logging failed (non-fatal): %s", exc)
+
 
 # -- sig: mgh-6201.cd.bd955f.e969.bc3711

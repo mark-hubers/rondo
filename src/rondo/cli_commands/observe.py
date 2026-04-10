@@ -295,4 +295,35 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_learn(args: argparse.Namespace) -> int:
+    """Compute provider scores from dispatch history — REQ-111 req 442."""
+    from rondo.scoring import compute_provider_scores, save_scores_cache  # pylint: disable=import-outside-toplevel
+
+    audit_dir = getattr(args, "audit_dir", "") or ""
+    scores = compute_provider_scores(audit_dir)
+
+    if not scores:
+        print("  No provider scores available (need 10+ dispatches per provider).")
+        return EXIT_SUCCESS
+
+    save_scores_cache(scores)
+
+    if getattr(args, "json", False):
+        print(json.dumps(scores, indent=2))
+    else:
+        print(f"\n  Provider Scores ({len(scores)} providers)")
+        print(
+            f"  {'Provider':<20}  {'Success':>7}  {'Avg Cost':>9}  {'Avg Lat':>8}  {'JSON OK':>7}  {'Score':>6}  {'N':>5}"
+        )
+        print(f"  {'─' * 20}  {'─' * 7}  {'─' * 9}  {'─' * 8}  {'─' * 7}  {'─' * 6}  {'─' * 5}")
+        for name, s in sorted(scores.items(), key=lambda x: x[1].get("score", 0), reverse=True):
+            json_ok = f"{s['json_success_rate']:.0%}" if s.get("json_success_rate") is not None else "—"
+            print(
+                f"  {name:<20}  {s['success_rate']:>6.0%}  ${s['avg_cost_usd']:>7.4f}  {s['avg_latency_sec']:>6.1f}s  {json_ok:>7}  {s['score']:>5.3f}  {s['sample_count']:>5}"
+            )
+        print()
+
+    return EXIT_SUCCESS
+
+
 # -- sig: mgh-6201.cd.bd955f.a3d4.9136a5

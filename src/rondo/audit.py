@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # --  Configuration — STD-113 req 008
 # -- ──────────────────────────────────────────────────────────────
 
+
 def _get_tenant_for_audit() -> str:
     """RONDO-200 (Finding #217): tenant scope for audit isolation.
 
@@ -53,6 +54,7 @@ def _get_tenant_for_audit() -> str:
     from rondo.config import get_sanitized_tenant  # pylint: disable=import-outside-toplevel
 
     return get_sanitized_tenant()
+
 
 def _default_audit_dir() -> str:
     """Resolve audit dir: RONDO_TEST_DIR (test isolation) → ~/.rondo/audit/{tenant}.
@@ -65,6 +67,7 @@ def _default_audit_dir() -> str:
         return str(Path(test_dir) / "audit")
     tenant = _get_tenant_for_audit()
     return f"~/.rondo/audit/{tenant}"
+
 
 @dataclass
 class AuditConfig:  # pylint: disable=too-many-instance-attributes
@@ -91,6 +94,7 @@ class AuditConfig:  # pylint: disable=too-many-instance-attributes
         if not self.audit_dir:
             object.__setattr__(self, "audit_dir", _default_audit_dir())
 
+
 def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
     """RONDO-144 (Finding #210): atomic file write via temp + rename.
 
@@ -112,9 +116,11 @@ def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
                 pass
         raise
 
+
 # -- ──────────────────────────────────────────────────────────────
 # --  Audit record — STD-113 req 003
 # -- ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class AuditRecord:  # pylint: disable=too-many-instance-attributes
@@ -154,10 +160,11 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
     completed_at: str = ""
 
     # -- RONDO-211 (Finding #259): correlation ID for cross-retry tracing.
-    # -- Pulled from rondo.structured_log thread-local at record_intent time
-    # -- so a single user request that fans out across N retries / providers
-    # -- can be traced through the audit log without timestamp-joining.
     request_id: str = ""
+
+    # -- REQ-111 reqs 440-441: auto-rating of structured JSON returns
+    json_valid: bool | None = None  # -- None = not checked
+    fields_complete: bool | None = None  # -- None = not checked
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict — STD-113 req 007."""
@@ -180,19 +187,25 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
             "files_modified": self.files_modified,
             "dispatched_at": self.dispatched_at,
             "completed_at": self.completed_at,
+            "json_valid": self.json_valid,
+            "fields_complete": self.fields_complete,
         }
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Audit trail — main interface
 # -- ──────────────────────────────────────────────────────────────
 
+
 def _generate_dispatch_id() -> str:
     """Generate a unique dispatch ID — STD-113 req 003."""
     return f"dsp_{uuid.uuid4().hex[:16]}"
 
+
 def _hash_prompt(prompt: str) -> str:
     """SHA-256 hash of prompt text — STD-113 req 003."""
     return f"sha256:{hashlib.sha256(prompt.encode()).hexdigest()}"
+
 
 class AuditTrail:
     """Two-phase dispatch audit trail — STD-113.
@@ -295,6 +308,8 @@ class AuditTrail:
         task_name: str = "",
         round_name: str = "",
         model: str = "",
+        json_valid: bool | None = None,
+        fields_complete: bool | None = None,
     ) -> None:
         """Phase 2: record dispatch outcome AFTER subprocess — STD-113 req 002.
 
@@ -323,6 +338,8 @@ class AuditTrail:
             files_modified=files_modified or [],
             dispatched_at=self._intent_times.get(dispatch_id, ""),
             completed_at=datetime.now(UTC).isoformat(),
+            json_valid=json_valid,
+            fields_complete=fields_complete,
         )
 
         # -- STD-113 req 005: save result to file
@@ -610,5 +627,6 @@ class AuditTrail:
                 logger.info("Auto-rotated %d audit records (size >= %d bytes)", rotated, max_bytes)
         except OSError as exc:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
+
 
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b4

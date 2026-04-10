@@ -39,6 +39,7 @@ def register_commands(commands: dict) -> None:
         _cmd_audit,
         _cmd_flaky,
         _cmd_history,
+        _cmd_learn,
         _cmd_metrics,
         _cmd_report,
     )
@@ -61,6 +62,7 @@ def register_commands(commands: dict) -> None:
             "schedule": _cmd_schedule,
             "providers": _cmd_providers,
             "review": _cmd_review,
+            "learn": _cmd_learn,
         }
     )
 

@@ -144,9 +144,15 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     sched_parser.add_argument("--model", default=None, help="Model override")
     sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
 
+    # -- learn subcommand (REQ-111 req 442)
+    learn_parser = subparsers.add_parser("learn", help="Compute provider scores from dispatch history")
+    learn_parser.add_argument("--json", action="store_true", help="JSON output")
+    learn_parser.add_argument("--audit-dir", default="", help="Audit directory (default: ~/.rondo/audit)")
+
     # -- providers subcommand (REQ-109 req 020)
     prov_parser = subparsers.add_parser("providers", help="Show all configured providers with health status")
     prov_parser.add_argument("--json", action="store_true", help="JSON output")
+    prov_parser.add_argument("--scores", action="store_true", help="Show learned provider scores")
 
     # -- review subcommand (REQ-109 reqs 082-087)
     review_parser = subparsers.add_parser("review", help="Send file to 2+ cloud providers for independent review")
@@ -329,6 +335,7 @@ def main(argv: list[str] | None = None) -> int:
             "schedule",
             "providers",
             "review",
+            "learn",
         }
         effective_argv = argv if argv is not None else sys.argv[1:]
         if (

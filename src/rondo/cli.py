@@ -31,6 +31,7 @@ EXIT_INTERRUPTED = 130  # -- standard Unix: 128 + SIGINT(2)
 #  Argument parser — Rondo-REQ-100 reqs 36-37, 41
 # ──────────────────────────────────────────────────────────────────
 
+
 def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-statements
     """Build the CLI argument parser.
 
@@ -47,11 +48,19 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     parser.add_argument(
         "--ai-help", action="store_true", default=False, help="JSON capability description for AI agents"
     )
+    # -- REQ-111 flags (work with both subcommands and inline prompt)
+    parser.add_argument("--field", default=None, help="Named field for main answer in JSON output (REQ-111 req 422)")
+    parser.add_argument(
+        "--return-schema", default=None, dest="return_schema", help="Custom JSON return schema (REQ-111 req 423)"
+    )
+    parser.add_argument("--text", action="store_true", default=False, help="Plain text output (no JSON)")
+    parser.add_argument("--model", default=None, help="Model override for inline prompt dispatch")
+
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- run subcommand (Rondo-REQ-100 req 38)
-    run_parser = subparsers.add_parser("run", help="Execute a round definition file")
-    run_parser.add_argument("file", help="Path to Python file with build_round()")
+    run_parser = subparsers.add_parser("run", help="Execute a round definition file (.py, .yaml, .json)")
+    run_parser.add_argument("file", help="Path to round file (.py, .yaml, .yml, .json)")
     _add_common_flags(run_parser)
 
     # -- live subcommand (Rondo-REQ-100 reqs 47-56)
@@ -151,6 +160,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
     return parser
 
+
 def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     """Add flags shared between run and overnight subcommands."""
     parser.add_argument("--workers", type=int, default=None, help="Number of parallel workers")
@@ -179,6 +189,7 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--max-budget", type=float, default=None, dest="max_budget", help="Max cost per task in USD")
     parser.add_argument("--project", default=None, help="Working directory for dispatched tasks (U-15)")
+
 
 # -- RONDO-213: load_round_file + load_phases_file moved to rondo.engine
 # -- (leaf module) to break cycles. 3 modules imported them from cli.py,
@@ -210,6 +221,7 @@ _BOOL_FLAGS = {
     "bare": "bare",
 }
 
+
 def _build_config(args: argparse.Namespace) -> RondoConfig:
     """Construct RondoConfig from CLI args with COALESCE."""
     overrides: dict = {}
@@ -230,6 +242,7 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
         cli_overrides=overrides if overrides else None,
     )
 
+
 # ──────────────────────────────────────────────────────────────────
 #  main() — Rondo-REQ-100 req 36
 # ──────────────────────────────────────────────────────────────────
@@ -237,12 +250,54 @@ def _build_config(args: argparse.Namespace) -> RondoConfig:
 # -- Command dispatch table (extracted for complexity — max 15 per function)
 _COMMANDS: dict[str, Any] = {}  # -- populated after function defs
 
+
 def _dispatch_command(args: argparse.Namespace) -> int:
     """Route to the appropriate command handler."""
     handler = _COMMANDS.get(args.command)
     if handler:
         return handler(args)
     return EXIT_SUCCESS
+
+
+def _handle_inline_prompt(args: argparse.Namespace) -> int:
+    """REQ-111 req 400: dispatch an inline prompt via simple CLI.
+
+    rondo "review this code" → dispatch to default provider → JSON out.
+    """
+    import json as _json  # pylint: disable=import-outside-toplevel
+    import sys as _sys  # pylint: disable=import-outside-toplevel
+
+    from rondo.engine import Round, Task  # pylint: disable=import-outside-toplevel
+    from rondo.smart_return import validate_return_json  # pylint: disable=import-outside-toplevel
+
+    prompt = args.prompt
+
+    # -- REQ-111 req 403: stdin pipe support
+    if not _sys.stdin.isatty():
+        stdin_data = _sys.stdin.read(1_000_000)  # -- 1MB cap
+        if stdin_data:
+            prompt = f"{prompt}\n\n---\nContext:\n{stdin_data}"
+
+    # -- Build inline round
+    task = Task(name="inline", instruction=prompt, done_when="Complete the task")
+    round_def = Round(name="inline", tasks=[task])
+    config = _build_config(args)
+
+    # -- Dispatch
+    result = _dispatch_with_provider(round_def, config)
+
+    # -- Format output
+    if getattr(args, "text", False) or not result.task_results:
+        for tr in result.task_results:
+            print(tr.raw_output or tr.error_message or "No output")
+        return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
+
+    # -- JSON output with smart return validation
+    tr = result.task_results[0]
+    validated = validate_return_json(tr.raw_output or "")
+    print(_json.dumps(validated, indent=2, default=str))
+    return EXIT_SUCCESS if validated.get("_json_valid") else EXIT_FAILURE
+
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point, returns exit code per contract.
@@ -256,6 +311,41 @@ def main(argv: list[str] | None = None) -> int:
     Rondo-REQ-100 req 40: auto-detect sequential vs parallel (via run_round).
     """
     try:
+        # -- REQ-111 req 400: detect inline prompt before argparse
+        # -- If first arg is not a known subcommand or flag, treat as prompt
+        _known_commands = {
+            "run",
+            "live",
+            "overnight",
+            "report",
+            "preflight",
+            "history",
+            "audit",
+            "flaky",
+            "spool",
+            "metrics",
+            "mcp",
+            "init",
+            "schedule",
+            "providers",
+            "review",
+        }
+        effective_argv = argv if argv is not None else sys.argv[1:]
+        if (
+            effective_argv
+            and effective_argv[0] not in _known_commands
+            and not effective_argv[0].startswith("-")
+            and " " in effective_argv[0]  # -- multi-word = prompt; single word = possible typo
+        ):
+            # -- Inline prompt mode: rondo "review this code"
+            prompt_text = effective_argv[0]
+            remaining = effective_argv[1:]
+            parser = build_parser()
+            args = parser.parse_args(remaining)  # -- parse flags only
+            args.prompt = prompt_text
+            args.command = None
+            return _handle_inline_prompt(args)
+
         parser = build_parser()
         args = parser.parse_args(argv)
 
@@ -291,6 +381,7 @@ def main(argv: list[str] | None = None) -> int:
         # -- Top-level safety net: no raw tracebacks for users
         print(f"Unexpected error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
+
 
 def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     """REQ-109 req 026-027: route to provider adapter or Claude run_round.
@@ -369,6 +460,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
             task_results=task_results,
         )
     return run_round(round_def, config=config)
+
 
 # -- Import command handlers (split for module size)
 from rondo.cli_commands import register_commands  # noqa: E402  # pylint: disable=wrong-import-position

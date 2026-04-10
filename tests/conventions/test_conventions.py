@@ -263,6 +263,7 @@ class TestImportLayering:
             "schedule",
             "health",
             "cli_commands",
+            "smart_return",  # -- REQ-111: inline prompt JSON validation
         },
         "cli_commands/__init__.py": {
             "cli_commands",

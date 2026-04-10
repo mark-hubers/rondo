@@ -813,15 +813,11 @@ def _build_subprocess_cmd(
         else:
             logger.info("--bare skipped: CC version %s < %s", cc_ver, _BARE_MIN_VERSION)
 
-    # -- RONDO-254: inject Rondo's dispatch rules via --system-prompt
-    # -- Works with or without --bare. Controlled prompting: Rondo's rules
-    # -- replace the default system prompt. Free on Max (no --bare needed).
+    # -- RONDO-254/256: inject Rondo's dispatch rules via --system-prompt
+    # -- Config: [dispatch] system_prompt in ~/.rondo/config.toml
+    # -- Controlled prompting: replaces default system prompt with Rondo's rules.
     if config.dispatch_system_prompt:
         cmd.extend(["--system-prompt", config.dispatch_system_prompt])
-    else:
-        prompt_file = Path("~/.rondo/prompts/default.txt").expanduser()
-        if prompt_file.exists():
-            cmd.extend(["--system-prompt-file", str(prompt_file)])
 
     # -- REQ-100 reqs 022-024: tool_mode controls tool access
     if task:

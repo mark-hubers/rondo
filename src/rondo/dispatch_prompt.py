@@ -67,14 +67,25 @@ def build_prompt(task: Task) -> str:
     parts.append(f"\n**Do:** {task.instruction}")
     parts.append(f"\n**Done when:** {task.done_when}")
 
-    parts.append(
-        "\n---\n"
-        "**Output format:** Respond with a JSON block at the end:\n"
-        "```json\n"
-        '{"status": "done"|"blocked", "confidence": 0.0-1.0, '
-        '"result": "what you did", "question": "if blocked, what you need"}\n'
-        "```"
-    )
+    # -- REQ-111: smart return prompt injection (per-provider, COALESCE)
+    # -- When a Task has return_format or model hint, use smart_return templates
+    # -- Otherwise fall back to the original simple JSON format
+    try:
+        from rondo.smart_return import build_return_prompt  # pylint: disable=import-outside-toplevel
+
+        provider = task.model or ""
+        return_prompt = build_return_prompt(provider=provider)
+        parts.append(f"\n---\n{return_prompt}")
+    except (ImportError, AttributeError):
+        # -- Fallback: original simple format (REQ-100 req 029)
+        parts.append(
+            "\n---\n"
+            "**Output format:** Respond with a JSON block at the end:\n"
+            "```json\n"
+            '{"status": "done"|"blocked", "confidence": 0.0-1.0, '
+            '"result": "what you did", "question": "if blocked, what you need"}\n'
+            "```"
+        )
 
     return "\n".join(parts)
 

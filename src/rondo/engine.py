@@ -564,15 +564,23 @@ def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
 
 
 def load_round_file(filepath: str) -> Round:
-    """Dynamically import a round definition file and call build_round().
+    """Load a round definition from .py, .yaml, .yml, or .json file.
 
-    Rondo-REQ-100 req 39: importlib.util.spec_from_file_location().
+    REQ-100 req 39 (Python), REQ-111 reqs 410-414 (YAML/JSON).
+    Detects format by extension. YAML/JSON delegates to round_loader.
     """
-    import importlib.util  # pylint: disable=import-outside-toplevel
-
     path = Path(filepath)
     if not path.exists():
         raise FileNotFoundError(f"Round file not found: {filepath}")
+
+    # -- REQ-111: YAML/JSON support via round_loader
+    if path.suffix.lower() in (".yaml", ".yml", ".json"):
+        from rondo.round_loader import load_round  # pylint: disable=import-outside-toplevel
+
+        return load_round(filepath)
+
+    # -- Python round files (existing path)
+    import importlib.util  # pylint: disable=import-outside-toplevel
 
     spec = importlib.util.spec_from_file_location("round_def", path)
     if spec is None or spec.loader is None:

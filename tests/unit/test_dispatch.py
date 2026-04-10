@@ -73,11 +73,12 @@ class TestPromptBuilder:
         prompt = build_prompt(task)
         assert "json" in prompt.lower() or "JSON" in prompt
 
-    def test_prompt_includes_status_field(self):
-        """Prompt tells Claude to include status in JSON response."""
+    def test_prompt_includes_json_fields(self):
+        """Prompt tells AI to include structured JSON fields (REQ-111)."""
         task = Task(name="t", instruction="do", done_when="done")
         prompt = build_prompt(task)
-        assert "status" in prompt.lower()
+        assert "passed" in prompt.lower()
+        assert "json" in prompt.lower()
 
 
 # -- REQ-106: context_data in prompt
@@ -1545,10 +1546,10 @@ class TestPromptBuildingDeep:
         assert "A detailed task" in prompt
 
     def test_prompt_always_has_output_format(self):
-        """Every prompt tells Claude to return JSON."""
+        """Every prompt tells AI to return JSON (REQ-111 smart return)."""
         task = Task(name="t", instruction="do", done_when="done")
         prompt = build_prompt(task)
-        assert "status" in prompt.lower()
+        assert "passed" in prompt.lower()
         assert "json" in prompt.lower()
 
 

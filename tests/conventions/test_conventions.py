@@ -166,7 +166,7 @@ class TestImportLayering:
 
     # -- What each module is ALLOWED to import from rondo
     ALLOWED_IMPORTS: dict[str, set[str]] = {
-        "engine.py": set(),
+        "engine.py": {"round_loader"},  # -- REQ-111: YAML/JSON loading via lazy import
         "config.py": set(),
         "sanitize.py": set(),
         "audit.py": {"sanitize", "config"},  # -- RONDO-216: shared tenant from config

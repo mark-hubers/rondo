@@ -184,4 +184,4 @@ class TestHookTraceFormat:
         assert isinstance(entry["duration_ms"], float)
 
 
-# -- sig: mgh-6201.cd.bd955f.h00k.t35t5
+# -- sig: mgh-6201.cd.bd955f.h00k.t35t50

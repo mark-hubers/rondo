@@ -332,6 +332,15 @@ def _dispatch_one_task(
     """
     task_prompt = task.instruction or prompt
 
+    # -- REQ-111: inject smart return template for structured JSON output
+    try:
+        from rondo.smart_return import build_return_prompt  # pylint: disable=import-outside-toplevel
+
+        return_prompt = build_return_prompt(provider=model)
+        task_prompt = f"{task_prompt}\n{return_prompt}"
+    except (ImportError, TypeError):
+        pass  # -- smart_return not available — dispatch without template
+
     # -- Audit INTENT before dispatch
     audit_record = None
     if audit_trail:

@@ -208,6 +208,7 @@ class TestImportLayering:
             "structured_log",
             "idempotency",
             "sanitize",
+            "smart_return",  # -- REQ-111: template injection in provider dispatch
         },
         "mcp_tools.py": {
             "metrics",

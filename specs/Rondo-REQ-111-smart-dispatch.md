@@ -139,6 +139,30 @@ Mark's primary use of Rondo is from inside Claude Code. Three distinct dispatch 
 | 466 | Python library callers (`_session=None`) inside Claude Code: inline/agent plans MUST fall back to `anthropic:` API adapter automatically. Library callers cannot execute host plans. | MUST | Library fallback test |
 | 467 | Inline dispatch prompts MUST be executed without session CLAUDE.md rules applied — controlled prompting. Answer ONLY what the prompt asks, no extras. This is the equivalent of `--bare` for in-session work. | SHOULD | Bare inline test |
 
+### Dispatch Config — claude -p and Agent settings (RONDO-257)
+
+All settings live in `~/.rondo/config.toml` as top-level keys. Per-call overrides via `rondo_run(param=...)`.
+
+**Claude -p mode** (subprocess, free on Max, controlled prompting):
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 470 | `claude_p_rules` in config.toml MUST be injected as `--system-prompt` for every `claude -p` subprocess dispatch. Per-call override: `rondo_run(rules="...")`. Empty string = no custom rules. | MUST | Config test |
+| 471 | `claude_p_allowed_tools` in config.toml MUST be passed as `--allowedTools`. Default: `"Read,Grep,Glob"` (read-only). Per-call override: `rondo_run(allowed_tools="Read,Edit,Bash")`. | MUST | Tools test |
+| 472 | `claude_p_max_turns` in config.toml MUST be passed as `--max-turns`. Default: 5. Per-call override: `rondo_run(max_turns=10)`. | MUST | Turns test |
+| 473 | `claude_p_add_dir` in config.toml MUST be passed as `--add-dir`. Default: "" (CWD only). Per-call override: `rondo_run(add_dir="/path/to/project")`. | MUST | Dir test |
+| 474 | `claude_p_json_schema` in config.toml MUST be passed as `--json-schema` when non-empty. Default: "" (natural text). Per-call override: `rondo_run(json_schema='{"type":"object",...}')`. | MUST | Schema test |
+
+**Claude Agent mode** (Agent tool, free on Max, project context):
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 475 | `claude_agent_rules` in config.toml MUST be prepended to the Agent prompt. Per-call override: `rondo_run(rules="...", model="sonnet")`. | SHOULD | Agent rules test |
+| 476 | `claude_agent_max_turns` in config.toml MUST limit Agent turns. Default: 10. Per-call override: `rondo_run(max_turns=3, model="sonnet")`. | SHOULD | Agent turns test |
+| 477 | `claude_agent_allowed_tools` in config.toml MUST restrict Agent tools via `disallowedTools`. Default: `"Read,Grep,Glob"` (read-only). | SHOULD | Agent tools test |
+
+**COALESCE order:** per-call arg -> config.toml -> code default.
+
 ---
 
 ## 3. Architecture

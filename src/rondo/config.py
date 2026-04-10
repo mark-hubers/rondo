@@ -161,7 +161,19 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     # -- cost & output control (REQ-100 reqs 078-080)
     max_budget_usd: float | None = None  # -- req 078: hard cost cap per task
     json_schema: str = ""  # -- req 079: enforce structured output at CC level
-    dispatch_system_prompt: str = ""  # -- req 080: persistent dispatch context
+    dispatch_system_prompt: str = ""  # -- req 080: persistent dispatch context (legacy key)
+
+    # -- RONDO-257: claude -p mode settings (REQ-111 reqs 470-474)
+    claude_p_rules: str = ""  # -- --system-prompt for subprocess dispatch
+    claude_p_allowed_tools: str = "Read,Grep,Glob"  # -- --allowedTools (read-only default)
+    claude_p_max_turns: int = 5  # -- --max-turns (prevent runaway)
+    claude_p_add_dir: str = ""  # -- --add-dir (additional file access)
+    claude_p_json_schema: str = ""  # -- --json-schema (platform-enforced structured output)
+
+    # -- RONDO-257: claude agent mode settings (REQ-111 reqs 475-477)
+    claude_agent_rules: str = ""  # -- prepended to Agent prompt
+    claude_agent_max_turns: int = 10  # -- Agent turn limit
+    claude_agent_allowed_tools: str = "Read,Grep,Glob"  # -- Agent tool restriction
 
     # -- spool (REQ-101 req 045: sync callers skip spool)
     spool_enabled: bool = False  # -- False = sync (no spool), True = async (overnight)

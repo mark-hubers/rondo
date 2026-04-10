@@ -502,7 +502,7 @@ def _build_round_and_config(
     else:
         round_def = load_round_file(file_path)
 
-    # -- RONDO-256: read dispatch_system_prompt from ~/.rondo/config.toml
+    # -- RONDO-257: read claude_p_* and claude_agent_* from ~/.rondo/config.toml
     from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
 
     global_toml = get_rondo_config()
@@ -512,6 +512,11 @@ def _build_round_and_config(
         "task_timeout_sec": timeout_sec,
         "bare": bare,
         "dispatch_system_prompt": global_toml.get("dispatch_system_prompt", ""),
+        "claude_p_rules": global_toml.get("claude_p_rules", ""),
+        "claude_p_allowed_tools": global_toml.get("claude_p_allowed_tools", "Read,Grep,Glob"),
+        "claude_p_max_turns": global_toml.get("claude_p_max_turns", 5),
+        "claude_p_add_dir": global_toml.get("claude_p_add_dir", ""),
+        "claude_p_json_schema": global_toml.get("claude_p_json_schema", ""),
     }
     if project:
         config_kwargs["project"] = project

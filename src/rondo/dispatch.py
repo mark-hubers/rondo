@@ -813,13 +813,21 @@ def _build_subprocess_cmd(
         else:
             logger.info("--bare skipped: CC version %s < %s", cc_ver, _BARE_MIN_VERSION)
 
-    # -- RONDO-254/256: inject Rondo's dispatch rules via --system-prompt
-    # -- Config: [dispatch] system_prompt in ~/.rondo/config.toml
-    # -- Controlled prompting: replaces default system prompt with Rondo's rules.
-    if config.dispatch_system_prompt:
-        cmd.extend(["--system-prompt", config.dispatch_system_prompt])
+    # -- RONDO-257: claude -p mode settings from config.toml (reqs 470-474)
+    # -- COALESCE: new claude_p_* fields → legacy dispatch_system_prompt → nothing
+    rules = config.claude_p_rules or config.dispatch_system_prompt
+    if rules:
+        cmd.extend(["--system-prompt", rules])
+    if config.claude_p_allowed_tools:
+        cmd.extend(["--allowedTools", config.claude_p_allowed_tools])
+    if config.claude_p_max_turns > 0:
+        cmd.extend(["--max-turns", str(config.claude_p_max_turns)])
+    if config.claude_p_add_dir:
+        cmd.extend(["--add-dir", config.claude_p_add_dir])
+    if config.claude_p_json_schema:
+        cmd.extend(["--json-schema", config.claude_p_json_schema])
 
-    # -- REQ-100 reqs 022-024: tool_mode controls tool access
+    # -- REQ-100 reqs 022-024: tool_mode controls tool access (legacy, pre-RONDO-257)
     if task:
         if task.tool_mode == "none":
             cmd.extend(["--tools", ""])

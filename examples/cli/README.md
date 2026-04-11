@@ -76,13 +76,17 @@ See **`examples/cli/scripted-prompting.sh`** — patterns for retry, confidence 
 | `01-execution-modes.sh` | Show CLI subprocess path + provider HTTP path |
 | `02-background-polling.sh` | MCP-compatible background polling recipe |
 | `03-consensus-review.sh` | Two-provider file review workflow |
+| `04-showcase-runner.sh` | One-command showcase + API example validation |
 
 Run:
 
 ```bash
 bash examples/cli/01-execution-modes.sh
 bash examples/cli/03-consensus-review.sh src/rondo/dispatch.py
+bash examples/cli/04-showcase-runner.sh
 ```
+
+See also: `../INDEX.md` for the full cross-directory example map.
 
 ## Output shape
 

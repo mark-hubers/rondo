@@ -60,6 +60,7 @@ Use tool calls like:
 
 Start here:
 - `examples/mcp/README.md` (13 MCP examples)
+- **Full example index:** `examples/INDEX.md` (all 62 examples mapped by mode/provider/use case)
 
 ### 2) CLI (scripts, CI, terminal workflows)
 
@@ -71,6 +72,7 @@ rondo review src/rondo/mcp_dispatch.py --providers gemini,grok --tier default
 
 Start here:
 - `examples/cli/README.md`
+- **Full example index:** `examples/INDEX.md`
 
 ### 3) Python API (library workflows)
 
@@ -87,6 +89,7 @@ result_json = rondo_run_file(
 
 Start here:
 - `examples/api/README.md`
+- **Full example index:** `examples/INDEX.md`
 
 ---
 

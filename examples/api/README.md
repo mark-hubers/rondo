@@ -48,3 +48,4 @@ Examples exit `0` on success and `1` on handled runtime errors.
 
 - `examples/mcp/`: MCP-first workflows for Claude Code (13 examples).
 - `examples/cli/`: shell automation and scripted prompting patterns.
+- See also: `../INDEX.md` for the cross-directory 62-example map.

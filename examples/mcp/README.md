@@ -38,3 +38,5 @@ These examples are meant to answer the big questions quickly:
 3. How do I prove behavior (plans vs subprocess vs HTTP) and monitor reliability?
 
 Use this folder as your MCP playbook.
+
+See also: `../INDEX.md` for the full cross-directory example map.

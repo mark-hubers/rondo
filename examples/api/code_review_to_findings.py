@@ -1,60 +1,35 @@
-"""Rondo Real-World: Multi-AI Code Review -> Sprint Findings.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: multi-provider code review and lightweight consensus.
 
-REAL WORKFLOW THIS REPLACES:
-  Copy code to Cursor, paste findings back, fix, repeat. Every session.
+What this demonstrates
+------------------------
+* **Default model** (empty or shorthand) + :mod:`example_dispatch` routing → subprocess.
+* **Per-call** ``rules=`` → ``--system-prompt`` (see ``rondo_run_file`` / ``claude_p_rules``).
+* **Optional second/third opinions** via provider-prefixed models (HTTP adapters).
+* **Structured JSON** from the model, parsed and merged for a simple overlap heuristic.
 
-SCRIPTED VERSION:
-  Send code to Claude via Rondo -> parse structured findings ->
-  optionally add cloud AI reviews -> consensus check -> create
-  sprint findings for confirmed issues.
+What this does *not* do
+-----------------------
+* It does not open your repo or run static analysis tools; it reviews the **in-memory** sample.
+* ``find_consensus`` uses token overlap on issue strings — a teaching aid, not production deduping.
 
-HOW TO RUN:
-  python examples/api/code_review_to_findings.py
-  RONDO_CLOUD=1 python examples/api/code_review_to_findings.py
+All invocations use **live** dispatch (``dry_run=False``). Ensure ``claude`` and, with
+``--cloud``, provider API keys are configured.
+
+Run::
+
+    cd rondo && uv run python examples/api/code_review_to_findings.py
+    cd rondo && uv run python examples/api/code_review_to_findings.py --cloud
 """
 
-import json
-import os
+from __future__ import annotations
+
+import argparse
 import sys
+from typing import Any
 
-from rondo import mcp_dispatch
-
-
-def _out(msg: str) -> None:
-    """Write output line."""
-    sys.stdout.write(msg + "\n")
-
-
-def dispatch(prompt: str, model: str = "", **kwargs: str | int) -> dict | None:
-    """Dispatch prompt via Rondo. Returns parsed JSON or None on failure.
-
-    Default: inline subprocess (free on Max). Reads config from ~/.rondo/config.toml.
-    Override with model='gemini:flash' for cloud, rules='...' for custom rules.
-    """
-    raw = mcp_dispatch.rondo_run_file(
-        prompt=prompt,
-        model=model,
-        dry_run=False,
-        timeout_sec=60,
-        _session=object(),
-        **kwargs,
-    )
-    data = json.loads(raw)
-    tasks = data.get("tasks", [])
-    if not tasks:
-        return None
-    task = tasks[0]
-    if task.get("status") == "error":
-        _out(f"  Error: {task.get('error_message', '')[:80]}")
-        return None
-    output = task.get("raw_output", "")
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
-
-
-## --- Code to Review (has known bugs) ---
+from example_dispatch import banner, run_prompt_json
 
 CODE_SAMPLE = """def get_user(user_id):
     query = f"SELECT * FROM users WHERE id = {user_id}"
@@ -64,36 +39,32 @@ def update_email(user_id, new_email):
     db.execute(f"UPDATE users SET email = '{new_email}' WHERE id = {user_id}")
 """
 
-LIVE_CLOUD = os.environ.get("RONDO_CLOUD", "").lower() in ("1", "true", "yes")
-
 REVIEW_PROMPT = """Review this Python code for security issues.
-Return JSON: {{"passed": false, "confidence": 0.9, "issues": ["issue 1"], "result": "summary"}}
+Return JSON only with this shape (no markdown fences):
+{{"passed": false, "confidence": 0.9, "issues": ["short issue 1", "short issue 2"], "result": "one-line summary"}}
 
 Code:
 {code}"""
 
 
-## --- Consensus Logic ---
-
-
 def issues_match(a: str, b: str) -> bool:
-    """Check if two issues describe the same bug."""
+    """Very small overlap heuristic: two issues are the same if enough tokens overlap."""
     words_a = set(a.lower().split())
     words_b = set(b.lower().split())
-    noise = {"the", "a", "an", "on", "in", "is", "of", "to", "and", "for"}
+    noise = {"the", "a", "an", "on", "in", "is", "of", "to", "and", "for", "sql", "code"}
     return len((words_a & words_b) - noise) >= 2
 
 
-def find_consensus(reviews: list[dict]) -> list[dict]:
-    """Find issues that 2+ providers agree on."""
-    all_issues: list[dict] = []
-    names = ["claude", "gemini", "grok"]
+def find_consensus(reviews: list[dict[str, Any]], labels: list[str]) -> list[dict[str, Any]]:
+    """Cluster issues that likely refer to the same finding across providers."""
+    all_issues: list[dict[str, Any]] = []
     for i, review in enumerate(reviews):
-        name = names[i] if i < len(names) else f"provider_{i}"
-        for issue in review.get("issues", []):
-            all_issues.append({"text": issue, "provider": name})
+        label = labels[i] if i < len(labels) else f"provider_{i}"
+        for issue in review.get("issues", []) or []:
+            if isinstance(issue, str) and issue.strip():
+                all_issues.append({"text": issue.strip(), "provider": label})
 
-    findings: list[dict] = []
+    findings: list[dict[str, Any]] = []
     used: set[int] = set()
     for i, a in enumerate(all_issues):
         if i in used:
@@ -107,63 +78,108 @@ def find_consensus(reviews: list[dict]) -> list[dict]:
         findings.append(
             {
                 "issue": a["text"],
-                "confidence": "CONFIRMED" if len(matches) >= 2 else "SINGLE",
-                "providers": matches,
+                "confidence": "CONFIRMED" if len(set(matches)) >= 2 else "SINGLE",
+                "providers": list(dict.fromkeys(matches)),
             }
         )
     return findings
 
 
-## --- The Pipeline ---
+def one_review(
+    *,
+    prompt: str,
+    model: str,
+    timeout_sec: int,
+    rules: str,
+) -> dict[str, Any] | None:
+    """Run a single review; return parsed model JSON or None on hard failure."""
+    try:
+        env, parsed = run_prompt_json(
+            prompt=prompt,
+            model=model,
+            dry_run=False,
+            timeout_sec=timeout_sec,
+            rules=rules,
+        )
+    except RuntimeError as exc:
+        print(f"  -ERROR- {exc}", file=sys.stderr)
+        return None
+
+    if parsed.get("_non_json"):
+        print("  -WARNING- Model did not return JSON; skipping this provider.", file=sys.stderr)
+        return None
+
+    cost = env.get("total_cost_usd")
+    if cost is not None:
+        print(f"    round cost (USD): {cost:.4f}" if isinstance(cost, (int, float)) else f"    round cost: {cost}")
+    return parsed
 
 
-def multi_ai_review(code: str) -> dict:
-    """Send code to AI, find consensus, report findings."""
-    reviews: list[dict] = []
+def multi_ai_review(code: str, *, timeout_sec: int, include_cloud: bool) -> dict[str, Any]:
+    """Primary Claude review, optional cloud reviews, then consensus."""
     prompt = REVIEW_PROMPT.format(code=code)
+    reviews: list[dict[str, Any]] = []
+    labels: list[str] = []
 
-    ## Step 1: Claude review (free on Max)
-    _out("  Step 1: Claude review...")
-    result = dispatch(prompt, rules="You are a security auditor. Return JSON only.")
-    if result:
-        _out(f"    passed={result.get('passed')}, issues={len(result.get('issues', []))}")
-        reviews.append(result)
+    print("  Step 1: primary review (default model routing)…")
+    primary = one_review(
+        prompt=prompt,
+        model="",
+        timeout_sec=timeout_sec,
+        rules="You are a security auditor. Reply with JSON only, no markdown.",
+    )
+    if not primary:
+        return {"error": "primary review failed", "findings": []}
+    print(f"    issues={len(primary.get('issues', []) or [])}, passed={primary.get('passed')!r}")
+    reviews.append(primary)
+    labels.append("primary")
+
+    if include_cloud:
+        print("  Step 2: cross-check with cloud providers (HTTP adapters)…")
+        for provider in ("gemini:gemini-2.5-flash", "grok:grok-3"):
+            label = provider.split(":", 1)[0]
+            got = one_review(
+                prompt=prompt,
+                model=provider,
+                timeout_sec=timeout_sec,
+                rules="You are a security auditor. Reply with JSON only, no markdown.",
+            )
+            if got:
+                print(f"    {label}: issues={len(got.get('issues', []) or [])}")
+                reviews.append(got)
+                labels.append(label)
     else:
-        return {"error": "dispatch failed", "findings": []}
+        print("  (Omit --cloud for primary only; add --cloud for Gemini + Grok cross-check.)")
 
-    ## Step 2: Cloud reviews (optional)
-    if LIVE_CLOUD:
-        for provider in ["gemini:flash", "grok:grok-3"]:
-            cloud = dispatch(prompt, model=provider)
-            if cloud:
-                _out(f"    {provider}: issues={len(cloud.get('issues', []))}")
-                reviews.append(cloud)
-    else:
-        _out("    (Set RONDO_CLOUD=1 for multi-provider consensus)")
-
-    ## Step 3: Consensus
-    findings = find_consensus(reviews)
+    findings = find_consensus(reviews, labels)
     confirmed = [f for f in findings if f["confidence"] == "CONFIRMED"]
-    _out(f"  Step 2: {len(findings)} findings, {len(confirmed)} confirmed")
-
+    print(f"  Step 3: {len(findings)} clustered finding(s), {len(confirmed)} multi-provider CONFIRMED")
     return {"findings": findings, "providers": len(reviews)}
 
 
-def main() -> None:
-    """Run multi-AI code review with real dispatch."""
-    _out("=== Multi-AI Code Review -> Sprint Findings ===")
-    _out("")
-    result = multi_ai_review(CODE_SAMPLE)
-    _out("")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--cloud", action="store_true", help="Also call gemini + grok (needs API keys)")
+    parser.add_argument("--timeout", type=int, default=120, metavar="SEC", help="Per-invocation timeout")
+    args = parser.parse_args()
+
+    print(banner("Multi-provider code review → consensus"))
+    try:
+        result = multi_ai_review(CODE_SAMPLE, timeout_sec=args.timeout, include_cloud=args.cloud)
+    except RuntimeError as exc:
+        print(f"-ERROR- {exc}", file=sys.stderr)
+        return 1
+
+    print()
     if result.get("error"):
-        _out(f"-ERROR- {result['error']}")
-        return
+        print(f"-ERROR- {result['error']}")
+        return 1
+
     for f in result["findings"]:
-        _out(f"  [{f['confidence']}] {f['issue'][:70]}")
+        print(f"  [{f['confidence']}] {f['issue'][:72]}")
+        print(f"      providers: {', '.join(f['providers'])}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea20.1ea520
+    raise SystemExit(main())

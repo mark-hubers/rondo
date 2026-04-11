@@ -845,8 +845,12 @@ def _build_subprocess_cmd(
         cmd.extend(["--max-turns", str(config.claude_p_max_turns)])
     if config.claude_p_add_dir:
         cmd.extend(["--add-dir", config.claude_p_add_dir])
-    if config.claude_p_json_schema:
-        cmd.extend(["--json-schema", config.claude_p_json_schema])
+    # -- RONDO-261: single --json-schema — claude_p_json_schema first, else legacy json_schema ("auto" → canonical)
+    _schema_for_cli = config.claude_p_json_schema
+    if not _schema_for_cli:
+        _schema_for_cli = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
+    if _schema_for_cli:
+        cmd.extend(["--json-schema", _schema_for_cli])
 
     # -- REQ-100 reqs 022-024: tool_mode controls tool access (legacy, pre-RONDO-257)
     if task:
@@ -866,10 +870,7 @@ def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:
     """Add cost/output/session flags — extracted for complexity (Rondo-REQ-100 reqs 078-081)."""
     if config.max_budget_usd is not None:
         cmd.extend(["--max-budget-usd", str(config.max_budget_usd)])
-    # -- "auto" → use Rondo's canonical schema/prompt constants
-    schema = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
-    if schema:
-        cmd.extend(["--json-schema", schema])
+    # -- RONDO-261: --json-schema only in _build_subprocess_cmd (claude_p_* + legacy json_schema) — no duplicate here.
     # -- RONDO-261: system-prompt now handled by claude_p_rules in _build_subprocess_cmd.
     # -- Legacy dispatch_system_prompt "auto" path removed to prevent duplicate --system-prompt flag.
     # -- req 081: don't clutter CC session store

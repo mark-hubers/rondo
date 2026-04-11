@@ -1,52 +1,31 @@
-"""Rondo Real-World: Multi-Platform Publish Pipeline.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: one generation pass per platform with explicit length QA.
 
-REAL WORKFLOW THIS REPLACES:
-  After every essay, draft LinkedIn + Facebook + Substack separately.
+What this demonstrates
+----------------------
+* **Different system rules per platform** via the ``rules=`` argument.
+* Post-processing **quality gate** (character budget) separate from the model.
+* Honest scope: **no auto-regenerate** loop here — that belongs in your editor or a second pass.
 
-SCRIPTED VERSION:
-  Send thesis to Claude -> generate one variant per platform ->
-  check length against platform rules. In production: regenerate
-  with stricter rules if too long (not implemented in this example).
+Uses **live** dispatch. Requires ``claude`` / Rondo to be configured.
 
-HOW TO RUN:
-  python examples/api/multi_platform_publish.py
+Run::
+
+    cd rondo && uv run python examples/api/multi_platform_publish.py
 """
 
-import json
+from __future__ import annotations
+
+import argparse
 import sys
+from typing import Any
 
-from rondo import mcp_dispatch
+from example_dispatch import banner, run_prompt_json
 
-
-def _out(msg: str) -> None:
-    """Write output line."""
-    sys.stdout.write(msg + "\n")
-
-
-def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
-    """Dispatch prompt via Rondo inline subprocess (free on Max)."""
-    raw = mcp_dispatch.rondo_run_file(
-        prompt=prompt,
-        model="",
-        dry_run=False,
-        timeout_sec=60,
-        _session=object(),
-        **kwargs,
-    )
-    data = json.loads(raw)
-    tasks = data.get("tasks", [])
-    if not tasks or tasks[0].get("status") == "error":
-        return None
-    output = tasks[0].get("raw_output", "")
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
-
-
-PLATFORM_RULES = {
+PLATFORM_RULES: dict[str, dict[str, Any]] = {
     "linkedin": {"max_chars": 1500, "voice": "professional, first person, no em dashes"},
-    "facebook": {"max_chars": 300, "voice": "casual community tone, include [link]"},
+    "facebook": {"max_chars": 300, "voice": "casual community tone, include [link] placeholder"},
     "substack_subtitle": {"max_chars": 100, "voice": "compelling, not clickbait"},
 }
 
@@ -56,44 +35,71 @@ SAMPLE_THESIS = (
 )
 
 
-def generate_variants(thesis: str) -> dict:
-    """Generate all platform variants from thesis via real AI."""
-    variants: dict[str, dict] = {}
+def generate_variants(thesis: str, *, timeout_sec: int) -> dict[str, Any]:
+    """Produce one draft per platform key in PLATFORM_RULES."""
+    variants: dict[str, dict[str, Any]] = {}
     for platform, rules in PLATFORM_RULES.items():
-        _out(f"  Generating {platform}...")
-        result = dispatch(
-            f"Write a {platform.replace('_', ' ')} post. {rules['voice']}. "
-            f"Max {rules['max_chars']} chars. Return ONLY the post text.\n\nThesis: {thesis}",
-            rules=f"You write social media posts. Max {rules['max_chars']} chars. Return text only.",
+        print(f"  {platform} …")
+        prompt = (
+            f"Write a {platform.replace('_', ' ')} post.\n"
+            f"Voice: {rules['voice']}\n"
+            f"Hard limit: {rules['max_chars']} characters (count yourself).\n"
+            f'Return JSON only: {{"text": "the post body only"}}\n\nThesis:\n{thesis}'
         )
-        if result is None:
-            _out("    SKIP")
+        per_rules = f"You write social posts. Stay under {rules['max_chars']} characters. JSON only with key 'text'."
+        try:
+            env, parsed = run_prompt_json(
+                prompt=prompt,
+                model="",
+                dry_run=False,
+                timeout_sec=timeout_sec,
+                rules=per_rules,
+            )
+        except RuntimeError as exc:
+            print(f"    -ERROR- {exc}", file=sys.stderr)
+            variants[platform] = {"text": "", "length": 0, "status": "ERROR", "detail": str(exc)[:120]}
             continue
-        text = str(result.get("result", ""))
+
+        if parsed.get("_non_json"):
+            variants[platform] = {
+                "text": "",
+                "length": 0,
+                "status": "NON_JSON",
+                "snippet": str(parsed.get("snippet", ""))[:120],
+            }
+            print("    -WARNING- Non-JSON output")
+            continue
+
+        text = str(parsed.get("text", parsed.get("result", "")))
         length = len(text)
-        status = "READY" if length <= rules["max_chars"] else "NEEDS_EDIT"
-        variants[platform] = {"text": text, "length": length, "status": status}
-        _out(f"    {status}: {length}/{rules['max_chars']} chars")
+        max_c = int(rules["max_chars"])
+        status = "READY" if 0 < length <= max_c else "NEEDS_EDIT"
+        variants[platform] = {
+            "text": text,
+            "length": length,
+            "max": max_c,
+            "status": status,
+            "round_status": env.get("status"),
+        }
+        print(f"    {status}: {length}/{max_c} chars")
 
-    return {
-        "total": len(variants),
-        "ready": len([v for v in variants.values() if v["status"] == "READY"]),
-        "variants": variants,
-    }
+    ready = sum(1 for v in variants.values() if v.get("status") == "READY")
+    return {"total": len(variants), "ready": ready, "variants": variants}
 
 
-def main() -> None:
-    """Run multi-platform publish pipeline."""
-    _out("=== Multi-Platform Publish ===")
-    _out("")
-    result = generate_variants(SAMPLE_THESIS)
-    _out("")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=120, metavar="SEC")
+    args = parser.parse_args()
+
+    print(banner("Multi-platform drafts (length QA)"))
+    result = generate_variants(SAMPLE_THESIS, timeout_sec=args.timeout)
+    print()
     for platform, v in result["variants"].items():
-        _out(f"  {platform} [{v['status']}] ({v['length']} chars): {v['text'][:60]}...")
+        snippet = (v.get("text") or "")[:72]
+        print(f"  {platform:18} [{v.get('status')}] {v.get('length', 0)}/{v.get('max', '?')} — {snippet!r}")
+    return 0 if result.get("ready", 0) == result.get("total", 0) else 1
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea25.1ea525
+    raise SystemExit(main())

@@ -1,49 +1,31 @@
-"""Rondo Real-World: Build Failure Triage (New vs Pre-Existing).
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: deterministic triage + optional AI labels for new failures.
 
-REAL WORKFLOW THIS REPLACES:
-  After every ace-build, manually sort failures into pre-existing vs new.
+What this demonstrates
+----------------------
+* **Pure-Python** diff between baseline and current failures (regressions / known / fixed).
+* **Optional** Rondo call per regression with a tiny classification prompt and ``rules=``.
+* Clear separation so the script is useful even when API keys or ``claude`` are absent
+  for the AI slice (catch :exc:`RuntimeError`).
 
-SCRIPTED VERSION:
-  Diff current failures against baseline -> flag regressions ->
-  ask AI to classify ambiguous failures.
+Live AI calls use ``dry_run=False``. Use ``--no-ai`` for deterministic triage only (no spend).
 
-HOW TO RUN:
-  python examples/api/build_failure_triage.py
+Run::
+
+    cd rondo && uv run python examples/api/build_failure_triage.py
+    cd rondo && uv run python examples/api/build_failure_triage.py --no-ai
 """
 
-import json
+from __future__ import annotations
+
+import argparse
 import sys
+from typing import Any
 
-from rondo import mcp_dispatch
+from example_dispatch import banner, run_prompt_json
 
-
-def _out(msg: str) -> None:
-    """Write output line."""
-    sys.stdout.write(msg + "\n")
-
-
-def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
-    """Dispatch prompt via Rondo inline subprocess (free on Max)."""
-    raw = mcp_dispatch.rondo_run_file(
-        prompt=prompt,
-        model="",
-        dry_run=False,
-        timeout_sec=60,
-        _session=object(),
-        **kwargs,
-    )
-    data = json.loads(raw)
-    tasks = data.get("tasks", [])
-    if not tasks or tasks[0].get("status") == "error":
-        return None
-    output = tasks[0].get("raw_output", "")
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
-
-
-BASELINE = [
+BASELINE: list[dict[str, Any]] = [
     {
         "test": "test_subprocess_warning",
         "file": "tests/test_runner.py",
@@ -58,7 +40,7 @@ BASELINE = [
     },
 ]
 
-CURRENT_FAILURES = [
+CURRENT_FAILURES: list[dict[str, Any]] = [
     {"test": "test_subprocess_warning", "file": "tests/test_runner.py", "error": "DeprecationWarning: subprocess"},
     {"test": "test_smart_return_fields", "file": "tests/test_smart_return.py", "error": "KeyError: 'confidence'"},
     {
@@ -69,34 +51,61 @@ CURRENT_FAILURES = [
 ]
 
 
-def triage_failures(baseline: list[dict], current: list[dict]) -> dict:
-    """Diff current failures against baseline, classify with AI."""
+def triage_failures(
+    baseline: list[dict[str, Any]],
+    current: list[dict[str, Any]],
+    *,
+    use_ai: bool,
+    timeout_sec: int,
+) -> dict[str, Any]:
+    """Diff + optional AI classification."""
     baseline_tests = {b["test"] for b in baseline}
     current_tests = {c["test"] for c in current}
     known, regressions, fixed = [], [], []
 
+    print("  Deterministic triage:")
     for failure in current:
         if failure["test"] in baseline_tests:
             since = next((b["since"] for b in baseline if b["test"] == failure["test"]), "?")
             known.append({**failure, "since": since})
-            _out(f"    KNOWN: {failure['test']} (since {since})")
+            print(f"    KNOWN: {failure['test']} (since {since})")
         else:
-            regressions.append(failure)
-            _out(f"    REGRESSION: {failure['test']}")
+            regressions.append(dict(failure))
+            print(f"    REGRESSION: {failure['test']}")
 
     for b in baseline:
         if b["test"] not in current_tests:
             fixed.append(b)
-            _out(f"    FIXED: {b['test']} (was {b['since']})")
+            print(f"    FIXED (was failing): {b['test']} ({b['since']})")
 
-    ## AI classification of regressions
-    for reg in regressions:
-        result = dispatch(
-            f"Is this a real regression or flaky test? {reg['test']}: {reg['error']}. Answer: regression or flaky.",
-            rules="Classify test failures. One word answer: regression or flaky.",
-        )
-        if result:
-            reg["ai_classification"] = str(result.get("result", ""))[:50]
+    if use_ai and regressions:
+        print("  Optional AI labels (one short call per regression):")
+        for reg in regressions:
+            prompt = (
+                f"Test failure: {reg['test']}\nError: {reg['error']}\n"
+                f'Answer JSON only: {{"label": "regression" or "flaky", "reason": "one sentence"}}'
+            )
+            try:
+                _, parsed = run_prompt_json(
+                    prompt=prompt,
+                    model="",
+                    dry_run=False,
+                    timeout_sec=timeout_sec,
+                    rules='Reply JSON only: {"label":"regression"|"flaky","reason":"..."}',
+                )
+            except RuntimeError as exc:
+                print(f"    -ERROR- {reg['test']}: {exc}", file=sys.stderr)
+                reg["ai_classification"] = None
+                continue
+
+            if parsed.get("_non_json"):
+                reg["ai_classification"] = None
+                reg["ai_raw"] = str(parsed.get("snippet", ""))[:120]
+                print(f"    {reg['test']}: non-JSON response (stored raw snippet on dict)")
+            else:
+                reg["ai_classification"] = parsed.get("label") or parsed.get("result")
+                reg["ai_reason"] = str(parsed.get("reason", ""))[:200]
+                print(f"    {reg['test']}: {reg.get('ai_classification')!r}")
 
     return {
         "known": len(known),
@@ -107,22 +116,28 @@ def triage_failures(baseline: list[dict], current: list[dict]) -> dict:
     }
 
 
-def main() -> None:
-    """Run build failure triage."""
-    _out("=== Build Failure Triage ===")
-    _out("")
-    report = triage_failures(BASELINE, CURRENT_FAILURES)
-    _out("")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--no-ai", action="store_true", help="Deterministic triage only")
+    parser.add_argument("--timeout", type=int, default=90, metavar="SEC")
+    args = parser.parse_args()
+
+    print(banner("Build failure triage (sample data)"))
+    report = triage_failures(
+        BASELINE,
+        CURRENT_FAILURES,
+        use_ai=not args.no_ai,
+        timeout_sec=args.timeout,
+    )
+    print()
     if report["clean"]:
-        _out("-PASS- Clean sprint")
+        print("-PASS- No regressions in sample set")
     else:
-        _out(f"-WARNING- {report['regressions']} regression(s)")
+        print(f"-WARNING- {report['regressions']} regression(s) in sample set")
     if report["fixed"] > 0:
-        _out(f"-PASS- {report['fixed']} previously-known failure(s) now passing")
+        print(f"-PASS- {report['fixed']} previously-known failure(s) cleared in sample")
+    return 0 if report["clean"] else 1
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea23.1ea523
+    raise SystemExit(main())

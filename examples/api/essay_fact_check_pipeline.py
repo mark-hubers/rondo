@@ -1,93 +1,96 @@
-"""Rondo Real-World: Essay Fact-Check Pipeline.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: per-claim structured verification (sample medical-style claims).
 
-REAL WORKFLOW THIS REPLACES:
-  Agent gave wrong verdicts on 62 claims. 685 fact-check messages.
+What this demonstrates
+----------------------
+* **Looping** over a list with one ``rondo_run_file`` invocation per item.
+* Asking for **JSON** with explicit keys and handling ``_non_json`` from :mod:`example_dispatch`.
+* Aggregating a simple **publish gate** from parsed fields (``verified`` / ``passed``).
 
-SCRIPTED VERSION:
-  Extract claims -> ask Claude to verify each -> collect verdicts.
+Important:
+---------
+Sample strings are **illustrative only** — not medical advice. Production pipelines should
+attach citations, retrieval, and human review.
 
-HOW TO RUN:
-  python examples/api/essay_fact_check_pipeline.py
+Uses **live** dispatch. Requires ``claude`` / Rondo to be configured.
+
+Run::
+
+    cd rondo && uv run python examples/api/essay_fact_check_pipeline.py
 """
 
-import json
+from __future__ import annotations
+
+import argparse
 import sys
+from typing import Any
 
-from rondo import mcp_dispatch
+from example_dispatch import banner, run_prompt_json
 
-
-def _out(msg: str) -> None:
-    """Write output line."""
-    sys.stdout.write(msg + "\n")
-
-
-def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
-    """Dispatch prompt via Rondo inline subprocess (free on Max)."""
-    raw = mcp_dispatch.rondo_run_file(
-        prompt=prompt,
-        model="",
-        dry_run=False,
-        timeout_sec=60,
-        _session=object(),
-        **kwargs,
-    )
-    data = json.loads(raw)
-    tasks = data.get("tasks", [])
-    if not tasks or tasks[0].get("status") == "error":
-        return None
-    output = tasks[0].get("raw_output", "")
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
-
-
-SAMPLE_CLAIMS = [
+SAMPLE_CLAIMS: list[str] = [
     "Usher syndrome affects approximately 25,000 people in the US",
     "USH2A is the most common gene associated with Usher Type 2",
     "The USH2A gene is located on chromosome 1q41",
 ]
 
 
-def fact_check_claims(claims: list[str]) -> dict:
-    """Verify each claim by asking Claude."""
-    results: list[dict] = []
+def fact_check_claims(claims: list[str], *, timeout_sec: int) -> dict[str, Any]:
+    """Return aggregate stats plus per-claim rows."""
+    rows: list[dict[str, Any]] = []
     for i, claim in enumerate(claims):
-        _out(f"  Claim {i + 1}: {claim[:50]}...")
-        result = dispatch(
-            f'Is this medical claim accurate? Return JSON: {{"verified": true/false, "note": "why"}}\n\nClaim: {claim}',
-            rules="You verify medical claims. Return JSON only. Be precise.",
+        print(f"  Claim {i + 1}: {claim[:56]}…")
+        prompt = (
+            f"Is this medical claim accurate for lay summary writing? "
+            f'Return JSON only: {{"verified": true/false, "note": "short caveat"}}\n\nClaim: {claim}'
         )
-        if result is None:
-            _out("    SKIP")
+        try:
+            env, parsed = run_prompt_json(
+                prompt=prompt,
+                model="",
+                dry_run=False,
+                timeout_sec=timeout_sec,
+                rules="You verify factual claims conservatively. JSON only.",
+            )
+        except RuntimeError as exc:
+            print(f"    -ERROR- {exc}", file=sys.stderr)
+            rows.append({"claim": claim[:56], "verdict": "ERROR", "note": str(exc)[:80]})
             continue
-        verified = result.get("passed", result.get("verified", False))
-        note = str(result.get("result", result.get("note", "")))[:80]
-        verdict = "VERIFIED" if verified else "NEEDS_REVIEW"
-        results.append({"claim": claim[:50], "verdict": verdict, "note": note})
-        _out(f"    {verdict}: {note[:50]}")
 
+        if parsed.get("_non_json"):
+            rows.append({"claim": claim[:56], "verdict": "NON_JSON", "note": str(parsed.get("snippet", ""))[:80]})
+            print("    -WARNING- Model did not return JSON.")
+            continue
+
+        verified = bool(parsed.get("verified", parsed.get("passed")))
+        note = str(parsed.get("note", parsed.get("result", "")))[:120]
+        verdict = "VERIFIED" if verified else "NEEDS_REVIEW"
+        rows.append({"claim": claim[:56], "verdict": verdict, "note": note, "round_status": env.get("status")})
+        print(f"    {verdict}: {note[:56]}…")
+
+    ok = [r for r in rows if r["verdict"] == "VERIFIED"]
+    bad = [r for r in rows if r["verdict"] != "VERIFIED"]
     return {
         "total": len(claims),
-        "checked": len(results),
-        "verified": len([r for r in results if r["verdict"] == "VERIFIED"]),
-        "needs_review": len([r for r in results if r["verdict"] == "NEEDS_REVIEW"]),
-        "safe_to_publish": all(r["verdict"] == "VERIFIED" for r in results),
-        "results": results,
+        "checked": len(rows),
+        "verified": len(ok),
+        "needs_review": len(bad),
+        "safe_to_publish": len(bad) == 0 and len(rows) == len(claims),
+        "results": rows,
     }
 
 
-def main() -> None:
-    """Run essay fact-check pipeline."""
-    _out("=== Essay Fact-Check Pipeline ===")
-    _out("")
-    report = fact_check_claims(SAMPLE_CLAIMS)
-    _out("")
-    _out(f"Result: {report['verified']} verified, {report['needs_review']} need review")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=120, metavar="SEC")
+    args = parser.parse_args()
+
+    print(banner("Essay-style fact check (sample claims)"))
+    report = fact_check_claims(SAMPLE_CLAIMS, timeout_sec=args.timeout)
+    print()
+    print(f"Verified={report['verified']} needs_review={report['needs_review']} safe={report['safe_to_publish']}")
+    return 0 if report["safe_to_publish"] else 1
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea24.1ea524
+    raise SystemExit(main())

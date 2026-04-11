@@ -20,8 +20,12 @@ import pytest
 # -- Find the examples directory
 EXAMPLES_API_DIR = Path(__file__).parent.parent.parent / "examples" / "api"
 
-# -- Discover all example files with main() functions
-_EXAMPLE_FILES = sorted(EXAMPLES_API_DIR.glob("*.py"))
+# -- RONDO-262: examples import from example_dispatch.py in their own directory
+if str(EXAMPLES_API_DIR) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_API_DIR))
+
+# -- Discover all example files (exclude helper libraries like example_dispatch.py)
+_EXAMPLE_FILES = sorted(f for f in EXAMPLES_API_DIR.glob("*.py") if f.stem != "example_dispatch")
 
 
 def _load_example(filepath: Path):
@@ -57,8 +61,18 @@ class TestAPIExamplesRun:
         module = _load_example(example_file)
         if not hasattr(module, "main"):
             pytest.skip(f"{example_file.name} has no main()")
-        # -- Run the example — it should produce output without errors
-        module.main()
+        # -- RONDO-262: examples use argparse which conflicts with pytest's sys.argv.
+        # -- Temporarily set sys.argv to just the script name so argparse works.
+        old_argv = sys.argv
+        sys.argv = [str(example_file)]
+        try:
+            module.main()
+        except SystemExit as exc:
+            # -- Examples return 0 (success) or 1 (findings/warnings) — both are OK
+            if exc.code not in (0, 1, None):
+                raise
+        finally:
+            sys.argv = old_argv
 
     def test_at_least_7_api_examples(self) -> None:
         """We promised 7+ API examples."""

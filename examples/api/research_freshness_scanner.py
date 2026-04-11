@@ -1,107 +1,131 @@
-"""Rondo Real-World: Research Freshness -> Essay Impact Scanner.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: classify scan headlines against an essay index (structured JSON).
 
-REAL WORKFLOW THIS REPLACES:
-  Nightly scan finds new papers but results not connected to essays.
+What this demonstrates
+------------------------
+* Passing **structured lists inside the prompt** (JSON dumps of essays).
+* Preferring a typed **``impact``** field, with a transparent string fallback only when needed.
+* Exit status reflecting **HIGH** impact rows.
 
-SCRIPTED VERSION:
-  Take scan findings + essay list -> ask Claude which essays are
-  impacted -> classify impact (HIGH/MEDIUM/LOW) -> alert on HIGH.
+Uses **live** dispatch. Requires ``claude`` / Rondo to be configured.
 
-HOW TO RUN:
-  python examples/api/research_freshness_scanner.py
+Run::
+
+    cd rondo && uv run python examples/api/research_freshness_scanner.py
 """
 
+from __future__ import annotations
+
+import argparse
 import json
 import sys
+from typing import Any
 
-from rondo import mcp_dispatch
+from example_dispatch import banner, run_prompt_json
 
-
-def _out(msg: str) -> None:
-    """Write output line."""
-    sys.stdout.write(msg + "\n")
-
-
-def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
-    """Dispatch prompt via Rondo inline subprocess (free on Max)."""
-    raw = mcp_dispatch.rondo_run_file(
-        prompt=prompt,
-        model="",
-        dry_run=False,
-        timeout_sec=60,
-        _session=object(),
-        **kwargs,
-    )
-    data = json.loads(raw)
-    tasks = data.get("tasks", [])
-    if not tasks or tasks[0].get("status") == "error":
-        return None
-    output = tasks[0].get("raw_output", "")
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
-
-
-SCAN_FINDINGS = [
+SCAN_FINDINGS: list[dict[str, str]] = [
     {"id": "SCAN-001", "title": "Updated prevalence of Usher syndrome: 1 in 6,000", "topic": "prevalence"},
     {"id": "SCAN-002", "title": "RTx-015 Phase 2 enrollment complete", "topic": "gene_therapy"},
     {"id": "SCAN-003", "title": "Novel USH2A splice variant in East Asian populations", "topic": "genetics"},
 ]
 
-ESSAY_INDEX = [
+ESSAY_INDEX: list[dict[str, Any]] = [
     {"title": "Usher Syndrome: The Numbers", "claims": ["1 in 10,000 prevalence", "25,000 in the US"]},
     {"title": "Gene Therapy Hope: What Is Real", "claims": ["RTx-015 in Phase 1/2", "3 active trials"]},
     {"title": "Know Your Gene", "claims": ["most common variant is c.2299delG"]},
 ]
 
 
-def scan_impact(findings: list[dict], essays: list[dict]) -> dict:
-    """Match each finding against essay index via real AI."""
-    impacts: list[dict] = []
+def impact_level(parsed: dict[str, Any]) -> str:
+    """Normalize HIGH | MEDIUM | LOW from structured output or prose fallback."""
+    raw = parsed.get("impact")
+    if isinstance(raw, str) and raw.strip():
+        up = raw.strip().upper()
+        if up in ("HIGH", "MEDIUM", "LOW"):
+            return up
+        if "HIGH" in up:
+            return "HIGH"
+        if "MEDIUM" in up:
+            return "MEDIUM"
+        if "LOW" in up:
+            return "LOW"
+    blob = str(parsed.get("result", parsed.get("reason", "")))
+    if "HIGH" in blob.upper():
+        return "HIGH"
+    if "MEDIUM" in blob.upper():
+        return "MEDIUM"
+    return "LOW"
+
+
+def scan_impact(
+    findings: list[dict[str, str]],
+    essays: list[dict[str, Any]],
+    *,
+    timeout_sec: int,
+) -> dict[str, Any]:
+    """One model call per finding."""
+    impacts: list[dict[str, Any]] = []
     for finding in findings:
-        _out(f"  Checking: {finding['title'][:50]}...")
-        result = dispatch(
-            f"Does this finding impact any published essay? Return JSON:\n"
-            f'{{"impact": "HIGH/MEDIUM/LOW", "essay": "which one", "reason": "why"}}\n\n'
-            f"Finding: {finding['title']}\nEssays: {json.dumps(essays)}",
-            rules="You classify research impact on published essays. Return JSON only.",
+        print(f"  {finding['id']}: {finding['title'][:52]}…")
+        prompt = (
+            "Does this finding impact any listed essay enough to update it?\n"
+            f'Return JSON only: {{"impact": "HIGH" or "MEDIUM" or "LOW", "essay": "title or none", "reason": "short"}}\n\n'
+            f"Finding: {finding['title']}\nEssays:\n{json.dumps(essays, indent=2)}"
         )
-        if result is None:
-            _out("    SKIP")
+        try:
+            env, parsed = run_prompt_json(
+                prompt=prompt,
+                model="",
+                dry_run=False,
+                timeout_sec=timeout_sec,
+                rules="You classify editorial impact conservatively. JSON only.",
+            )
+        except RuntimeError as exc:
+            print(f"    -ERROR- {exc}", file=sys.stderr)
             continue
-        ## Parse impact from structured JSON first, fall back to string search
-        level = str(result.get("impact", "")).upper()
-        if level not in ("HIGH", "MEDIUM", "LOW"):
-            ## AI didn't return structured impact field — search result text
-            result_text = str(result.get("result", ""))
-            level = "LOW"
-            if "HIGH" in result_text.upper():
-                level = "HIGH"
-            elif "MEDIUM" in result_text.upper():
-                level = "MEDIUM"
-        reason = str(result.get("reason", result.get("result", "")))[:80]
-        impacts.append({"finding_id": finding["id"], "impact": level, "reason": reason})
-        _out(f"    {level}: {reason[:60]}")
+
+        if parsed.get("_non_json"):
+            print("    -WARNING- Non-JSON; skipping row.")
+            continue
+
+        level = impact_level(parsed)
+        reason = str(parsed.get("reason", parsed.get("result", "")))[:160]
+        impacts.append(
+            {
+                "finding_id": finding["id"],
+                "impact": level,
+                "essay": parsed.get("essay", ""),
+                "reason": reason,
+                "round_status": env.get("status"),
+            }
+        )
+        print(f"    → {level}: {reason[:56]}…")
 
     high = [i for i in impacts if i["impact"] == "HIGH"]
-    return {"scanned": len(findings), "high_impact": len(high), "needs_attention": len(high) > 0, "impacts": impacts}
+    return {
+        "scanned": len(findings),
+        "rows": len(impacts),
+        "high_impact": len(high),
+        "needs_attention": len(high) > 0,
+        "impacts": impacts,
+    }
 
 
-def main() -> None:
-    """Run research freshness scanner."""
-    _out("=== Research Freshness -> Essay Impact ===")
-    _out("")
-    report = scan_impact(SCAN_FINDINGS, ESSAY_INDEX)
-    _out("")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=120, metavar="SEC")
+    args = parser.parse_args()
+
+    print(banner("Research scan → essay impact (sample)"))
+    report = scan_impact(SCAN_FINDINGS, ESSAY_INDEX, timeout_sec=args.timeout)
+    print()
     if report["needs_attention"]:
-        _out(f"-WARNING- {report['high_impact']} HIGH-impact finding(s)")
-    else:
-        _out("-PASS- No high-impact findings")
+        print(f"-WARNING- {report['high_impact']} HIGH-impact row(s)")
+        return 1
+    print("-PASS- No HIGH impact in parsed rows")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea27.1ea527
+    raise SystemExit(main())

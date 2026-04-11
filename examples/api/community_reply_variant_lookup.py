@@ -1,49 +1,30 @@
-"""Rondo Real-World: Community Reply Drafting.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: draft a careful community reply from a single message.
 
-REAL WORKFLOW THIS REPLACES:
-  Community members message about genetics/testing/trials. Mark pastes
-  message, Claude fact-checks, drafts reply. 123+ times.
+What this demonstrates
+------------------------
+* A **multi-part** instruction (errors + reply) with a strict JSON shape.
+* Handling **missing keys** and **non-JSON** without inventing success.
 
-SCRIPTED VERSION:
-  Incoming message -> ask Claude to fact-check + draft reply.
-  NOTE: Variant lookup (ClinVar) is not implemented in this example.
-  In production: add a BioMCP variant_getter call before drafting.
+Out of scope (named honestly)
+-------------------------------
+* **Variant / ClinVar lookup** is not implemented. Production: call your genetics MCP
+  or internal API *before* drafting, then pass structured facts into this prompt.
 
-HOW TO RUN:
-  python examples/api/community_reply_variant_lookup.py
+Uses **live** dispatch. Requires ``claude`` / Rondo to be configured.
+
+Run::
+
+    cd rondo && uv run python examples/api/community_reply_variant_lookup.py
 """
 
-import json
-import sys
+from __future__ import annotations
 
-from rondo import mcp_dispatch
+import argparse
+from typing import Any
 
-
-def _out(msg: str) -> None:
-    """Write output line."""
-    sys.stdout.write(msg + "\n")
-
-
-def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
-    """Dispatch prompt via Rondo inline subprocess (free on Max)."""
-    raw = mcp_dispatch.rondo_run_file(
-        prompt=prompt,
-        model="",
-        dry_run=False,
-        timeout_sec=60,
-        _session=object(),
-        **kwargs,
-    )
-    data = json.loads(raw)
-    tasks = data.get("tasks", [])
-    if not tasks or tasks[0].get("status") == "error":
-        return None
-    output = tasks[0].get("raw_output", "")
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
-
+from example_dispatch import banner, run_prompt_json
 
 SAMPLE_MESSAGE = (
     "Hi Mark, my daughter was diagnosed with Usher syndrome. They found "
@@ -52,41 +33,61 @@ SAMPLE_MESSAGE = (
 )
 
 
-def handle_message(message: str) -> dict:
-    """Process community message: fact-check + draft reply via real AI."""
-    _out(f"  Message: {message[:60]}...")
-    result = dispatch(
-        f"A community member sent this about Usher syndrome. Do three things:\n"
-        f"1. Identify factual errors in their message\n"
-        f"2. Draft a short, warm reply correcting errors gently\n"
-        f'3. Return JSON: {{"errors": ["..."], "reply": "draft text"}}\n\n'
-        f"Message: {message}",
-        rules="You help Usher syndrome families. Correct gently. Short reply. Return JSON.",
+def handle_message(message: str, *, timeout_sec: int) -> dict[str, Any]:
+    """Return reply metadata; never silently drop dispatch errors."""
+    prompt = (
+        "A community member sent this about Usher syndrome. Do three things:\n"
+        "1. List factual errors or imprecisions (empty list if none).\n"
+        "2. Draft a short, warm reply correcting errors gently.\n"
+        '3. Return JSON only: {"errors": ["..."], "reply": "draft text"}\n\n'
+        f"Message:\n{message}"
     )
-    if result is None:
-        return {"error": "dispatch failed", "reply": ""}
+    try:
+        _, parsed = run_prompt_json(
+            prompt=prompt,
+            model="",
+            dry_run=False,
+            timeout_sec=timeout_sec,
+            rules="You help rare-disease families. Be accurate and kind. JSON only.",
+        )
+    except RuntimeError as exc:
+        return {"error": str(exc), "reply": ""}
+
+    if parsed.get("_non_json"):
+        return {
+            "error": "model_non_json",
+            "reply": "",
+            "snippet": str(parsed.get("snippet", ""))[:200],
+        }
+
+    errors = parsed.get("errors")
+    if not isinstance(errors, list):
+        errors = parsed.get("issues") if isinstance(parsed.get("issues"), list) else []
+    reply = str(parsed.get("reply", parsed.get("result", "")))[:800]
     return {
-        "reply": str(result.get("result", result.get("reply", "")))[:500],
-        "corrections": len(result.get("errors", result.get("issues", []))),
-        "confidence": result.get("confidence", 0.5),
+        "reply": reply,
+        "corrections": len(errors),
+        "confidence": parsed.get("confidence"),
     }
 
 
-def main() -> None:
-    """Run community reply pipeline."""
-    _out("=== Community Reply + Variant Lookup ===")
-    _out("")
-    result = handle_message(SAMPLE_MESSAGE)
-    _out("")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=120, metavar="SEC")
+    args = parser.parse_args()
+
+    print(banner("Community reply draft (no variant DB)"))
+    result = handle_message(SAMPLE_MESSAGE, timeout_sec=args.timeout)
+    print()
     if result.get("error"):
-        _out(f"-ERROR- {result['error']}")
-        return
-    _out(f"Corrections: {result['corrections']}")
-    _out(f"Reply: {result['reply'][:200]}")
+        print(f"-ERROR- {result['error']}")
+        if result.get("snippet"):
+            print(f"  raw: {result['snippet'][:160]!r}")
+        return 1
+    print(f"Corrections flagged: {result['corrections']}")
+    print(f"Reply:\n{result['reply'][:400]}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea26.1ea526
+    raise SystemExit(main())

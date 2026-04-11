@@ -1,68 +1,87 @@
-"""Rondo Scripted Prompting: Confidence Escalation.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: confidence-based escalation.
 
-If the AI isn't confident enough, ask again with more context
-or escalate to a more capable model. The confidence score
-(0.0-1.0) returned by every dispatch drives the decision.
+If the AI's confidence is below threshold, add more context and retry.
+Python checks the confidence field and decides whether to escalate.
 
-This pattern prevents shipping low-quality AI answers to users.
+Uses **live** dispatch.
+
+Run::
+
+    cd rondo && uv run python examples/api/confidence_escalation.py
 """
 
-from rondo.smart_return import normalize_response
+from __future__ import annotations
+
+import argparse
+from typing import Any
+
+from example_dispatch import banner, run_prompt_json
+
+QUESTION = "Is this Python function safe to use in production?"
+CODE = "def fetch(url): return exec(requests.get(url).text)  # noqa: S102"
+THRESHOLD = 0.8
 
 
-def dispatch_mock(prompt: str, model: str, confidence: float = 0.5) -> dict:
-    """Mock dispatch with controllable confidence for testing."""
-    return {
-        "passed": True,
-        "confidence": confidence,
-        "result": f"Answer from {model}",
-        "issues": [],
-        "_meta": {
-            "quality": int(confidence * 10),
-            "complete": confidence > 0.7,
-            "limitations": "Low confidence" if confidence < 0.7 else "",
-        },
-    }
+def review_with_escalation(*, timeout_sec: int) -> dict[str, Any]:
+    """Ask AI, check confidence, add context if too low."""
+    print("  Step 1: Initial review...")
+    try:
+        _, result = run_prompt_json(
+            prompt=f"{QUESTION}\n\nCode:\n{CODE}",
+            timeout_sec=timeout_sec,
+            rules="You review code safety. Return JSON: {passed, confidence, issues, result}.",
+        )
+    except RuntimeError as exc:
+        print(f"    Failed: {exc}")
+        return {"escalated": False, "result": {"passed": None}}
+
+    if result.get("_non_json"):
+        return {"escalated": False, "result": {"passed": None}}
+
+    confidence = float(result.get("confidence", 0.0))
+    print(f"    Confidence: {confidence}")
+
+    if confidence >= THRESHOLD:
+        print(f"    Above threshold ({THRESHOLD}) — no escalation needed")
+        return {"escalated": False, "result": result}
+
+    print(f"    Below threshold ({THRESHOLD}) — adding context...")
+    try:
+        _, escalated = run_prompt_json(
+            prompt=(
+                f"{QUESTION}\n\nCode:\n{CODE}\n\n"
+                "Additional context: This runs in a web server handling user requests. "
+                "The URL comes from user input. Consider: RCE, injection, SSRF."
+            ),
+            timeout_sec=timeout_sec,
+            rules="You are a security expert. Check for RCE, injection, SSRF. Return JSON.",
+        )
+    except RuntimeError as exc:
+        print(f"    Escalation failed: {exc}")
+        return {"escalated": True, "result": result}
+
+    print(f"    Escalated confidence: {escalated.get('confidence', 'n/a')}")
+    return {"escalated": True, "result": escalated}
 
 
-def review_with_confidence_check(prompt: str, threshold: float = 0.8) -> dict:
-    """Dispatch and escalate if confidence is below threshold.
+def main() -> int:
+    """Run confidence escalation example."""
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=60, metavar="SEC")
+    args = parser.parse_args()
 
-    Level 1: Fast/cheap model (flash) — good for simple tasks
-    Level 2: Add context and retry — helps with ambiguous prompts
-    Level 3: Premium model (opus) — expensive but thorough
-    """
-    ## Level 1: Fast model
-    result = normalize_response(dispatch_mock(prompt, "gemini:flash", confidence=0.6))
-    print(f"  Level 1 (flash): confidence={result['confidence']}")
-
-    if result["confidence"] >= threshold:
-        return result
-
-    ## Level 2: Same model but with added context
-    enriched_prompt = f"{prompt}\n\nAdditional context: focus on security implications"
-    result = normalize_response(dispatch_mock(enriched_prompt, "gemini:flash", confidence=0.75))
-    print(f"  Level 2 (flash+context): confidence={result['confidence']}")
-
-    if result["confidence"] >= threshold:
-        return result
-
-    ## Level 3: Premium model
-    result = normalize_response(dispatch_mock(prompt, "opus", confidence=0.95))
-    print(f"  Level 3 (opus): confidence={result['confidence']}")
-    return result
-
-
-def main() -> None:
-    """Demonstrate confidence-based escalation."""
-    print("=== Confidence Escalation Pattern ===")
-    print("Threshold: 0.8 — anything below gets escalated")
-    result = review_with_confidence_check("Is this login handler secure?")
-    print(f"Final: confidence={result['confidence']}, quality={result['_meta']['quality']}/10")
+    print(banner("Confidence Escalation"))
+    result = review_with_escalation(timeout_sec=args.timeout)
+    print()
+    r = result["result"]
+    print(f"Escalated: {result['escalated']}")
+    print(f"Passed: {r.get('passed')}, Confidence: {r.get('confidence', 'n/a')}")
+    for issue in r.get("issues", [])[:5]:
+        print(f"  - {str(issue)[:70]}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea11.1ea4b1
+    raise SystemExit(main())

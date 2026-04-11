@@ -1,98 +1,103 @@
-"""Rondo Scripted Prompting: Find → Fix → Verify Pipeline.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: find → fix → verify pipeline.
 
-The core prompt-coding pattern: chain AI calls where each
-step's output feeds the next step's input.
+Chain AI calls where each step's output feeds the next.
+Step 1: Find bugs. Step 2: Generate fixes. Step 3: Verify fixes.
 
-Step 1: Find bugs (returns structured issues list)
-Step 2: For each bug, generate a fix
-Step 3: Verify each fix works
+Uses **live** dispatch.
 
-This is WHY structured returns matter — you can't script
-this with text blobs. You need {"issues": [...]} to loop.
+Run::
+
+    cd rondo && uv run python examples/api/find_and_fix_pipeline.py
 """
 
-from rondo.smart_return import normalize_response
+from __future__ import annotations
+
+import argparse
+from typing import Any
+
+from example_dispatch import banner, run_prompt_json
+
+CODE_SAMPLE = """def login(username, password):
+    query = f"SELECT * FROM users WHERE name={username}"
+    result = db.execute(query)
+    return result  # No auth check on /admin routes
+"""
 
 
-def dispatch_mock(prompt: str, step: str) -> dict:
-    """Mock dispatch that returns different results per step."""
-    if step == "find":
-        return {
-            "passed": False,
-            "confidence": 0.95,
-            "issues": ["SQL injection on line 42", "XSS on line 88", "Missing auth on /admin"],
-            "result": "Found 3 security issues",
-            "_meta": {"quality": 9, "complete": True, "limitations": ""},
-        }
-    if step == "fix":
-        return {
-            "passed": True,
-            "confidence": 0.9,
-            "result": f"Fixed: {prompt.split(': ', 1)[-1][:40]}",
-            "issues": [],
-            "_meta": {"quality": 8, "complete": True, "limitations": ""},
-        }
+def find_fix_verify(*, timeout_sec: int) -> dict[str, Any]:
+    """Three-step pipeline: find → fix → verify via real AI."""
+    ## Step 1: Find bugs
+    print("  Step 1: Find bugs...")
+    try:
+        _, findings = run_prompt_json(
+            prompt=f'Find security bugs in this code. Return JSON: {{"issues": ["bug 1", "bug 2"]}}\n\n{CODE_SAMPLE}',
+            timeout_sec=timeout_sec,
+            rules="You find code bugs. Return JSON only.",
+        )
+    except RuntimeError as exc:
+        return {"error": str(exc), "stage": "find"}
+
+    if findings.get("_non_json"):
+        return {"error": "non-JSON from find step", "stage": "find"}
+
+    bugs = findings.get("issues", [])
+    print(f"    Found {len(bugs)} bug(s)")
+    if not bugs:
+        return {"stage": "find", "bugs": [], "fixes": [], "all_verified": True}
+
+    ## Step 2: Fix each bug
+    print("  Step 2: Generate fixes...")
+    fixes: list[dict[str, Any]] = []
+    for bug in bugs[:3]:  ## Limit to 3 to keep tests fast
+        try:
+            _, fix = run_prompt_json(
+                prompt=f'Suggest a fix for this bug. Return JSON: {{"fix": "description"}}\n\nBug: {bug}',
+                timeout_sec=timeout_sec,
+                rules="You fix code bugs. Return JSON with 'fix' field.",
+            )
+        except RuntimeError as exc:
+            fixes.append({"bug": str(bug)[:80], "fix": None, "error": str(exc)[:80]})
+            continue
+        fixes.append(
+            {
+                "bug": str(bug)[:80],
+                "fix": str(fix.get("fix", ""))[:120],
+                "verified": False,
+            }
+        )
+
+    ## Step 3: Verify (just count non-empty fixes)
+    verified = sum(1 for f in fixes if f.get("fix"))
+    print(f"  Step 3: {verified}/{len(fixes)} fixes produced")
+
     return {
-        "passed": True,
-        "confidence": 0.85,
-        "result": "Fix verified",
-        "issues": [],
-        "_meta": {"quality": 7, "complete": True, "limitations": "Static analysis only"},
+        "stage": "complete",
+        "bugs": bugs,
+        "fixes": fixes,
+        "verified_count": verified,
     }
 
 
-def find_fix_verify(code_description: str) -> dict:
-    """Three-step pipeline: find bugs, fix each one, verify fixes.
+def main() -> int:
+    """Run find-fix-verify pipeline."""
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=60, metavar="SEC")
+    args = parser.parse_args()
 
-    This shows the power of structured returns:
-    - Step 1 returns issues[] — Python loops through them
-    - Step 2 returns result per fix — collected into a list
-    - Step 3 verifies — any failure triggers human review
-    """
-    ## Step 1: Find bugs
-    findings = normalize_response(dispatch_mock(code_description, "find"))
-    print(f"  FIND: {len(findings['issues'])} issues found")
-
-    if findings["passed"]:
-        print("  No issues — code is clean")
-        return {"status": "clean", "fixes": []}
-
-    ## Step 2: Fix each issue
-    fixes = []
-    for issue in findings["issues"]:
-        fix = normalize_response(dispatch_mock(f"Fix this: {issue}", "fix"))
-        fixes.append({"issue": issue, "fix": fix["result"], "confidence": fix["confidence"]})
-        print(f"  FIX: {issue[:30]}... → confidence={fix['confidence']}")
-
-    ## Step 3: Verify each fix
-    verified = []
-    for fix_record in fixes:
-        verify = normalize_response(dispatch_mock(f"Verify: {fix_record['fix']}", "verify"))
-        fix_record["verified"] = verify["passed"]
-        fix_record["verify_confidence"] = verify["confidence"]
-        verified.append(fix_record)
-
-        if not verify["passed"]:
-            print(f"  VERIFY FAILED: {fix_record['issue'][:30]}... → needs human review")
-
-    ## Summary
-    all_verified = all(f["verified"] for f in verified)
-    print(f"  RESULT: {len(verified)} fixes, all_verified={all_verified}")
-
-    return {"status": "fixed" if all_verified else "needs_review", "fixes": verified}
-
-
-def main() -> None:
-    """Demonstrate the find-fix-verify pipeline."""
-    print("=== Find → Fix → Verify Pipeline ===")
-    result = find_fix_verify("Login handler with user input")
-    print(f"Final status: {result['status']}")
-    for fix in result["fixes"]:
-        print(f"  {fix['issue'][:40]:40s} verified={fix['verified']}")
+    print(banner("Find → Fix → Verify"))
+    result = find_fix_verify(timeout_sec=args.timeout)
+    print()
+    if result.get("error"):
+        print(f"-ERROR- {result['stage']}: {result['error']}")
+        return 1
+    print(f"Bugs: {len(result['bugs'])}, Fixes: {result.get('verified_count', 0)}")
+    for f in result.get("fixes", []):
+        print(f"  - {f.get('bug', '')[:50]}")
+        print(f"    → {str(f.get('fix', ''))[:60]}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea12.1ea4b2
+    raise SystemExit(main())

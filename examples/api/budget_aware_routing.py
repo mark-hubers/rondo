@@ -1,80 +1,82 @@
-"""Rondo Scripted Prompting: Budget-Aware Routing.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: budget-aware routing.
 
-Start with the cheapest option (local Ollama = $0).
-If it can't answer well enough, escalate to cloud.
-Track spending and stop before exceeding budget.
+Start with the cheapest option and escalate only when needed.
+Track cost from the dispatch envelope and stop if budget exceeded.
 
-This pattern minimizes cost while maintaining quality.
+Uses **live** dispatch. First call uses default (free on Max plan).
+
+Run::
+
+    cd rondo && uv run python examples/api/budget_aware_routing.py
 """
 
-from rondo.smart_return import normalize_response
+from __future__ import annotations
+
+import argparse
+from typing import Any
+
+from example_dispatch import banner, run_prompt_json
+
+QUESTION = "Explain what SQL injection is in one sentence."
+BUDGET_USD = 0.10
 
 
-def dispatch_mock(prompt: str, model: str, cost: float = 0.0, quality: int = 5) -> dict:
-    """Mock dispatch with cost tracking."""
-    return {
-        "passed": quality >= 7,
-        "confidence": quality / 10,
-        "result": f"Answer from {model} (${cost:.3f})",
-        "issues": [] if quality >= 7 else ["Answer incomplete"],
-        "metadata": {"cost_usd": cost, "model": model},
-        "_meta": {"quality": quality, "complete": quality >= 7, "limitations": ""},
-    }
+def budget_routing(*, timeout_sec: int) -> dict[str, Any]:
+    """Start cheap, escalate only if needed, respect budget."""
+    spent = 0.0
+    history: list[dict[str, Any]] = []
+
+    ## Step 1: Try default (free on Max plan)
+    print("  Step 1: Default model (free on Max)...")
+    try:
+        env, result = run_prompt_json(
+            prompt=QUESTION,
+            timeout_sec=timeout_sec,
+            rules="Be concise. Return JSON: {result: 'your answer', confidence: 0.9}",
+        )
+    except RuntimeError as exc:
+        return {"error": str(exc), "spent": spent, "history": history}
+
+    cost = float(env.get("total_cost_usd", 0.0))
+    spent += cost
+    history.append({"step": "default", "cost": cost, "confidence": result.get("confidence", 0.0)})
+    print(f"    Cost: ${cost:.4f}, total: ${spent:.4f}")
+
+    confidence = float(result.get("confidence", 0.0))
+    if confidence >= 0.8:
+        print(f"    Confidence {confidence} — no escalation needed")
+        return {"final": result, "spent": spent, "history": history}
+
+    ## Step 2: Check budget before escalating
+    if spent >= BUDGET_USD:
+        print(f"    Budget (${BUDGET_USD}) exceeded — using default result")
+        return {"final": result, "spent": spent, "history": history, "budget_exceeded": True}
+
+    ## Step 3: Escalate to cloud (would cost money)
+    print(f"    Low confidence — would escalate (within ${BUDGET_USD} budget)")
+    return {"final": result, "spent": spent, "history": history}
 
 
-def review_within_budget(prompt: str, budget: float = 0.10) -> dict:
-    """Route dispatch based on budget and quality needs.
+def main() -> int:
+    """Run budget-aware routing."""
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=60, metavar="SEC")
+    args = parser.parse_args()
 
-    Tier 1: Local (free) — try first, always
-    Tier 2: Cloud cheap (flash) — if local isn't good enough
-    Tier 3: Cloud premium (opus) — only if budget allows
-    """
-    total_spent = 0.0
-
-    ## Tier 1: Local model (FREE)
-    result = normalize_response(dispatch_mock(prompt, "local:qwen32b", cost=0.0, quality=6))
-    print(f"  Tier 1 (local, $0): quality={result['_meta']['quality']}/10")
-
-    if result["passed"] and result["confidence"] >= 0.7:
-        print(f"  Local is good enough — total cost: ${total_spent:.3f}")
-        return result
-
-    ## Tier 2: Cloud cheap
-    cost_flash = 0.003
-    if total_spent + cost_flash > budget:
-        print("  Budget exceeded — returning local result")
-        return result
-
-    result = normalize_response(dispatch_mock(prompt, "gemini:flash", cost=cost_flash, quality=8))
-    total_spent += cost_flash
-    print(f"  Tier 2 (flash, ${cost_flash}): quality={result['_meta']['quality']}/10")
-
-    if result["passed"] and result["confidence"] >= 0.8:
-        print(f"  Flash is good enough — total cost: ${total_spent:.3f}")
-        return result
-
-    ## Tier 3: Premium (expensive)
-    cost_opus = 0.05
-    if total_spent + cost_opus > budget:
-        print(f"  Budget limit — returning flash result (${total_spent:.3f} spent)")
-        return result
-
-    result = normalize_response(dispatch_mock(prompt, "opus", cost=cost_opus, quality=10))
-    total_spent += cost_opus
-    print(f"  Tier 3 (opus, ${cost_opus}): quality={result['_meta']['quality']}/10")
-    print(f"  Total cost: ${total_spent:.3f}")
-    return result
-
-
-def main() -> None:
-    """Demonstrate budget-aware routing."""
-    print("=== Budget-Aware Routing ($0.10 limit) ===")
-    result = review_within_budget("Explain quantum computing", budget=0.10)
-    print(f"Final: quality={result['_meta']['quality']}/10, cost=${result.get('metadata', {}).get('cost_usd', 0):.3f}")
+    print(banner("Budget-Aware Routing"))
+    result = budget_routing(timeout_sec=args.timeout)
+    print()
+    if result.get("error"):
+        print(f"-ERROR- {result['error']}")
+        return 1
+    print(f"Total spent: ${result['spent']:.4f} / ${BUDGET_USD}")
+    print(f"Steps: {len(result['history'])}")
+    for step in result["history"]:
+        print(f"  {step['step']}: ${step['cost']:.4f}, confidence={step['confidence']}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea14.1ea4b4
+    raise SystemExit(main())

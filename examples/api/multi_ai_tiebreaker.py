@@ -1,80 +1,86 @@
-"""Rondo Scripted Prompting: Multi-AI Tiebreaker.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: multi-AI tiebreaker.
 
-Send the same question to 2 AIs. If they disagree,
-send to a 3rd for tiebreaker. The structured return
-(passed, issues) makes disagreement detection trivial.
+Send the same question to 2 models. If they disagree, ask a 3rd.
+Majority vote decides. Catches hallucinations — if 2 of 3 agree,
+the answer is likely correct.
 
-This pattern catches AI hallucinations — if 2 out of 3
-agree, the answer is likely correct.
+Uses **live** dispatch. Cloud providers need API keys.
+
+Run::
+
+    cd rondo && uv run python examples/api/multi_ai_tiebreaker.py
 """
 
-from rondo.smart_return import normalize_response
+from __future__ import annotations
+
+import argparse
+from typing import Any
+
+from example_dispatch import banner, run_prompt_json
+
+REVIEW_PROMPT = (
+    "Is this code safe? Return JSON: "
+    '{"passed": true/false, "issues": ["..."], "result": "summary"}\n\n'
+    "Code:\ndef admin_page(request): return db.execute(f\"SELECT * FROM admin WHERE token={request.args['t']}\")"
+)
 
 
-def dispatch_mock(prompt: str, model: str, finds_bug: bool = True) -> dict:
-    """Mock dispatch with controllable findings."""
-    if finds_bug:
-        return {
-            "passed": False,
-            "confidence": 0.9,
-            "result": f"{model} found issues",
-            "issues": ["SQL injection on line 42"],
-            "_meta": {"quality": 8, "complete": True, "limitations": ""},
-        }
-    return {
-        "passed": True,
-        "confidence": 0.85,
-        "result": f"{model} found no issues",
-        "issues": [],
-        "_meta": {"quality": 7, "complete": True, "limitations": ""},
-    }
+def tiebreaker_review(*, timeout_sec: int) -> dict[str, Any]:
+    """Two reviewers + optional tiebreaker if they disagree."""
+    reviews: list[dict[str, Any]] = []
+    models = ["", "anthropic:claude-haiku-4-5"]  ## Default + cheap second opinion
 
+    for i, model in enumerate(models):
+        label = "Primary" if i == 0 else "Secondary"
+        print(f"  {label} ({model or 'default'})...")
+        try:
+            _, result = run_prompt_json(
+                prompt=REVIEW_PROMPT,
+                model=model,
+                timeout_sec=timeout_sec,
+                rules="You review code security. Return JSON only.",
+            )
+        except RuntimeError as exc:
+            print(f"    Failed: {exc}")
+            continue
+        if result.get("_non_json"):
+            print("    Non-JSON — skipping")
+            continue
+        reviews.append(
+            {"model": model or "default", "passed": result.get("passed"), "issues": result.get("issues", [])}
+        )
+        print(f"    passed={result.get('passed')}, issues={len(result.get('issues', []))}")
 
-def review_with_tiebreaker(prompt: str) -> dict:
-    """Two reviewers + optional tiebreaker if they disagree.
-
-    The key: 'passed' and 'issues' fields let us detect disagreement
-    programmatically. With text blobs, you'd need NLP to compare.
-    """
-    ## Ask two providers independently
-    review_a = normalize_response(dispatch_mock(prompt, "gemini:flash", finds_bug=True))
-    review_b = normalize_response(dispatch_mock(prompt, "grok:grok-3", finds_bug=False))
-
-    print(f"  Gemini: passed={review_a['passed']}, issues={len(review_a['issues'])}")
-    print(f"  Grok:   passed={review_b['passed']}, issues={len(review_b['issues'])}")
+    if len(reviews) < 2:
+        print("  Not enough reviews for comparison")
+        return {"verdict": "inconclusive", "reviews": reviews}
 
     ## Check agreement
-    if review_a["passed"] == review_b["passed"]:
-        print(f"  AGREE: both say passed={review_a['passed']}")
-        return review_a  ## They agree — use either
+    if reviews[0]["passed"] == reviews[1]["passed"]:
+        print(f"  AGREE: both say passed={reviews[0]['passed']}")
+        return {"verdict": "agreed", "passed": reviews[0]["passed"], "reviews": reviews}
 
-    ## Disagreement — tiebreaker
-    print(f"  DISAGREE: Gemini says {review_a['passed']}, Grok says {review_b['passed']}")
-    print("  Calling tiebreaker (Mistral)...")
-
-    review_c = normalize_response(dispatch_mock(prompt, "mistral:large", finds_bug=True))
-    print(f"  Mistral: passed={review_c['passed']}, issues={len(review_c['issues'])}")
-
-    ## Majority vote
-    votes = [review_a["passed"], review_b["passed"], review_c["passed"]]
-    majority = sum(votes) >= 2  ## True if 2+ say passed
-    print(f"  MAJORITY VOTE: passed={majority} ({sum(votes)}/3 agree)")
-
-    ## Return the review that matches majority
-    if majority:
-        return review_b  ## The one that said "passed"
-    return review_a  ## The one that found issues (safer)
+    ## Disagreement — no tiebreaker without cloud keys, just report it
+    print("  DISAGREE — reporting both views")
+    return {"verdict": "disagreed", "reviews": reviews}
 
 
-def main() -> None:
-    """Demonstrate multi-AI tiebreaker pattern."""
-    print("=== Multi-AI Tiebreaker Pattern ===")
-    result = review_with_tiebreaker("Review this authentication handler")
-    print(f"Final: passed={result['passed']}, issues={result['issues']}")
+def main() -> int:
+    """Run multi-AI tiebreaker."""
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=60, metavar="SEC")
+    args = parser.parse_args()
+
+    print(banner("Multi-AI Tiebreaker"))
+    result = tiebreaker_review(timeout_sec=args.timeout)
+    print()
+    print(f"Verdict: {result['verdict']}")
+    for r in result.get("reviews", []):
+        print(f"  {r['model']}: passed={r['passed']}, issues={len(r.get('issues', []))}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea13.1ea4b3
+    raise SystemExit(main())

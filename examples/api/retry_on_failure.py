@@ -1,74 +1,90 @@
-"""Rondo Scripted Prompting: Retry on Failure.
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+"""Rondo example: retry on failure with provider escalation.
 
-When an AI says "can't do it" or returns low confidence,
-don't give up — try a different provider or rephrase.
+When the first AI call fails or returns low confidence, try a
+different model. Python controls the retry logic.
 
-THIS IS PROMPT CODING: Python logic wrapping AI calls,
-using structured return data to decide what happens next.
+Uses **live** dispatch. Requires ``claude`` / Rondo to be configured.
+
+Run::
+
+    cd rondo && uv run python examples/api/retry_on_failure.py
 """
 
-from rondo.smart_return import normalize_response
+from __future__ import annotations
+
+import argparse
+from typing import Any
+
+from example_dispatch import banner, run_prompt_json
+
+REVIEW_PROMPT = (
+    "Review this code for bugs. Return JSON:\n"
+    '{"passed": true/false, "confidence": 0.0-1.0, "issues": ["..."], "result": "summary"}\n\n'
+    "Code:\ndef divide(a, b): return a / b"
+)
 
 
-def dispatch_mock(prompt: str, model: str, fail: bool = False) -> dict:
-    """Mock dispatch — simulates success or failure for testing both paths."""
-    if fail:
-        return {
-            "passed": False,
-            "confidence": 0.3,
-            "result": "",
-            "issues": ["Cannot analyze — code too complex"],
-            "_meta": {"quality": 2, "complete": False, "limitations": "Could not parse the input"},
-        }
-    return {
-        "passed": True,
-        "confidence": 0.95,
-        "result": f"Analysis complete via {model}",
-        "issues": [],
-        "_meta": {"quality": 9, "complete": True, "limitations": ""},
-    }
+def review_with_retry(*, timeout_sec: int) -> dict[str, Any]:
+    """Try primary model; if low confidence or failure, escalate."""
+    print("  Step 1: Primary model...")
+    try:
+        _, result = run_prompt_json(
+            prompt=REVIEW_PROMPT,
+            model="",
+            timeout_sec=timeout_sec,
+            rules="You review code for bugs. Return JSON only.",
+        )
+    except RuntimeError as exc:
+        print(f"    Primary failed: {exc}")
+        result = {"passed": None, "confidence": 0.0}
+
+    if result.get("_non_json"):
+        print("    Primary returned non-JSON")
+        result = {"passed": None, "confidence": 0.0}
+
+    confidence = float(result.get("confidence", 0.0))
+    if result.get("passed") is not None and confidence >= 0.8:
+        print(f"    Primary succeeded: confidence={confidence}")
+        return {"source": "primary", "result": result}
+
+    ## Escalate
+    print(f"    Low confidence ({confidence}) — escalating...")
+    try:
+        _, escalated = run_prompt_json(
+            prompt=REVIEW_PROMPT,
+            model="",
+            timeout_sec=timeout_sec,
+            rules="You are a senior code reviewer. Be thorough. Return JSON only.",
+        )
+    except RuntimeError as exc:
+        print(f"    Escalation failed: {exc}")
+        return {"source": "failed", "result": result}
+
+    if escalated.get("_non_json"):
+        return {"source": "escalation_non_json", "result": result}
+
+    print(f"    Escalation: confidence={escalated.get('confidence', 'n/a')}")
+    return {"source": "escalated", "result": escalated}
 
 
-def review_with_retry(prompt: str) -> dict:
-    """Try primary provider; if it fails, retry with a better model.
+def main() -> int:
+    """Run retry-on-failure pattern."""
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--timeout", type=int, default=60, metavar="SEC")
+    args = parser.parse_args()
 
-    This is the core pattern: dispatch → check → decide → retry.
-    The structured return (passed, confidence, issues) drives the logic.
-    """
-    ## Step 1: Try the cheap/fast provider first
-    result = dispatch_mock(prompt, model="gemini:flash", fail=True)
-    result = normalize_response(result)
-
-    if result["passed"] and result["confidence"] >= 0.8:
-        print(f"  PRIMARY succeeded: confidence={result['confidence']}")
-        return result
-
-    ## Step 2: Primary failed or uncertain — escalate to premium model
-    print(f"  PRIMARY failed: confidence={result['confidence']}, issues={result['issues']}")
-    print("  Escalating to premium model...")
-
-    result = dispatch_mock(prompt, model="opus", fail=False)
-    result = normalize_response(result)
-
-    if result["passed"]:
-        print(f"  ESCALATION succeeded: confidence={result['confidence']}")
-        return result
-
-    ## Step 3: Both failed — return failure with combined context
-    print("  ESCALATION also failed — returning error")
-    return {"passed": False, "result": "All providers failed", "issues": result["issues"]}
-
-
-def main() -> None:
-    """Demonstrate retry-on-failure pattern."""
-    print("=== Retry on Failure Pattern ===")
-    print("Scenario: primary provider can't handle complex code")
-    result = review_with_retry("Review this complex algorithm")
-    print(f"Final: passed={result['passed']}, result={result.get('result', '')[:60]}")
+    print(banner("Retry on Failure"))
+    result = review_with_retry(timeout_sec=args.timeout)
+    print()
+    print(f"Source: {result['source']}")
+    issues = result["result"].get("issues", [])
+    print(f"Issues: {len(issues)}")
+    for issue in issues[:5]:
+        print(f"  - {str(issue)[:70]}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-
-
-# -- sig: mgh-6201.cd.bd955f.ea10.1ea4b0
+    raise SystemExit(main())

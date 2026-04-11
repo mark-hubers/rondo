@@ -69,6 +69,21 @@ rondo history
 
 See **`examples/cli/scripted-prompting.sh`** — patterns for retry, confidence escalation, and pipelines using `jq`. Use **`gemini:default`** or **`gemini:gemini-2.5-flash`** in scripts; avoid bare `gemini:flash` (that passes model name `flash` to the API, which is not a valid Gemini model id).
 
+## New runnable CLI examples
+
+| File | Purpose |
+|------|---------|
+| `01-execution-modes.sh` | Show CLI subprocess path + provider HTTP path |
+| `02-background-polling.sh` | MCP-compatible background polling recipe |
+| `03-consensus-review.sh` | Two-provider file review workflow |
+
+Run:
+
+```bash
+bash examples/cli/01-execution-modes.sh
+bash examples/cli/03-consensus-review.sh src/rondo/dispatch.py
+```
+
 ## Output shape
 
 Default: structured JSON (smart return template). With `--text`, plain text only.

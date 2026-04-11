@@ -1,81 +1,40 @@
-# Rondo MCP Examples
+# Rondo MCP Examples — Real, Copy/Paste Workflows
 
-These are **tool calls** from Claude Code (or any MCP client), not shell commands. They cover the bulk of day-to-day Rondo usage: single dispatch, multi-provider review, file review, health, cost, and cloud tiered dispatch.
+These examples are for Claude Code (or any MCP client) calling Rondo tools directly.
+They are designed as:
+- real usage patterns,
+- prompt-scripting templates,
+- living references for daily work.
 
-**Truthful defaults:** `rondo_run` in the MCP server passes `dry_run` through — check your installed `mcp_server.py`: many builds default `dry_run=False` on the tool so calls are **live**. Use `dry_run=True` for previews when you are unsure.
+## Ground Rules
 
-Use **full provider strings** or **tiers** in `providers` JSON — examples below are copy-paste correct:
+-PASS- These are MCP tool calls, not shell commands.
+-PASS- Most examples are live by default (`dry_run=False` where supported).
+-WARNING- Provider-prefixed model strings should be full IDs (for example `gemini:gemini-2.5-flash`), not shorthand like `gemini:flash`.
 
-- Tiers: `gemini:high`, `gemini:default`, `gemini:low` (resolve from `~/.rondo/config.toml`)
-- Full ids: `gemini:gemini-2.5-flash`, `grok:grok-3`, `mistral:mistral-large-latest`
+## 13 MCP Examples
 
-Avoid shorthand like `gemini:flash` as a model name — it becomes the literal model `flash`, which is not a valid Gemini API id.
+| File | What it teaches |
+|------|------------------|
+| `01-inline-host-plan.md` | Default MCP inline behavior and host-plan execution |
+| `02-agent-host-plan.md` | `execution="agent"` with explicit model |
+| `03-subprocess-fresh-session.md` | `execution="subprocess"` for isolated runs |
+| `04-provider-http-bypass.md` | Provider prefixes bypass execution mode |
+| `05-background-polling.md` | Background dispatch and status polling tiers |
+| `06-multi-provider-review.md` | Consensus review with multiple providers |
+| `07-review-file.md` | Real file review workflow via `rondo_review_file` |
+| `08-cloud-profile-tier.md` | Profile/tier cloud dispatch patterns |
+| `09-chain-pipeline.md` | Multi-step chain where output feeds next step |
+| `10-benchmark-model-selection.md` | Benchmark models before choosing defaults |
+| `11-retry-failed-dispatch.md` | Recover failed work with `rondo_retry` |
+| `12-diff-two-runs.md` | Compare output drift across runs with `rondo_diff` |
+| `13-observability-suite.md` | Health, metrics, cost, history, audit workflow |
 
-## 1. Single dispatch (`rondo_run`)
+## Why these matter
 
-```text
-rondo_run(
-    prompt="Summarize the security implications of this design in 5 bullets.",
-    model="gemini:default",
-    dry_run=False,
-)
-```
+These examples are meant to answer the big questions quickly:
+1. How do I call Rondo from MCP in real work?
+2. How do I script prompts and decisions with structured JSON?
+3. How do I prove behavior (plans vs subprocess vs HTTP) and monitor reliability?
 
-Returns JSON: task results, cost, duration — or an **inline/agent dispatch plan** for Claude models; the host is supposed to execute the plan (see `rondo-dispatch` skill).
-
-## 2. Multi-provider review (`rondo_multi_review`)
-
-```text
-rondo_multi_review(
-    prompt="Review this architecture for scalability issues.\n\n```text\n<paste design>\n```",
-    providers='["gemini:gemini-2.5-flash", "grok:grok-3"]',
-    dry_run=False,
-)
-```
-
-## 3. File review (`rondo_review_file`)
-
-```text
-rondo_review_file(path="/absolute/path/to/file.py", dry_run=False)
-```
-
-## 4. Health (`rondo_health`)
-
-```text
-rondo_health()
-```
-
-## 5. Metrics (`rondo_metrics`)
-
-```text
-rondo_metrics()
-```
-
-## 6. Second opinion — local (`rondo_explain`)
-
-Requires Ollama (or configured local model). Near-zero dollar cost.
-
-```text
-rondo_explain(output="The previous model claimed X …", question="Is this correct?")
-```
-
-## 7. Cloud dispatch with tier (`rondo_cloud`)
-
-```text
-rondo_cloud(prompt="Deep analysis of coupling in this module.", tier="high", dry_run=False)
-```
-
-## 8. Other high-use tools (add to your mental model)
-
-| Tool | When |
-|------|------|
-| `rondo_cost` | Spend over last N days |
-| `rondo_history` | Recent dispatches |
-| `rondo_dispatch_info` | Version, capabilities, what’s enabled |
-| `rondo_models` | What models/providers are configured |
-| `rondo_chain` | Pipeline: step N output → step N+1 |
-| `rondo_run_status` | Poll a **background** `rondo_run` |
-
-## Output
-
-All tools return **JSON strings**. Multi-review results include per-provider entries with status, output, cost, and duration.
+Use this folder as your MCP playbook.

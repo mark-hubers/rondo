@@ -268,3 +268,5 @@ Rondo exposes **16 subcommands** plus optional **inline prompt** mode (first arg
 - Copy and edit files under `examples/`.
 - Tune `~/.rondo/config.toml` for providers and routing.
 - Read `docs/WHY-RONDO.md` or `docs/GOLDEN-PATH.md` for deeper workflows.
+- For Claude Code workflows, use `examples/mcp/` (13 MCP examples).
+- For shell automation patterns, use `examples/cli/` (scripted real-world recipes).

@@ -124,20 +124,26 @@ Adds three things to Rondo that make it usable without Python knowledge:
 | 452 | Template variables: `{{task_name.field}}` in instruction — replaced with field value from named task's result. Only dot-separated `name.field` allowed — no nested expressions, no function calls. Validated at parse time. | SHOULD | Template test |
 | 453 | Circular dependencies MUST be detected at load time and rejected. | MUST | Cycle test |
 
-### In-Session Dispatch (the 90% use case — RONDO-253)
+### In-Session Dispatch (execution mode contract — RONDO-265)
 
-Mark's primary use of Rondo is from inside Claude Code. Three distinct dispatch paths based on model parameter:
+Execution mode is the HOW; model is the WHERE.
+
+| Execution | Outcome | Executor | Cost | Context |
+|---|---|---|---|---|
+| `inline` | plan JSON returned | host session | $0 on Max | current session context |
+| `subprocess` | task results returned | `claude -p` | Max quota / API auth path | fresh subprocess context |
+| `agent` | agent plan JSON returned | host Agent tool | $0 on Max | isolated agent task context |
 
 | Req # | Requirement | Priority | Test |
 |-------|-------------|----------|------|
-| 460 | When `model=""` (empty or omitted) inside Claude Code, `rondo_run` MUST return an `inline_dispatch_plan`. The host (Claude Code, via `rondo-dispatch` skill) executes the prompt in the current session using the current model. Cost: $0 on Max plan. | MUST | MCP inline test |
-| 461 | When `model` is a Claude model name (sonnet/opus/haiku) inside Claude Code, `rondo_run` MUST return an `agent_dispatch_plan`. The host spawns an Agent with the specified model. Cost: $0 on Max plan. | MUST | MCP agent test |
-| 462 | When `model` has a provider prefix (`anthropic:X`, `gemini:X`, `grok:X`, etc.), `rondo_run` MUST dispatch via HTTP adapter regardless of session context. The `anthropic:` prefix explicitly means "use the paid API, not Max plan." | MUST | HTTP dispatch test |
-| 463 | The `rondo-dispatch` skill MUST teach Claude Code to auto-execute inline plans: extract the `prompt` field, execute it directly (as the current model), return results in Rondo's structured JSON format. Raw plan JSON MUST NOT be shown to the user. | MUST | Skill behavior test |
-| 464 | The `rondo-dispatch` skill MUST teach Claude Code to auto-execute agent plans: spawn an Agent with the `model` and `prompt` from the plan, collect results. | MUST | Skill agent test |
+| 460 | `execution="inline"` MUST return an `inline_dispatch_plan` (`engine=inline`, `kind=inline_dispatch_plan`) and MUST NOT spawn subprocess dispatch. | MUST | Inline plan test |
+| 461 | `execution="subprocess"` MUST execute via `claude -p` and return task results (`tasks` array), not a host plan. | MUST | Subprocess result test |
+| 462 | `execution="agent"` MUST return an `agent_dispatch_plan` (`engine=agent`, `kind=agent_dispatch_plan`) for host Agent execution. | MUST | Agent plan test |
+| 463 | Default `execution=""` MUST resolve by caller type: MCP (`_session` set) -> `inline`; Python library (`_session=None`) -> `subprocess`; CLI -> `subprocess`. | MUST | Caller default test |
+| 464 | Provider-prefixed models (`anthropic:`, `gemini:`, `grok:`, `openai:`, `mistral:`, `local:`) MUST bypass execution mode and route to HTTP adapters. | MUST | Prefix bypass test |
 | 465 | The `anthropic:` prefix MUST resolve Claude shorthand names to API model IDs: `anthropic:haiku` -> `claude-haiku-4-5`, `anthropic:sonnet` -> `claude-sonnet-4-6`, `anthropic:opus` -> `claude-opus-4-6`. | MUST | Alias test |
-| 466 | Python library callers (`_session=None`) inside Claude Code: inline/agent plans MUST fall back to `anthropic:` API adapter automatically. Library callers cannot execute host plans. | MUST | Library fallback test |
-| 467 | Inline dispatch prompts MUST be executed without session CLAUDE.md rules applied — controlled prompting. Answer ONLY what the prompt asks, no extras. This is the equivalent of `--bare` for in-session work. | SHOULD | Bare inline test |
+| 466 | Idempotency cache keys MUST include `execution` so identical prompt+model requests with different execution modes do not collide. | MUST | Idempotency key test |
+| 467 | Security note: `inline` executes in full host session context (full repo access). `subprocess` MUST support scope control via `claude_p_add_dir` when configured. | MUST | Security test |
 
 ### Dispatch Config — claude -p and Agent settings (RONDO-257)
 
@@ -174,6 +180,21 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | 480 | `rondo` CLI MUST accept `--rules`, `--allowed-tools`, `--max-turns`, `--add-dir`, `--json-schema` flags. When provided, they override config.toml for that call. | SHOULD | CLI flag test |
 | 481 | Per-call overrides MUST work on all dispatch paths: claude -p subprocess, Agent, and HTTP adapters. | MUST | Cross-path test |
 | 482 | Integration tests MUST use real dispatch (no mocks). Tests call `rondo_run_file()` with per-call overrides and verify the subprocess received the correct flags. | MUST | Integration test |
+
+### Execution Parameter Interface (RONDO-265)
+
+| Req # | Requirement | Priority | Test |
+|-------|-------------|----------|------|
+| 490 | `rondo_run_file()` Python API MUST accept `execution` with allowed values `inline`, `subprocess`, `agent`, or empty string for auto. | MUST | API signature test |
+| 491 | MCP `rondo_run` tool MUST accept and forward `execution` to `rondo_run_file()`. | MUST | MCP pass-through test |
+| 492 | `RondoConfig` MUST include `default_execution` (empty string default = auto). | MUST | Config schema test |
+| 493 | `default_execution` in `~/.rondo/config.toml` MUST be applied when call-level `execution` is empty. | MUST | Config default test |
+| 494 | Invalid execution values MUST return a structured `ERR_INVALID_EXECUTION` error response. | MUST | Validation test |
+| 495 | `background=True` MUST continue to force subprocess execution regardless of execution mode. | MUST | Background override test |
+| 496 | `model="*:new"` MUST continue to force subprocess execution regardless of execution mode. | MUST | New suffix test |
+| 497 | `execution="agent"` with non-Claude non-prefixed model MUST return validation error (`ERR_INVALID_EXECUTION_MODEL`). | SHOULD | Validation test |
+| 498 | Existing callers that relied on `_session=object()` for subprocess MUST pass `execution="subprocess"` explicitly to preserve old behavior. | MUST | Back-compat test |
+| 499 | Skill/docs/examples MUST describe execution mode behavior consistently with reqs 460-467 and 490-498. | MUST | Doc parity test |
 
 ---
 

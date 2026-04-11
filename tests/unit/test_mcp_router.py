@@ -399,35 +399,36 @@ class TestDispatchEngineIntegration:
     """RONDO-129: Test that rondo_run_file uses the routing engine correctly."""
 
     def test_empty_model_returns_inline_plan(self) -> None:
-        """rondo_run_file with empty model returns inline plan."""
+        """Explicit execution=inline returns inline plan."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(prompt="Check this code", model="", dry_run=True))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Check this code",
+                model="",
+                dry_run=False,
+                execution="inline",
+                _session=object(),
+            )
+        )
         assert result.get("engine") == "inline"
         assert result.get("kind") == "inline_dispatch_plan"
         assert result["prompt"] == "Check this code"
 
     def test_claude_model_in_session_returns_agent_plan(self) -> None:
-        """rondo_run_file with Claude model in-session returns agent plan.
-
-        This test runs inside Claude Code (CLAUDECODE is set).
-        Previously this would try subprocess and fail 100% of the time.
-        Now it returns an agent plan for the host session to execute.
-
-        _session must be set (as MCP does): library callers omit _session and
-        get Anthropic API fallback instead of a host plan.
-        """
-        import os
-
-        if not os.environ.get("CLAUDECODE"):
-            # -- Outside session: Claude models go to subprocess, which is correct
-            return
+        """Explicit execution=agent returns agent plan."""
         from rondo.mcp_server import rondo_run_file
 
         host_session = object()
         for model in ("sonnet", "opus", "haiku"):
             result = json.loads(
-                rondo_run_file(prompt="Say hello", model=model, dry_run=True, _session=host_session)
+                rondo_run_file(
+                    prompt=f"agent plan {model}",
+                    model=model,
+                    dry_run=False,
+                    _session=host_session,
+                    execution="agent",
+                )
             )
             assert result.get("engine") == "agent", (
                 f"{model} in-session should return agent plan, not subprocess. "
@@ -450,8 +451,10 @@ class TestDispatchEngineIntegration:
             rondo_run_file(
                 prompt="Review src/main.py",
                 model="",
-                dry_run=True,
+                dry_run=False,
                 done_when="List all findings as JSON",
+                execution="inline",
+                _session=object(),
             )
         )
         assert result["engine"] == "inline"
@@ -478,92 +481,105 @@ class TestDispatchEngineIntegration:
 
 
 class TestClaudeCodeInlineDispatch:
-    """RONDO-254/255: Inside Claude Code, inline/agent routes to claude -p subprocess.
+    """Execution parameter contract for rondo_run_file defaults and overrides."""
 
-    Updated contract (previously used Anthropic API fallback for library callers):
-    - Inside CC with model="" or Claude model → subprocess with bare=False
-    - Both _session=None (library) and _session=object() (MCP) get subprocess routing
-    - No more host plans returned — subprocess gets real results via claude -p
-    """
-
-    def test_session_none_sonnet_routes_to_subprocess(self, monkeypatch) -> None:
-        """Library caller with model='sonnet' inside CC → subprocess dispatch."""
-        monkeypatch.setenv("CLAUDECODE", "1")
-        done = {
-            "status": "done",
-            "round_name": "inline",
-            "tasks": [],
-            "done_count": 0,
-            "error_count": 0,
-            "pending_count": 0,
-            "total_cost_usd": 0.0,
-            "duration_sec": 0.0,
-            "dry_run": False,
-        }
-        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+    def test_execution_inline_with_mcp_session_returns_inline_plan(self) -> None:
+        result = json.loads(
             rondo_run_file(
-                prompt="test_session_none_sonnet_routes_to_subprocess_unique",
-                model="sonnet",
-                dry_run=False,
-                _session=None,
-            )
-        mock_ex.assert_called_once()
-        ## Routes to subprocess with Claude shorthand (sonnet), not anthropic API
-        assert mock_ex.call_args[0][4] == "sonnet"
-
-    def test_session_none_empty_model_routes_to_subprocess(self, monkeypatch) -> None:
-        """Library caller with model='' inside CC → subprocess with sonnet default."""
-        monkeypatch.setenv("CLAUDECODE", "1")
-        done = {
-            "status": "done",
-            "round_name": "inline",
-            "tasks": [],
-            "done_count": 0,
-            "error_count": 0,
-            "pending_count": 0,
-            "total_cost_usd": 0.0,
-            "duration_sec": 0.0,
-            "dry_run": False,
-        }
-        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
-            rondo_run_file(
-                prompt="test_session_none_empty_model_routes_to_subprocess_unique",
-                model="",
-                dry_run=False,
-                _session=None,
-            )
-        mock_ex.assert_called_once()
-        ## Empty model → "sonnet" default via subprocess
-        assert mock_ex.call_args[0][4] == "sonnet"
-
-    def test_mcp_session_also_routes_to_subprocess(self, monkeypatch) -> None:
-        """MCP caller with _session=object() inside CC → subprocess (not plan).
-
-        RONDO-255: changed from returning agent plan to routing to subprocess.
-        Mark's request: rondo_run should DO the task, not return a plan.
-        """
-        monkeypatch.setenv("CLAUDECODE", "1")
-        done = {
-            "status": "done",
-            "round_name": "inline",
-            "tasks": [],
-            "done_count": 0,
-            "error_count": 0,
-            "pending_count": 0,
-            "total_cost_usd": 0.0,
-            "duration_sec": 0.0,
-            "dry_run": False,
-        }
-        ## -- RONDO-264: unique prompt to bypass idempotency cache from other tests
-        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
-            rondo_run_file(
-                prompt="test_mcp_session_also_routes_to_subprocess_unique",
+                prompt="unique execution inline mcp plan",
                 model="sonnet",
                 dry_run=False,
                 _session=object(),
+                execution="inline",
+            )
+        )
+        assert result["engine"] == "inline"
+        assert result["kind"] == "inline_dispatch_plan"
+
+    def test_execution_subprocess_calls_dispatch(self) -> None:
+        done = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [],
+            "done_count": 0,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+            rondo_run_file(
+                prompt="unique execution subprocess python",
+                model="sonnet",
+                dry_run=False,
+                _session=None,
+                execution="subprocess",
             )
         mock_ex.assert_called_once()
         assert mock_ex.call_args[0][4] == "sonnet"
+
+    def test_execution_auto_with_mcp_session_defaults_inline(self) -> None:
+        result = json.loads(
+            rondo_run_file(
+                prompt="unique execution auto mcp inline",
+                model="sonnet",
+                dry_run=False,
+                _session=object(),
+                execution="",
+            )
+        )
+        assert result["engine"] == "inline"
+        assert result["kind"] == "inline_dispatch_plan"
+
+    def test_execution_auto_with_python_session_defaults_subprocess(self) -> None:
+        done = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [],
+            "done_count": 0,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+            rondo_run_file(
+                prompt="unique execution auto python subprocess",
+                model="sonnet",
+                dry_run=False,
+                _session=None,
+                execution="",
+            )
+        mock_ex.assert_called_once()
+        assert mock_ex.call_args[0][4] == "sonnet"
+
+    def test_anthropic_prefix_bypasses_execution_mode(self) -> None:
+        done = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [],
+            "done_count": 0,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": True,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+            result = json.loads(
+                rondo_run_file(
+                    prompt="unique anthropic bypass execution",
+                    model="anthropic:sonnet",
+                    dry_run=True,
+                    _session=object(),
+                    execution="inline",
+                )
+            )
+        mock_ex.assert_called_once()
+        assert "engine" not in result
+        assert result["status"] in ("done", "partial")
 
 
 class TestInlineDispatch:

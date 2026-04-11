@@ -7,20 +7,12 @@ Run from the ``rondo`` package root (installed editable or ``PYTHONPATH=src``), 
     cd rondo && uv run python examples/api/01_simple_dispatch.py
     cd rondo && uv run python examples/api/code_review_to_findings.py
 
-Why ``_session`` matters
-------------------------
-``rondo_run_file(..., model="", ...)`` normally resolves to an **inline** or **agent**
-plan: JSON instructions for the *host* (Claude Code / MCP) to execute, not task
-results with a ``tasks`` array.
+Why ``execution`` matters
+-------------------------
+Python examples explicitly pass ``execution="subprocess"`` so they always return
+task results (``status``, ``tasks``, …) instead of host plan JSON.
 
-Passing a **non-None** ``_session`` tells Rondo you are in a host-executable context.
-The dispatcher then rewrites that route to a real ``claude -p`` subprocess so Python
-callers receive normal round JSON (``status``, ``tasks``, …). The MCP server passes
-the real client session; these examples use :data:`HOST_SESSION_PLACEHOLDER` — a
-documented sentinel, not a live MCP session.
-
-Provider models (``gemini:...``, ``anthropic:...``) always use the HTTP adapter and
-do not need this sentinel for routing, but passing it is harmless.
+Provider models (``gemini:...``, ``anthropic:...``) still use the HTTP adapter.
 
 See also: ``rondo_run_file`` docstring in ``rondo.mcp_dispatch``.
 """
@@ -31,15 +23,11 @@ import json
 from typing import Any
 
 __all__ = [
-    "HOST_SESSION_PLACEHOLDER",
     "banner",
     "first_task_parsed_json",
     "invoke_rondo",
     "run_prompt_json",
 ]
-
-# -- Single instance: any non-None object satisfies the routing contract.
-HOST_SESSION_PLACEHOLDER = object()
 
 
 def banner(title: str, char: str = "=", width: int = 64) -> str:
@@ -61,6 +49,7 @@ def invoke_rondo(
     project: str = "",
     max_budget: float = 0.0,
     file_path: str = "",
+    execution: str = "subprocess",
 ) -> dict[str, Any]:
     """Call ``rondo_run_file`` and return the top-level JSON object.
 
@@ -76,7 +65,7 @@ def invoke_rondo(
         model=model,
         dry_run=dry_run,
         timeout_sec=timeout_sec,
-        _session=HOST_SESSION_PLACEHOLDER,
+        execution=execution,
         rules=rules,
         allowed_tools=allowed_tools or "",
         max_turns=max_turns,
@@ -92,7 +81,7 @@ def invoke_rondo(
     if data.get("status") == "plan" and "engine" in data:
         raise RuntimeError(
             "Received a host plan instead of task results. "
-            "Use invoke_rondo() (sets _session) or an explicit provider-prefixed model."
+            "Use execution='subprocess' for scripts or pass a provider-prefixed model."
         )
     err = data.get("error") or data.get("reason")
     if data.get("status") == "error" and err and not data.get("tasks"):
@@ -140,6 +129,7 @@ def run_prompt_json(
     project: str = "",
     max_budget: float = 0.0,
     file_path: str = "",
+    execution: str = "subprocess",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Invoke Rondo and return ``(full_envelope, first_task_json)``."""
     env = invoke_rondo(
@@ -154,5 +144,6 @@ def run_prompt_json(
         project=project,
         max_budget=max_budget,
         file_path=file_path,
+        execution=execution,
     )
     return env, first_task_parsed_json(env)

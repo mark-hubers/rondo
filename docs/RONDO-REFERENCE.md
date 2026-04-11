@@ -100,8 +100,13 @@ Also exposes `rondo://help` resource for AI agent discovery (version, commands, 
 
 | Tool | Parameters | What it does |
 |------|-----------|-------------|
-| **rondo_run** | `file_path`, `prompt`, `model`, `dry_run`, `background`, `max_budget`, `timeout_sec`, `done_when`, `project` | Run a round file OR inline prompt. `dry_run=True` previews. `background=True` for async. |
+| **rondo_run** | `file_path`, `prompt`, `model`, `execution`, `dry_run`, `background`, `max_budget`, `timeout_sec`, `done_when`, `project` | Run a round file OR inline prompt. `execution` controls dispatch mode (`inline|subprocess|agent|""`). `dry_run=True` previews. `background=True` for async. |
 | **rondo_run_status** | `dispatch_id`, `brief`, `heartbeat` | Check background dispatch. 3 detail tiers: heartbeat (~10 tokens), brief (~40), full (~300+). |
+
+Execution defaults when `execution=""`:
+- MCP caller: `inline`
+- Python/CLI caller: `subprocess`
+- Provider-prefixed models always route HTTP and bypass execution mode
 
 ### Composition (6 tools)
 

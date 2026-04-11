@@ -27,11 +27,11 @@ The append-only JSONL pattern eliminates this race entirely:
 This matches the proven pattern used by audit.py/spool.py/history.py.
 
 This module provides:
-    compute_idempotency_key(prompt, model) — SHA-256 of prompt+model
+    compute_idempotency_key(prompt, model, execution) — SHA-256 of prompt+model+execution
     get_cached_result(key) — return cached dict if within TTL
     cache_result(key, result) — store result for future dedupe
 
-Default TTL: 5 minutes. Cache keyed by (prompt_hash, model).
+Default TTL: 5 minutes. Cache keyed by (prompt_hash, model, execution).
 Thread-safe via lock. Cross-process via append-only JSONL backing store.
 """
 
@@ -205,12 +205,12 @@ def _serialize_result(result: Any) -> dict[str, Any] | None:
         return None
 
 
-def compute_idempotency_key(prompt: str, model: str) -> str:
-    """Generate stable idempotency key from prompt + model.
+def compute_idempotency_key(prompt: str, model: str, execution: str = "") -> str:
+    """Generate stable idempotency key from prompt + model + execution.
 
-    Returns SHA-256 hex digest. Same prompt + same model = same key.
+    Returns SHA-256 hex digest. Same prompt + same model + same execution = same key.
     """
-    normalized = f"{model}\n{prompt}"
+    normalized = f"{model}\n{execution}\n{prompt}"
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 

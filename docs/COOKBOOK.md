@@ -231,5 +231,24 @@ rondo_run_status(dispatch_id=dispatch_id)
 
 ---
 
+## Recipe 9: Pick the Right Execution Mode
+
+**Situation:** You need to choose host-plan vs subprocess behavior for `rondo_run`.
+
+| Need | Use |
+|---|---|
+| Keep current session context (Claude host executes) | `execution="inline"` |
+| Fresh subprocess run with result JSON and audit trail | `execution="subprocess"` |
+| Spawn a host Agent with a specific Claude model | `execution="agent"` |
+
+Defaults when omitted:
+- MCP caller: inline
+- Python/CLI caller: subprocess
+
+Model prefixes still win routing:
+- `anthropic:...`, `gemini:...`, `grok:...`, `openai:...`, `mistral:...`, `local:...` -> HTTP adapters regardless of execution mode
+
+---
+
 *For the complete system guide, see `docs/RONDO-REFERENCE.md`.*
 *For first-time setup, see `docs/GOLDEN-PATH.md`.*

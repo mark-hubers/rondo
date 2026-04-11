@@ -114,13 +114,14 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 ### Dispatch — Inline Plan (Session 94 — MCP optimization)
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| 082 | When `rondo_run` is called via MCP with a Claude model name (sonnet/opus/haiku or empty) and `prompt` is provided, Rondo MUST return an `inline_dispatch_plan` JSON instead of spawning a subprocess. The host (Claude Code) executes the plan inline. This is the 90% case — callers want the current session's context. | MUST |
+| 082 | When `execution="inline"` is used for `rondo_run`/`rondo_run_file`, Rondo MUST return an `inline_dispatch_plan` JSON instead of spawning a subprocess. For MCP callers, `execution=""` defaults to this inline behavior. | MUST |
 | 088 | To force a clean subprocess (separate context), callers MUST use the `:new` suffix: `model="sonnet:new"`. This strips the suffix and dispatches via subprocess with `--bare`. Use when you need isolated context or a different model than the current session. | MUST |
 | 083 | `inline_dispatch_plan` schema: `{kind: "inline_dispatch_plan", prompt, done_when, model: "current", project, note}`. Host reads this and does the work in the current session. | MUST |
 | 084 | When `model=""` and `file_path` is provided (round file mode), Rondo MUST dispatch normally (not return a plan). Round files need real dispatch infrastructure. | MUST |
 | 085 | `background=True` is ignored when model is omitted — inline plans execute in the foreground by the host. No background job is created. | MUST |
 | 086 | Inline dispatch plans skip audit/history/metrics (Rondo didn't do the work — the host did). The ai_help documentation MUST state this clearly. | MUST |
 | 087 | `bare=True` is the default for subprocess dispatch (Session 94 — Finding #198). Subprocess startup drops from 70s to ~5s. Tasks requiring Caliber hooks MUST set `bare=False`. | MUST |
+| 089 | `execution` MUST be accepted by both `rondo_run_file()` and MCP `rondo_run`, with allowed values `inline | subprocess | agent | ""` where empty auto-detects caller defaults. | MUST |
 
 ### Dispatch — Model Routing
 | ID | Requirement | Priority |

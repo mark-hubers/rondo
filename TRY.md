@@ -101,6 +101,14 @@ Claude calls `rondo_review_file` with the right parameters.
 
 **22 MCP tools available** — see `rondo --ai-help` for the full list.
 
+### Execution Mode Quick Note
+
+For `rondo_run` / `rondo_run_file`:
+- `execution="inline"` returns a host plan JSON (MCP default)
+- `execution="subprocess"` returns real task results (Python/CLI default)
+- `execution="agent"` returns an agent plan JSON
+- Provider-prefixed models (for example `anthropic:...`, `gemini:...`) always use HTTP adapters
+
 ---
 
 ## What Just Happened

@@ -126,6 +126,11 @@ In Claude Code, just ask:
 
 Claude calls `rondo_run(prompt="...", model="gemini:gemini-2.5-flash")` automatically.
 
+Execution mode note:
+- MCP defaults to `execution="" -> inline` (host plan)
+- For scripted runs or fresh sessions, use `execution="subprocess"`
+- For host Agent plans, use `execution="agent"`
+
 ### Pattern D: Local Model ($0 cost)
 
 ```bash

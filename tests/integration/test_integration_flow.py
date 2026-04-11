@@ -382,22 +382,32 @@ class TestMasterDispatchFlow:
         tmp_files = list(tmp_path.rglob("*.tmp"))
         assert len(tmp_files) == 0, f"Atomic write leaked tmp files on failure: {tmp_files}"
 
-    def test_inline_and_agent_route_to_dispatch(self, tmp_path, monkeypatch) -> None:
-        """RONDO-254/255: inline/agent plans now route to subprocess dispatch.
+    def test_schema_version_survives_full_flow(self, tmp_path, monkeypatch) -> None:
+        """Inline plan path keeps schema_version for host execution contract."""
+        from rondo.mcp_server import rondo_run_file
 
-        Previously: returned plan JSON with schema_version for host to execute.
-        Now: inside Claude Code, inline/agent auto-routes to claude -p subprocess.
-        The test verifies the dispatch result has 'tasks' array (subprocess path),
-        not 'schema_version' (plan path).
-        """
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+
+        result = json.loads(
+            rondo_run_file(
+                prompt="integration inline schema version unique",
+                model="sonnet",
+                dry_run=False,
+                _session=object(),
+                execution="inline",
+            )
+        )
+        assert result["engine"] == "inline"
+        assert result["status"] == "plan"
+        assert result["schema_version"] == PLAN_SCHEMA_VERSION
+
+    def test_execution_subprocess_returns_task_results(self, tmp_path, monkeypatch) -> None:
+        """execution=subprocess returns dispatch results instead of host plans."""
         from unittest.mock import patch
 
         from rondo.mcp_server import rondo_run_file
 
         monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
-        monkeypatch.setenv("CLAUDECODE", "1")
-
-        ## Mock _execute_dispatch so we don't actually spawn claude -p
         done = {
             "status": "done",
             "round_name": "inline",
@@ -409,32 +419,20 @@ class TestMasterDispatchFlow:
             "duration_sec": 0.0,
             "dry_run": False,
         }
-        host_session = object()
 
         with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done):
-            inline_result = json.loads(
+            result = json.loads(
                 rondo_run_file(
-                    prompt="test_inline_route_survives_unique",
-                    model="",
-                    dry_run=False,
-                    _session=host_session,
-                )
-            )
-        ## New contract: returns dispatch result with tasks, not a plan
-        assert "tasks" in inline_result
-        assert inline_result.get("status") == "done"
-
-        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done):
-            agent_result = json.loads(
-                rondo_run_file(
-                    prompt="test_agent_route_survives_unique",
+                    prompt="integration subprocess results unique",
                     model="sonnet",
                     dry_run=False,
-                    _session=host_session,
+                    _session=None,
+                    execution="subprocess",
                 )
             )
-        assert "tasks" in agent_result
-        assert agent_result.get("status") == "done"
+
+        assert result["status"] == "done"
+        assert "tasks" in result
 
     def test_sanitize_before_audit_verified_with_both_paths(self, tmp_path) -> None:
         """RONDO-202: Both INTENT (record_intent) and OUTCOME (_finalize_dispatch) sanitize before persist.

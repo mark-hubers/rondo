@@ -513,6 +513,7 @@ def _build_round_and_config(
     global_toml = get_rondo_config()
     config_kwargs: dict = {
         "default_model": model,
+        "default_execution": global_toml.get("default_execution", ""),
         "dry_run": dry_run,
         "task_timeout_sec": timeout_sec,
         "bare": bare,
@@ -543,6 +544,165 @@ def _is_in_session() -> bool:
 # -- RONDO-146 (Finding #207): plan schema version
 # -- Bump when plan response format changes in a non-backward-compatible way
 PLAN_SCHEMA_VERSION = "1"
+_EXECUTION_MODES = {"inline", "subprocess", "agent"}
+
+
+def _normalize_execution_mode(raw: str) -> str:
+    """Normalize execution mode input to inline|subprocess|agent|''."""
+    return (raw or "").strip().lower()
+
+
+def _resolve_effective_execution(execution: str, session: Any) -> tuple[str, str]:
+    """Resolve effective execution mode with caller-aware defaults.
+
+    Returns (effective_mode, source) where source is one of:
+    explicit | config_default | auto
+    """
+    mode = _normalize_execution_mode(execution)
+    if mode:
+        return mode, "explicit"
+
+    # -- default_execution in ~/.rondo/config.toml (empty = auto detect)
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+    cfg_mode = _normalize_execution_mode(str(get_rondo_config().get("default_execution", "")))
+    if cfg_mode:
+        return cfg_mode, "config_default"
+
+    # -- auto by caller type: MCP (session passed) → inline, Python/CLI → subprocess
+    return ("inline" if session is not None else "subprocess"), "auto"
+
+
+def _build_inline_plan(prompt: str, done_when: str, project: str) -> dict:
+    """Build an inline host-execution plan."""
+    return {
+        "engine": "inline",
+        "status": "plan",
+        "schema_version": PLAN_SCHEMA_VERSION,
+        "kind": "inline_dispatch_plan",
+        "prompt": prompt,
+        "done_when": done_when,
+        "model": "current",
+        "project": project,
+        "reason": "execution=inline requested host execution plan",
+    }
+
+
+def _build_agent_plan(prompt: str, done_when: str, project: str, model: str) -> dict:
+    """Build an agent host-execution plan."""
+    return {
+        "engine": "agent",
+        "status": "plan",
+        "schema_version": PLAN_SCHEMA_VERSION,
+        "kind": "agent_dispatch_plan",
+        "prompt": prompt,
+        "done_when": done_when,
+        "model": model,
+        "project": project,
+        "reason": "execution=agent requested host Agent plan",
+        "note": "Host should spawn an Agent with this model and prompt.",
+    }
+
+
+def _build_subprocess_plan(model: str, reason: str) -> dict:
+    """Build a subprocess dispatch plan with RONDO-254 non-bare behavior."""
+    return {
+        "engine": "subprocess",
+        "status": "plan",
+        "schema_version": PLAN_SCHEMA_VERSION,
+        "model": model or "sonnet",
+        "reason": reason,
+        "_bare": False,  # -- keep Max plan OAuth path
+    }
+
+
+def _should_bypass_execution_override(provider: str, background: bool, force_subprocess_suffix: bool, engine: dict) -> bool:
+    """Return True when execution mode should not override base routing."""
+    return provider or background or force_subprocess_suffix or engine["engine"] == "http"
+
+
+def _normalize_subprocess_model(model: str) -> str:
+    """Normalize model for subprocess execution mode."""
+    requested_model = (model or "").strip()
+    if requested_model in ("", "current"):
+        return "sonnet"
+    if requested_model in {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}:
+        return requested_model
+    return "sonnet"
+
+
+def _build_agent_plan_or_error(prompt: str, done_when: str, project: str, model: str) -> tuple[dict | None, str | None]:
+    """Build agent plan or return serialized validation error."""
+    requested_model = (model or "").strip() or "sonnet"
+    if is_claude_model(requested_model):
+        return _build_agent_plan(prompt, done_when, project, requested_model), None
+    return (
+        None,
+        json.dumps(
+            {
+                "status": "error",
+                "error": f"execution='agent' requires a Claude model (sonnet|opus|haiku), got '{requested_model}'",
+                "code": "ERR_INVALID_EXECUTION_MODEL",
+            }
+        ),
+    )
+
+
+def _route_by_execution_mode(
+    *,
+    engine: dict,
+    model: str,
+    execution: str,
+    session: Any,
+    background: bool,
+    prompt: str,
+    done_when: str,
+    project: str,
+) -> tuple[dict, str, str | None]:
+    """Apply execution mode overrides to base engine routing.
+
+    Returns (engine, model, error_json_or_none).
+    """
+    provider, _ = parse_model((model or "").strip())
+    force_subprocess_suffix = bool((model or "").strip().endswith(":new"))
+    execution_mode, mode_source = _resolve_effective_execution(execution, session)
+    if execution_mode not in _EXECUTION_MODES:
+        return (
+            engine,
+            model,
+            json.dumps(
+                {
+                    "status": "error",
+                    "error": f"Invalid execution '{execution_mode}'. Expected inline|subprocess|agent",
+                    "code": "ERR_INVALID_EXECUTION",
+                }
+            ),
+        )
+
+    # -- Execution only applies to Claude host/subprocess paths.
+    # -- Provider-prefixed models and hard subprocess triggers (:new/background) keep base routing.
+    if _should_bypass_execution_override(provider, background, force_subprocess_suffix, engine):
+        return engine, model, None
+
+    if execution_mode == "inline":
+        return _build_inline_plan(prompt, done_when, project), model, None
+
+    if execution_mode == "agent":
+        agent_plan, agent_error = _build_agent_plan_or_error(prompt, done_when, project, model)
+        if agent_error:
+            return engine, model, agent_error
+        return agent_plan or engine, model, None
+
+    # -- subprocess mode
+    requested_model = _normalize_subprocess_model(model)
+    return (
+        _build_subprocess_plan(
+            requested_model,
+            f"execution={execution_mode} ({mode_source}) routes to claude -p subprocess",
+        ),
+        requested_model,
+        None,
+    )
 
 
 def estimate_token_count(text: str) -> int:
@@ -777,6 +937,7 @@ def rondo_run_file(
     max_turns: int = 0,
     add_dir: str = "",
     json_schema: str = "",
+    execution: str = "",
 ) -> str:
     """Run a round file or inline prompt — MCP dispatch tool.
 
@@ -792,6 +953,7 @@ def rondo_run_file(
         max_turns: --max-turns override (0 = use config default)
         add_dir: --add-dir override (additional directory access)
         json_schema: --json-schema override (platform-enforced structured output)
+        execution: dispatch mode override: inline | subprocess | agent
     """
     # -- RONDO-202 (Finding #227): wire structured_log request_id for tracing
 
@@ -822,10 +984,13 @@ def rondo_run_file(
             max_turns=max_turns,
             add_dir=add_dir,
             json_schema=json_schema,
+            execution=execution,
         )
 
 
-def _idempotency_lookup(prompt: str, model: str, dry_run: bool, background: bool) -> tuple[str, str | None]:
+def _idempotency_lookup(
+    prompt: str, model: str, execution: str, dry_run: bool, background: bool
+) -> tuple[str, str | None]:
     """RONDO-202 (Finding #227): look up cached result for (prompt, model).
 
     Returns (key, cached_result) — key is empty if not eligible.
@@ -833,7 +998,7 @@ def _idempotency_lookup(prompt: str, model: str, dry_run: bool, background: bool
     if not prompt or dry_run or background:
         return "", None
 
-    key = compute_idempotency_key(prompt, model)
+    key = compute_idempotency_key(prompt, model, execution)
     cached = get_cached_result(key)
     if cached is None:
         return key, None
@@ -872,6 +1037,7 @@ def _rondo_run_file_inner(
     max_turns: int = 0,
     add_dir: str = "",
     json_schema: str = "",
+    execution: str = "",
 ) -> str:
     """Inner dispatch body — extracted for complexity budget. RONDO-202."""
     file_path, project, err = _validate_run_inputs(file_path, project, prompt)
@@ -880,11 +1046,11 @@ def _rondo_run_file_inner(
         return err
 
     # -- RONDO-202 (Finding #227): idempotency cache — short-circuit duplicates
-    idempotency_key, cached = _idempotency_lookup(prompt, model, dry_run, background)
+    idempotency_key, cached = _idempotency_lookup(prompt, model, execution, dry_run, background)
     if cached is not None:
         return cached
 
-    # -- RONDO-129: Three-engine dispatch routing
+    # -- Base engine routing (provider prefixes/background/:new/context checks)
     engine = resolve_dispatch_engine(
         model=model,
         background=background,
@@ -900,40 +1066,24 @@ def _rondo_run_file_inner(
         reason=engine.get("reason", "")[:120],
     )
 
-    # -- RONDO-254/255: inline/agent plans → subprocess dispatch.
-    # -- MCP server does NOT have CLAUDECODE env var, so _is_in_session()
-    # -- is False. Use _session (from MCP ctx) OR CLAUDECODE (from Python).
-    # -- Either signal means we're serving Claude Code → subprocess is safe.
-    in_cc = _is_in_session() or _session is not None
-    if in_cc and engine["engine"] in ("inline", "agent"):
-        # -- Re-resolve to subprocess: use the Claude model name directly
-        # -- (dispatch.py build_command adds --bare --system-prompt-file)
-        agent_model = str(engine.get("model", "sonnet"))
-        if agent_model == "current":
-            agent_model = "sonnet"  # -- default for inline (no model specified)
-        dispatch_model = agent_model if agent_model in {"sonnet", "opus", "haiku"} else "sonnet"
-        model = dispatch_model
-        engine = {
-            "engine": "subprocess",
-            "status": "plan",
-            "schema_version": "1",
-            "model": dispatch_model,
-            "reason": "RONDO-254: inline/agent → subprocess (free on Max)",
-            "_bare": False,  # -- NO --bare: keep Max plan OAuth auth
-        }
-        log_event(
-            "INFO",
-            "engine re-resolved (inline/agent → bare subprocess)",
-            component="mcp_dispatch",
-            engine="subprocess",
-            model=dispatch_model,
-        )
+    if engine["engine"] == "error":
+        return json.dumps({"status": "error", "error": engine["reason"], "model": model})
+
+    engine, model, route_error = _route_by_execution_mode(
+        engine=engine,
+        model=model,
+        execution=execution,
+        session=_session,
+        background=background,
+        prompt=prompt,
+        done_when=done_when,
+        project=project,
+    )
+    if route_error:
+        return route_error
 
     if engine["engine"] in ("inline", "agent"):
         return json.dumps(engine, indent=2)
-
-    if engine["engine"] == "error":
-        return json.dumps({"status": "error", "error": engine["reason"], "model": model})
 
     # -- HTTP adapter or subprocess: proceed with dispatch
 

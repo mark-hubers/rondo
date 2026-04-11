@@ -57,6 +57,21 @@ rondo run examples/rounds/round_hello.py --model gemini:gemini-2.5-flash
 
 **Note:** `round_code_review.py` requires staged git changes (`git add`). Start with `round_hello.py`.
 
+### Dispatch Execution Modes (`rondo_run` / `rondo_run_file`)
+
+Rondo separates **how** work runs from **where** model traffic goes:
+
+| Parameter | Values | Meaning |
+|---|---|---|
+| `execution` | `inline` \| `subprocess` \| `agent` \| `""` | Dispatch mode (`""` = caller default) |
+| `model` | `sonnet`, `anthropic:...`, `gemini:...`, etc. | Model/provider routing target |
+
+Caller defaults when `execution=""`:
+- MCP caller (`_session` present): `inline`
+- Python library and CLI callers: `subprocess`
+
+Provider-prefixed models (`anthropic:`, `gemini:`, `grok:`, `openai:`, `mistral:`, `local:`) bypass execution mode and always route over HTTP adapters.
+
 ---
 
 ## What Rondo Does

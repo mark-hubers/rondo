@@ -134,6 +134,7 @@ class RondoConfig:  # pylint: disable=too-many-instance-attributes
     # -- dispatch
     auth: str = "max"
     default_model: str = "sonnet"
+    default_execution: str = ""  # -- empty=auto detect by caller, else inline|subprocess|agent
     effort: str = "high"
     output_format: str = "stream-json"
     claude_binary: str = "claude"
@@ -229,6 +230,10 @@ def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
     valid_models = ("opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]")
     if config.default_model not in valid_models:
         errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
+
+    valid_execution = ("", "inline", "subprocess", "agent")
+    if config.default_execution not in valid_execution:
+        errors.append(f"default_execution must be one of {valid_execution}, got '{config.default_execution}'")
 
     valid_perms = ("default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions")
     if config.permission_mode not in valid_perms:

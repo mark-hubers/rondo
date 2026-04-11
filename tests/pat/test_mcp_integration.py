@@ -26,7 +26,6 @@ import pytest
 # -- Ensure rondo is importable
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "src"))
 
-from rondo.mcp_dispatch import _is_in_session
 
 
 class TestMCPIntegration:
@@ -35,28 +34,40 @@ class TestMCPIntegration:
     def test_inline_via_mcp(self) -> None:
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(prompt="Do something", model="", dry_run=False))
+        result = json.loads(
+            rondo_run_file(
+                prompt="Do something",
+                model="",
+                dry_run=False,
+                _session=object(),
+                execution="",
+            )
+        )
         assert result["engine"] == "inline"
         assert result["status"] == "plan"
 
     def test_agent_via_mcp_in_session(self) -> None:
-        """Only validates if we're in a session. Otherwise sonnet→subprocess."""
+        """execution=agent returns an agent plan for MCP callers."""
         from rondo.mcp_server import rondo_run_file
 
-        result = json.loads(rondo_run_file(prompt="Do something", model="sonnet", dry_run=False))
-        if _is_in_session():
-            assert result["engine"] == "agent"
-            assert result["status"] == "plan"
-        else:
-            # -- Outside session: subprocess path (may fail, that's expected)
-            assert result.get("engine") == "subprocess" or "tasks" in result or "status" in result
+        result = json.loads(
+            rondo_run_file(
+                prompt="Do something",
+                model="sonnet",
+                dry_run=False,
+                _session=object(),
+                execution="agent",
+            )
+        )
+        assert result["engine"] == "agent"
+        assert result["status"] == "plan"
 
     def test_inline_returns_instantly(self) -> None:
         """Inline plan must return in <10ms — no I/O, no dispatch."""
         from rondo.mcp_server import rondo_run_file
 
         t0 = time.time()
-        rondo_run_file(prompt="x", model="", dry_run=False)
+        rondo_run_file(prompt="x", model="", dry_run=False, _session=object(), execution="")
         elapsed = time.time() - t0
         assert elapsed < 0.1, f"Inline plan took {elapsed:.3f}s — should be instant"
 

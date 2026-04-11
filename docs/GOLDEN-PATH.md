@@ -114,7 +114,7 @@ Sends to Gemini + Grok by default, merges findings.
 ### Pattern B: Overnight Batch
 
 ```bash
-rondo overnight examples/phases_overnight.py
+rondo overnight examples/rounds/phases_overnight.py
 ```
 
 Runs all phases sequentially, generates morning report.

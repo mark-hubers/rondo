@@ -2,7 +2,9 @@
 
 *Practical patterns for common dispatch situations. Each recipe is copy-paste ready.*
 
-**See also:** `docs/GOLDEN-PATH.md` (first-time setup), `docs/RONDO-REFERENCE.md` (full system guide)
+**See also:** `docs/GOLDEN-PATH.md` (first-time setup), `docs/RONDO-REFERENCE.md` (full system guide), `docs/EXAMPLE-VERIFICATION.md` (how to verify examples and prompt Claude to test)
+
+**Coverage:** These recipes plus `examples/cli/README.md`, `examples/mcp/README.md`, and `examples/cli/scripted-prompting.sh` are intended to span **most real usage**: multi-provider review, health/metrics debugging, overnight batches, local models, auth recovery, cost control, chains, and background polling.
 
 ---
 
@@ -69,14 +71,14 @@ rondo preflight                  # full environment check
 
 **Setup:**
 ```bash
-# Create a phases file (see examples/phases_overnight.py)
-rondo overnight examples/phases_overnight.py --dry-run   # preview
-rondo overnight examples/phases_overnight.py             # real run
+# Create a phases file (see examples/rounds/phases_overnight.py)
+rondo overnight examples/rounds/phases_overnight.py --dry-run   # preview
+rondo overnight examples/rounds/phases_overnight.py             # real run
 ```
 
 **Schedule it:**
 ```bash
-rondo schedule examples/phases_overnight.py --interval weekly --install
+rondo schedule examples/rounds/phases_overnight.py --interval weekly --install
 ```
 
 **Morning check:**
@@ -140,7 +142,7 @@ cat ~/.rondo/config.toml | grep -A 2 "providers"
 
 **Step 3 — Test the provider directly:**
 ```bash
-rondo run examples/round_hello.py --model gemini:gemini-2.5-flash
+rondo run examples/rounds/round_hello.py --model gemini:gemini-2.5-flash
 ```
 
 **Common causes:**

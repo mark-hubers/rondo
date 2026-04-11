@@ -42,12 +42,14 @@ uv tool install --editable . --force
 
 ## Step 2: Run the Smoke Test (1 minute)
 
+From the **rondo repo root** (or use absolute paths):
+
 ```bash
 # Dry-run — no AI calls, no cost
-rondo run examples/round_hello.py --dry-run
+rondo run examples/rounds/round_hello.py --dry-run
 
 # Expected output:
-# skipped: Hello World round (dry-run, no dispatch)
+# skipped: … (dry-run, no dispatch)
 ```
 
 If this works, Rondo is installed correctly.
@@ -56,7 +58,7 @@ If this works, Rondo is installed correctly.
 
 ```bash
 # Uses your Claude Code session — $0 on Max plan
-rondo run examples/round_hello.py
+rondo run examples/rounds/round_hello.py
 
 # Expected: "done: ..." with a response from Claude
 ```

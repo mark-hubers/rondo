@@ -27,15 +27,15 @@ echo ""
 ## The 'passed' field tells you if the AI succeeded.
 
 echo "--- Pattern 1: Retry on Failure ---"
-## In real use (remove --dry-run):
-## result=$(rondo "review this code for bugs" --model gemini:flash)
+## In real use (no --dry-run on inline; use rondo run FILE --dry-run to preview):
+## result=$(rondo "review this code for bugs" --model gemini:default)
 ## passed=$(echo "$result" | jq -r '.passed')
 ## if [ "$passed" = "false" ] || [ "$passed" = "null" ]; then
 ##     echo "Primary failed — trying premium model..."
 ##     result=$(rondo "review this code for bugs" --model opus)
 ## fi
 ## echo "$result" | jq '.issues'
-echo "  Would: try gemini:flash → if fails → try opus"
+echo "  Would: try gemini:default → if fails → try opus"
 
 ## ─── Pattern 2: Confidence Check ──────────────────────────────
 ## If the AI isn't confident enough, add context and retry.
@@ -43,7 +43,7 @@ echo "  Would: try gemini:flash → if fails → try opus"
 
 echo ""
 echo "--- Pattern 2: Confidence Escalation ---"
-## result=$(rondo "Is this login handler secure?" --model gemini:flash)
+## result=$(rondo "Is this login handler secure?" --model gemini:default)
 ## confidence=$(echo "$result" | jq -r '.confidence')
 ## if (( $(echo "$confidence < 0.8" | bc -l) )); then
 ##     echo "Low confidence ($confidence) — adding context..."
@@ -80,7 +80,7 @@ echo "  Would: find bugs → fix each → verify each → flag failures"
 
 echo ""
 echo "--- Pattern 4: Multi-AI Tiebreaker ---"
-## review_a=$(rondo "Is this code safe?" --model gemini:flash)
+## review_a=$(rondo "Is this code safe?" --model gemini:default)
 ## review_b=$(rondo "Is this code safe?" --model grok:grok-3)
 ##
 ## passed_a=$(echo "$review_a" | jq -r '.passed')
@@ -117,7 +117,7 @@ echo "--- Pattern 5: Budget-Aware Routing ---"
 ##     cost=0.003
 ##     spent=$(echo "$spent + $cost" | bc)
 ##     if (( $(echo "$spent <= $budget" | bc -l) )); then
-##         result=$(rondo "Explain quantum computing" --model gemini:flash)
+##         result=$(rondo "Explain quantum computing" --model gemini:default)
 ##     else
 ##         echo "Budget exceeded — using local result"
 ##     fi

@@ -9,6 +9,7 @@ VER-001: Product acceptance / unit test coverage.
 """
 
 import json
+from unittest.mock import patch
 
 from rondo.mcp_server import (
     rondo_run_file,
@@ -412,6 +413,9 @@ class TestDispatchEngineIntegration:
         This test runs inside Claude Code (CLAUDECODE is set).
         Previously this would try subprocess and fail 100% of the time.
         Now it returns an agent plan for the host session to execute.
+
+        _session must be set (as MCP does): library callers omit _session and
+        get Anthropic API fallback instead of a host plan.
         """
         import os
 
@@ -420,8 +424,11 @@ class TestDispatchEngineIntegration:
             return
         from rondo.mcp_server import rondo_run_file
 
+        host_session = object()
         for model in ("sonnet", "opus", "haiku"):
-            result = json.loads(rondo_run_file(prompt="Say hello", model=model, dry_run=True))
+            result = json.loads(
+                rondo_run_file(prompt="Say hello", model=model, dry_run=True, _session=host_session)
+            )
             assert result.get("engine") == "agent", (
                 f"{model} in-session should return agent plan, not subprocess. "
                 f"Got: {result.get('engine', result.get('status'))}"
@@ -468,6 +475,95 @@ class TestDispatchEngineIntegration:
     # -- RONDO-208: removed test_empty_prompt_and_model_is_error — exact
     # -- duplicate of test_mcp_integration.py::TestMCPIntegration::test_no_prompt_no_file_is_error
     # -- (PAT layer has it; unit layer is redundant for an MCP-server-level test).
+
+
+class TestClaudeCodeInlineDispatch:
+    """RONDO-254/255: Inside Claude Code, inline/agent routes to claude -p subprocess.
+
+    Updated contract (previously used Anthropic API fallback for library callers):
+    - Inside CC with model="" or Claude model → subprocess with bare=False
+    - Both _session=None (library) and _session=object() (MCP) get subprocess routing
+    - No more host plans returned — subprocess gets real results via claude -p
+    """
+
+    def test_session_none_sonnet_routes_to_subprocess(self, monkeypatch) -> None:
+        """Library caller with model='sonnet' inside CC → subprocess dispatch."""
+        monkeypatch.setenv("CLAUDECODE", "1")
+        done = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [],
+            "done_count": 0,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+            rondo_run_file(
+                prompt="test_session_none_sonnet_routes_to_subprocess_unique",
+                model="sonnet",
+                dry_run=False,
+                _session=None,
+            )
+        mock_ex.assert_called_once()
+        ## Routes to subprocess with Claude shorthand (sonnet), not anthropic API
+        assert mock_ex.call_args[0][4] == "sonnet"
+
+    def test_session_none_empty_model_routes_to_subprocess(self, monkeypatch) -> None:
+        """Library caller with model='' inside CC → subprocess with sonnet default."""
+        monkeypatch.setenv("CLAUDECODE", "1")
+        done = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [],
+            "done_count": 0,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+            rondo_run_file(
+                prompt="test_session_none_empty_model_routes_to_subprocess_unique",
+                model="",
+                dry_run=False,
+                _session=None,
+            )
+        mock_ex.assert_called_once()
+        ## Empty model → "sonnet" default via subprocess
+        assert mock_ex.call_args[0][4] == "sonnet"
+
+    def test_mcp_session_also_routes_to_subprocess(self, monkeypatch) -> None:
+        """MCP caller with _session=object() inside CC → subprocess (not plan).
+
+        RONDO-255: changed from returning agent plan to routing to subprocess.
+        Mark's request: rondo_run should DO the task, not return a plan.
+        """
+        monkeypatch.setenv("CLAUDECODE", "1")
+        done = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [],
+            "done_count": 0,
+            "error_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        ## -- RONDO-264: unique prompt to bypass idempotency cache from other tests
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done) as mock_ex:
+            rondo_run_file(
+                prompt="test_mcp_session_also_routes_to_subprocess_unique",
+                model="sonnet",
+                dry_run=False,
+                _session=object(),
+            )
+        mock_ex.assert_called_once()
+        assert mock_ex.call_args[0][4] == "sonnet"
 
 
 class TestInlineDispatch:

@@ -1,53 +1,77 @@
 # Rondo CLI Examples
 
-10 examples showing every way to use Rondo from the command line.
+Ways to drive Rondo from the shell: **round files** (YAML/Python), **`rondo run`**, **`rondo review`**, and **inline prompts** (`rondo "multi-word prompt"`).
 
 ## Prerequisites
 
-- Rondo installed (`pip install -e rondo/`)
-- At least one provider key set (e.g., `GEMINI_API_KEY`)
-- Run `rondo providers` to check which providers are available
+- Rondo on your PATH (`uv tool install …` or editable install from this repo — see `docs/GOLDEN-PATH.md`).
+- Optional: provider keys (`rondo providers`, `~/.rondo/config.toml`).
+- **YAML rounds** need PyYAML in the same environment as the `rondo` binary (the `uv`/`pip` install should pull it; if you see `No module named 'yaml'`, reinstall with project deps).
 
-## Examples
+## Inline prompt mode (`rondo "…"`)
 
 ```bash
-# 1. Simple prompt → structured JSON back
-rondo "What is Docker?"
+# Multi-word prompt only — the CLI treats a single token as a possible typo, not a prompt.
+rondo "What is Docker and when should I use it?" --model gemini:default
 
-# 2. Choose a specific provider
-rondo "Explain Kubernetes" --model gemini:flash
+# Provider tiers (recommended shorthand — resolves via ~/.rondo/config.toml):
+#   gemini:high | gemini:default | gemini:low
+# Or full model ids: gemini:gemini-2.5-flash
 
-# 3. Pipe data in via stdin
-echo "import os; os.system('rm -rf /')" | rondo "Is this code safe?"
+# Pipe extra context on stdin
+echo "def foo(): pass" | rondo "Review this code for bugs" --model gemini:default
 
-# 4. Named return field — scripts always know where to find the answer
-rondo "Find security issues" --field vulnerabilities
-
-# 5. Plain text mode (skip JSON, get human-readable output)
+# Structured JSON out (default). Plain text:
 rondo "Explain Docker in simple terms" --text
 
-# 6. Run a YAML round file (multiple tasks defined in YAML)
-rondo run examples/rounds/01-simple-review.yaml --dry-run
-
-# 7. Budget-capped batch (stops before exceeding limit)
-rondo run examples/rounds/03-budget-capped.yaml --max-budget 0.50
-
-# 8. Multi-provider comparison (same task to 3 AIs)
-rondo run examples/rounds/02-multi-provider.yaml --dry-run
-
-# 9. View provider health and learned scores
-rondo providers
-rondo learn
-
-# 10. Chain commands — use jq to extract fields for the next step
-rondo "Find bugs" --field bugs < app.py | jq -r '.bugs[]' | while read bug; do
-    rondo "Fix this bug: $bug" --field fix
-done
+# Named field in JSON (for scripting)
+rondo "Find security issues" --field vulnerabilities < app.py
 ```
 
-## Output Format
+**Limitations (so examples don’t lie):**
 
-Default: structured JSON with smart return fields.
+- **`--dry-run` is not available** for inline prompts — it only exists on `rondo run`, `rondo review`, `rondo overnight`, etc. To preview cost-free, use `rondo run` with a one-task round file, or `rondo review FILE --dry-run`.
+- **Single-word “prompts”** are not supported as inline mode; use at least two words or use `rondo run` with a file.
+
+## Round files (YAML / Python)
+
+Paths below are from the **repository root** (`ace2/rondo/`).
+
+```bash
+# Preview a YAML round (no API calls)
+rondo run examples/rounds/01-simple-review.yaml --dry-run
+
+# Budget-capped batch
+rondo run examples/rounds/03-budget-capped.yaml --max-budget 0.50
+
+# Multi-provider task definition
+rondo run examples/rounds/02-multi-provider.yaml --dry-run
+```
+
+## Multi-provider file review
+
+```bash
+rondo review path/to/src/main.py              # default profile (e.g. Gemini + Grok from config)
+rondo review src/main.py --providers gemini,mistral --tier high
+rondo review src/main.py --dry-run             # preview prompts only
+```
+
+## Observability
+
+```bash
+rondo providers
+rondo learn --json          # scores from history (needs history data)
+rondo metrics
+rondo history
+```
+
+## Scripted prompting (if/else on JSON)
+
+See **`examples/cli/scripted-prompting.sh`** — patterns for retry, confidence escalation, and pipelines using `jq`. Use **`gemini:default`** or **`gemini:gemini-2.5-flash`** in scripts; avoid bare `gemini:flash` (that passes model name `flash` to the API, which is not a valid Gemini model id).
+
+## Output shape
+
+Default: structured JSON (smart return template). With `--text`, plain text only.
 
 ```json
 {
@@ -61,12 +85,7 @@ Default: structured JSON with smart return fields.
 }
 ```
 
-- `--text` → plain text (no JSON)
-- `--field <name>` → main answer in a named field
-- `--model <provider:model>` → choose provider
+## If something fails
 
-## If Something Fails
-
-- `rondo providers` → check which providers are up
-- `rondo learn` → see provider quality scores
-- Add `--dry-run` to any command to see what would be sent without dispatching
+- `rondo preflight` / `rondo preflight --json`
+- `ERR_NESTED_SESSION` inside Claude Code → use **MCP** `rondo_run` / `rondo_review_file`, not the CLI subprocess path.

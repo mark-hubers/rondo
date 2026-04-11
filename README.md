@@ -37,13 +37,13 @@ cd rondo && uv tool install --editable .
 ## Or: pip install -e ~/git/mhubers/ace2/rondo
 
 ## 2. Dry-run an example (no AI calls, free, always works)
-rondo run examples/round_hello.py --dry-run
+rondo run examples/rounds/round_hello.py --dry-run
 
 ## 3. Run with Claude (~$0.01, requires claude on PATH)
-rondo run examples/round_hello.py
+rondo run examples/rounds/round_hello.py
 
 ## 4. Run with Gemini instead (~$0.001, requires GEMINI_API_KEY)
-rondo run examples/round_hello.py --model gemini:gemini-2.5-flash
+rondo run examples/rounds/round_hello.py --model gemini:gemini-2.5-flash
 
 ## 5. Multi-provider review — from Claude Code (MCP) or Cursor (MCP)
 ## rondo_multi_review(prompt="Review this code", providers='["gemini:gemini-2.5-flash", "grok:grok-3"]')
@@ -592,7 +592,7 @@ rondo run examples/demo_pipeline.py --dry-run
 
 ```bash
 # -- Simple round
-rondo run examples/round_hello.py
+rondo run examples/rounds/round_hello.py
 
 # -- With parallel workers
 rondo run examples/round_doc_sweep.py --workers 4
@@ -608,7 +608,7 @@ print(f'{r.name}: {len(r.tasks)} tasks')
 "
 
 # -- Overnight phases
-rondo overnight examples/phases_overnight.py --mode standard
+rondo overnight examples/rounds/phases_overnight.py --mode standard
 ```
 
 ---

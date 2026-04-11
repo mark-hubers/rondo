@@ -523,6 +523,9 @@ def _build_round_and_config(
         "claude_p_max_turns": max_turns if max_turns > 0 else global_toml.get("claude_p_max_turns", 5),
         "claude_p_add_dir": add_dir or global_toml.get("claude_p_add_dir", ""),
         "claude_p_json_schema": json_schema or global_toml.get("claude_p_json_schema", ""),
+        "claude_agent_rules": global_toml.get("claude_agent_rules", ""),
+        "claude_agent_max_turns": global_toml.get("claude_agent_max_turns", 10),
+        "claude_agent_allowed_tools": global_toml.get("claude_agent_allowed_tools", "Read,Grep,Glob"),
     }
     if project:
         config_kwargs["project"] = project

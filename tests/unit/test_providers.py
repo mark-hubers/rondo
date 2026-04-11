@@ -83,6 +83,15 @@ class TestProviderRouting:
         assert get_provider("opus") is None
         assert get_provider("haiku") is None
 
+    def test_claude_shorthand_to_anthropic_api_id(self) -> None:
+        from rondo.providers import claude_shorthand_to_anthropic_api_id
+
+        assert claude_shorthand_to_anthropic_api_id("sonnet") == "claude-sonnet-4-6"
+        assert claude_shorthand_to_anthropic_api_id("haiku") == "claude-haiku-4-5"
+        assert claude_shorthand_to_anthropic_api_id("opus") == "claude-opus-4-6"
+        assert claude_shorthand_to_anthropic_api_id("sonnet[1m]") == "claude-sonnet-4-6"
+        assert claude_shorthand_to_anthropic_api_id("opus[1m]") == "claude-opus-4-6"
+
     def test_route_ollama_models_legacy(self) -> None:
         """Legacy prefix matching still works for backward compat."""
         from rondo.providers import get_provider

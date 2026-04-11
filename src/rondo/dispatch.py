@@ -834,23 +834,8 @@ def _build_subprocess_cmd(
         else:
             logger.info("--bare skipped: CC version %s < %s", cc_ver, _BARE_MIN_VERSION)
 
-    # -- RONDO-257: claude -p mode settings from config.toml (reqs 470-474)
-    # -- COALESCE: new claude_p_* fields → legacy dispatch_system_prompt → nothing
-    rules = config.claude_p_rules or config.dispatch_system_prompt
-    if rules:
-        cmd.extend(["--system-prompt", rules])
-    if config.claude_p_allowed_tools:
-        cmd.extend(["--allowedTools", config.claude_p_allowed_tools])
-    if config.claude_p_max_turns > 0:
-        cmd.extend(["--max-turns", str(config.claude_p_max_turns)])
-    if config.claude_p_add_dir:
-        cmd.extend(["--add-dir", config.claude_p_add_dir])
-    # -- RONDO-261: single --json-schema — claude_p_json_schema first, else legacy json_schema ("auto" → canonical)
-    _schema_for_cli = config.claude_p_json_schema
-    if not _schema_for_cli:
-        _schema_for_cli = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
-    if _schema_for_cli:
-        cmd.extend(["--json-schema", _schema_for_cli])
+    # -- RONDO-257/264: claude_p_* flags extracted for complexity budget
+    _add_claude_p_flags(cmd, config)
 
     # -- REQ-100 reqs 022-024: tool_mode controls tool access (legacy, pre-RONDO-257)
     if task:
@@ -864,6 +849,29 @@ def _build_subprocess_cmd(
     _add_output_flags(cmd, config)
 
     return cmd
+
+
+def _add_claude_p_flags(cmd: list[str], config: RondoConfig) -> None:
+    """Add claude_p_* flags from config.toml (RONDO-257, REQ-111 reqs 470-474).
+
+    Handles: --system-prompt, --allowedTools, --max-turns, --add-dir, --json-schema.
+    COALESCE: claude_p_rules → dispatch_system_prompt (legacy).
+    """
+    rules = config.claude_p_rules or config.dispatch_system_prompt
+    if rules:
+        cmd.extend(["--system-prompt", rules])
+    if config.claude_p_allowed_tools:
+        cmd.extend(["--allowedTools", config.claude_p_allowed_tools])
+    if config.claude_p_max_turns > 0:
+        cmd.extend(["--max-turns", str(config.claude_p_max_turns)])
+    if config.claude_p_add_dir:
+        cmd.extend(["--add-dir", config.claude_p_add_dir])
+    ## -- RONDO-261: single --json-schema — claude_p_json_schema first, else legacy json_schema ("auto" → canonical)
+    schema_for_cli = config.claude_p_json_schema
+    if not schema_for_cli:
+        schema_for_cli = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
+    if schema_for_cli:
+        cmd.extend(["--json-schema", schema_for_cli])
 
 
 def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:

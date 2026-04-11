@@ -268,9 +268,9 @@ Every E2E test runs the real `rondo` binary. They are the definitive documentati
 
 **How to run a round (TestE2EExampleRounds):**
 ```
-rondo run examples/round_hello.py --dry-run
-rondo run examples/round_code_review.py --dry-run
-rondo run examples/round_doc_sweep.py --dry-run
+rondo run examples/rounds/round_hello.py --dry-run
+rondo run examples/rounds/round_code_review.py --dry-run
+rondo run examples/rounds/round_doc_sweep.py --dry-run
 ```
 
 **How to check provider health (TestE2EPreflight):**
@@ -287,12 +287,12 @@ rondo history --model sonnet --expensive
 
 **How to use overnight mode (TestE2EOvernightDryRun):**
 ```
-rondo overnight examples/phases_overnight.py --dry-run
+rondo overnight examples/rounds/phases_overnight.py --dry-run
 ```
 
 **How to use live interactive mode (TestE2ELiveMode):**
 ```
-rondo live examples/round_hello.py --task greet
+rondo live examples/rounds/round_hello.py --task greet
 ```
 
 **How to create a new round (TestE2EInit):**

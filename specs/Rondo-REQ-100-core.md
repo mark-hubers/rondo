@@ -297,7 +297,7 @@ test fixtures for Rondo's own test suite. They MUST be real, runnable rounds.
 | 053 | Example rounds MUST be used as test fixtures in the test suite (living tests, not dead docs) | MUST |
 | 054 | At minimum 3 examples MUST ship: minimal (1 task), gated (auto tasks + gates), multi-task (parallel-ready with model hints) | MUST |
 
-#### Example: `examples/round_hello.py` — Simplest Possible Round
+#### Example: `examples/rounds/round_hello.py` — Simplest Possible Round
 ```python
 """Rondo example: simplest possible round — one task, no gates."""
 from rondo.engine import Round, Task
@@ -1400,7 +1400,7 @@ two extension points in the existing `_dispatch_with_safety_net` path.
 
 | # | Requirement | Priority |
 |---|-------------|----------|
-| U-20 | `examples/round_hello.py` — 1 task, no gates, simplest possible round. Must run with `rondo run examples/round_hello.py --dry-run` | MUST |
+| U-20 | `examples/rounds/round_hello.py` — 1 task, no gates, simplest possible round. Must run with `rondo run examples/rounds/round_hello.py --dry-run` | MUST |
 | U-21 | `examples/round_file_check.py` — auto task (check file exists) + pre-gate (verify CWD). Demonstrates auto_fn and gate patterns | MUST |
 | U-22 | `examples/round_multi_task.py` — 3 tasks with model hints, context_files, different done_when criteria. Parallel-ready | MUST |
 | U-23 | `examples/round_overnight.py` — multi-phase overnight round file. Demonstrates build_phases() for `rondo overnight` | SHOULD |

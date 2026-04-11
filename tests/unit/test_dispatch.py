@@ -1326,18 +1326,10 @@ class TestRondoConstants:
         assert "status" in parsed["required"]
         assert "result" in parsed["required"]
 
-    def test_default_system_prompt_exists(self):
-        """RONDO_DISPATCH_PROMPT is a non-empty string."""
-        from rondo.dispatch import RONDO_DISPATCH_PROMPT
-
-        assert isinstance(RONDO_DISPATCH_PROMPT, str)
-        assert len(RONDO_DISPATCH_PROMPT) > 20
-
-    def test_default_system_prompt_mentions_json(self):
-        """Default prompt tells Claude to return structured output."""
-        from rondo.dispatch import RONDO_DISPATCH_PROMPT
-
-        assert "json" in RONDO_DISPATCH_PROMPT.lower() or "JSON" in RONDO_DISPATCH_PROMPT
+    ## RONDO-261: RONDO_DISPATCH_PROMPT constant was removed as part of
+    ## deduplicating --system-prompt. Dispatch rules now live in config.toml
+    ## (claude_p_rules) and are wired via _build_subprocess_cmd directly.
+    ## Tests for the removed constant are deleted.
 
     def test_config_uses_schema_constant(self):
         """When json_schema is 'auto', it uses RONDO_RESULT_SCHEMA."""
@@ -1347,15 +1339,6 @@ class TestRondoConstants:
         cmd = _build_subprocess_cmd(config, "test", "sonnet")
         idx = cmd.index("--json-schema")
         assert cmd[idx + 1] == RONDO_RESULT_SCHEMA
-
-    def test_config_uses_default_prompt_when_auto(self):
-        """When dispatch_system_prompt is 'auto', uses RONDO_DISPATCH_PROMPT."""
-        from rondo.dispatch import RONDO_DISPATCH_PROMPT
-
-        config = RondoConfig(dispatch_system_prompt="auto")
-        cmd = _build_subprocess_cmd(config, "test", "sonnet")
-        idx = cmd.index("--system-prompt")
-        assert cmd[idx + 1] == RONDO_DISPATCH_PROMPT
 
 
 # -- Rondo-REQ-100 req 078: budget exceeded detection

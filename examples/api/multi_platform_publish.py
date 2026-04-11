@@ -4,8 +4,9 @@ REAL WORKFLOW THIS REPLACES:
   After every essay, draft LinkedIn + Facebook + Substack separately.
 
 SCRIPTED VERSION:
-  Send thesis to Claude -> generate all platform variants ->
-  quality-check each against platform rules -> regenerate if needed.
+  Send thesis to Claude -> generate one variant per platform ->
+  check length against platform rules. In production: regenerate
+  with stricter rules if too long (not implemented in this example).
 
 HOW TO RUN:
   python examples/api/multi_platform_publish.py
@@ -40,7 +41,7 @@ def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        return {"result": output, "passed": True, "issues": [], "confidence": 0.5}
+        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
 
 
 PLATFORM_RULES = {

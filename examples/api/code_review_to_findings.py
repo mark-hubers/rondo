@@ -51,7 +51,7 @@ def dispatch(prompt: str, model: str = "", **kwargs: str | int) -> dict | None:
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        return {"result": output, "passed": True, "issues": [], "confidence": 0.5}
+        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
 
 
 ## --- Code to Review (has known bugs) ---

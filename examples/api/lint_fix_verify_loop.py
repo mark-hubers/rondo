@@ -40,7 +40,7 @@ def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        return {"result": output, "passed": True, "issues": [], "confidence": 0.5}
+        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
 
 
 SAMPLE_VIOLATIONS = [
@@ -50,46 +50,65 @@ SAMPLE_VIOLATIONS = [
 ]
 
 
-def lint_fix_loop(violations: list[dict], target: float = 10.0, max_retries: int = 3) -> dict:
-    """Loop: send violations to AI -> get fixes -> re-check -> repeat."""
-    history: list[dict] = []
+def lint_fix_loop(violations: list[dict], max_retries: int = 3) -> dict:
+    """Send violations to AI in batches, collect fix suggestions.
+
+    NOTE: This example asks AI for fixes but does NOT apply them or re-run
+    the linter. In production, you would: apply the fix → run ace-build lint
+    → check the new score → loop. Here we demonstrate the AI dispatch + retry
+    pattern without the build system integration.
+    """
+    all_fixes: list[dict] = []
     remaining = list(violations)
-    score = 10.0 - (len(remaining) * 0.08)
 
     for attempt in range(max_retries):
-        _out(f"  Attempt {attempt + 1}: score={score:.2f}, violations={len(remaining)}")
-        if score >= target or not remaining:
-            _out(f"  -PASS- Target {target} reached!")
-            history.append({"attempt": attempt + 1, "score": score, "action": "TARGET_HIT"})
-            return {"final_score": score, "attempts": attempt + 1, "target_reached": True, "history": history}
+        if not remaining:
+            _out(f"  Attempt {attempt + 1}: all violations addressed")
+            break
 
+        _out(f"  Attempt {attempt + 1}: {len(remaining)} violations remaining")
         result = dispatch(
-            f"Fix these pylint violations with minimum changes. Return JSON with fixes array:\n{json.dumps(remaining, indent=2)}",
-            rules="You are a Python linter fix assistant. Return JSON only.",
+            f"Fix these pylint violations with minimum changes. For each, return the fix.\n"
+            f'Return JSON: {{"fixes": [{{"code": "C0301", "fix": "description"}}]}}\n\n'
+            f"{json.dumps(remaining, indent=2)}",
+            rules="You fix pylint violations. Return JSON with fixes array.",
         )
         if result is None:
-            _out("  Dispatch failed")
+            _out("    Dispatch failed — stopping")
             break
 
         fixes = result.get("fixes", result.get("issues", []))
-        fix_count = len(fixes) if isinstance(fixes, list) else 1
-        _out(f"    AI suggested {fix_count} fixes")
+        fix_count = len(fixes) if isinstance(fixes, list) else 0
+        _out(f"    AI suggested {fix_count} fix(es)")
 
-        fixed = min(fix_count, len(remaining))
-        remaining = remaining[fixed:]
-        score = 10.0 - (len(remaining) * 0.08)
-        history.append({"attempt": attempt + 1, "score": score, "fixes": fixed, "action": "FIXED"})
+        if fix_count == 0:
+            _out("    No fixes suggested — stopping")
+            break
 
-    return {"final_score": score, "attempts": len(history), "target_reached": score >= target, "history": history}
+        all_fixes.extend(fixes if isinstance(fixes, list) else [])
+        ## In production: apply fixes here, then re-run linter
+        ## remaining = run_linter_and_get_violations()
+        ## For demo: assume fixes address the violations sent
+        remaining = remaining[min(fix_count, len(remaining)) :]
+
+    return {
+        "total_violations": len(violations),
+        "fixes_suggested": len(all_fixes),
+        "remaining": len(remaining),
+        "all_addressed": len(remaining) == 0,
+        "fixes": all_fixes,
+    }
 
 
 def main() -> None:
-    """Run lint-fix-verify loop with real AI."""
-    _out("=== Lint-Fix-Verify Loop ===")
+    """Run lint fix loop with real AI."""
+    _out("=== Lint Fix Loop ===")
     _out("")
     result = lint_fix_loop(SAMPLE_VIOLATIONS)
     _out("")
-    _out(f"Final: score={result['final_score']:.2f}, attempts={result['attempts']}, target={result['target_reached']}")
+    _out(
+        f"Violations: {result['total_violations']}, Fixes: {result['fixes_suggested']}, Remaining: {result['remaining']}"
+    )
 
 
 if __name__ == "__main__":

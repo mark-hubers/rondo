@@ -1,4 +1,4 @@
-"""Rondo Real-World: Community Reply + Variant Lookup.
+"""Rondo Real-World: Community Reply Drafting.
 
 REAL WORKFLOW THIS REPLACES:
   Community members message about genetics/testing/trials. Mark pastes
@@ -6,6 +6,8 @@ REAL WORKFLOW THIS REPLACES:
 
 SCRIPTED VERSION:
   Incoming message -> ask Claude to fact-check + draft reply.
+  NOTE: Variant lookup (ClinVar) is not implemented in this example.
+  In production: add a BioMCP variant_getter call before drafting.
 
 HOW TO RUN:
   python examples/api/community_reply_variant_lookup.py
@@ -40,7 +42,7 @@ def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        return {"result": output, "passed": True, "issues": [], "confidence": 0.5}
+        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
 
 
 SAMPLE_MESSAGE = (

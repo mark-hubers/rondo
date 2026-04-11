@@ -40,7 +40,7 @@ def dispatch(prompt: str, **kwargs: str | int) -> dict | None:
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        return {"result": output, "passed": True, "issues": [], "confidence": 0.5}
+        return {"result": output, "passed": None, "issues": [], "confidence": 0.0}
 
 
 SCAN_FINDINGS = [
@@ -70,14 +70,19 @@ def scan_impact(findings: list[dict], essays: list[dict]) -> dict:
         if result is None:
             _out("    SKIP")
             continue
-        result_text = str(result.get("result", result.get("impact", "")))
-        level = "LOW"
-        if "HIGH" in result_text.upper():
-            level = "HIGH"
-        elif "MEDIUM" in result_text.upper():
-            level = "MEDIUM"
-        impacts.append({"finding_id": finding["id"], "impact": level, "reason": result_text[:80]})
-        _out(f"    {level}: {result_text[:60]}")
+        ## Parse impact from structured JSON first, fall back to string search
+        level = str(result.get("impact", "")).upper()
+        if level not in ("HIGH", "MEDIUM", "LOW"):
+            ## AI didn't return structured impact field — search result text
+            result_text = str(result.get("result", ""))
+            level = "LOW"
+            if "HIGH" in result_text.upper():
+                level = "HIGH"
+            elif "MEDIUM" in result_text.upper():
+                level = "MEDIUM"
+        reason = str(result.get("reason", result.get("result", "")))[:80]
+        impacts.append({"finding_id": finding["id"], "impact": level, "reason": reason})
+        _out(f"    {level}: {reason[:60]}")
 
     high = [i for i in impacts if i["impact"] == "HIGH"]
     return {"scanned": len(findings), "high_impact": len(high), "needs_attention": len(high) > 0, "impacts": impacts}

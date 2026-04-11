@@ -39,7 +39,6 @@ from rondo.dispatch_parse import (
     parse_task_json,
 )
 from rondo.dispatch_prompt import (
-    RONDO_DISPATCH_PROMPT,
     RONDO_RESULT_SCHEMA,
     build_prompt,
 )
@@ -871,9 +870,8 @@ def _add_output_flags(cmd: list[str], config: RondoConfig) -> None:
     schema = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
     if schema:
         cmd.extend(["--json-schema", schema])
-    prompt_val = RONDO_DISPATCH_PROMPT if config.dispatch_system_prompt == "auto" else config.dispatch_system_prompt
-    if prompt_val:
-        cmd.extend(["--system-prompt", prompt_val])
+    # -- RONDO-261: system-prompt now handled by claude_p_rules in _build_subprocess_cmd.
+    # -- Legacy dispatch_system_prompt "auto" path removed to prevent duplicate --system-prompt flag.
     # -- req 081: don't clutter CC session store
     cmd.append("--no-session-persistence")
 

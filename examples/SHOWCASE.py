@@ -34,7 +34,13 @@ for p in (RONDO_SRC, API_DIR):
     if p_str not in sys.path:
         sys.path.insert(0, p_str)
 
-from example_dispatch import first_task_parsed_json, invoke_rondo, run_prompt_json  # noqa: E402
+from example_dispatch import (  # noqa: E402
+    first_task_parsed_json,
+    first_task_status,
+    invoke_rondo,
+    is_partial_with_output,
+    run_prompt_json,
+)
 
 # -- Import rondo modules at the package level rather than pulling specific symbols.
 # -- Caliber S3 flags direct `from rondo.X import Y` when Y contains an underscore
@@ -133,15 +139,12 @@ def section_subprocess_results() -> str:
     tasks = env.get("tasks") or []
     if not tasks:
         raise RuntimeError("no tasks returned")
-    first_status = tasks[0].get("status", "")
-    # -- A note on "partial": Rondo marks a task partial when the subprocess dispatch
-    # -- succeeded and produced output, but smart_return's JSON parser couldn't extract
-    # -- a strict schema. For the showcase we treat that as a successful dispatch
-    # -- demonstration — the point of this section is to show execution="subprocess"
-    # -- really runs and returns tasks, not to validate every parse edge case.
-    # -- We still fail on hard errors or missing status.
+    first_status = first_task_status(env)
     if first_status in ("error", ""):
         raise RuntimeError(f"task did not execute cleanly: {tasks[0]}")
+    # -- S1 contract: partial task output should map to top-level partial, not error.
+    if is_partial_with_output(env) and env.get("status") != "partial":
+        raise RuntimeError(f"expected top-level status=partial for partial task output, got: {env.get('status')}")
     return f"status={env.get('status')}, first_task={first_status}, tasks={len(tasks)}"
 
 
@@ -369,7 +372,7 @@ def section_background_polling() -> str:
     dispatch_id = started.get("dispatch_id", "")
     if not dispatch_id:
         raise RuntimeError(f"missing dispatch_id: {started}")
-    deadline = time.time() + 75
+    deadline = time.time() + 120
     polls = 0
     heartbeat_ok = 0
     while time.time() < deadline:
@@ -378,7 +381,7 @@ def section_background_polling() -> str:
             heartbeat_ok += 1
         brief = json.loads(mcp_dispatch.rondo_run_status(dispatch_id=dispatch_id, brief=True))
         polls += 1
-        if brief.get("status") in ("done", "error"):
+        if brief.get("status") in ("done", "partial", "error"):
             final = json.loads(mcp_dispatch.rondo_run_status(dispatch_id=dispatch_id))
             tasks = final.get("tasks") or []
             if not tasks:

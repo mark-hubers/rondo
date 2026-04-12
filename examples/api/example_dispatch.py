@@ -24,7 +24,9 @@ from typing import Any
 
 __all__ = [
     "banner",
+    "first_task_status",
     "first_task_parsed_json",
+    "is_partial_with_output",
     "invoke_rondo",
     "run_prompt_json",
 ]
@@ -57,6 +59,7 @@ def invoke_rondo(
         RuntimeError: Body is not JSON, Rondo returned an error envelope without tasks,
             or a host **plan** was returned instead of dispatch results (wrong routing).
     """
+    from rondo.envelope import normalize_envelope
     from rondo.mcp_dispatch import rondo_run_file
 
     raw = rondo_run_file(
@@ -78,16 +81,35 @@ def invoke_rondo(
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Rondo returned non-JSON (first 400 chars): {raw[:400]!r}") from exc
 
+    data = normalize_envelope(data)
+
     if data.get("status") == "plan" and "engine" in data:
         raise RuntimeError(
             "Received a host plan instead of task results. "
             "Use execution='subprocess' for scripts or pass a provider-prefixed model."
         )
-    err = data.get("error") or data.get("reason")
+    err = data.get("error_message") or data.get("error") or data.get("reason")
     if data.get("status") == "error" and err and not data.get("tasks"):
         raise RuntimeError(str(err))
 
     return data
+
+
+def first_task_status(envelope: dict[str, Any]) -> str:
+    """Return first task status, or empty string when no tasks exist."""
+    tasks = envelope.get("tasks") or []
+    if not tasks:
+        return ""
+    return str(tasks[0].get("status", ""))
+
+
+def is_partial_with_output(envelope: dict[str, Any]) -> bool:
+    """Return True when first task is partial and has non-empty output."""
+    tasks = envelope.get("tasks") or []
+    if not tasks:
+        return False
+    first = tasks[0]
+    return str(first.get("status", "")) == "partial" and bool((first.get("raw_output") or "").strip())
 
 
 def first_task_parsed_json(envelope: dict[str, Any]) -> dict[str, Any]:

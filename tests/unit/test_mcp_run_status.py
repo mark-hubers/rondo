@@ -97,6 +97,8 @@ class TestRondoRunStatus:
         """Unknown dispatch_id returns error."""
         result = json.loads(rondo_run_status("nonexistent-id"))
         assert result["status"] == "error"
+        assert result["error_code"] == "ERR_UNKNOWN_DISPATCH_ID"
+        assert result["error_message"]
 
     def test_completed_has_per_task_status(self, tmp_path):
         """U-31: completed dispatch shows per-task name + status."""
@@ -112,6 +114,8 @@ class TestRondoRunStatus:
         ## -- Dry-run dispatch (synchronous, completes immediately)
         result = json.loads(rondo_run_file(str(round_file), dry_run=True))
         assert result["status"] in ("done", "skipped")
+        assert "schema_version" in result
+        assert "partial_count" in result
         ## -- Each task should have name and status
         for task in result["tasks"]:
             assert "name" in task
@@ -152,9 +156,11 @@ class TestRondoRunStatus:
         from rondo.mcp_server import _background_results
 
         _background_results["test-brief"] = {
+            "schema_version": "2",
             "status": "done",
             "done_count": 2,
             "error_count": 0,
+            "partial_count": 0,
             "pending_count": 0,
             "total_cost_usd": 1.23,
             "tasks": [{"name": "t1"}, {"name": "t2"}],
@@ -171,9 +177,11 @@ class TestRondoRunStatus:
         from rondo.mcp_server import _background_results
 
         _background_results["test-hb"] = {
+            "schema_version": "2",
             "status": "running",
             "done_count": 2,
             "error_count": 0,
+            "partial_count": 0,
             "pending_count": 1,
         }
         result = json.loads(rondo_run_status("test-hb", heartbeat=True))
@@ -188,9 +196,11 @@ class TestRondoRunStatus:
         from rondo.mcp_server import _background_results
 
         _background_results["test-hb-done"] = {
+            "schema_version": "2",
             "status": "done",
             "done_count": 3,
             "error_count": 0,
+            "partial_count": 0,
             "pending_count": 0,
         }
         result = json.loads(rondo_run_status("test-hb-done", heartbeat=True))
@@ -209,9 +219,11 @@ class TestRondoRunStatus:
 
         long_output = "A" * 5000  ## 5000 chars — should be cut to 2000
         _background_results["test-u32"] = {
+            "schema_version": "2",
             "status": "done",
             "done_count": 1,
             "error_count": 0,
+            "partial_count": 0,
             "pending_count": 0,
             "tasks": [
                 {
@@ -239,9 +251,11 @@ class TestRondoRunStatus:
         from rondo.mcp_server import _background_results
 
         _background_results["test-u32-missing"] = {
+            "schema_version": "2",
             "status": "done",
             "done_count": 1,
             "error_count": 0,
+            "partial_count": 0,
             "pending_count": 0,
             "tasks": [
                 {"name": "t1", "status": "done", "duration_sec": 1.0},  ## no raw_output
@@ -310,10 +324,12 @@ class TestRicherStatus:
         from rondo.mcp_server import _background_results
 
         _background_results["test-brief"] = {
+            "schema_version": "2",
             "status": "done",
             "dispatch_id": "test-brief",
             "done_count": 2,
             "error_count": 0,
+            "partial_count": 0,
             "pending_count": 0,
             "tasks": [{"name": "t1", "status": "done", "raw_output": "x" * 1000}],
             "total_cost_usd": 0.5,

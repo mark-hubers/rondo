@@ -209,6 +209,7 @@ class TestImportLayering:
             "idempotency",
             "sanitize",
             "smart_return",  # -- REQ-111: template injection in provider dispatch
+            "envelope",  # -- RONDO-274: shared error/result envelope normalization
         },
         "mcp_tools.py": {
             "metrics",

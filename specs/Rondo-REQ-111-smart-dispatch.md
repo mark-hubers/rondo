@@ -236,6 +236,9 @@ No new modules needed for core path. Adds:
 | Audit fields | STD-113 req 003 | Adds json_valid, fields_complete |
 | In-session dispatch | REQ-100 reqs 082-088 (inline/agent plans) | Skill execution, alias resolution |
 | Library fallback | REQ-100 engine routing (mcp_dispatch.py) | API adapter for Python callers |
+| Error/result envelope | REQ-112 reqs 500-506 | Shared status/error schema across MCP/API/CLI |
+
+Envelope semantics (`partial`, stable `error_code`, canonical top-level keys) are defined in `Rondo-REQ-112-error-envelope.md`.
 
 ---
 

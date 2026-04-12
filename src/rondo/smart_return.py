@@ -245,4 +245,25 @@ def normalize_response(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def classify_parse_outcome(response: str) -> dict[str, Any]:
+    """Classify parse outcome for envelope/status mappers.
+
+    Returns:
+        {
+            "parsed_data": <dict from validate_return_json>,
+            "json_valid": <bool>,
+            "fields_complete": <bool>,
+            "error_code": "" | "ERR_MALFORMED_JSON",
+        }
+    """
+    parsed = validate_return_json(response)
+    json_valid = bool(parsed.get("_json_valid", False))
+    return {
+        "parsed_data": parsed,
+        "json_valid": json_valid,
+        "fields_complete": bool(parsed.get("_fields_complete", False)),
+        "error_code": "" if json_valid else "ERR_MALFORMED_JSON",
+    }
+
+
 # -- sig: mgh-6201.cd.bd955f.5ead.a3bcd0

@@ -581,6 +581,40 @@ class TestClaudeCodeInlineDispatch:
         assert "engine" not in result
         assert result["status"] in ("done", "partial")
 
+    def test_partial_task_is_not_top_level_error(self) -> None:
+        partial_payload = {
+            "status": "error",
+            "round_name": "inline",
+            "tasks": [
+                {
+                    "name": "inline-task",
+                    "status": "partial",
+                    "raw_output": '{"ok": true}',
+                    "error_code": "ERR_MALFORMED_JSON",
+                    "error_message": "",
+                }
+            ],
+            "done_count": 0,
+            "error_count": 0,
+            "partial_count": 1,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=partial_payload):
+            result = json.loads(
+                rondo_run_file(
+                    prompt="partial status mapping check",
+                    model="sonnet",
+                    dry_run=False,
+                    _session=None,
+                    execution="subprocess",
+                )
+            )
+        assert result["status"] == "partial"
+        assert result["partial_count"] == 1
+
 
 class TestInlineDispatch:
     """U-33 to U-35: rondo_run with prompt= for one-off tasks."""

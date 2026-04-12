@@ -75,13 +75,13 @@ def main() -> int:
         br = _loads(rondo_run_status(dispatch_id=dispatch_id, brief=True))
         print(f"  heartbeat={hb} brief={br}")
 
-        if br.get("status") in ("done", "error"):
+        if br.get("status") in ("done", "partial", "error"):
             final = _loads(rondo_run_status(dispatch_id=dispatch_id))
             print(f"Final status: {final.get('status')}  done={final.get('done_count')}  error={final.get('error_count')}")
             tasks = final.get("tasks") or []
             if tasks:
                 print(f"First task status: {tasks[0].get('status')}")
-            return 0 if final.get("status") == "done" else 1
+            return 0 if final.get("status") in ("done", "partial") else 1
 
         time.sleep(args.poll_every)
 

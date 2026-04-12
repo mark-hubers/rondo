@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from rondo.smart_return import build_return_prompt, validate_return_json
+from rondo.smart_return import build_return_prompt, classify_parse_outcome, validate_return_json
 
 
 class TestBuildReturnPrompt:
@@ -241,6 +241,20 @@ class TestNormalizeResponse:
         """OpenAI has a dedicated template."""
         prompt = build_return_prompt(provider="openai:gpt-4.1")
         assert "passed" in prompt.lower()
+
+
+class TestParseOutcomeClassification:
+    """S1: parse outcome helper for envelope mappers."""
+
+    def test_malformed_returns_err_malformed_json(self) -> None:
+        outcome = classify_parse_outcome("not-json")
+        assert outcome["json_valid"] is False
+        assert outcome["error_code"] == "ERR_MALFORMED_JSON"
+
+    def test_valid_json_returns_no_error_code(self) -> None:
+        outcome = classify_parse_outcome('{"passed": true, "result": "ok", "confidence": 0.9, "issues": []}')
+        assert outcome["json_valid"] is True
+        assert outcome["error_code"] == ""
 
 
 # -- sig: mgh-6201.cd.bd955f.5ead.e35e50

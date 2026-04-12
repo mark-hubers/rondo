@@ -50,6 +50,11 @@ from rondo.engine import (
     TaskResult,
     load_round_file,
 )
+from rondo.envelope import (
+    ENVELOPE_SCHEMA_VERSION,
+    build_error_envelope,
+    normalize_envelope,
+)
 from rondo.idempotency import cache_result, compute_idempotency_key, get_cached_result
 from rondo.notify import NotifyConfig, notify_round_complete
 from rondo.providers import (
@@ -151,7 +156,12 @@ def rondo_retry(dispatch_id: str, model: str = "") -> str:
         # -- RONDO-106: fall back to disk-based retry
         result = _load_background_result(dispatch_id)
     if not result:
-        return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
+        return json.dumps(
+            build_error_envelope(
+                error_code="ERR_UNKNOWN_DISPATCH_ID",
+                error_message=f"Unknown dispatch_id: {dispatch_id}",
+            )
+        )
 
     tasks = result.get("tasks", [])
     failed = [t for t in tasks if t.get("status") in ("error", "blocked", "partial")]
@@ -463,21 +473,53 @@ def _validate_run_inputs(file_path: str, project: str, prompt: str) -> tuple[str
         return (
             file_path,
             project,
-            json.dumps({"status": "error", "error": "Prompt too large", "code": "ERR_INPUT_TOO_LARGE"}),
+            json.dumps(
+                build_error_envelope(
+                    error_code="ERR_INPUT_TOO_LARGE",
+                    error_message="Prompt too large",
+                )
+            ),
         )
     if prompt:
         file_path = ""
     elif file_path:
         file_path = str(Path(file_path).expanduser())
         if not Path(file_path).exists():
-            return file_path, project, json.dumps({"status": "error", "error": f"File not found: {file_path}"})
+            return (
+                file_path,
+                project,
+                json.dumps(
+                    build_error_envelope(
+                        error_code="ERR_FILE_NOT_FOUND",
+                        error_message=f"File not found: {file_path}",
+                    )
+                ),
+            )
     else:
-        return file_path, project, json.dumps({"status": "error", "error": "Provide file_path or prompt"})
+        return (
+            file_path,
+            project,
+            json.dumps(
+                build_error_envelope(
+                    error_code="ERR_INVALID_INPUT",
+                    error_message="Provide file_path or prompt",
+                )
+            ),
+        )
 
     if project:
         project = str(Path(project).expanduser())
         if not Path(project).is_dir():
-            return file_path, project, json.dumps({"status": "error", "error": f"Project dir not found: {project}"})
+            return (
+                file_path,
+                project,
+                json.dumps(
+                    build_error_envelope(
+                        error_code="ERR_PROJECT_NOT_FOUND",
+                        error_message=f"Project dir not found: {project}",
+                    )
+                ),
+            )
 
     return file_path, project, None
 
@@ -639,11 +681,12 @@ def _build_agent_plan_or_error(prompt: str, done_when: str, project: str, model:
     return (
         None,
         json.dumps(
-            {
-                "status": "error",
-                "error": f"execution='agent' requires a Claude model (sonnet|opus|haiku), got '{requested_model}'",
-                "code": "ERR_INVALID_EXECUTION_MODEL",
-            }
+            build_error_envelope(
+                error_code="ERR_INVALID_EXECUTION_MODEL",
+                error_message=(
+                    f"execution='agent' requires a Claude model (sonnet|opus|haiku), got '{requested_model}'"
+                ),
+            )
         ),
     )
 
@@ -671,11 +714,10 @@ def _route_by_execution_mode(
             engine,
             model,
             json.dumps(
-                {
-                    "status": "error",
-                    "error": f"Invalid execution '{execution_mode}'. Expected inline|subprocess|agent",
-                    "code": "ERR_INVALID_EXECUTION",
-                }
+                build_error_envelope(
+                    error_code="ERR_INVALID_EXECUTION",
+                    error_message=f"Invalid execution '{execution_mode}'. Expected inline|subprocess|agent",
+                )
             ),
         )
 
@@ -1067,7 +1109,14 @@ def _rondo_run_file_inner(
     )
 
     if engine["engine"] == "error":
-        return json.dumps({"status": "error", "error": engine["reason"], "model": model})
+        return json.dumps(
+            build_error_envelope(
+                error_code="ERR_INVALID_INPUT",
+                error_message=str(engine["reason"]),
+                context={"model": model},
+            ),
+            indent=2,
+        )
 
     engine, model, route_error = _route_by_execution_mode(
         engine=engine,
@@ -1114,7 +1163,7 @@ def _rondo_run_file_inner(
     if background and not dry_run:
         return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
 
-    result_str = json.dumps(dispatch_fn(), indent=2)
+    result_str = json.dumps(normalize_envelope(dispatch_fn()), indent=2)
     _idempotency_store(idempotency_key, result_str)
     return result_str
 
@@ -1180,19 +1229,25 @@ def _execute_dispatch(
             for tr in result.task_results
         ]
         statuses = [t["status"] for t in tasks_out]
-        return {
+        payload = {
+            "schema_version": ENVELOPE_SCHEMA_VERSION,
             "status": result.status,
             "round_name": result.round_name,
             "tasks": tasks_out,
             "done_count": statuses.count("done") + statuses.count("skipped"),
             "error_count": statuses.count("error") + statuses.count("blocked"),
+            "partial_count": statuses.count("partial"),
             "pending_count": statuses.count("pending"),
             "total_cost_usd": sum(u.cost_usd for u in result.usage),
             "duration_sec": result.duration_sec,
             "dry_run": dry_run,
         }
+        return normalize_envelope(payload)
     except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
-        return {"status": "error", "error": str(exc)}
+        return build_error_envelope(
+            error_code="ERR_DISPATCH_EXCEPTION",
+            error_message=str(exc),
+        )
 
 
 def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, session: Any) -> str:
@@ -1203,14 +1258,21 @@ def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, se
     task_names = _get_task_names(file_path, prompt)
     with _background_lock:
         _background_results[dispatch_id] = {
+            "schema_version": ENVELOPE_SCHEMA_VERSION,
             "status": "running",
             "dispatch_id": dispatch_id,
             "tasks": [{"name": tn, "status": "pending"} for tn in task_names],
+            "done_count": 0,
+            "error_count": 0,
+            "partial_count": 0,
+            "pending_count": len(task_names),
             "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
         }
 
     def _bg_worker() -> None:
-        result = dispatch_fn()
+        result = normalize_envelope(dispatch_fn())
         result["dispatch_id"] = dispatch_id
         with _background_lock:
             _background_results[dispatch_id] = result
@@ -1220,17 +1282,20 @@ def _start_background_dispatch(file_path: str, prompt: str, dispatch_fn: Any, se
     thread = threading.Thread(target=_bg_worker, daemon=True)
     thread.start()
     return json.dumps(
-        {
+        normalize_envelope(
+            {
+                "schema_version": ENVELOPE_SCHEMA_VERSION,
             "status": "dispatched",
             "dispatch_id": dispatch_id,
             "tasks": task_names,
             "message": "Use rondo_run_status to check progress.",
-        },
+            }
+        ),
         indent=2,
     )
 
 
-_STATUS_SHORT = {"running": "w", "done": "d", "error": "e", "dispatched": "w"}
+_STATUS_SHORT = {"running": "w", "done": "d", "partial": "p", "error": "e", "dispatched": "w"}
 
 
 def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool = False) -> str:
@@ -1251,7 +1316,13 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool
     with _background_lock:
         result = _background_results.get(dispatch_id)
     if not result:
-        return json.dumps({"status": "error", "error": f"Unknown dispatch_id: {dispatch_id}"})
+        return json.dumps(
+            build_error_envelope(
+                error_code="ERR_UNKNOWN_DISPATCH_ID",
+                error_message=f"Unknown dispatch_id: {dispatch_id}",
+            ),
+            indent=2,
+        )
 
     # -- U-50: heartbeat mode — ultra-compact (~10 tokens)
     if heartbeat:
@@ -1282,11 +1353,11 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool
     # -- rondo_multi_review needs the full output (see RONDO-211 finding #258).
     # -- Shallow copy to avoid mutating _background_results storage.
     if "tasks" in result and isinstance(result["tasks"], list):
-        truncated = dict(result)
+        truncated = normalize_envelope(dict(result))
         truncated["tasks"] = [{**t, "raw_output": (t.get("raw_output") or "")[:2000]} for t in result["tasks"]]
         return json.dumps(truncated, indent=2)
 
-    return json.dumps(result, indent=2)
+    return json.dumps(normalize_envelope(result), indent=2)
 
 
 # -- ──────────────────────────────────────────────────────────────

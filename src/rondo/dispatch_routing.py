@@ -117,7 +117,10 @@ def _normalize_subprocess_model(model: str) -> str:
     """Normalize model for subprocess execution mode."""
     requested_model = (model or "").strip()
     if requested_model in ("", "current"):
-        return "sonnet"
+        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+        cfg_model = str(get_rondo_config().get("default_model", "")).strip()
+        return cfg_model or "sonnet"
     if requested_model in {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}:
         return requested_model
     return "sonnet"
@@ -187,17 +190,6 @@ def _route_by_execution_mode(
         return engine, model, None
 
     if execution_mode == "inline":
-        # -- RONDO-283 Option C: MCP host calls with inline intent auto-execute and return results.
-        if session is not None:
-            requested_model = _normalize_subprocess_model(model)
-            return (
-                _build_subprocess_plan(
-                    requested_model,
-                    f"execution={execution_mode} auto-exec in MCP host; returning results ({mode_source})",
-                ),
-                requested_model,
-                None,
-            )
         return _build_inline_plan(prompt, done_when, project), model, None
 
     if execution_mode == "agent":

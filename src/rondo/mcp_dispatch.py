@@ -46,7 +46,6 @@ from rondo.engine import (
     RoundResult,
     Task,
     TaskResult,
-    load_round_file,
 )
 from rondo.envelope import (
     ENVELOPE_SCHEMA_VERSION,
@@ -456,9 +455,11 @@ def _get_task_names(file_path: str, prompt: str) -> list[str]:
     if prompt:
         return ["inline-task"]
     try:
-        rd = load_round_file(file_path)
+        from rondo.round_loader import load_round  # pylint: disable=import-outside-toplevel
+
+        rd = load_round(file_path)
         return [t.name for t in rd.tasks]
-    except (FileNotFoundError, AttributeError, TypeError, ImportError):
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, ValueError, OSError, json.JSONDecodeError):
         return []
 
 
@@ -537,13 +538,19 @@ def _build_round_and_config(
     json_schema: str = "",
 ) -> tuple:
     """Build Round + RondoConfig for dispatch — extracted for complexity."""
+    effective_project = _resolve_dispatch_project(file_path=file_path, project=project, add_dir=add_dir)
+    effective_turns = _resolve_claude_p_max_turns(max_turns=max_turns, file_path=file_path, prompt=prompt)
+    effective_add_dir = add_dir or effective_project
+
     if prompt:
         round_def = Round(
             name="inline",
             tasks=[Task(name="inline-task", instruction=prompt, done_when=done_when)],
         )
     else:
-        round_def = load_round_file(file_path)
+        from rondo.round_loader import load_round  # pylint: disable=import-outside-toplevel
+
+        round_def = load_round(file_path)
 
     # -- RONDO-257: read claude_p_* and claude_agent_* from ~/.rondo/config.toml
     from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
@@ -559,15 +566,15 @@ def _build_round_and_config(
         # -- RONDO-258: COALESCE per-call → config.toml → code default
         "claude_p_rules": rules or global_toml.get("claude_p_rules", ""),
         "claude_p_allowed_tools": allowed_tools or global_toml.get("claude_p_allowed_tools", "Read,Grep,Glob"),
-        "claude_p_max_turns": max_turns if max_turns > 0 else global_toml.get("claude_p_max_turns", 5),
-        "claude_p_add_dir": add_dir or global_toml.get("claude_p_add_dir", ""),
+        "claude_p_max_turns": effective_turns,
+        "claude_p_add_dir": effective_add_dir or global_toml.get("claude_p_add_dir", ""),
         "claude_p_json_schema": json_schema or global_toml.get("claude_p_json_schema", ""),
         "claude_agent_rules": global_toml.get("claude_agent_rules", ""),
         "claude_agent_max_turns": global_toml.get("claude_agent_max_turns", 10),
         "claude_agent_allowed_tools": global_toml.get("claude_agent_allowed_tools", "Read,Grep,Glob"),
     }
-    if project:
-        config_kwargs["project"] = project
+    if effective_project:
+        config_kwargs["project"] = effective_project
     if max_budget > 0:
         config_kwargs["max_budget_usd"] = max_budget
 
@@ -603,7 +610,7 @@ from rondo.dispatch_routing import (  # noqa: F401,E402
 def rondo_run_file(
     file_path: str = "",
     dry_run: bool = True,
-    model: str = "sonnet",
+    model: str = "",
     project: str = "",
     max_budget: float = 0.0,
     timeout_sec: int = 300,
@@ -714,6 +721,55 @@ def _resolve_option_c_execution_override(
     return "subprocess", ["inline_auto_execute_failed; used subprocess fallback"]
 
 
+def _resolve_dispatch_project(file_path: str, project: str, add_dir: str) -> str:
+    """Resolve subprocess cwd for stable file-relative execution."""
+    requested_project = (project or "").strip()
+    if requested_project:
+        return requested_project
+
+    if file_path:
+        return str(Path(file_path).expanduser().resolve().parent)
+
+    add_dir_value = (add_dir or "").strip()
+    if not add_dir_value:
+        return ""
+    return add_dir_value.split(",")[0].strip()
+
+
+def _resolve_claude_p_max_turns(max_turns: int, file_path: str, prompt: str) -> int:
+    """Use higher default max-turns for round-file dispatches."""
+    if max_turns > 0:
+        return max_turns
+
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+    cfg_turns = int(get_rondo_config().get("claude_p_max_turns", 5))
+    is_round_dispatch = bool(file_path and not prompt)
+    if is_round_dispatch:
+        return max(cfg_turns, 12)
+    return cfg_turns
+
+
+def _resolve_dispatch_model_override(file_path: str, prompt: str, model: str, clean_model: str) -> str:
+    """Let round task models win when caller leaves model at default sonnet."""
+    if prompt or not file_path:
+        return clean_model or model
+    if (model or "").strip() != "sonnet":
+        return clean_model or model
+
+    try:
+        from rondo.round_loader import load_round  # pylint: disable=import-outside-toplevel
+
+        rd = load_round(file_path)
+    except (FileNotFoundError, ValueError, TypeError, ImportError, OSError, json.JSONDecodeError):
+        return clean_model or model
+
+    has_task_model = any(bool((getattr(task, "model", "") or "").strip()) for task in rd.tasks)
+    if has_task_model:
+        return ""
+    return clean_model or model
+
+
 def _attach_route_warnings(result_obj: dict, route_warnings: list[str]) -> dict:
     """Attach fallback warnings to normalized result envelope."""
     if not route_warnings:
@@ -814,7 +870,7 @@ def _rondo_run_file_inner(
             prompt,
             done_when,
             file_path,
-            _clean_model or model,
+            _resolve_dispatch_model_override(file_path, prompt, model, _clean_model),
             model,
             dry_run,
             timeout_sec,

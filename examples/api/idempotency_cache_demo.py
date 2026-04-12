@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Duplicate-request cache behavior and timing comparison"
+
 """Rondo API example: idempotency cache in real dispatch.
 
 What this demonstrates

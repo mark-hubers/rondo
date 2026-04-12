@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=inline,subprocess,agent provider=anthropic category=basic value="Side-by-side behavior of all three execution modes"
+
 """Rondo API example 03: execution modes side-by-side (inline | subprocess | agent).
 
 What this demonstrates

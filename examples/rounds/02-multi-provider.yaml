@@ -1,3 +1,5 @@
+# rondo-meta: mode=http provider=gemini,grok,ollama category=review value="Same task across three providers for comparison"
+
 # Rondo Example 02: Multi-Provider Review
 # Usage: rondo run examples/rounds/02-multi-provider.yaml
 #

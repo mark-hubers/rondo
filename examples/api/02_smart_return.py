@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=basic value="Smart-return JSON structure and parsing flow"
+
 """Rondo API Example 02: Smart Return — validate + normalize responses.
 
 Shows how Rondo validates AI responses and normalizes them to a

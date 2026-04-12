@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Four-stage scan/review/fix/verify round workflow"
+
 """Rondo demo: Unix-style pipeline — scan → review → fix → verify.
 
 Shows how rounds chain together like Unix pipes: each step reads the

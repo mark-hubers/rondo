@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=essay value="Multi-step essay claim extraction and fact-check loop"
+
 """Rondo example: per-claim structured verification (sample medical-style claims).
 
 What this demonstrates

@@ -1,4 +1,6 @@
 #!/bin/bash
+# rondo-meta: mode=subprocess,http provider=anthropic,gemini,grok,mistral,ollama category=pipeline value="jq-driven branching, retries, and prompting scripts"
+
 ## ═══════════════════════════════════════════════════════════════
 ## Rondo CLI: Scripted Prompting Examples
 ## ═══════════════════════════════════════════════════════════════

@@ -1,6 +1,8 @@
 #!/bin/bash
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess,http provider=anthropic,gemini category=basic value="CLI subprocess route vs provider HTTP route"
+
 # -- Rondo CLI example: execution-mode behavior through `rondo_run` MCP analogs.
 # -- This script demonstrates the practical equivalent of inline/agent/subprocess behavior
 # -- from the CLI perspective (CLI naturally uses subprocess result mode).

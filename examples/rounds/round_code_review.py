@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=review value="Git-diff-aware review round with staged-change gate"
+
 """Rondo example: code review round.
 
 Pattern: gate checks for uncommitted changes, then Claude reviews the diff.

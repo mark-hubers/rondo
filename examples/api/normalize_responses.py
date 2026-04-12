@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=config value="Normalizing varied model payloads into one stable shape"
+
 """Rondo API: Normalize Provider Responses.
 
 Each AI provider returns JSON slightly differently.

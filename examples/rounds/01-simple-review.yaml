@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=review value="Simplest single-task YAML round review"
+
 # Rondo Example 01: Simple Code Review
 # Usage: rondo run examples/rounds/01-simple-review.yaml
 #

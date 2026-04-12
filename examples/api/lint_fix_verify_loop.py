@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Iterative lint/fix/verify automation pattern"
+
 """Rondo example: batched lint-fix *suggestions* from a model.
 
 What this demonstrates

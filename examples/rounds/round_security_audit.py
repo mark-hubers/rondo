@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=review value="Security audit pattern with clean-tree pre-gate"
+
 """Rondo example: security audit round with sanitization.
 
 Demonstrates STD-114 (output sanitization) integration with dispatch.

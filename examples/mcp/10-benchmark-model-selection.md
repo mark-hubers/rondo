@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess,http provider=anthropic,gemini,grok,mistral,openai category=observability value="Benchmarking model options before choosing defaults"
+
 # 10 — Benchmark Before Standardizing
 
 Benchmark several models on the same task before picking defaults.

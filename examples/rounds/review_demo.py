@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=review value="Forward/reverse/sideways review strategy on a demo file"
+
 """Rondo review: use Rondo to review its own demo_pipeline.py.
 
 Eating our own dog food — multi-directional review of the demo code

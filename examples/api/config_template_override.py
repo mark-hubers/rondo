@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=config value="Per-call override behavior for config-backed dispatch options"
+
 """Rondo API: Config Template Override.
 
 Rondo has built-in return prompt templates for each AI provider.

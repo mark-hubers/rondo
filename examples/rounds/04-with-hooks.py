@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Python round hooks (pre/post dispatch transformations)"
+
 """Rondo Example 04: Dispatch Hooks.
 
 Usage: rondo run examples/rounds/04-with-hooks.py

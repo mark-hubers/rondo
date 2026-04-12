@@ -1,3 +1,5 @@
+# rondo-meta: mode=inline provider=anthropic category=basic value="MCP default inline plan and host-executed behavior"
+
 # 01 — Inline Host Plan (MCP Default)
 
 Use when you want current-session context.

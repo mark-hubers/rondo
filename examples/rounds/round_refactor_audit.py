@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=review value="Refactor audit with blocking/non-blocking gates"
+
 """Rondo example: refactor safety audit with pre/post gates.
 
 Pattern: gates verify preconditions before work and postconditions after.

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess,http provider=anthropic category=review value="Multi-model disagreement handling and tie-break voting"
+
 """Rondo example: multi-AI tiebreaker.
 
 Send the same question to 2 models. If they disagree, ask a 3rd.

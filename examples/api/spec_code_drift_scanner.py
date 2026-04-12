@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=drift value="Spec-vs-code drift checks with PASS/FAIL verdicts"
+
 """Rondo example: requirement-by-requirement drift check against sample code.
 
 What this demonstrates

@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=basic value="Absolute minimal one-task Python round"
+
 """Rondo example: simplest possible round — one task, no gates."""
 
 from rondo.engine import Round, Task

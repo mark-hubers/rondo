@@ -1,3 +1,5 @@
+# rondo-meta: mode=http provider=gemini category=observability value="Multi-task batch constrained by max budget"
+
 # Rondo Example 03: Budget-Capped Batch
 # Usage: rondo run examples/rounds/03-budget-capped.yaml --max-budget 0.50
 #

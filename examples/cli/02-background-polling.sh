@@ -1,6 +1,8 @@
 #!/bin/bash
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Background polling command recipe for MCP-style flows"
+
 # -- Rondo CLI example: start background run via MCP-compatible tool surface and poll status.
 # -- Uses `rondo mcp` equivalent workflow conceptually, but calls through `rondo_run` tool syntax
 # -- represented as copy/paste guidance for MCP clients.

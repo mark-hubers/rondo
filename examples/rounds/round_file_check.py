@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=basic value="File existence gate + auto task + AI summary task"
+
 """Rondo example: auto task gate + interactive task."""
 
 from pathlib import Path

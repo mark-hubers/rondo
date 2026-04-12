@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=publish value="Generate multiple response variants for community replies"
+
 """Rondo example: draft a careful community reply from a single message.
 
 What this demonstrates

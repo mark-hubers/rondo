@@ -1,4 +1,6 @@
 #!/bin/bash
+# rondo-meta: mode=subprocess,http provider=gemini,grok,mistral,ollama category=pipeline value="Shell scripting playbook for practical AI workflows"
+
 ## ═══════════════════════════════════════════════════════════════
 ## Rondo CLI: Real-World Scripted Prompting
 ## ═══════════════════════════════════════════════════════════════

@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Multi-phase overnight plan with model-tier escalation"
+
 """Rondo example: overnight multi-phase build.
 
 Pattern: build_phases() returns a list of Rounds for the overnight scheduler.

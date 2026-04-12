@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Caliber findings to automated fix workflow"
+
 """Rondo round: Run Caliber checks → Claude fixes failures.
 
 First real end-to-end: Caliber finds problems, Rondo dispatches Claude to fix them.

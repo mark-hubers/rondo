@@ -1,6 +1,8 @@
 #!/bin/bash
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=gemini,grok category=review value="Two-provider file review consensus pattern"
+
 # -- Rondo CLI example: consensus review on a real file.
 
 set -euo pipefail

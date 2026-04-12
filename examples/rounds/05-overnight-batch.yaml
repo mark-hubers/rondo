@@ -1,3 +1,5 @@
+# rondo-meta: mode=http provider=gemini,grok category=observability value="Overnight batch pattern with mixed provider tasks"
+
 # Rondo Example 05: Overnight Batch
 # Usage: rondo run examples/rounds/05-overnight-batch.yaml
 #

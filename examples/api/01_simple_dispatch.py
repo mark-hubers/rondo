@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=basic value="Minimum Python API call returning live task results"
+
 """Rondo API example 01: real dispatch + smart_return normalization.
 
 What this demonstrates

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=triage value="Build-failure diagnosis with structured triage output"
+
 """Rondo example: deterministic triage + optional AI labels for new failures.
 
 What this demonstrates

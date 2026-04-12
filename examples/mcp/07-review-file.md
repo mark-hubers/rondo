@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=review value="File-scoped review workflow for real source files"
+
 # 07 — File Review Workflow
 
 Review a real file path without manual copy/paste.

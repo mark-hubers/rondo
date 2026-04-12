@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=drift value="Compare run outputs to detect behavioral drift"
+
 # 12 — Diff Two Runs
 
 Compare current output against previous output to detect drift or regressions.

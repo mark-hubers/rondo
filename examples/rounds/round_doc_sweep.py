@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=publish value="Parallel docs cleanup tasks across repository files"
+
 """Rondo example: parallel documentation sweep across multiple files.
 
 Pattern: multiple independent tasks that can run in parallel (workers > 1).

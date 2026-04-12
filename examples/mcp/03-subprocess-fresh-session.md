@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=basic value="Force fresh subprocess execution from MCP tool call"
+
 # 03 — Subprocess Fresh Session
 
 Use when you want execution isolated from current conversation context.

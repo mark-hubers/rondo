@@ -1,3 +1,5 @@
+# rondo-meta: mode=agent provider=anthropic category=basic value="Explicit agent plan mode for host-side execution"
+
 # 02 — Agent Host Plan
 
 Use when you want host Agent isolation with a specific Claude model.

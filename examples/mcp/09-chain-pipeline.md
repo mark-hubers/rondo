@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Chaining tool calls where each step feeds the next"
+
 # 09 — Chain Pipeline (Step Output Feeds Next)
 
 Use for find -> fix -> verify or similar multi-step prompt workflows.

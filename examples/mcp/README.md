@@ -1,3 +1,5 @@
+# rondo-meta: mode=inline,subprocess,agent,http provider=anthropic,gemini,grok,mistral,openai,ollama category=config value="MCP playbook overview with copy/paste entry points"
+
 # Rondo MCP Examples — Real, Copy/Paste Workflows
 
 These examples are for Claude Code (or any MCP client) calling Rondo tools directly.

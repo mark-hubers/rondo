@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Retry strategy and recovery handling for failed runs"
+
 """Rondo example: retry on failure with provider escalation.
 
 When the first AI call fails or returns low confidence, try a

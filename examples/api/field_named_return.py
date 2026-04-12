@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=basic value="Named JSON field contract for script-friendly outputs"
+
 """Rondo API: Named Return Fields.
 
 Use build_return_prompt(field_name="bugs") to tell the AI

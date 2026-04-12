@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=review value="Real code review prompt converted into findings JSON"
+
 """Rondo example: multi-provider code review and lightweight consensus.
 
 What this demonstrates

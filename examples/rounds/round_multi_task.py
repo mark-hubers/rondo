@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Multi-task round mixing auto and AI tasks"
+
 """Rondo example: 3 tasks with model hints, pre/post gates. Parallel-safe."""
 
 from pathlib import Path

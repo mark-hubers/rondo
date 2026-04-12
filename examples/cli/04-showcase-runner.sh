@@ -1,6 +1,8 @@
 #!/bin/bash
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=— category=observability value="One-command showcase run plus API example validation"
+
 # -- Rondo CLI example: run the top-level showcase and API example suite.
 
 set -euo pipefail

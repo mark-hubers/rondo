@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=publish value="One prompt pipeline that adapts copy for multiple platforms"
+
 """Rondo example: one generation pass per platform with explicit length QA.
 
 What this demonstrates

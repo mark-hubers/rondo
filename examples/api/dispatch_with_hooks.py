@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Prompt/result hook lifecycle from Python API"
+
 """Rondo API: Dispatch with Hooks.
 
 Pre-hooks transform prompts before dispatch.

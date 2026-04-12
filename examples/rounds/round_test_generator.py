@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Auto-discover untested modules and generate test stubs"
+
 """Rondo example: auto-discover source files, generate missing tests.
 
 Pattern: auto_fn scans the filesystem, Claude writes tests for uncovered modules.

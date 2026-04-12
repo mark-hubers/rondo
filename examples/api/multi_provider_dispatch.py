@@ -1,3 +1,5 @@
+# rondo-meta: mode=http provider=gemini,grok,ollama category=review value="Fan-out to multiple providers with one prompt"
+
 """Rondo API: multi-provider dispatch (live).
 
 Sends the same prompt to several ``model=`` values (HTTP adapters + optional local).

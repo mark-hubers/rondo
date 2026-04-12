@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Background run lifecycle and polling tiers from MCP"
+
 # 05 — Background + Polling Tiers
 
 Run long tasks asynchronously and poll cheaply.

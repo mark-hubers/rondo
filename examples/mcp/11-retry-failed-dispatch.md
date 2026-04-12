@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Recovery of failed dispatches using retry tools"
+
 # 11 — Retry Failed Dispatch
 
 Recover only failed tasks from a prior background run.

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Find -> fix -> verify chain with real dispatches"
+
 """Rondo example: find → fix → verify pipeline.
 
 Chain AI calls where each step's output feeds the next.

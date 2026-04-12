@@ -1,3 +1,5 @@
+# rondo-meta: mode=http provider=anthropic,gemini,grok,mistral,openai,ollama category=config value="Provider-prefixed model behavior that bypasses execution routing"
+
 # 04 — Provider HTTP Bypass
 
 Provider-prefixed models bypass execution mode and route HTTP adapters.

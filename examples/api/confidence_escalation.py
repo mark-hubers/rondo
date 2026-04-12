@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Confidence threshold flow that escalates to stronger model"
+
 """Rondo example: confidence-based escalation.
 
 If the AI's confidence is below threshold, add more context and retry.

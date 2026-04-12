@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=config value="Loading and dispatching YAML round definitions via API"
+
 """Rondo API: Load YAML Round Files.
 
 Round files define AI tasks in YAML, JSON, or Python.

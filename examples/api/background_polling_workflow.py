@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Background run + heartbeat/brief/final polling loop"
+
 """Rondo API example: real background dispatch with heartbeat/brief/full polling.
 
 What this demonstrates

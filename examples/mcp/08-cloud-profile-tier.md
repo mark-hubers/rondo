@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess,http provider=anthropic,gemini,grok,mistral,openai,ollama category=config value="Cloud profile/tier routing examples for model selection"
+
 # 08 — Cloud Profile + Tier Dispatch
 
 Dispatch to profile-selected providers with quality/cost tier.

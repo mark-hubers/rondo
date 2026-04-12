@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="Provider scoring and comparison from run outputs"
+
 """Rondo API: Provider Scoring.
 
 Computes quality scores per provider from dispatch history.

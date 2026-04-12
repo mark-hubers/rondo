@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=config value="Cost-aware dispatch selection from script logic"
+
 """Rondo example: budget-aware routing.
 
 Start with the cheapest option and escalate only when needed.

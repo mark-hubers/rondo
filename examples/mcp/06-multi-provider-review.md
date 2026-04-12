@@ -1,3 +1,5 @@
+# rondo-meta: mode=http provider=anthropic,gemini,grok,mistral,openai category=review value="Multi-provider review workflow through MCP tools"
+
 # 06 — Multi-Provider Review Consensus
 
 Send one prompt to multiple providers and merge findings.

@@ -1,3 +1,5 @@
+# rondo-meta: mode=subprocess provider=anthropic category=observability value="End-to-end health/metrics/history/audit monitoring flow"
+
 # 13 — Observability Suite
 
 Operational MCP calls you should run regularly.

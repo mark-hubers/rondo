@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
+# rondo-meta: mode=subprocess provider=anthropic category=research value="Research freshness scoring and stale-source detection"
+
 """Rondo example: classify scan headlines against an essay index (structured JSON).
 
 What this demonstrates

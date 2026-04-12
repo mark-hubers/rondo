@@ -701,6 +701,38 @@ class TestMainModule:
         assert exc_info.value.code == 0
 
 
+class TestInlinePromptOutputNormalization:
+    """CLI inline output should keep normalized smart-return shape."""
+
+    def test_inline_prompt_prints_normalized_json_fields(self, capsys):
+        from rondo.engine import DispatchUsage, RoundResult, TaskResult
+
+        result = RoundResult(
+            round_name="inline",
+            status="done",
+            task_results=[
+                TaskResult(
+                    task_name="inline",
+                    status="done",
+                    raw_output='{"result":"ok"}',
+                    model="sonnet",
+                )
+            ],
+            usage=[DispatchUsage(task_name="inline", model="sonnet", cost_usd=0.0)],
+        )
+        with (
+            patch("rondo.cli._dispatch_with_provider", return_value=result),
+            patch("sys.stdin.isatty", return_value=True),
+        ):
+            exit_code = main(["write a quick summary"])
+        captured = capsys.readouterr()
+        assert exit_code in (EXIT_SUCCESS, EXIT_FAILURE)
+        assert '"result": "ok"' in captured.out
+        assert '"_meta"' in captured.out
+        assert '"issues"' in captured.out
+        assert '"_json_valid"' in captured.out
+
+
 # -- Rondo-REQ-103 req 015: preflight standalone command
 class TestPreflightSubcommand:
     def test_preflight_returns_success_when_green(self, capsys):

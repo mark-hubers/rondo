@@ -197,6 +197,8 @@ description = "Team default"
 
 ## Error Handling (REQ-109 reqs 068-070)
 
+Canonical envelope + error taxonomy reference: `docs/ERROR-ENVELOPE-CONTRACT.md` (REQ-112).
+
 ### Error Code Taxonomy
 
 **Adapter errors (HTTP-based):**

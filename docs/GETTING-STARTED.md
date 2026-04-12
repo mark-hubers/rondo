@@ -5,6 +5,7 @@ Rondo runs **scripted AI work**: you describe tasks (in the CLI, YAML, JSON, or 
 This guide goes from a 30-second first run to the full CLI. For architecture and contracts, see `specs/VISION-rondo-v1.md` and `specs/Rondo-REQ-111-smart-dispatch.md`.
 
 Full cross-directory example map: `examples/INDEX.md` (62 examples by dispatch mode, providers, and use case).
+Dispatch envelope contract (status + error_code semantics): `docs/ERROR-ENVELOPE-CONTRACT.md`.
 
 ---
 
@@ -273,3 +274,4 @@ Rondo exposes **16 subcommands** plus optional **inline prompt** mode (first arg
 - For Claude Code workflows, use `examples/mcp/` (13 MCP examples).
 - For shell automation patterns, use `examples/cli/` (scripted real-world recipes).
 - For the canonical map of all examples, use `examples/INDEX.md`.
+- For status/error troubleshooting by `error_code`, use `docs/ERROR-ENVELOPE-CONTRACT.md`.

@@ -475,6 +475,43 @@ class TestDispatchEngineIntegration:
         assert result.get("status") in ("done", "plan"), f"Expected done/plan, got: {result.get('status')}"
         assert result.get("engine") != "error", f"Should not be error: {result.get('reason', '')}"
 
+    def test_subprocess_result_has_canonical_envelope_keys(self) -> None:
+        done_payload = {
+            "status": "done",
+            "round_name": "inline",
+            "tasks": [{"name": "inline-task", "status": "done"}],
+            "done_count": 1,
+            "error_count": 0,
+            "partial_count": 0,
+            "pending_count": 0,
+            "total_cost_usd": 0.0,
+            "duration_sec": 0.0,
+            "dry_run": False,
+        }
+        with patch("rondo.mcp_dispatch._execute_dispatch", return_value=done_payload):
+            result = json.loads(
+                rondo_run_file(
+                    prompt="envelope key contract check",
+                    model="sonnet",
+                    dry_run=False,
+                    _session=None,
+                    execution="subprocess",
+                )
+            )
+        required = {
+            "schema_version",
+            "status",
+            "tasks",
+            "done_count",
+            "error_count",
+            "partial_count",
+            "pending_count",
+            "total_cost_usd",
+            "duration_sec",
+            "dry_run",
+        }
+        assert required.issubset(set(result.keys()))
+
     # -- RONDO-208: removed test_empty_prompt_and_model_is_error — exact
     # -- duplicate of test_mcp_integration.py::TestMCPIntegration::test_no_prompt_no_file_is_error
     # -- (PAT layer has it; unit layer is redundant for an MCP-server-level test).

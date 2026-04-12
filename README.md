@@ -137,6 +137,7 @@ The examples are used as test fixtures (`tests/integration/test_api_examples.py`
 ## Documentation Map
 
 - Quick start and core usage: `docs/GETTING-STARTED.md`
+- Error/result envelope contract: `docs/ERROR-ENVELOPE-CONTRACT.md`
 - Full reference: `docs/RONDO-REFERENCE.md`
 - Fast path: `docs/GOLDEN-PATH.md`
 - Pattern recipes: `docs/COOKBOOK.md`

@@ -40,3 +40,4 @@ These examples are meant to answer the big questions quickly:
 Use this folder as your MCP playbook.
 
 See also: `../INDEX.md` for the full cross-directory example map.
+Envelope semantics and `error_code` troubleshooting: `../../docs/ERROR-ENVELOPE-CONTRACT.md`.

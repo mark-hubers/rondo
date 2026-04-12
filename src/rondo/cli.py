@@ -42,6 +42,14 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     parser = argparse.ArgumentParser(
         prog="rondo",
         description="Rondo — AI task automation for Claude Code",
+        epilog=(
+            "Execution mode quick guide:\n"
+            "  inline      -> host plan JSON (host executes)\n"
+            "  subprocess  -> completed task results\n"
+            "  agent       -> host agent plan JSON\n"
+            "  provider:model -> HTTP adapter results (execution bypass)"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument("--version", action="version", version=f"rondo {get_version()}")
@@ -55,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     )
     parser.add_argument("--text", action="store_true", default=False, help="Plain text output (no JSON)")
     parser.add_argument("--model", default=None, help="Model override for inline prompt dispatch")
+    parser.add_argument("--dry-run", action="store_true", default=False, help="Inline prompt preview without live dispatch")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

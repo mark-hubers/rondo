@@ -48,6 +48,26 @@ rondo-test --examples-api
   - Runs the same live request twice and compares time + payload.
   - Teaches how idempotency dedupe behaves in real usage.
 
+- `error_recovery_patterns.py`
+  - Forces a deterministic error envelope, then recovers with a real dispatch.
+  - Teaches retry/recovery with actionable `error_code` + `error_help`.
+
+- `partial_status_handling.py`
+  - Demonstrates non-JSON/partial-style handling while preserving `raw_output`.
+  - Teaches safe fallback parsing when strict JSON is not available.
+
+- `provider_fallback_chain.py`
+  - Intentionally fails a primary provider path, then falls back to subprocess dispatch.
+  - Teaches practical fallback behavior for production scripts.
+
+- `timeout_and_backoff.py`
+  - Implements timeout-oriented retries with exponential backoff.
+  - Teaches deterministic error-path probing plus live retry loops.
+
+- `envelope_validation.py`
+  - Validates canonical top-level envelope keys from a live run.
+  - Teaches contract checks and unknown dispatch-id error handling.
+
 ## Expected Environment
 
 These are live examples. You need a working dispatch environment:
@@ -60,5 +80,5 @@ Examples exit `0` on success and `1` on handled runtime errors.
 
 - `examples/mcp/`: MCP-first workflows for Claude Code (13 examples).
 - `examples/cli/`: shell automation and scripted prompting patterns.
-- See also: `../INDEX.md` for the cross-directory 62-example map.
+- See also: `../INDEX.md` for the cross-directory 75-example map.
 - Envelope semantics and `error_code` troubleshooting: `../../docs/ERROR-ENVELOPE-CONTRACT.md`.

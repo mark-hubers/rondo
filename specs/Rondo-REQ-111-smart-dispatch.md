@@ -195,6 +195,7 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | 497 | `execution="agent"` with non-Claude non-prefixed model MUST return validation error (`ERR_INVALID_EXECUTION_MODEL`). | SHOULD | Validation test |
 | 498 | Existing callers that relied on `_session=object()` for subprocess MUST pass `execution="subprocess"` explicitly to preserve old behavior. | MUST | Back-compat test |
 | 499 | Skill/docs/examples MUST describe execution mode behavior consistently with reqs 460-467 and 490-498. | MUST | Doc parity test |
+| 500 | `rondo --help` output MUST include an execution mode quick guide explaining plan-vs-results behavior (`inline`, `subprocess`, `agent`, `provider:model`). | MUST | CLI help test |
 
 ### Caller Acceptance Tables (RONDO-276 hardening)
 
@@ -222,7 +223,7 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 
 | Parameter | Allowed values | Default | MUST/SHOULD |
 |---|---|---|---|
-| `execution` | not direct CLI flag in this phase | n/a | SHOULD continue to use subprocess path by default for CLI caller contexts. |
+| `execution` | not direct CLI dispatch flag in this phase | n/a | MUST document execution-mode decision guidance in CLI `--help`; SHOULD continue subprocess default for CLI caller contexts. |
 | `--model` | same model set as API/MCP | config/default route model | MUST honor provider-prefixed model bypass to HTTP adapters. |
 | `--dry-run` | present/absent | absent (`false`) | MUST skip live dispatch when present. |
 | `--field` | any JSON field name | none | MUST merge named field with smart-return defaults unless overridden by full return schema. |

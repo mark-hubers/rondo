@@ -744,10 +744,12 @@ def _rondo_run_file_inner(
     )
 
     if engine["engine"] == "error":
+        reason = str(engine.get("reason", ""))
+        error_code = "ERR_INPUT_TOO_LARGE" if "exceeds context limit" in reason.lower() else "ERR_INVALID_INPUT"
         return json.dumps(
             build_error_envelope(
-                error_code="ERR_INVALID_INPUT",
-                error_message=str(engine["reason"]),
+                error_code=error_code,
+                error_message=reason,
                 context={"model": model},
             ),
             indent=2,
@@ -878,10 +880,18 @@ def _execute_dispatch(
             "dry_run": dry_run,
         }
         return normalize_envelope(payload)
-    except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
+    except TimeoutError as exc:
         return build_error_envelope(
-            error_code="ERR_DISPATCH_EXCEPTION",
-            error_message=str(exc),
+            error_code="ERR_TIMEOUT",
+            error_message=str(exc) or "Dispatch timed out before completing results.",
+        )
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, OSError) as exc:
+        exc_text = str(exc).strip()
+        msg = f"{type(exc).__name__}: {exc_text}" if exc_text else f"{type(exc).__name__} during dispatch"
+        code = "ERR_TIMEOUT" if "timeout" in exc_text.lower() else "ERR_DISPATCH_EXCEPTION"
+        return build_error_envelope(
+            error_code=code,
+            error_message=msg,
         )
 
 

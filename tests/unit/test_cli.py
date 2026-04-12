@@ -89,6 +89,16 @@ class TestCliEntryPoint:
             parser.parse_args(["--help"])
         assert exc_info.value.code == 0
 
+    def test_help_includes_execution_mode_guide(self, capsys):
+        """CLI help includes plan-vs-results execution guidance."""
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--help"])
+        captured = capsys.readouterr()
+        assert "inline" in captured.out
+        assert "subprocess" in captured.out
+        assert "provider:model" in captured.out
+
 
 # ──────────────────────────────────────────────────────────────────
 #  Subcommands — Rondo-REQ-100 req 37

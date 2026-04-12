@@ -2,6 +2,14 @@
 
 Turn prompts into reliable, scriptable AI workflows.
 
+## What Rondo Is (and Is Not)
+
+Rondo is a scripted AI prompting engine for operational work. You define prompts, routing, retry behavior, and output contracts so the same workflow can run from MCP, CLI, or Python API without re-prompting by hand.
+
+Rondo is not a chatbot framework and not a general app orchestration SDK. It does not try to replace LangChain/DSPy graph tooling or full agent platforms. It focuses on dependable dispatch, repeatable outputs, and workflow-safe envelopes for real operator loops.
+
+Think of Rondo as "Terraform for prompts": declarative, repeatable runs with explicit execution modes, clear result contracts, and auditable behavior.
+
 Rondo is built for real work:
 - MCP in Claude Code,
 - CLI automation in shells and CI,
@@ -61,7 +69,7 @@ Use tool calls like:
 
 Start here:
 - `examples/mcp/README.md` (13 MCP examples)
-- **Full example index:** `examples/INDEX.md` (all 62 examples mapped by mode/provider/use case)
+- **Full example index:** `examples/INDEX.md` (all 75 examples mapped by mode/provider/use case)
 
 ### 2) CLI (scripts, CI, terminal workflows)
 
@@ -94,18 +102,19 @@ Start here:
 
 ---
 
-## Execution Modes (Important)
+## Execution Modes (Plan vs Results)
 
 Rondo separates:
 - `execution` = **how** work runs,
 - `model` = **where** it routes.
 
-| execution | behavior |
-|---|---|
-| `inline` | returns host plan JSON (`inline_dispatch_plan`) |
-| `agent` | returns host agent plan JSON (`agent_dispatch_plan`) |
-| `subprocess` | performs dispatch and returns task results |
-| `""` (auto) | defaults by caller: MCP -> inline, Python/CLI -> subprocess |
+| You want... | Use this | You get back... |
+|---|---|---|
+| AI to run in your current host/session loop | `execution="inline"` | Plan JSON (`inline_dispatch_plan`) for host execution |
+| AI to run independently and return completed results | `execution="subprocess"` | Task result envelope (`status`, `tasks`, `error_code`, etc.) |
+| Host agent orchestration with explicit model | `execution="agent"` | Agent plan JSON (`agent_dispatch_plan`) for host execution |
+| Cloud/provider adapter call (Gemini/Grok/OpenAI/Mistral/Anthropic/local) | `model="provider:model"` | Task result envelope over HTTP adapters |
+| Let caller defaults decide | `execution=""` | MCP defaults to inline; Python/CLI defaults to subprocess |
 
 Provider-prefixed models (for example `gemini:...`, `anthropic:...`) route HTTP adapters and bypass execution mode routing.
 

@@ -47,8 +47,31 @@ class TestEnvelopeNormalization:
         assert out["status"] == "error"
         assert out["error_code"] == "ERR_INVALID_INPUT"
         assert out["error_message"] == "bad input"
+        assert "error_help" in out and out["error_help"]
         assert out["error"] == "bad input"
         assert out["code"] == "ERR_INVALID_INPUT"
+
+    def test_build_error_envelope_fills_missing_message(self) -> None:
+        out = build_error_envelope(error_code="ERR_TIMEOUT", error_message="")
+        assert out["error_message"] == "Dispatch failed (ERR_TIMEOUT)"
+        assert "Increase timeout_sec" in out["error_help"]
+
+    def test_normalize_promotes_task_error_fields(self) -> None:
+        payload = {
+            "status": "error",
+            "tasks": [
+                {
+                    "name": "t1",
+                    "status": "error",
+                    "error_code": "ERR_TIMEOUT",
+                    "error_message": "Task timed out after 10s",
+                }
+            ],
+        }
+        out = normalize_envelope(payload)
+        assert out["error_code"] == "ERR_TIMEOUT"
+        assert out["error_message"] == "Task timed out after 10s"
+        assert "Increase timeout_sec" in out["error_help"]
 
 
 # -- sig: mgh-6201.cd.bd955f.f0d0.e27402

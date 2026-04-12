@@ -36,6 +36,7 @@ When `status="error"`, payload MUST include:
 
 - `error_code` (string)
 - `error_message` (string)
+- `error_help` (string user-facing next action)
 
 Backward-compat aliases MAY remain:
 
@@ -105,6 +106,9 @@ Unknown exceptions SHOULD map to `ERR_DISPATCH_EXCEPTION`.
 | 504 | Top-level status derivation MUST follow Section 4 exactly. | MUST | unit |
 | 505 | `partial_count` MUST be present and accurate in canonical envelopes. | MUST | unit |
 | 506 | Known failures listed in Section 5 MUST emit their stable `error_code`. | MUST | unit |
+| 507 | Every emitted `error_code` MUST include a user-facing remediation message (`error_message`) and actionable guidance (`error_help`). | MUST | unit |
+| 508 | Dispatch timeouts MUST emit `ERR_TIMEOUT`; timeout paths MUST NOT fail silently or hang without an error envelope. | MUST | integration |
+| 509 | `partial` task outcomes SHOULD preserve `tasks[].raw_output` so callers can recover useful output even when strict parsing fails. | SHOULD | integration |
 
 ### Caller Acceptance Tables (RONDO-276 hardening)
 
@@ -115,6 +119,7 @@ Unknown exceptions SHOULD map to `ERR_DISPATCH_EXCEPTION`.
 | `status` | `done`, `partial`, `error`, `running`, `dispatched`, `plan` | derived by envelope normalizer | MUST be normalized before returning full payloads. |
 | `schema_version` | string (`"2"` current) | `"2"` | MUST be present on canonical dispatch payloads. |
 | `error_code` / `error_message` | string fields when `status="error"` | empty unless error | MUST be present for known failures and unknown dispatch exceptions. |
+| `error_help` | actionable string guidance | derived from `error_code` mapping | MUST be present on error envelopes for caller remediation UX. |
 | `brief` / `heartbeat` (status polling) | `true`, `false` | `false` | SHOULD preserve canonical full payload shape prior to truncation for short views. |
 | `dispatch_id` | non-empty string | n/a | MUST return `ERR_UNKNOWN_DISPATCH_ID` envelope when id is missing/unknown. |
 
@@ -126,13 +131,14 @@ Unknown exceptions SHOULD map to `ERR_DISPATCH_EXCEPTION`.
 | `tasks[].status` | `done`, `skipped`, `partial`, `error`, `blocked`, `pending` | provider/dispatch result dependent | MUST be the source of truth for top-level derivation. |
 | `partial_count` | integer >= 0 | `0` | MUST be present and accurate on normalized envelopes. |
 | `error_code` mapping | stable taxonomy in Section 5 | n/a | MUST emit listed stable codes for known failures. |
+| `error_help` | actionable guidance text | derived from `error_code` mapping | SHOULD be surfaced by examples/automation logs when errors occur. |
 | helper normalization behavior | normalized envelope dict | n/a | SHOULD normalize before user/example branching logic to avoid caller drift. |
 
 #### CLI callers (dispatch-facing outputs)
 
 | Parameter | Allowed values | Default | MUST/SHOULD |
 |---|---|---|---|
-| dispatch error fields | `error_code`, `error_message` | n/a | MUST expose stable dispatch error identifiers for known failures. |
+| dispatch error fields | `error_code`, `error_message`, `error_help` | n/a | MUST expose stable dispatch error identifiers plus remediation guidance. |
 | smart-return JSON fields | normalized JSON response object | provider raw parsed/normalized | SHOULD remain consistent and parseable, with `_json_valid` signal for callers. |
 | `status` interpretation | CLI exit code mapping | done=0, non-done=1 | MUST treat hard-failure dispatch statuses as non-zero exit path. |
 | `partial` behavior | success-with-caveat semantics | n/a | SHOULD document and surface `partial` distinctly from hard `error`. |

@@ -187,6 +187,11 @@ class TestImportLayering:
             "config",
             "providers",
         },
+        "dispatch_routing.py": {
+            "config",
+            "envelope",
+            "providers",
+        },
         "mcp_dispatch.py": {
             "metrics",
             "_version",
@@ -210,6 +215,7 @@ class TestImportLayering:
             "sanitize",
             "smart_return",  # -- REQ-111: template injection in provider dispatch
             "envelope",  # -- RONDO-274: shared error/result envelope normalization
+            "dispatch_routing",  # -- RONDO-279: extracted routing logic
         },
         "mcp_tools.py": {
             "metrics",

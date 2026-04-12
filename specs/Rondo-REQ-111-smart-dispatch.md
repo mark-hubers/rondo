@@ -196,6 +196,38 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | 498 | Existing callers that relied on `_session=object()` for subprocess MUST pass `execution="subprocess"` explicitly to preserve old behavior. | MUST | Back-compat test |
 | 499 | Skill/docs/examples MUST describe execution mode behavior consistently with reqs 460-467 and 490-498. | MUST | Doc parity test |
 
+### Caller Acceptance Tables (RONDO-276 hardening)
+
+#### MCP callers (`rondo_run`)
+
+| Parameter | Allowed values | Default | MUST/SHOULD |
+|---|---|---|---|
+| `execution` | `""`, `inline`, `subprocess`, `agent` | `""` (auto -> `inline` for MCP caller) | MUST accept all allowed values and apply caller default when empty. |
+| `model` | Claude shorthand (`sonnet`, `opus`, `haiku`) or provider-prefixed (`anthropic:*`, `gemini:*`, `grok:*`, `openai:*`, `mistral:*`, `local:*`) | `sonnet` via config fallback chain | MUST route provider-prefixed models over HTTP adapter path and bypass execution-mode plan routing. |
+| `background` | `true`, `false` | `false` | MUST force subprocess execution when true. |
+| `dry_run` | `true`, `false` | `false` | MUST return dispatch preview without executing provider call when true. |
+| `rules` / `allowed_tools` / `max_turns` / `add_dir` / `json_schema` | string/int override values | config.toml values | MUST override config for this call only when provided. |
+
+#### Python API callers (`rondo_run_file`)
+
+| Parameter | Allowed values | Default | MUST/SHOULD |
+|---|---|---|---|
+| `execution` | `""`, `inline`, `subprocess`, `agent` | `""` (auto -> `subprocess` for Python caller) | MUST accept all allowed values and apply Python caller default when empty. |
+| `_session` | `None` or host session sentinel object | `None` | MUST use `_session=None` as Python library caller signal for execution-default resolution. |
+| `model` | same as MCP table | `sonnet` via config fallback chain | MUST apply provider-prefix bypass exactly as MCP path does. |
+| `background` | `true`, `false` | `false` | MUST force subprocess execution when true. |
+| `execution` + idempotency | same as above | n/a | MUST include `execution` in idempotency cache key to avoid collisions across modes. |
+
+#### CLI callers (`rondo`, `rondo run`, inline prompt mode)
+
+| Parameter | Allowed values | Default | MUST/SHOULD |
+|---|---|---|---|
+| `execution` | not direct CLI flag in this phase | n/a | SHOULD continue to use subprocess path by default for CLI caller contexts. |
+| `--model` | same model set as API/MCP | config/default route model | MUST honor provider-prefixed model bypass to HTTP adapters. |
+| `--dry-run` | present/absent | absent (`false`) | MUST skip live dispatch when present. |
+| `--field` | any JSON field name | none | MUST merge named field with smart-return defaults unless overridden by full return schema. |
+| `--return` | JSON string schema | none | MUST take precedence over `--field` and defaults (COALESCE order). |
+
 ---
 
 ## 3. Architecture

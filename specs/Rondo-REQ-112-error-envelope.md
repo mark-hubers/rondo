@@ -106,6 +106,37 @@ Unknown exceptions SHOULD map to `ERR_DISPATCH_EXCEPTION`.
 | 505 | `partial_count` MUST be present and accurate in canonical envelopes. | MUST | unit |
 | 506 | Known failures listed in Section 5 MUST emit their stable `error_code`. | MUST | unit |
 
+### Caller Acceptance Tables (RONDO-276 hardening)
+
+#### MCP callers (`rondo_run`, `rondo_run_status`)
+
+| Parameter | Allowed values | Default | MUST/SHOULD |
+|---|---|---|---|
+| `status` | `done`, `partial`, `error`, `running`, `dispatched`, `plan` | derived by envelope normalizer | MUST be normalized before returning full payloads. |
+| `schema_version` | string (`"2"` current) | `"2"` | MUST be present on canonical dispatch payloads. |
+| `error_code` / `error_message` | string fields when `status="error"` | empty unless error | MUST be present for known failures and unknown dispatch exceptions. |
+| `brief` / `heartbeat` (status polling) | `true`, `false` | `false` | SHOULD preserve canonical full payload shape prior to truncation for short views. |
+| `dispatch_id` | non-empty string | n/a | MUST return `ERR_UNKNOWN_DISPATCH_ID` envelope when id is missing/unknown. |
+
+#### Python API callers (`rondo_run_file` results consumed directly)
+
+| Parameter | Allowed values | Default | MUST/SHOULD |
+|---|---|---|---|
+| `status` | same set as MCP table | derived by envelope normalizer | MUST follow deterministic top-level derivation rules from Section 4. |
+| `tasks[].status` | `done`, `skipped`, `partial`, `error`, `blocked`, `pending` | provider/dispatch result dependent | MUST be the source of truth for top-level derivation. |
+| `partial_count` | integer >= 0 | `0` | MUST be present and accurate on normalized envelopes. |
+| `error_code` mapping | stable taxonomy in Section 5 | n/a | MUST emit listed stable codes for known failures. |
+| helper normalization behavior | normalized envelope dict | n/a | SHOULD normalize before user/example branching logic to avoid caller drift. |
+
+#### CLI callers (dispatch-facing outputs)
+
+| Parameter | Allowed values | Default | MUST/SHOULD |
+|---|---|---|---|
+| dispatch error fields | `error_code`, `error_message` | n/a | MUST expose stable dispatch error identifiers for known failures. |
+| smart-return JSON fields | normalized JSON response object | provider raw parsed/normalized | SHOULD remain consistent and parseable, with `_json_valid` signal for callers. |
+| `status` interpretation | CLI exit code mapping | done=0, non-done=1 | MUST treat hard-failure dispatch statuses as non-zero exit path. |
+| `partial` behavior | success-with-caveat semantics | n/a | SHOULD document and surface `partial` distinctly from hard `error`. |
+
 ---
 
 ## 7. Version History

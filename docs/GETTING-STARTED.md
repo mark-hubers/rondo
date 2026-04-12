@@ -3,6 +3,7 @@
 Rondo runs **scripted AI work**: you describe tasks (in the CLI, YAML, JSON, or Python), and it dispatches to the right model, enforces budgets, and returns **structured JSON** you can pipe to other tools.
 
 This guide goes from a 30-second first run to the full CLI. For architecture and contracts, see `specs/VISION-rondo-v1.md` and `specs/Rondo-REQ-111-smart-dispatch.md`.
+For a guided first-run flow, see `docs/GETTING-STARTED-WOW.md`.
 
 Full cross-directory example map: `examples/INDEX.md` (62 examples by dispatch mode, providers, and use case).
 Dispatch envelope contract (status + error_code semantics): `docs/ERROR-ENVELOPE-CONTRACT.md`.

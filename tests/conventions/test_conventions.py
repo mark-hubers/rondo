@@ -298,6 +298,7 @@ class TestImportLayering:
             "flaky",
             "metrics",
             "scoring",  # -- REQ-111: rondo learn command
+            "mcp_dispatch",  # -- RONDO-280: replay command re-dispatches saved prompt
         },
         "cli_commands/infra.py": {
             "cli_commands",

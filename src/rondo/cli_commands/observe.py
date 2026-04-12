@@ -26,6 +26,153 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return EXIT_FAILURE
 
 
+def _resolve_task_result_path(results_dir: str, run_id: str) -> Path:
+    """Resolve run id to task result JSON path under reports/rondo-results."""
+    root = Path(results_dir).expanduser()
+    candidate = Path(run_id)
+    if candidate.suffix == ".json":
+        name = candidate.name
+    elif run_id.startswith("task-"):
+        name = f"{run_id}.json"
+    else:
+        name = f"task-{run_id}.json"
+    return root / name
+
+
+def _load_task_result(results_dir: str, run_id: str) -> tuple[dict, Path] | tuple[None, Path]:
+    """Load one task result file by run id."""
+    path = _resolve_task_result_path(results_dir, run_id)
+    if not path.is_file():
+        return None, path
+    try:
+        return json.loads(path.read_text(encoding="utf-8")), path
+    except (OSError, json.JSONDecodeError):
+        return None, path
+
+
+def _output_snippet(text: str, size: int = 120) -> str:
+    """Compact one-line output preview for compare output."""
+    return (text or "").strip().replace("\n", " ")[:size]
+
+
+def _resolve_replay_execution(loaded: dict, model: str) -> str:
+    """Best-effort execution mode reconstruction for thin replay."""
+    execution = str(loaded.get("execution", "") or "")
+    if execution:
+        return execution
+    return "" if ":" in model else "subprocess"
+
+
+def _run_replay_dispatch(prompt: str, model: str, execution: str) -> dict:
+    """Dispatch replay prompt through rondo_run_file."""
+    from rondo.mcp_dispatch import rondo_run_file  # pylint: disable=import-outside-toplevel
+
+    replay_raw = rondo_run_file(
+        prompt=prompt,
+        model=model,
+        execution=execution,
+        dry_run=False,
+    )
+    return json.loads(replay_raw)
+
+
+def _build_replay_result(run_id: str, source_path: Path, loaded: dict, replay: dict, model: str, execution: str) -> dict:
+    """Build normalized replay summary payload."""
+    tasks = replay.get("tasks", []) or []
+    first = tasks[0] if tasks else {}
+    return {
+        "run_id": run_id,
+        "source_file": str(source_path),
+        "status_before": loaded.get("status", ""),
+        "status_after": replay.get("status", ""),
+        "model": model,
+        "execution": execution or "auto",
+        "duration_before_sec": float(loaded.get("duration_sec", 0.0) or 0.0),
+        "duration_after_sec": float(first.get("duration_sec", replay.get("duration_sec", 0.0)) or 0.0),
+        "cost_after_usd": float(replay.get("total_cost_usd", 0.0) or 0.0),
+        "output_after_snippet": _output_snippet(str(first.get("raw_output", "") or "")),
+    }
+
+
+def _print_replay_result(result: dict) -> None:
+    """Print replay result in human-readable mode."""
+    print(f"Run ID:      {result['run_id']}")
+    print(f"Model:       {result['model']} ({result['execution']})")
+    print(f"Status:      {result['status_before']} -> {result['status_after']}")
+    print(f"Duration(s): {result['duration_before_sec']:.3f} -> {result['duration_after_sec']:.3f}")
+    print(f"Cost(USD):   {result['cost_after_usd']:.6f}")
+    print(f"Output:      {result['output_after_snippet']}")
+
+
+def _cmd_replay(args: argparse.Namespace) -> int:
+    """Replay one saved task dispatch from reports/rondo-results/task-*.json."""
+    loaded, path = _load_task_result(args.results_dir, args.run_id)
+    if loaded is None:
+        print(f"-ERROR- Run record not found or unreadable: {path}", file=sys.stderr)
+        return EXIT_FAILURE
+
+    prompt = str(loaded.get("prompt_sent", "") or "")
+    model = str(loaded.get("model", "sonnet") or "sonnet")
+    if not prompt.strip():
+        print("-ERROR- Run record has no prompt_sent, cannot replay exactly.", file=sys.stderr)
+        return EXIT_FAILURE
+
+    execution = _resolve_replay_execution(loaded, model)
+    replay = _run_replay_dispatch(prompt=prompt, model=model, execution=execution)
+    result = _build_replay_result(
+        run_id=args.run_id,
+        source_path=path,
+        loaded=loaded,
+        replay=replay,
+        model=model,
+        execution=execution,
+    )
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+    else:
+        _print_replay_result(result)
+
+    return EXIT_SUCCESS if result["status_after"] in ("done", "partial") else EXIT_FAILURE
+
+
+def _cmd_compare(args: argparse.Namespace) -> int:
+    """Compare two saved task runs side-by-side."""
+    left, path_a = _load_task_result(args.results_dir, args.id_a)
+    right, path_b = _load_task_result(args.results_dir, args.id_b)
+    if left is None:
+        print(f"-ERROR- Missing run id: {args.id_a} ({path_a})", file=sys.stderr)
+        return EXIT_FAILURE
+    if right is None:
+        print(f"-ERROR- Missing run id: {args.id_b} ({path_b})", file=sys.stderr)
+        return EXIT_FAILURE
+
+    compare = {
+        "id_a": args.id_a,
+        "id_b": args.id_b,
+        "status_a": left.get("status", ""),
+        "status_b": right.get("status", ""),
+        "duration_a_sec": float(left.get("duration_sec", 0.0) or 0.0),
+        "duration_b_sec": float(right.get("duration_sec", 0.0) or 0.0),
+        "cost_a_usd": float(left.get("cost_usd", left.get("usage", {}).get("cost_usd", 0.0)) or 0.0),
+        "cost_b_usd": float(right.get("cost_usd", right.get("usage", {}).get("cost_usd", 0.0)) or 0.0),
+        "snippet_a": _output_snippet(str(left.get("raw_output", "") or "")),
+        "snippet_b": _output_snippet(str(right.get("raw_output", "") or "")),
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(compare, indent=2))
+        return EXIT_SUCCESS
+
+    print(f"{'Field':<12} | {'A':<36} | {'B':<36}")
+    print(f"{'-' * 12}-+-{'-' * 36}-+-{'-' * 36}")
+    print(f"{'status':<12} | {compare['status_a']:<36} | {compare['status_b']:<36}")
+    print(f"{'duration_s':<12} | {compare['duration_a_sec']:<36.6f} | {compare['duration_b_sec']:<36.6f}")
+    print(f"{'cost_usd':<12} | {compare['cost_a_usd']:<36.6f} | {compare['cost_b_usd']:<36.6f}")
+    print(f"{'output':<12} | {compare['snippet_a']:<36} | {compare['snippet_b']:<36}")
+    return EXIT_SUCCESS
+
+
 def _cmd_history(args: argparse.Namespace) -> int:  # pylint: disable=too-many-return-statements
     """Execute 'rondo history' — show dispatch history.
 

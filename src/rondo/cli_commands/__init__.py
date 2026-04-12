@@ -37,10 +37,12 @@ def register_commands(commands: dict) -> None:
     )
     from rondo.cli_commands.observe import (  # pylint: disable=import-outside-toplevel
         _cmd_audit,
+        _cmd_compare,
         _cmd_flaky,
         _cmd_history,
         _cmd_learn,
         _cmd_metrics,
+        _cmd_replay,
         _cmd_report,
     )
     from rondo.cli_commands.review import _cmd_review  # pylint: disable=import-outside-toplevel
@@ -51,6 +53,8 @@ def register_commands(commands: dict) -> None:
             "live": _cmd_live,
             "overnight": _cmd_overnight,
             "report": _cmd_report,
+            "replay": _cmd_replay,
+            "compare": _cmd_compare,
             "preflight": _cmd_preflight,
             "history": _cmd_history,
             "audit": _cmd_audit,

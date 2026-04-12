@@ -42,6 +42,7 @@ rondo "review this design for top 3 risks"
 ```
 
 More setup and modes: `docs/GETTING-STARTED.md`.
+Fastest onboarding path: `docs/GETTING-STARTED-WOW.md`.
 
 ---
 

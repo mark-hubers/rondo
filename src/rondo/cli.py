@@ -81,6 +81,27 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     report_parser.add_argument("results_dir", help="Path to results directory")
     report_parser.add_argument("--config", default=None, help="Path to rondo.toml config")
 
+    # -- replay subcommand
+    replay_parser = subparsers.add_parser("replay", help="Replay one saved task dispatch by run id")
+    replay_parser.add_argument("run_id", help="Run identifier (task-<id>.json or <id>)")
+    replay_parser.add_argument(
+        "--results-dir",
+        default="reports/rondo-results",
+        help="Directory containing task-*.json records",
+    )
+    replay_parser.add_argument("--json", action="store_true", help="JSON output")
+
+    # -- compare subcommand
+    compare_parser = subparsers.add_parser("compare", help="Compare two saved task runs by id")
+    compare_parser.add_argument("id_a", help="First run identifier")
+    compare_parser.add_argument("id_b", help="Second run identifier")
+    compare_parser.add_argument(
+        "--results-dir",
+        default="reports/rondo-results",
+        help="Directory containing task-*.json records",
+    )
+    compare_parser.add_argument("--json", action="store_true", help="JSON output")
+
     # -- preflight subcommand (Rondo-REQ-103 req 015)
     pf_parser = subparsers.add_parser("preflight", help="Check dispatch environment without running")
     pf_parser.add_argument("--json", action="store_true", help="JSON output (REQ-103 req 016)")
@@ -325,6 +346,8 @@ def main(argv: list[str] | None = None) -> int:
             "live",
             "overnight",
             "report",
+            "replay",
+            "compare",
             "preflight",
             "history",
             "audit",

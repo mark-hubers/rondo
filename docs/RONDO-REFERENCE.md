@@ -149,7 +149,7 @@ Execution defaults when `execution=""`:
 
 ---
 
-## CLI Commands (16)
+## CLI Commands (18)
 
 | Command | What it does |
 |---------|-------------|
@@ -159,6 +159,8 @@ Execution defaults when `execution=""`:
 | `rondo live <file>` | Interactive mode — human reviews each task |
 | `rondo overnight <file>` | Multi-phase overnight dispatch + morning report |
 | `rondo report <results_dir>` | Generate morning report from saved results |
+| `rondo replay <run_id>` | Re-run one saved task dispatch using stored prompt/model/execution |
+| `rondo compare <id_a> <id_b>` | Side-by-side diff of status, duration, cost, and output snippet |
 | `rondo preflight` | Check environment (Claude, disk, auth, providers) |
 | `rondo providers` | Show all providers with health status + latency |
 | `rondo history` | Dispatch history with model/status filters |

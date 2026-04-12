@@ -9,6 +9,7 @@ CLI tests verify argument parsing, dynamic loading, and
 integration wiring without invoking real subprocesses.
 """
 
+import json
 import textwrap
 from unittest.mock import patch
 
@@ -650,6 +651,67 @@ class TestReportSubcommand:
     def test_report_not_yet_implemented(self):
         """Report subcommand returns EXIT_FAILURE (not yet implemented)."""
         assert main(["report", "/some/results/"]) == EXIT_FAILURE
+
+
+class TestReplayCompareSubcommands:
+    def _write_task_result(self, tmp_path, run_id: str, **overrides):
+        payload = {
+            "task_name": run_id,
+            "status": "done",
+            "prompt_sent": "Return JSON only: {\"ok\": true}",
+            "raw_output": "baseline-output",
+            "duration_sec": 1.23,
+            "model": "sonnet",
+            "execution": "subprocess",
+            "cost_usd": 0.004,
+            "usage": {"cost_usd": 0.004},
+        }
+        payload.update(overrides)
+        path = tmp_path / f"task-{run_id}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def test_replay_reruns_saved_prompt(self, tmp_path, capsys):
+        """Replay loads run record and re-dispatches with same prompt+model."""
+        self._write_task_result(tmp_path, "abc123")
+        replay_envelope = {
+            "status": "done",
+            "total_cost_usd": 0.007,
+            "tasks": [{"status": "done", "duration_sec": 2.5, "raw_output": "fresh replay output"}],
+        }
+        with patch("rondo.mcp_dispatch.rondo_run_file", return_value=json.dumps(replay_envelope)) as mock_run:
+            exit_code = main(["replay", "abc123", "--results-dir", str(tmp_path), "--json"])
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert exit_code == EXIT_SUCCESS
+        assert data["status_before"] == "done"
+        assert data["status_after"] == "done"
+        assert "fresh replay output" in data["output_after_snippet"]
+        kwargs = mock_run.call_args.kwargs
+        assert kwargs["prompt"] == 'Return JSON only: {"ok": true}'
+        assert kwargs["model"] == "sonnet"
+        assert kwargs["execution"] == "subprocess"
+        assert kwargs["dry_run"] is False
+
+    def test_compare_prints_side_by_side(self, tmp_path, capsys):
+        """Compare prints status, duration, cost, and output snippets."""
+        self._write_task_result(tmp_path, "left", status="partial", raw_output="left output line", duration_sec=3.0, cost_usd=0.02)
+        self._write_task_result(tmp_path, "right", status="done", raw_output="right output line", duration_sec=1.0, cost_usd=0.01)
+        exit_code = main(["compare", "left", "right", "--results-dir", str(tmp_path)])
+        captured = capsys.readouterr()
+        assert exit_code == EXIT_SUCCESS
+        assert "status" in captured.out
+        assert "duration_s" in captured.out
+        assert "cost_usd" in captured.out
+        assert "left output line" in captured.out
+        assert "right output line" in captured.out
+
+    def test_replay_missing_run_file(self, tmp_path, capsys):
+        """Replay returns EXIT_FAILURE when run id is missing."""
+        exit_code = main(["replay", "missing-id", "--results-dir", str(tmp_path)])
+        captured = capsys.readouterr()
+        assert exit_code == EXIT_FAILURE
+        assert "not found" in captured.err.lower()
 
 
 # ──────────────────────────────────────────────────────────────────

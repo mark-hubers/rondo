@@ -22,6 +22,18 @@ uv run python examples/api/03_execution_mode_triptych.py
 uv run python examples/api/background_polling_workflow.py
 ```
 
+Fast living-suite smoke (high-signal subset):
+
+```bash
+rondo-test --examples-api-fast
+```
+
+Full living-suite regression (all API examples):
+
+```bash
+rondo-test --examples-api
+```
+
 ## New High-Signal Examples
 
 - `03_execution_mode_triptych.py`

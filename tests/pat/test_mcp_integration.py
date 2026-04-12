@@ -43,8 +43,8 @@ class TestMCPIntegration:
                 execution="",
             )
         )
-        assert result["engine"] == "inline"
-        assert result["status"] == "plan"
+        assert result.get("kind") != "inline_dispatch_plan"
+        assert "tasks" in result and isinstance(result["tasks"], list)
 
     def test_agent_via_mcp_in_session(self) -> None:
         """execution=agent returns an agent plan for MCP callers."""
@@ -62,14 +62,15 @@ class TestMCPIntegration:
         assert result["engine"] == "agent"
         assert result["status"] == "plan"
 
-    def test_inline_returns_instantly(self) -> None:
-        """Inline plan must return in <10ms — no I/O, no dispatch."""
+    def test_option_c_mcp_executes_and_returns_results(self) -> None:
+        """RONDO-283: MCP auto path executes and returns results envelope."""
         from rondo.mcp_server import rondo_run_file
 
         t0 = time.time()
-        rondo_run_file(prompt="x", model="", dry_run=False, _session=object(), execution="")
+        payload = json.loads(rondo_run_file(prompt="x", model="", dry_run=False, _session=object(), execution=""))
         elapsed = time.time() - t0
-        assert elapsed < 0.1, f"Inline plan took {elapsed:.3f}s — should be instant"
+        assert "tasks" in payload and isinstance(payload["tasks"], list)
+        assert elapsed < 60.0, f"Dispatch took {elapsed:.3f}s — unexpectedly slow for MCP default path"
 
     def test_no_prompt_no_file_is_error(self) -> None:
         from rondo.mcp_server import rondo_run_file

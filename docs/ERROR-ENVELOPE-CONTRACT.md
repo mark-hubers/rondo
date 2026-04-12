@@ -139,3 +139,8 @@ Treat it as **success-with-caveat**, not the same as hard failure.
 - MCP `rondo_run` and API `rondo_run_file` return canonical envelopes for dispatch payloads.
 - `rondo_run_status` full mode returns canonical envelopes for background results.
 - CLI inline prompt mode returns normalized smart-return JSON, not the full dispatch envelope.
+
+### Migration note (RONDO-283)
+
+As of RONDO-283, MCP callers using Claude models receive **results envelopes by default** (Option C result-first behavior).
+If existing host logic previously parsed `inline_dispatch_plan` from `rondo_run`, pass `plan_only=true` to preserve plan-return behavior.

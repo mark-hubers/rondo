@@ -59,8 +59,8 @@ def _resolve_effective_execution(execution: str, session: Any) -> tuple[str, str
     if cfg_mode:
         return cfg_mode, "config_default"
 
-    # -- auto by caller type: MCP (session passed) → inline, Python/CLI → subprocess
-    return ("inline" if session is not None else "subprocess"), "auto"
+    # -- RONDO-283 Option C: auto defaults to subprocess for MCP and Python/CLI callers.
+    return ("subprocess" if session is not None else "subprocess"), "auto"
 
 
 def _build_inline_plan(prompt: str, done_when: str, project: str) -> dict:
@@ -146,6 +146,7 @@ def _route_by_execution_mode(
     engine: dict,
     model: str,
     execution: str,
+    plan_only: bool,
     session: Any,
     background: bool,
     prompt: str,
@@ -171,12 +172,32 @@ def _route_by_execution_mode(
             ),
         )
 
+    # -- plan_only escape hatch: return plans for debug/inspection.
+    if plan_only:
+        if execution_mode == "agent":
+            agent_plan, agent_error = _build_agent_plan_or_error(prompt, done_when, project, model)
+            if agent_error:
+                return engine, model, agent_error
+            return agent_plan or engine, model, None
+        return _build_inline_plan(prompt, done_when, project), model, None
+
     # -- Execution only applies to Claude host/subprocess paths.
     # -- Provider-prefixed models and hard subprocess triggers (:new/background) keep base routing.
     if _should_bypass_execution_override(provider, background, force_subprocess_suffix, engine):
         return engine, model, None
 
     if execution_mode == "inline":
+        # -- RONDO-283 Option C: MCP host calls with inline intent auto-execute and return results.
+        if session is not None:
+            requested_model = _normalize_subprocess_model(model)
+            return (
+                _build_subprocess_plan(
+                    requested_model,
+                    f"execution={execution_mode} auto-exec in MCP host; returning results ({mode_source})",
+                ),
+                requested_model,
+                None,
+            )
         return _build_inline_plan(prompt, done_when, project), model, None
 
     if execution_mode == "agent":

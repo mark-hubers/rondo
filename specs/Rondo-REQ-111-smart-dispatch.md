@@ -139,7 +139,7 @@ Execution mode is the HOW; model is the WHERE.
 | 460 | `execution="inline"` MUST return an `inline_dispatch_plan` (`engine=inline`, `kind=inline_dispatch_plan`) and MUST NOT spawn subprocess dispatch. | MUST | Inline plan test |
 | 461 | `execution="subprocess"` MUST execute via `claude -p` and return task results (`tasks` array), not a host plan. | MUST | Subprocess result test |
 | 462 | `execution="agent"` MUST return an `agent_dispatch_plan` (`engine=agent`, `kind=agent_dispatch_plan`) for host Agent execution. | MUST | Agent plan test |
-| 463 | Default `execution=""` MUST resolve by caller type: MCP (`_session` set) -> `inline`; Python library (`_session=None`) -> `subprocess`; CLI -> `subprocess`. | MUST | Caller default test |
+| 463 | Default `execution=""` MUST resolve to `subprocess` for MCP callers and Python/CLI callers (Option C result-first behavior). | MUST | Caller default test |
 | 464 | Provider-prefixed models (`anthropic:`, `gemini:`, `grok:`, `openai:`, `mistral:`, `local:`) MUST bypass execution mode and route to HTTP adapters. | MUST | Prefix bypass test |
 | 465 | The `anthropic:` prefix MUST resolve Claude shorthand names to API model IDs: `anthropic:haiku` -> `claude-haiku-4-5`, `anthropic:sonnet` -> `claude-sonnet-4-6`, `anthropic:opus` -> `claude-opus-4-6`. | MUST | Alias test |
 | 466 | Idempotency cache keys MUST include `execution` so identical prompt+model requests with different execution modes do not collide. | MUST | Idempotency key test |
@@ -196,6 +196,9 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | 498 | Existing callers that relied on `_session=object()` for subprocess MUST pass `execution="subprocess"` explicitly to preserve old behavior. | MUST | Back-compat test |
 | 499 | Skill/docs/examples MUST describe execution mode behavior consistently with reqs 460-467 and 490-498. | MUST | Doc parity test |
 | 500 | `rondo --help` output MUST include an execution mode quick guide explaining plan-vs-results behavior (`inline`, `subprocess`, `agent`, `provider:model`). | MUST | CLI help test |
+| 501 | MCP `rondo_run` MUST accept `plan_only` (bool, default false). When true, return plan payload and skip execution. | MUST | MCP param test |
+| 502 | `plan_only=true` MUST take precedence over explicit execution modes (`subprocess`, `inline`, empty). | MUST | Precedence test |
+| 503 | Option C fallback: when inline auto-execute fails, system MUST degrade to subprocess results with warning metadata. | SHOULD | Integration test |
 
 ### Caller Acceptance Tables (RONDO-276 hardening)
 
@@ -203,7 +206,8 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 
 | Parameter | Allowed values | Default | MUST/SHOULD |
 |---|---|---|---|
-| `execution` | `""`, `inline`, `subprocess`, `agent` | `""` (auto -> `inline` for MCP caller) | MUST accept all allowed values and apply caller default when empty. |
+| `execution` | `""`, `inline`, `subprocess`, `agent` | `""` (auto -> `subprocess` for MCP caller) | MUST accept all allowed values and apply caller default when empty. |
+| `plan_only` | `true`, `false` | `false` | MUST return plan payload when true and override execution/result default behavior. |
 | `model` | Claude shorthand (`sonnet`, `opus`, `haiku`) or provider-prefixed (`anthropic:*`, `gemini:*`, `grok:*`, `openai:*`, `mistral:*`, `local:*`) | `sonnet` via config fallback chain | MUST route provider-prefixed models over HTTP adapter path and bypass execution-mode plan routing. |
 | `background` | `true`, `false` | `false` | MUST force subprocess execution when true. |
 | `dry_run` | `true`, `false` | `false` | MUST return dispatch preview without executing provider call when true. |

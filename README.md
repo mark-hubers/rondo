@@ -144,6 +144,19 @@ if plan.get("kind") == "agent_dispatch_plan":
     )
 ```
 
+### Option C conflict truth table
+
+| plan_only | execution | Result |
+|---|---|---|
+| false | `""` | Option C auto-execute, results |
+| false | `subprocess` | Subprocess results |
+| false | `inline` | Option C auto-execute, results |
+| false | `agent` | Agent plan (host spawns) |
+| true | `""` | Inline plan JSON (debug) |
+| true | `subprocess` | Inline plan JSON (plan_only wins) |
+| true | `inline` | Inline plan JSON (debug) |
+| true | `agent` | Agent plan JSON (debug) |
+
 ---
 
 ## What You Can Build With It

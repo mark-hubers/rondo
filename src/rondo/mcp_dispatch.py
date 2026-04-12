@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import threading
 import uuid
 from pathlib import Path
@@ -580,6 +581,7 @@ def _build_round_and_config(
 # -- ──────────────────────────────────────────────────────────────
 from rondo.dispatch_routing import (  # noqa: F401,E402
     _EXECUTION_MODES,
+    DEFAULT_CONTEXT_LIMIT,
     PLAN_SCHEMA_VERSION,
     _build_agent_plan,
     _build_agent_plan_or_error,
@@ -615,6 +617,7 @@ def rondo_run_file(
     add_dir: str = "",
     json_schema: str = "",
     execution: str = "",
+    plan_only: bool = False,
 ) -> str:
     """Run a round file or inline prompt — MCP dispatch tool.
 
@@ -631,6 +634,7 @@ def rondo_run_file(
         add_dir: --add-dir override (additional directory access)
         json_schema: --json-schema override (platform-enforced structured output)
         execution: dispatch mode override: inline | subprocess | agent
+        plan_only: return plan payload without execution (debug/compat override)
     """
     # -- RONDO-202 (Finding #227): wire structured_log request_id for tracing
 
@@ -662,6 +666,7 @@ def rondo_run_file(
             add_dir=add_dir,
             json_schema=json_schema,
             execution=execution,
+            plan_only=plan_only,
         )
 
 
@@ -698,6 +703,28 @@ def _idempotency_store(key: str, result_str: str) -> None:
     log_event("INFO", "result cached for idempotency", component="mcp_dispatch", key=key[:16])
 
 
+def _resolve_option_c_execution_override(
+    execution: str, plan_only: bool, session: Any
+) -> tuple[str, list[str]]:
+    """Apply Option C fallback overrides before execution-mode routing."""
+    if session is None or plan_only or (execution or "").strip().lower() != "inline":
+        return execution, []
+    if os.environ.get("RONDO_OPTION_C_FORCE_INLINE_FAIL") != "1":
+        return execution, []
+    return "subprocess", ["inline_auto_execute_failed; used subprocess fallback"]
+
+
+def _attach_route_warnings(result_obj: dict, route_warnings: list[str]) -> dict:
+    """Attach fallback warnings to normalized result envelope."""
+    if not route_warnings:
+        return result_obj
+    existing = result_obj.get("warnings")
+    warnings_out = list(existing) if isinstance(existing, list) else []
+    warnings_out.extend(route_warnings)
+    result_obj["warnings"] = warnings_out
+    return result_obj
+
+
 def _rondo_run_file_inner(
     file_path: str,
     dry_run: bool,
@@ -715,6 +742,7 @@ def _rondo_run_file_inner(
     add_dir: str = "",
     json_schema: str = "",
     execution: str = "",
+    plan_only: bool = False,
 ) -> str:
     """Inner dispatch body — extracted for complexity budget. RONDO-202."""
     file_path, project, err = _validate_run_inputs(file_path, project, prompt)
@@ -755,10 +783,13 @@ def _rondo_run_file_inner(
             indent=2,
         )
 
+    execution, route_warnings = _resolve_option_c_execution_override(execution, plan_only, _session)
+
     engine, model, route_error = _route_by_execution_mode(
         engine=engine,
         model=model,
         execution=execution,
+        plan_only=plan_only,
         session=_session,
         background=background,
         prompt=prompt,
@@ -800,7 +831,8 @@ def _rondo_run_file_inner(
     if background and not dry_run:
         return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
 
-    result_str = json.dumps(normalize_envelope(dispatch_fn()), indent=2)
+    result_obj = _attach_route_warnings(normalize_envelope(dispatch_fn()), route_warnings)
+    result_str = json.dumps(result_obj, indent=2)
     _idempotency_store(idempotency_key, result_str)
     return result_str
 

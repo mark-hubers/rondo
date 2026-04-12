@@ -398,8 +398,8 @@ class TestResolveDispatchEngine:
 class TestDispatchEngineIntegration:
     """RONDO-129: Test that rondo_run_file uses the routing engine correctly."""
 
-    def test_empty_model_returns_inline_plan(self) -> None:
-        """Explicit execution=inline returns inline plan."""
+    def test_empty_model_option_c_returns_results(self) -> None:
+        """RONDO-283: MCP execution=inline auto-executes and returns results."""
         from rondo.mcp_server import rondo_run_file
 
         result = json.loads(
@@ -411,9 +411,8 @@ class TestDispatchEngineIntegration:
                 _session=object(),
             )
         )
-        assert result.get("engine") == "inline"
-        assert result.get("kind") == "inline_dispatch_plan"
-        assert result["prompt"] == "Check this code"
+        assert result.get("kind") != "inline_dispatch_plan"
+        assert "tasks" in result and isinstance(result["tasks"], list)
 
     def test_claude_model_in_session_returns_agent_plan(self) -> None:
         """Explicit execution=agent returns agent plan."""
@@ -443,8 +442,8 @@ class TestDispatchEngineIntegration:
         # -- :new suffix → subprocess engine (assert what it IS, not what it isn't)
         assert result.get("status") in ("plan", "done", "skipped"), f"Unexpected status: {result}"
 
-    def test_inline_plan_has_schema(self) -> None:
-        """Inline plan includes all fields host needs to execute."""
+    def test_option_c_inline_has_envelope_schema(self) -> None:
+        """RONDO-283: inline request in MCP path returns canonical envelope."""
         from rondo.mcp_server import rondo_run_file
 
         result = json.loads(
@@ -457,10 +456,9 @@ class TestDispatchEngineIntegration:
                 _session=object(),
             )
         )
-        assert result["engine"] == "inline"
-        assert result["prompt"] == "Review src/main.py"
-        assert result["done_when"] == "List all findings as JSON"
-        assert result["model"] == "current"
+        assert result.get("kind") != "inline_dispatch_plan"
+        assert result.get("schema_version") == "2"
+        assert "tasks" in result and isinstance(result["tasks"], list)
 
     def test_ollama_model_dispatches_via_http(self) -> None:
         """Local model dispatches via HTTP adapter — assert positive, not 'not X'.
@@ -520,7 +518,7 @@ class TestDispatchEngineIntegration:
 class TestClaudeCodeInlineDispatch:
     """Execution parameter contract for rondo_run_file defaults and overrides."""
 
-    def test_execution_inline_with_mcp_session_returns_inline_plan(self) -> None:
+    def test_execution_inline_with_mcp_session_returns_results(self) -> None:
         result = json.loads(
             rondo_run_file(
                 prompt="unique execution inline mcp plan",
@@ -530,8 +528,8 @@ class TestClaudeCodeInlineDispatch:
                 execution="inline",
             )
         )
-        assert result["engine"] == "inline"
-        assert result["kind"] == "inline_dispatch_plan"
+        assert result.get("kind") != "inline_dispatch_plan"
+        assert "tasks" in result and isinstance(result["tasks"], list)
 
     def test_execution_subprocess_calls_dispatch(self) -> None:
         done = {
@@ -556,7 +554,7 @@ class TestClaudeCodeInlineDispatch:
         mock_ex.assert_called_once()
         assert mock_ex.call_args[0][4] == "sonnet"
 
-    def test_execution_auto_with_mcp_session_defaults_inline(self) -> None:
+    def test_execution_auto_with_mcp_session_defaults_subprocess_results(self) -> None:
         result = json.loads(
             rondo_run_file(
                 prompt="unique execution auto mcp inline",
@@ -566,8 +564,8 @@ class TestClaudeCodeInlineDispatch:
                 execution="",
             )
         )
-        assert result["engine"] == "inline"
-        assert result["kind"] == "inline_dispatch_plan"
+        assert result.get("kind") != "inline_dispatch_plan"
+        assert "tasks" in result and isinstance(result["tasks"], list)
 
     def test_execution_auto_with_python_session_defaults_subprocess(self) -> None:
         done = {

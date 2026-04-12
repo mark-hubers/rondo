@@ -115,7 +115,7 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_run",
-        description="Run AI tasks. prompt= for one-off tasks, file_path= for round files. execution=inline|subprocess|agent controls dispatch mode. Override config with rules=, allowed_tools=, max_turns=, add_dir=, json_schema=.",
+        description="Run AI tasks. prompt= for one-off tasks, file_path= for round files. execution=inline|subprocess|agent controls dispatch mode. plan_only=true returns plan payload for debug/compat. Override config with rules=, allowed_tools=, max_turns=, add_dir=, json_schema=.",
     )
     def _run(
         file_path: str = "",
@@ -133,6 +133,7 @@ def create_mcp_server() -> Any:
         add_dir: str = "",
         json_schema: str = "",
         execution: str = "",
+        plan_only: bool = False,
         ctx: Any = None,
     ) -> str:
         # -- U-47: capture session for background progress notifications
@@ -159,6 +160,7 @@ def create_mcp_server() -> Any:
             add_dir=add_dir,
             json_schema=json_schema,
             execution=execution,
+            plan_only=plan_only,
         )
 
     @mcp.tool(

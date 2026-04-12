@@ -32,8 +32,8 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "src
 from rondo.audit import AuditConfig, AuditTrail, atomic_write
 from rondo.config import RondoConfig
 from rondo.engine import DispatchUsage, Round, Task, TaskResult
-from rondo.envelope import ENVELOPE_SCHEMA_VERSION
 from rondo.mcp_dispatch import (
+    PLAN_SCHEMA_VERSION,
     _dispatch_via_provider_or_claude,
     check_context_limit,
     resolve_dispatch_engine,
@@ -383,7 +383,7 @@ class TestMasterDispatchFlow:
         assert len(tmp_files) == 0, f"Atomic write leaked tmp files on failure: {tmp_files}"
 
     def test_schema_version_survives_full_flow(self, tmp_path, monkeypatch) -> None:
-        """RONDO-283: MCP inline intent returns result envelope with schema version."""
+        """RONDO-285: MCP inline intent returns inline plan with schema version."""
         from rondo.mcp_server import rondo_run_file
 
         monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
@@ -397,9 +397,9 @@ class TestMasterDispatchFlow:
                 execution="inline",
             )
         )
-        assert result.get("kind") != "inline_dispatch_plan"
-        assert result["schema_version"] == ENVELOPE_SCHEMA_VERSION
-        assert "tasks" in result and isinstance(result["tasks"], list)
+        assert result.get("kind") == "inline_dispatch_plan"
+        assert result.get("engine") == "inline"
+        assert result["schema_version"] == PLAN_SCHEMA_VERSION
 
     def test_execution_subprocess_returns_task_results(self, tmp_path, monkeypatch) -> None:
         """execution=subprocess returns dispatch results instead of host plans."""

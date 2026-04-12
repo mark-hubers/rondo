@@ -23,7 +23,7 @@ def _unique_prompt(label: str) -> str:
     return f"Return JSON only: {{\"label\":\"{label}\",\"id\":\"{uuid.uuid4().hex[:12]}\"}}"
 
 
-def test_mcp_claude_model_returns_results_not_plan() -> None:
+def test_mcp_claude_model_returns_inline_plan_for_host_auto_exec() -> None:
     result = _run_json(
         prompt=_unique_prompt("option-c-default"),
         model="sonnet",
@@ -31,8 +31,8 @@ def test_mcp_claude_model_returns_results_not_plan() -> None:
         dry_run=False,
         _session=object(),
     )
-    assert "tasks" in result and isinstance(result["tasks"], list)
-    assert result.get("kind") != "inline_dispatch_plan"
+    assert result.get("kind") == "inline_dispatch_plan"
+    assert result.get("engine") == "inline"
 
 
 def test_plan_only_returns_plan() -> None:

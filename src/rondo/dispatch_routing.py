@@ -59,8 +59,10 @@ def _resolve_effective_execution(execution: str, session: Any) -> tuple[str, str
     if cfg_mode:
         return cfg_mode, "config_default"
 
-    # -- RONDO-283 Option C: auto defaults to subprocess for MCP and Python/CLI callers.
-    return ("subprocess" if session is not None else "subprocess"), "auto"
+    # -- RONDO-285 Option C host contract:
+    # -- MCP caller (session present) returns inline plan for host auto-execution.
+    # -- Python/CLI callers default to subprocess results.
+    return ("inline" if session is not None else "subprocess"), "auto"
 
 
 def _build_inline_plan(prompt: str, done_when: str, project: str) -> dict:

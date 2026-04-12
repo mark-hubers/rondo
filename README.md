@@ -69,7 +69,7 @@ Use tool calls like:
 
 Start here:
 - `examples/mcp/README.md` (13 MCP examples)
-- **Full example index:** `examples/INDEX.md` (all 75 examples mapped by mode/provider/use case)
+- **Full example index:** `examples/INDEX.md` (all 76 examples mapped by mode/provider/use case)
 
 ### 2) CLI (scripts, CI, terminal workflows)
 
@@ -110,13 +110,39 @@ Rondo separates:
 
 | You want... | Use this | You get back... |
 |---|---|---|
-| AI to run in your current host/session loop | `execution="inline"` | Plan JSON (`inline_dispatch_plan`) for host execution |
-| AI to run independently and return completed results | `execution="subprocess"` | Task result envelope (`status`, `tasks`, `error_code`, etc.) |
-| Host agent orchestration with explicit model | `execution="agent"` | Agent plan JSON (`agent_dispatch_plan`) for host execution |
-| Cloud/provider adapter call (Gemini/Grok/OpenAI/Mistral/Anthropic/local) | `model="provider:model"` | Task result envelope over HTTP adapters |
+| AI to run in your current host/session loop | `execution="inline"` | A plan for YOU to execute in your current code |
+| AI to run independently and return completed results | `execution="subprocess"` | Completed results from a separate Rondo process |
+| Host agent orchestration with explicit model | `execution="agent"` | A plan for your host to spawn a Claude Agent |
+| Cloud/provider adapter call (Gemini/Grok/OpenAI/Mistral/Anthropic/local) | `model="provider:model"` | Completed results via the provider's HTTP API |
 | Let caller defaults decide | `execution=""` | MCP defaults to inline; Python/CLI defaults to subprocess |
 
 Provider-prefixed models (for example `gemini:...`, `anthropic:...`) route HTTP adapters and bypass execution mode routing.
+
+### Host spawn example for `execution="agent"`
+
+When Rondo returns an agent plan, the host is responsible for launching an agent with that plan payload.
+
+```python
+import json
+from rondo.mcp_dispatch import rondo_run_file
+
+plan = json.loads(
+    rondo_run_file(
+        prompt="Review src/rondo/envelope.py and propose safer error handling.",
+        model="sonnet",
+        execution="agent",
+        dry_run=False,
+    )
+)
+
+if plan.get("kind") == "agent_dispatch_plan":
+    # -- Host contract: spawn an Agent using plan prompt/model/project.
+    host.spawn_agent(
+        model=plan["model"],
+        prompt=plan["prompt"],
+        working_dir=plan.get("project") or ".",
+    )
+```
 
 ---
 

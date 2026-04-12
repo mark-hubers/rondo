@@ -1,0 +1,38 @@
+# rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Declarative find-fix-verify YAML workflow for Terraform-for-prompts style automation"
+#
+# Rondo Example 06: Declarative Find -> Fix -> Verify Pipeline
+# Usage: rondo run examples/rounds/06-find-fix-verify.yaml
+#
+# This example expresses a multi-step workflow declaratively in YAML:
+#   1) find issues
+#   2) propose a fix
+#   3) verify the fix quality
+# It demonstrates the "Terraform for prompts" shape in a single file.
+
+name: find-fix-verify
+tasks:
+  - name: find-issues
+    instruction: |
+      Review this Python function and find defects.
+      Return JSON with keys: issues (array), risk (low|medium|high), summary.
+
+      def normalize_user_id(value):
+          return int(value.strip())
+    done_when: "Issues are listed with severity and a short summary."
+
+  - name: propose-fix
+    instruction: |
+      Using the issues from step 1 as context, propose a corrected implementation.
+      Return JSON with keys: fixed_code, reasoning, tradeoffs.
+
+      Target behavior:
+      - Handle None safely
+      - Reject non-numeric input with clear error
+      - Avoid unsafe assumptions about .strip()
+    done_when: "A concrete fixed_code block and rationale are returned."
+
+  - name: verify-fix
+    instruction: |
+      Verify the proposed fix quality and list remaining risks.
+      Return JSON with keys: passed (bool), confidence (0-1), residual_risks (array), test_suggestions (array).
+    done_when: "Verification verdict and test suggestions are complete."

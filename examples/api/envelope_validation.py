@@ -33,6 +33,7 @@ REQUIRED_TOP_KEYS = {
 
 
 def _loads(raw: str) -> dict:
+    # -- Centralize JSON parsing so all failures report useful context.
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -45,6 +46,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print(banner("Envelope Validation"))
+    # -- Run a real dispatch first so validation is against live envelopes.
     env = invoke_rondo(
         prompt='Return JSON only: {"contract":"ok","version":2}',
         model="sonnet",
@@ -53,11 +55,13 @@ def main() -> int:
         dry_run=False,
     )
     missing = sorted(REQUIRED_TOP_KEYS - set(env.keys()))
+    # -- Contract check: these keys are required for downstream automation branching.
     if missing:
         print(f"-ERROR- missing canonical keys: {missing}", file=sys.stderr)
         return 1
     print("-PASS- canonical envelope keys present")
 
+    # -- Probe unknown dispatch-id path to validate stable error semantics + guidance.
     unknown = _loads(rondo_run_status(dispatch_id="mcp-does-not-exist"))
     if unknown.get("error_code") != "ERR_UNKNOWN_DISPATCH_ID":
         print(f"-ERROR- expected ERR_UNKNOWN_DISPATCH_ID, got: {unknown}", file=sys.stderr)

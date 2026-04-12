@@ -22,6 +22,7 @@ from rondo.mcp_dispatch import rondo_run_file
 
 
 def _load_json(raw: str) -> dict:
+    # -- Normalize all probe/dispatch responses to one dict contract.
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -30,6 +31,7 @@ def _load_json(raw: str) -> dict:
 
 def _force_not_found_error() -> dict:
     """Trigger deterministic ERR_FILE_NOT_FOUND to demonstrate error path."""
+    # -- Intentionally reference a missing round file so this branch is deterministic.
     missing = str(Path("examples/api/__missing_round_for_demo__.py"))
     return _load_json(
         rondo_run_file(
@@ -48,6 +50,7 @@ def main() -> int:
 
     print(banner("Error Recovery Patterns"))
     print("[TEST]  forcing deterministic file-not-found envelope")
+    # -- Step 1 verifies known error-code behavior before recovery logic starts.
     err_env = _force_not_found_error()
     if err_env.get("error_code") != "ERR_FILE_NOT_FOUND":
         print(f"-ERROR- expected ERR_FILE_NOT_FOUND, got: {err_env.get('error_code')}", file=sys.stderr)
@@ -55,6 +58,7 @@ def main() -> int:
     print(f"-PASS- forced error: {err_env.get('error_code')} | help: {err_env.get('error_help', '')[:90]}")
 
     print("[TEST]  running live recovery dispatch")
+    # -- Step 2 confirms that an immediately-following live dispatch still succeeds.
     started = time.monotonic()
     recovered = invoke_rondo(
         prompt='Return JSON only: {"status":"recovered","checks":["inputs","routing","retry"]}',
@@ -65,6 +69,7 @@ def main() -> int:
     )
     elapsed = time.monotonic() - started
     print(f"-PASS- recovery status={recovered.get('status')} in {elapsed:.1f}s")
+    # -- done/partial are valid recovery outcomes; hard error is a failure for this demo.
     return 0 if recovered.get("status") in ("done", "partial") else 1
 
 

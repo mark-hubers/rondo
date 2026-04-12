@@ -21,6 +21,7 @@ from rondo.mcp_dispatch import rondo_run_file
 
 
 def _run_with_timeout(prompt: str, timeout_sec: int) -> dict:
+    # -- Single-attempt dispatch helper keeps retry loop easier to reason about.
     raw = rondo_run_file(
         prompt=prompt,
         model="sonnet",
@@ -50,6 +51,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print(banner("Timeout and Backoff"))
+    # -- Pre-probe validates error envelope shape before we enter retry flow.
     probe = _deterministic_error_probe()
     if probe.get("status") == "error":
         print(f"-PASS- deterministic error path: {probe.get('error_code')} ({probe.get('error_help', '')[:80]})")
@@ -64,13 +66,16 @@ def main() -> int:
         status = env.get("status", "")
         print(f"  status={status} elapsed={elapsed:.1f}s")
         if status in ("done", "partial"):
+            # -- Any completed output means retry policy worked.
             print("-PASS- dispatch completed before backoff exhaustion")
             return 0
         if env.get("error_code") == "ERR_TIMEOUT":
+            # -- Exponential backoff reduces pressure on repeated timeout paths.
             print(f"  -WARNING- timeout; sleeping {delay:.1f}s before retry")
             time.sleep(delay)
             delay *= 2
             continue
+        # -- Non-timeout failures should stop immediately for operator visibility.
         print(f"-ERROR- non-timeout failure: {env.get('error_code')} {env.get('error_message')}", file=sys.stderr)
         return 1
 

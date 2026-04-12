@@ -22,6 +22,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print(banner("Partial Status Handling"))
+    # -- Prompt intentionally asks for plain text to exercise non-JSON fallback behavior.
     envelope = invoke_rondo(
         prompt=(
             "Give a concise explanation of CI value in plain text only. "
@@ -34,15 +35,18 @@ def main() -> int:
     )
 
     tasks = envelope.get("tasks") or []
+    # -- Guardrail: examples should fail loudly if envelope shape is unexpected.
     if not tasks:
         print("-ERROR- no tasks in envelope", file=sys.stderr)
         return 1
 
     first = tasks[0]
+    # -- Helper decodes strict JSON when possible, otherwise returns _non_json + snippet.
     parsed = first_task_parsed_json(envelope)
     print(f"Top-level status: {envelope.get('status')} | task status: {first.get('status')}")
 
     if parsed.get("_non_json"):
+        # -- This is the key recovery path: preserve useful text when strict parsing fails.
         snippet = parsed.get("snippet", "")
         if not snippet:
             print("-ERROR- expected raw_output snippet for non-JSON case", file=sys.stderr)
@@ -50,6 +54,7 @@ def main() -> int:
         print(f"-PASS- non-JSON recovered via raw_output snippet ({len(snippet)} chars)")
         return 0
 
+    # -- Some runs may still return valid JSON; that is acceptable and still demonstrates robustness.
     print("-PASS- model returned valid JSON; fallback path not required on this run")
     return 0
 

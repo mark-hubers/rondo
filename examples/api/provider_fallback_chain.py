@@ -20,6 +20,7 @@ from rondo.mcp_dispatch import rondo_run_file
 
 
 def _loads(raw: str) -> dict:
+    # -- Keep parser behavior explicit so failure handling is predictable.
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -27,6 +28,7 @@ def _loads(raw: str) -> dict:
 
 
 def _primary_attempt(timeout_sec: int) -> dict:
+    # -- Use an invalid provider model on purpose to exercise fallback logic.
     return _loads(
         rondo_run_file(
             prompt='Return JSON only: {"provider":"primary","ok":true}',
@@ -45,6 +47,7 @@ def main() -> int:
 
     print(banner("Provider Fallback Chain"))
     print("[TEST]  primary provider dispatch (expected failure)")
+    # -- Step 1: confirm primary path can fail cleanly with a parseable envelope.
     primary = _primary_attempt(args.timeout)
     if primary.get("status") != "error":
         print("-WARNING- primary unexpectedly succeeded; continuing with fallback anyway")
@@ -52,6 +55,7 @@ def main() -> int:
         print(f"-PASS- primary failed as expected: {primary.get('error_code')} ({primary.get('error_help', '')[:90]})")
 
     print("[TEST]  fallback to subprocess Claude model")
+    # -- Step 2: fallback path should provide usable results from a stable model route.
     fallback = invoke_rondo(
         prompt='Return JSON only: {"provider":"fallback","ok":true}',
         model="sonnet",
@@ -60,6 +64,7 @@ def main() -> int:
         dry_run=False,
     )
     print(f"-PASS- fallback status={fallback.get('status')}")
+    # -- done/partial both count as successful degraded operation in this pattern.
     if fallback.get("status") not in ("done", "partial"):
         print(f"-ERROR- fallback failed: {fallback}", file=sys.stderr)
         return 1

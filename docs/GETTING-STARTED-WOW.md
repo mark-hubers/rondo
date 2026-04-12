@@ -2,6 +2,9 @@
 
 This is the fastest way to feel what Rondo does in real workflows.
 
+`uv` is Astral's fast Python package/runtime tool; install it from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).  
+If you do not use `uv`, you can use `pip` equivalents for these steps (for example `pip install -e .` and `python ...`).
+
 ## 1) Install Rondo
 
 ```bash
@@ -48,6 +51,8 @@ rondo_run(
 ```
 
 This confirms MCP path and envelope compatibility.
+
+If you use `execution="agent"`, Rondo returns an `agent_dispatch_plan`; your host then spawns an agent with `plan["model"]` + `plan["prompt"]` in the target project directory.
 
 ## 6) Run One Real API Example
 

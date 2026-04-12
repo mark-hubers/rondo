@@ -25,6 +25,7 @@ When `status="error"`, payloads also include:
 
 - `error_code`
 - `error_message`
+- `error_help`
 
 Backward-compatible aliases may still appear:
 
@@ -74,7 +75,14 @@ Treat it as **success-with-caveat**, not the same as hard failure.
 {
   "schema_version": "2",
   "status": "partial",
-  "tasks": [{"name": "t1", "status": "partial", "error_code": "ERR_MALFORMED_JSON"}],
+  "tasks": [
+    {
+      "name": "t1",
+      "status": "partial",
+      "error_code": "ERR_MALFORMED_JSON",
+      "error_help": "Treat as partial, inspect raw_output, then tighten return schema."
+    }
+  ],
   "done_count": 0,
   "error_count": 0,
   "partial_count": 1,
@@ -93,6 +101,7 @@ Treat it as **success-with-caveat**, not the same as hard failure.
   "status": "error",
   "error_code": "ERR_INVALID_INPUT",
   "error_message": "Provide file_path or prompt",
+  "error_help": "Check required parameters and rerun with a valid prompt or file_path.",
   "tasks": [],
   "done_count": 0,
   "error_count": 0,

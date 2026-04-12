@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 # rondo-meta: mode=subprocess provider=anthropic category=config value="Normalizing varied model payloads into one stable shape"
 
 """Rondo API: Normalize Provider Responses.

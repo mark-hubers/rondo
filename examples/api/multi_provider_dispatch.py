@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 # rondo-meta: mode=http provider=gemini,grok,ollama category=review value="Fan-out to multiple providers with one prompt"
 
 """Rondo API: multi-provider dispatch (live).

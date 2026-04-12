@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 # rondo-meta: mode=subprocess provider=anthropic category=basic value="Named JSON field contract for script-friendly outputs"
 
 """Rondo API: Named Return Fields.

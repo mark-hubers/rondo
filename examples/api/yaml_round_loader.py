@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 # rondo-meta: mode=subprocess provider=anthropic category=config value="Loading and dispatching YAML round definitions via API"
 
 """Rondo API: Load YAML Round Files.

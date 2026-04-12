@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _MAX_PROMPT_BYTES = 500_000  # -- H-07: max prompt bytes
 _MAX_CHAIN_STEPS = 20  # -- H-08: max chain pipeline steps
 _MAX_BENCHMARK_MODELS = 10  # -- H-09: max benchmark models
+_PROVIDER_PREFIXES = ("local", "gemini", "openai", "anthropic", "grok", "mistral")
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -340,6 +341,7 @@ def rondo_multi_review(  # pylint: disable=too-many-branches
 
     if not provider_list:
         provider_list = ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
+    provider_list = [_normalize_provider_model(p) for p in provider_list]
 
     per_provider: list[dict] = []
 
@@ -653,6 +655,53 @@ def _resolve_review_providers(providers_json: str) -> str:
         model = _providers_config.get(name, {}).get("best_model", "")
         resolved.append(f"{name}:{model}" if model else name)
     return json.dumps(resolved)
+
+
+def _normalize_provider_model(provider_model: str) -> str:
+    """Ensure multi-review provider models are explicit and prefix-stable."""
+    raw = (provider_model or "").strip()
+    if not raw:
+        return raw
+
+    # -- Already explicit (gemini:..., openai:..., local:..., etc.)
+    if any(raw.startswith(f"{prefix}:") for prefix in _PROVIDER_PREFIXES):
+        return raw
+
+    # -- Claude shorthand remains as shorthand (subprocess path).
+    if raw in {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}:
+        return raw
+
+    from rondo.providers import is_legacy_ollama_model  # pylint: disable=import-outside-toplevel
+
+    # -- Avoid accidental legacy local routing by making local intent explicit.
+    if is_legacy_ollama_model(raw):
+        return f"local:{raw}"
+
+    lower = raw.lower()
+    if "gemini" in lower:
+        return f"gemini:{raw}"
+    if lower.startswith(("gpt-", "o1", "o3")):
+        return f"openai:{raw}"
+    if lower.startswith("grok"):
+        return f"grok:{raw}"
+    if lower.startswith(("mistral", "codestral")):
+        return f"mistral:{raw}"
+    if lower.startswith("claude-"):
+        return f"anthropic:{raw}"
+
+    # -- Bare provider name (gemini/grok/...) -> provider:default_model from config.
+    if lower in _PROVIDER_PREFIXES:
+        from rondo.providers import _providers_config, load_providers_config  # pylint: disable=import-outside-toplevel
+
+        load_providers_config()
+        default_model = str(_providers_config.get(lower, {}).get("default_model", "")).strip()
+        if default_model:
+            return f"{lower}:{default_model}"
+        if lower == "local":
+            return "local:qwen2.5:32b"
+        return raw
+
+    return raw
 
 
 def rondo_review_codebase(

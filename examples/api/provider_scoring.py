@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 # rondo-meta: mode=subprocess provider=anthropic category=observability value="Provider scoring and comparison from run outputs"
 
 """Rondo API: Provider Scoring.

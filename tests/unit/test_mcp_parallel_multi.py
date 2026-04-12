@@ -43,6 +43,28 @@ class TestMultiReview:
         assert "gemini:gemini-2.5-flash" in providers
         assert "grok:grok-3" in providers
 
+    def test_non_prefixed_provider_models_are_normalized(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["gemini-2.5-flash", "gpt-4o-mini", "grok-3"]',
+                dry_run=True,
+            )
+        )
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert "gemini:gemini-2.5-flash" in providers
+        assert "openai:gpt-4o-mini" in providers
+        assert "grok:grok-3" in providers
+
+    def test_legacy_local_model_gets_local_prefix(self) -> None:
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(rondo_multi_review(prompt="Review this code", providers='["qwen2.5:32b"]', dry_run=True))
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert providers == ["local:qwen2.5:32b"]
+
     def test_invalid_json_returns_error(self) -> None:
         from rondo.mcp_server import rondo_multi_review
 

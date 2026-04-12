@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
 # rondo-meta: mode=subprocess provider=anthropic category=pipeline value="Prompt/result hook lifecycle from Python API"
 
 """Rondo API: Dispatch with Hooks.

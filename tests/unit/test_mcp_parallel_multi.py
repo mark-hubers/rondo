@@ -65,6 +65,90 @@ class TestMultiReview:
         providers = [p["provider"] for p in result["per_provider"]]
         assert providers == ["local:qwen2.5:32b"]
 
+    def test_bare_provider_names_resolve_via_default_tier(self) -> None:
+        """RONDO-287 regression: bare names like 'gemini' used to produce
+        'gemini:gemini' (HTTP 404). Must resolve via tier parameter."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["gemini", "grok", "mistral"]',
+                dry_run=True,
+            )
+        )
+        providers = [p["provider"] for p in result["per_provider"]]
+        ## tier defaults to "high" for multi_review (deep reviews need quality).
+        assert "gemini:gemini-2.5-pro" in providers, f"got {providers}"
+        assert "grok:grok-3" in providers, f"got {providers}"
+        assert "mistral:mistral-large-latest" in providers, f"got {providers}"
+        ## RONDO-287 guard: mangled forms MUST NOT appear.
+        assert "gemini:gemini" not in providers
+        assert "grok:grok" not in providers
+
+    def test_bare_provider_names_with_tier_default(self) -> None:
+        """Bare names + explicit tier='default' resolves to mid-tier models."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["gemini", "grok"]',
+                tier="default",
+                dry_run=True,
+            )
+        )
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert "gemini:gemini-2.5-flash" in providers
+        assert "grok:grok-3" in providers
+
+    def test_bare_provider_names_with_tier_low(self) -> None:
+        """Bare names + explicit tier='low' resolves to cheap models."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["openai"]',
+                tier="low",
+                dry_run=True,
+            )
+        )
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert providers == ["openai:gpt-4o-mini"]
+
+    def test_explicit_models_ignore_tier(self) -> None:
+        """If user passes explicit provider:model, tier is ignored (no override)."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["gemini:gemini-2.5-flash", "grok:grok-3"]',
+                tier="high",  ## Should NOT upgrade explicit gemini-2.5-flash to -pro
+                dry_run=True,
+            )
+        )
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert "gemini:gemini-2.5-flash" in providers
+        assert "gemini:gemini-2.5-pro" not in providers
+
+    def test_mixed_bare_and_explicit_both_normalize(self) -> None:
+        """Bare and explicit names can be mixed in one call — both resolve correctly."""
+        from rondo.mcp_server import rondo_multi_review
+
+        result = json.loads(
+            rondo_multi_review(
+                prompt="Review this code",
+                providers='["gemini", "grok:grok-3"]',
+                tier="high",
+                dry_run=True,
+            )
+        )
+        providers = [p["provider"] for p in result["per_provider"]]
+        assert "gemini:gemini-2.5-pro" in providers  ## bare resolved via tier
+        assert "grok:grok-3" in providers  ## explicit unchanged
+
     def test_invalid_json_returns_error(self) -> None:
         from rondo.mcp_server import rondo_multi_review
 

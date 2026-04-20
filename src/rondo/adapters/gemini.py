@@ -163,11 +163,26 @@ class GeminiAdapter(ProviderAdapter):
                 breaker.record_failure("gemini")
             else:
                 error_code = ERR_PROVIDER
+            # -- RONDO-287 (Finding #270): include response body snippet on 4xx/5xx.
+            # -- Gemini's 404 "model not found" body has the real cause; without it
+            # -- the error is just "HTTP 404: Not Found" which is useless for debug.
+            # -- RONDO-216 C4: also redact API key from body (Gemini key is in URL).
+            body_snippet = ""
+            try:
+                body_bytes = exc.read() or b""
+                body_snippet = body_bytes.decode("utf-8", errors="replace")[:500]
+                if self.api_key and self.api_key in body_snippet:
+                    body_snippet = body_snippet.replace(self.api_key, "[REDACTED]")
+            except (OSError, AttributeError):
+                body_snippet = ""
+            err_msg = f"Gemini HTTP {exc.code}: {exc.reason}"
+            if body_snippet:
+                err_msg = f"{err_msg} | body: {body_snippet}"
             return TaskResult(
                 task_name=task_name,
                 status="error",
                 error_code=error_code,
-                error_message=f"Gemini HTTP {exc.code}: {exc.reason}",
+                error_message=err_msg,
                 model=use_model,
                 duration_sec=duration,
             )

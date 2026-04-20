@@ -215,11 +215,23 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 breaker.record_failure(self.provider_name)
             else:
                 error_code = ERR_PROVIDER
+            # -- RONDO-287 (Finding #270): include response body snippet on 4xx/5xx for
+            # -- debugging. Without this, a bad model name or malformed payload shows
+            # -- only "HTTP 400: Bad Request" and the real cause is invisible.
+            body_snippet = ""
+            try:
+                body_bytes = exc.read() or b""
+                body_snippet = body_bytes.decode("utf-8", errors="replace")[:500]
+            except (OSError, AttributeError):
+                body_snippet = ""
+            err_msg = f"{self.provider_name} HTTP {exc.code}: {exc.reason}"
+            if body_snippet:
+                err_msg = f"{err_msg} | body: {body_snippet}"
             return TaskResult(
                 task_name=task_name,
                 status="error",
                 error_code=error_code,
-                error_message=f"{self.provider_name} HTTP {exc.code}: {exc.reason}",
+                error_message=err_msg,
                 model=use_model,
                 duration_sec=duration,
             )

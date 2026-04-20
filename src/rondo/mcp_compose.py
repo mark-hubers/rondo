@@ -314,13 +314,32 @@ def _multi_review_serial_retry(
 def rondo_multi_review(  # pylint: disable=too-many-branches
     prompt: str,
     providers: str = "[]",
+    tier: str = "high",
     dry_run: bool = False,
 ) -> str:
-    """Multi-provider review: same prompt → N providers → per-provider + merged findings.
+    """Multi-provider review: same prompt -> N providers -> per-provider + merged findings.
 
     REQ-109 req 033. Replaces ai-review --all-providers --compare.
-    Pass providers as JSON array: ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
-    Default: local + gemini + grok (if keys available).
+
+    Two provider formats (both work):
+        1. Bare names (recommended): ["gemini", "grok", "mistral"]
+           Resolves to provider:model using the `tier` parameter.
+        2. Explicit: ["gemini:gemini-2.5-pro", "grok:grok-3", "openai:gpt-4.1"]
+           Uses the exact model specified.
+
+    Args:
+        prompt: Content to review.
+        providers: JSON array of provider names or provider:model strings.
+                   Default: ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"].
+                   Tip: pass bare names (["gemini", "grok"]) to use top-tier models via `tier`.
+        tier: Model tier when resolving bare provider names (ignored for explicit models).
+              "high"    -> best_model    (default for multi_review — deep reviews need quality)
+              "default" -> default_model (balanced, cheaper)
+              "low"     -> cheap_model   (filters, scans)
+        dry_run: Return provider list without dispatching.
+
+    RONDO-287 (Finding #270): Bare provider names now work correctly.
+    Previously "gemini" -> "gemini:gemini" -> HTTP 404 Not Found.
     """
     try:
         provider_list = json.loads(providers) if providers else []
@@ -341,7 +360,7 @@ def rondo_multi_review(  # pylint: disable=too-many-branches
 
     if not provider_list:
         provider_list = ["local:qwen2.5:32b", "gemini:gemini-2.5-flash", "grok:grok-3"]
-    provider_list = [_normalize_provider_model(p) for p in provider_list]
+    provider_list = [_normalize_provider_model(p, tier=tier) for p in provider_list]
 
     per_provider: list[dict] = []
 
@@ -657,8 +676,25 @@ def _resolve_review_providers(providers_json: str) -> str:
     return json.dumps(resolved)
 
 
-def _normalize_provider_model(provider_model: str) -> str:
-    """Ensure multi-review provider models are explicit and prefix-stable."""
+def _normalize_provider_model(provider_model: str, tier: str = "default") -> str:
+    """Ensure multi-review provider models are explicit and prefix-stable.
+
+    Supports two input formats:
+        1. Explicit:  "gemini:gemini-2.5-pro", "grok:grok-3"  →  unchanged
+        2. Bare name: "gemini", "grok", "openai", "mistral"  →  resolved to tier model
+
+    Args:
+        provider_model: Provider name or provider:model string.
+        tier: When resolving a bare provider name, pick which model:
+              "high"    → best_model   (architecture review, deep analysis)
+              "default" → default_model (balanced, daily work)
+              "low"     → cheap_model  (scans, filters)
+
+    RONDO-287 (Finding #270): Bare provider names now resolved FIRST, before
+    model-name heuristics. Previously "gemini" matched the 'if "gemini" in lower'
+    branch and produced "gemini:gemini" → HTTP 404. Same for "grok" → "grok:grok"
+    → HTTP 400.
+    """
     raw = (provider_model or "").strip()
     if not raw:
         return raw
@@ -671,13 +707,32 @@ def _normalize_provider_model(provider_model: str) -> str:
     if raw in {"sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]"}:
         return raw
 
+    lower = raw.lower()
+
+    # -- RONDO-287 Finding #270: bare provider name check MUST come before
+    # -- model-name prefix heuristics, otherwise "gemini" matches "if 'gemini'
+    # -- in lower" and mangles into "gemini:gemini" (invalid model → 404).
+    if lower in _PROVIDER_PREFIXES:
+        from rondo.providers import _providers_config, load_providers_config  # pylint: disable=import-outside-toplevel
+
+        load_providers_config()
+        tier_key_map = {"high": "best_model", "default": "default_model", "low": "cheap_model"}
+        tier_key = tier_key_map.get(tier, "default_model")
+        cfg = _providers_config.get(lower, {})
+        resolved = str(cfg.get(tier_key, "")).strip() or str(cfg.get("default_model", "")).strip()
+        if resolved:
+            return f"{lower}:{resolved}"
+        if lower == "local":
+            return "local:qwen2.5:32b"
+        return raw
+
     from rondo.providers import is_legacy_ollama_model  # pylint: disable=import-outside-toplevel
 
     # -- Avoid accidental legacy local routing by making local intent explicit.
     if is_legacy_ollama_model(raw):
         return f"local:{raw}"
 
-    lower = raw.lower()
+    # -- Model-name prefix heuristics (for explicit model names without provider prefix).
     if "gemini" in lower:
         return f"gemini:{raw}"
     if lower.startswith(("gpt-", "o1", "o3")):
@@ -688,18 +743,6 @@ def _normalize_provider_model(provider_model: str) -> str:
         return f"mistral:{raw}"
     if lower.startswith("claude-"):
         return f"anthropic:{raw}"
-
-    # -- Bare provider name (gemini/grok/...) -> provider:default_model from config.
-    if lower in _PROVIDER_PREFIXES:
-        from rondo.providers import _providers_config, load_providers_config  # pylint: disable=import-outside-toplevel
-
-        load_providers_config()
-        default_model = str(_providers_config.get(lower, {}).get("default_model", "")).strip()
-        if default_model:
-            return f"{lower}:{default_model}"
-        if lower == "local":
-            return "local:qwen2.5:32b"
-        return raw
 
     return raw
 

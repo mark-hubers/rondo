@@ -93,7 +93,7 @@
     },
     {
       "name": "Multi-provider parallel review (get consensus)",
-      "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini:gemini-2.5-flash\", \"grok:grok-3\"]', dry_run=False)",
+      "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini\", \"grok\", \"mistral\"]', tier='high', dry_run=False)  # bare names resolve via tier; or pass explicit like 'gemini:gemini-2.5-pro'",
       "run": "Returns list of per-provider results. Each has provider, status, raw_output.",
       "note": "Use for cross-validation \u2014 catches issues one model might miss."
     },
@@ -215,7 +215,7 @@
     {
       "name": "rondo_multi_review",
       "category": "cloud",
-      "description": "Send same prompt to N providers sequentially \u2014 returns per-provider results + merged findings",
+      "description": "Send same prompt to N providers in parallel \u2014 returns per-provider results + merged findings. Accepts bare provider names ([\"gemini\", \"grok\"]) resolved via tier, or explicit [\"gemini:gemini-2.5-pro\"]. Default tier=high.",
       "stability": "beta"
     },
     {

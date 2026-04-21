@@ -458,7 +458,11 @@ class TestDispatchEngineIntegration:
         )
         assert result.get("kind") == "inline_dispatch_plan"
         assert result.get("engine") == "inline"
-        assert result.get("schema_version") == "1"
+        ## RONDO-294: schema bumped to "2" (added _host_instruction + execution_token).
+        ## Use constant so future bumps don't require test updates.
+        from rondo.mcp_dispatch import PLAN_SCHEMA_VERSION  # noqa: PLC0415
+
+        assert result.get("schema_version") == PLAN_SCHEMA_VERSION
 
     def test_ollama_model_dispatches_via_http(self) -> None:
         """Local model dispatches via HTTP adapter — assert positive, not 'not X'.

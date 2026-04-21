@@ -15,7 +15,7 @@ Submodules:
 
 from __future__ import annotations
 
-## Exit codes (shared across all submodules)
+# -- Exit codes (shared across all submodules)
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 

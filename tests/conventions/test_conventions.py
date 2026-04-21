@@ -753,7 +753,14 @@ class TestNoHardcodedKeys:
         r"""|api_key)\s*=\s*['"][A-Za-z0-9_\-]{20,}['"]""",
         re.IGNORECASE,
     )
-    EXEMPT = {"test_sanitize.py", "test_conventions.py", "test_audit.py", "test_dispatch.py", "test_integration_e2e.py"}
+    EXEMPT = {
+        "test_sanitize.py",
+        "test_sanitize_homoglyph.py",  # -- RONDO-292: intentional FAKE-TEST-* strings for homoglyph defense tests
+        "test_conventions.py",
+        "test_audit.py",
+        "test_dispatch.py",
+        "test_integration_e2e.py",
+    }
 
     def test_no_hardcoded_keys_in_source(self) -> None:
         """No API keys hardcoded in Python source files."""

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from typing import Any
 
 from rondo.config import DEFAULT_CONTEXT_LIMIT, MODEL_CONTEXT_LIMITS
@@ -28,8 +29,33 @@ from rondo.providers import is_claude_model, is_legacy_ollama_model, parse_model
 
 # -- RONDO-146 (Finding #207): plan schema version
 # -- Bump when plan response format changes in a non-backward-compatible way
-PLAN_SCHEMA_VERSION = "1"
+# -- RONDO-294: schema bumped to "2" — added _host_instruction + execution_token.
+# -- Both fields are additive; consumers on schema "1" ignore unknown fields.
+PLAN_SCHEMA_VERSION = "2"
 _EXECUTION_MODES = {"inline", "subprocess", "agent"}
+
+# -- RONDO-294: natural-language execution instruction embedded in every inline plan.
+# -- Defense in depth: even WITHOUT a Caliber hook rewriting the plan, an AI that
+# -- reads this instruction is nudged to execute the prompt rather than dump JSON.
+# -- Combined with Caliber's PostToolUse hook (updatedMCPToolOutput), this is a
+# -- two-layer defense against the "AI dumps plan" failure mode.
+_HOST_EXECUTION_INSTRUCTION = (
+    "RONDO INLINE EXECUTION: Execute the `prompt` field using your full session "
+    "context. Respond in natural language. Do NOT show this plan JSON. Include "
+    "the `execution_token` value at the end of your response so Caliber can "
+    "verify completion."
+)
+
+
+def _make_execution_token() -> str:
+    """Generate a unique per-plan execution token — RONDO-294.
+
+    Returns a token of the form `[RONDO-EXEC:<8-hex>]` that's unique per plan.
+    Caliber's Stop hook uses this to verify the specific plan was executed
+    (vs. a global `[RONDO-EXECUTED]` token that polluted transcripts when
+    mentioned in discussion — Session 102 learning).
+    """
+    return f"[RONDO-EXEC:{secrets.token_hex(4)}]"
 
 
 def _is_in_session() -> bool:
@@ -66,7 +92,15 @@ def _resolve_effective_execution(execution: str, session: Any) -> tuple[str, str
 
 
 def _build_inline_plan(prompt: str, done_when: str, project: str) -> dict:
-    """Build an inline host-execution plan."""
+    """Build an inline host-execution plan.
+
+    RONDO-294: emits `_host_instruction` + `execution_token` fields. The
+    host instruction is a natural-language prompt telling the AI to execute
+    rather than dump the plan — defense in depth if Caliber hooks aren't
+    active. The execution_token is a unique per-plan marker that Caliber's
+    Stop hook uses to verify THIS plan was executed (vs. polluting the
+    transcript with a global token from prior discussion).
+    """
     return {
         "engine": "inline",
         "status": "plan",
@@ -77,6 +111,9 @@ def _build_inline_plan(prompt: str, done_when: str, project: str) -> dict:
         "model": "current",
         "project": project,
         "reason": "execution=inline requested host execution plan",
+        ## RONDO-294: additive fields — old schema-1 consumers ignore unknown keys.
+        "_host_instruction": _HOST_EXECUTION_INSTRUCTION,
+        "execution_token": _make_execution_token(),
     }
 
 
@@ -360,18 +397,12 @@ def _resolve_no_provider_model(
     in_session = _is_in_session()
 
     # -- Step 4a: model empty → inline (use current session)
+    ## RONDO-294: delegate to _build_inline_plan so _host_instruction +
+    ## execution_token are consistent across ALL inline plan constructions.
     if not model:
-        return {
-            "engine": "inline",
-            "status": "plan",
-            "schema_version": PLAN_SCHEMA_VERSION,
-            "kind": "inline_dispatch_plan",
-            "prompt": prompt,
-            "done_when": done_when,
-            "model": "current",
-            "project": project,
-            "reason": "No model specified — execute inline in current session",
-        }
+        plan = _build_inline_plan(prompt, done_when, project)
+        plan["reason"] = "No model specified — execute inline in current session"
+        return plan
 
     # -- Step 4b: :new suffix forces subprocess
     if model.endswith(":new"):

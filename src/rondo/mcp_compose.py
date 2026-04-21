@@ -37,10 +37,10 @@ def rondo_explain(
     """
     prompt = f"""Review this AI-generated output and answer the question.
 
-## Output to review:
+# -- Output to review:
 {output[:5000]}
 
-## Question:
+# -- Question:
 {question}
 
 Be specific. If you find errors, list them. If correct, say why."""

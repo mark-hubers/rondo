@@ -34,6 +34,7 @@ def register_commands(commands: dict) -> None:
         _cmd_providers,
         _cmd_schedule,
         _cmd_spool,
+        _cmd_version,
     )
     from rondo.cli_commands.observe import (  # pylint: disable=import-outside-toplevel
         _cmd_audit,
@@ -67,6 +68,7 @@ def register_commands(commands: dict) -> None:
             "providers": _cmd_providers,
             "review": _cmd_review,
             "learn": _cmd_learn,
+            "version": _cmd_version,
         }
     )
 

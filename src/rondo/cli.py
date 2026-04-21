@@ -184,6 +184,14 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     prov_parser.add_argument("--json", action="store_true", help="JSON output")
     prov_parser.add_argument("--scores", action="store_true", help="Show learned provider scores")
 
+    # -- version subcommand (RONDO-290 Finding #266)
+    ver_parser = subparsers.add_parser("version", help="Show version or bump build counter")
+    ver_parser.add_argument(
+        "--bump",
+        action="store_true",
+        help="Increment build counter and print new version (call from ace-sprint done or CI)",
+    )
+
     # -- review subcommand (REQ-109 reqs 082-087)
     review_parser = subparsers.add_parser("review", help="Send file to 2+ cloud providers for independent review")
     review_parser.add_argument("file", help="File to review")

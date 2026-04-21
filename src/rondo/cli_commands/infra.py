@@ -121,6 +121,27 @@ def _cmd_mcp(_args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_version(args: argparse.Namespace) -> int:
+    """Show version or bump build counter — RONDO-290 (Finding #266).
+
+    Without --bump: prints current version (MAJOR.MINOR.PATCH+YYYYMMDD.BUILD).
+    With --bump:    increments build counter, prints NEW version.
+
+    Intended callers:
+        - User: `rondo version` for quick version check
+        - ace-sprint done post-hook: `rondo version --bump` after each sprint close
+        - CI: `rondo version --bump` after successful build
+    """
+    from rondo._version import bump_build, get_version  # pylint: disable=import-outside-toplevel
+
+    if getattr(args, "bump", False):
+        new_version = bump_build()
+        sys.stdout.write(new_version + "\n")
+    else:
+        sys.stdout.write(get_version() + "\n")
+    return EXIT_SUCCESS
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
     """Create a starter round file or config — U-10 to U-14."""
     import shutil  # pylint: disable=import-outside-toplevel

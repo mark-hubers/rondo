@@ -216,6 +216,7 @@ class TestImportLayering:
             "smart_return",  # -- REQ-111: template injection in provider dispatch
             "envelope",  # -- RONDO-274: shared error/result envelope normalization
             "dispatch_routing",  # -- RONDO-279: extracted routing logic
+            "round_loader",  # -- RONDO-291 (Finding #271): lazy-imported in _rondo_run_file_inner
         },
         "mcp_tools.py": {
             "metrics",
@@ -308,6 +309,7 @@ class TestImportLayering:
             "schedule",
             "adapters",
             "health",
+            "_version",  # -- RONDO-290 (Finding #266): `rondo version --bump` CLI
         },
         "cli_commands/review.py": {
             "cli_commands",

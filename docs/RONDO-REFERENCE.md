@@ -149,7 +149,7 @@ Execution defaults when `execution=""`:
 
 ---
 
-## CLI Commands (18)
+## CLI Commands (19)
 
 | Command | What it does |
 |---------|-------------|
@@ -171,6 +171,7 @@ Execution defaults when `execution=""`:
 | `rondo init` | Create starter round file |
 | `rondo schedule <file>` | Create recurring launchd schedule |
 | `rondo mcp` | Start MCP stdio server for Claude Code |
+| `rondo version [--bump]` | Show version or bump build counter (RONDO-290) |
 
 ---
 

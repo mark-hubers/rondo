@@ -19,6 +19,7 @@ import logging
 import math
 import os
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -252,6 +253,10 @@ class SanitizeConfig:
     extra_patterns: list[dict[str, str]] = field(default_factory=list)
     scrub_env_vars: bool = True
     scrub_home_paths: bool = True
+    ## RONDO-292 (Finding #249): apply Unicode NFKC normalization before scanning
+    ## to defeat homoglyph bypass (Cyrillic а U+0430 vs Latin a U+0061).
+    ## Default True — defense in depth. Disable only if you need exact char preservation.
+    normalize_unicode: bool = True
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -347,6 +352,57 @@ def _scrub_home_paths(sanitized: str) -> str:
     return sanitized
 
 
+## RONDO-292 (Finding #249): Cyrillic/Greek homoglyphs that look like Latin letters.
+## NFKC normalization alone does NOT touch these — they're linguistically distinct
+## characters that happen to share glyphs. We explicitly map the common ones.
+## Only including letters that appear in secret-context keywords (api, key, pass,
+## token, secret, password, etc.) to keep the map small and avoid false positives.
+_HOMOGLYPH_MAP: dict[str, str] = {
+    ## Cyrillic lowercase -> Latin
+    "\u0430": "a",  ## Cyrillic а
+    "\u0435": "e",  ## Cyrillic е
+    "\u043e": "o",  ## Cyrillic о
+    "\u0440": "p",  ## Cyrillic р
+    "\u0441": "c",  ## Cyrillic с
+    "\u0445": "x",  ## Cyrillic х
+    "\u0456": "i",  ## Cyrillic і
+    "\u0455": "s",  ## Cyrillic ѕ
+    "\u04cf": "l",  ## Cyrillic ӏ
+    ## Cyrillic uppercase -> Latin
+    "\u0410": "A",  ## Cyrillic А
+    "\u0415": "E",  ## Cyrillic Е
+    "\u041e": "O",  ## Cyrillic О
+    "\u0420": "P",  ## Cyrillic Р
+    "\u0421": "C",  ## Cyrillic С
+    "\u0425": "X",  ## Cyrillic Х
+    ## Greek lowercase -> Latin (most common overlaps)
+    "\u03bf": "o",  ## Greek omicron ο
+    "\u03b1": "a",  ## Greek alpha α
+    "\u03c1": "p",  ## Greek rho ρ
+    ## Greek uppercase
+    "\u039f": "O",  ## Greek Omicron Ο
+    "\u0391": "A",  ## Greek Alpha Α
+    "\u03a1": "P",  ## Greek Rho Ρ
+}
+_HOMOGLYPH_TRANS = str.maketrans(_HOMOGLYPH_MAP)
+
+
+def _normalize_homoglyphs(text: str) -> str:
+    """Normalize Unicode + map Cyrillic/Greek homoglyphs to Latin — RONDO-292.
+
+    Two-pass defense for homoglyph bypass (Finding #249):
+        1. NFKC normalization — catches compatibility forms (full-width,
+           ligatures, superscript). E.g. 'ａｐｉ' (U+FF41...) -> 'api'.
+        2. Homoglyph map — catches letters that NFKC leaves alone because
+           they're linguistically distinct. E.g. Cyrillic 'а' (U+0430) -> 'a'.
+
+    Both passes together defeat the common homoglyph attack vectors
+    documented in Unicode TR-39 "confusable detection".
+    """
+    normalized = unicodedata.normalize("NFKC", text)
+    return normalized.translate(_HOMOGLYPH_TRANS)
+
+
 def sanitize_text(
     text: str,
     *,
@@ -355,6 +411,12 @@ def sanitize_text(
     """Scan and scrub secrets from text — STD-114 reqs 001, 005, 007.
 
     Returns SanitizeResult with original preserved and sanitized copy.
+
+    RONDO-292 (Finding #249): when config.normalize_unicode=True (default),
+    applies Unicode NFKC normalization + Cyrillic/Greek homoglyph mapping
+    BEFORE pattern scanning. Defeats homoglyph bypass attacks where attacker
+    uses Cyrillic `а` (U+0430) or full-width `ａ` (U+FF41) that regex patterns
+    using Latin `a` (U+0061) would miss.
     """
     if not text:
         return SanitizeResult(original_text=text, sanitized_text=text)
@@ -363,16 +425,20 @@ def sanitize_text(
     patterns = _build_patterns(config)
     detections: list[Detection] = []
 
-    sanitized = _scrub_secret_patterns(text, text, patterns, detections)
+    ## RONDO-292 Finding #249: normalize before scanning to defeat homoglyph bypass.
+    ## The sanitized output uses the normalized form (safer default).
+    scan_input = _normalize_homoglyphs(text) if config.normalize_unicode else text
+    sanitized = _scrub_secret_patterns(scan_input, scan_input, patterns, detections)
 
     if config.scrub_env_vars:
-        sanitized = _scrub_env_vars(text, sanitized, detections)
+        sanitized = _scrub_env_vars(scan_input, sanitized, detections)
 
     if config.scrub_home_paths:
         sanitized = _scrub_home_paths(sanitized)
 
     # -- STD-114 req 012: no noise for clean output
-    if not detections and sanitized == text:
+    ## Compare against scan_input (post-normalization) for the "no changes" fast path.
+    if not detections and sanitized == scan_input:
         return SanitizeResult(
             original_text=text,
             sanitized_text=text,

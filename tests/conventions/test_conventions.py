@@ -231,6 +231,7 @@ class TestImportLayering:
             "mcp_server",
             "mcp_compose",  # -- RONDO-209 cycle break: lazy import in rondo_cloud()
             "health",
+            "chat_completions",  # -- RONDO-295 (Finding #278): lazy import of compute_cost_usd in _estimate_dispatch_cost
         },  # mcp_server: lazy import in rondo_cloud() only; health: lazy import in rondo_health() only
         "dispatch.py": {
             "engine",

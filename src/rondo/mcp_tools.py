@@ -499,6 +499,53 @@ def rondo_spool_consume() -> str:
 # -- ──────────────────────────────────────────────────────────────
 
 
+# -- RONDO-295 (Finding #278): tier → expected output-token budget. Rondo cannot
+# -- know how long a response will be before dispatch, but tier already encodes
+# -- "how thorough." Higher tier = more output = higher cost estimate.
+_OUTPUT_BUDGET_BY_TIER: dict[str, int] = {
+    "high": 2000,
+    "default": 1000,
+    "low": 500,
+}
+# -- 1.3x safety margin absorbs tokenizer variance (char//4 is rough) and
+# -- occasional output overrun. Tune based on estimate-vs-actual audit data.
+_ESTIMATE_SAFETY_MARGIN: float = 1.3
+
+
+def _estimate_dispatch_cost(provider_models: list[str], prompt: str, tier: str) -> float:
+    """Estimate total USD cost across providers using real per-model pricing.
+
+    RONDO-295 (Finding #278): replaces flat tier_cost_factor heuristic. Calls
+    compute_cost_usd from chat_completions (single source of pricing truth —
+    _COST_TABLE). Prompt length drives input tokens (char//4); tier drives
+    output budget; 1.3x safety margin absorbs variance.
+
+    Args:
+        provider_models: List like ["gemini:gemini-2.5-flash", "openai:gpt-4.1"].
+            Bare names ("openai") fall through to _DEFAULT_COST via compute_cost_usd.
+        prompt: The dispatch prompt — len(prompt)//4 gives rough input tokens.
+        tier: "high", "default", or "low" — maps to output token budget.
+
+    Returns:
+        Total estimated USD cost across all providers, with safety margin.
+    """
+    # -- Local import avoids rondo.mcp_tools ↔ rondo.adapters cycle concern.
+    from rondo.adapters.chat_completions import compute_cost_usd
+
+    input_tokens = max(0, len(prompt) // 4)
+    output_tokens = _OUTPUT_BUDGET_BY_TIER.get(tier, _OUTPUT_BUDGET_BY_TIER["default"])
+
+    total = 0.0
+    for pm in provider_models:
+        # -- "provider:model" → use model; bare "provider" → model lookup will miss
+        # -- _COST_TABLE and compute_cost_usd returns conservative _DEFAULT_COST.
+        _, _, model_part = pm.partition(":")
+        model = model_part if model_part else pm
+        total += compute_cost_usd(model, input_tokens, output_tokens)
+
+    return total * _ESTIMATE_SAFETY_MARGIN
+
+
 def rondo_cloud(
     prompt: str,
     profile: str = "",
@@ -579,9 +626,10 @@ def rondo_cloud(
         else:
             provider_models.append(name)
 
-    # -- Cost estimate (rough: count x tier factor)
-    tier_cost_factor = {"high": 0.15, "default": 0.05, "low": 0.01}.get(use_tier, 0.05)
-    estimated_cost = len(provider_models) * tier_cost_factor
+    # -- RONDO-295 (Finding #278): real per-model pricing via compute_cost_usd,
+    # -- not flat tier_cost_factor. Old heuristic was 9x over on typical prompts
+    # -- (blocked legit work) and 10x under on huge Opus prompts (let $$$ through).
+    estimated_cost = _estimate_dispatch_cost(provider_models, prompt, use_tier)
     if estimated_cost > max_cost and not dry_run:
         return json.dumps(
             {

@@ -568,4 +568,93 @@ class TestCloudDispatch:
         assert result["cloud"]["estimated_cost_usd"] >= 0
 
 
+class TestCostEstimatorCalibration:
+    """RONDO-295 / Finding #278: calibrated cost estimator using real pricing.
+
+    The old estimator was a flat tier_cost_factor x provider count — off by
+    ~9x on typical prompts (blocked legit work) and 10x under on huge Opus
+    prompts (let catastrophic spend through). Now uses compute_cost_usd
+    against the real per-model pricing table.
+    """
+
+    def test_small_prompt_cheap_four_providers(self) -> None:
+        # -- 4K-char prompt x 4 default providers should be pennies, not $0.60
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        provider_models = [
+            "gemini:gemini-2.5-flash",
+            "grok:grok-3-mini",
+            "mistral:mistral-medium-latest",
+            "openai:gpt-4.1-mini",
+        ]
+        prompt = "x" * 4000  # -- ~1000 input tokens
+        cost = _estimate_dispatch_cost(provider_models, prompt, "default")
+        assert cost < 0.15, f"4-provider default on 4K prompt should be <$0.15, got ${cost:.4f}"
+
+    def test_opus_huge_prompt_expensive(self) -> None:
+        # -- 100K-char Opus x 4 high should exceed $1 — catches the catastrophic case
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        provider_models = [
+            "anthropic:claude-opus-4-6",
+            "anthropic:claude-opus-4-6",
+            "anthropic:claude-opus-4-6",
+            "anthropic:claude-opus-4-6",
+        ]
+        prompt = "x" * 100_000  # -- ~25K tokens
+        cost = _estimate_dispatch_cost(provider_models, prompt, "high")
+        assert cost > 1.50, f"4x Opus on 100K prompt should exceed $1.50, got ${cost:.4f}"
+
+    def test_bare_provider_name_fallback(self) -> None:
+        # -- Bare "openai" (no :model) uses _DEFAULT_COST, doesn't crash
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        cost = _estimate_dispatch_cost(["openai"], "short", "default")
+        assert cost > 0
+        assert cost < 0.01
+
+    def test_empty_prompt_no_crash(self) -> None:
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        cost = _estimate_dispatch_cost(["gemini:gemini-2.5-flash"], "", "default")
+        assert cost >= 0
+
+    def test_safety_margin_is_applied(self) -> None:
+        # -- Estimate should be 1.3x raw compute_cost_usd
+        from rondo.adapters.chat_completions import compute_cost_usd
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        prompt = "x" * 400  # -- 100 input tokens
+        raw = compute_cost_usd("gemini-2.5-flash", 100, 1000)  # -- default tier = 1000 output
+        est = _estimate_dispatch_cost(["gemini:gemini-2.5-flash"], prompt, "default")
+        assert abs(est - raw * 1.3) < 1e-6, f"Expected {raw * 1.3}, got {est}"
+
+    def test_tier_affects_output_budget(self) -> None:
+        # -- high tier reserves more output budget, so estimate grows
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        prompt = "x" * 1000
+        low = _estimate_dispatch_cost(["gemini:gemini-2.5-flash"], prompt, "low")
+        default = _estimate_dispatch_cost(["gemini:gemini-2.5-flash"], prompt, "default")
+        high = _estimate_dispatch_cost(["gemini:gemini-2.5-flash"], prompt, "high")
+        assert low < default < high
+
+    def test_scales_with_prompt_length(self) -> None:
+        # -- Same provider, 1000x longer prompt → bigger estimate. Old heuristic
+        # -- was flat regardless of prompt length; this proves the new one scales.
+        # -- Uses a big ratio because fixed output-budget cost dominates at small prompts.
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        short = _estimate_dispatch_cost(["openai:gpt-4.1"], "x" * 100, "default")
+        long = _estimate_dispatch_cost(["openai:gpt-4.1"], "x" * 100_000, "default")
+        assert long > short * 2, f"1000x longer prompt should >2x cost, got short={short:.4f} long={long:.4f}"
+
+    def test_unknown_model_uses_default_cost(self) -> None:
+        # -- Model not in _COST_TABLE → _DEFAULT_COST ($1/$3 per 1M), not crash or zero
+        from rondo.mcp_tools import _estimate_dispatch_cost
+
+        cost = _estimate_dispatch_cost(["custom:brand-new-model-xyz"], "x" * 4000, "default")
+        assert cost > 0
+
+
 # -- sig: mgh-82a9.1b.f6df1b.bd01.69b6d9

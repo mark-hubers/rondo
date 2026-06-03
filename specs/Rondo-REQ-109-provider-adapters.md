@@ -4,9 +4,9 @@
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-03-20 | **Updated:** 2026-04-03 | **Status:** DESIGNED
+**Created:** 2026-03-20 | **Updated:** 2026-06-03 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.7
+**Version:** 1.8
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -237,6 +237,23 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 070 | Empty or missing response body from a provider with HTTP 200 MUST be treated as `status="error"` with `error_code="ERR_EMPTY_RESPONSE"`, not `status="done"` with empty `raw_output`. A provider that returns nothing has not completed the task. | MUST | Empty response test |
 
 
+### Thinking-Model Adapters & Effort Control (Session 102 — Opus 4.8 audit)
+
+*Opus 4.8 (and any thinking-default Claude) changed the request contract: adaptive thinking replaced sampling control. The 4.6-era payload (`temperature` + no effort) is rejected with HTTP 400. Source: `rondo/research/2026-06-03-rondo-audit/` (real failure, USH essay-split experiment 2026-06-03). These requirements make the API adapters 4.8-compatible AND wire Rondo's existing effort levels into the API path (previously CLI-only).*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 200 | Adapters MUST classify each target model as **thinking-default** or **classic**. Thinking-default = any model matching a configured pattern (e.g. `claude-opus-4-8`, `claude-*-4-8`, or listed in `[providers.<name>].thinking_models`). The classification drives payload shape. Default pattern list MUST be config-overridable, not hardcoded. | MUST | Classification test |
+| 201 | For thinking-default models, adapters MUST NOT include `temperature`, `top_p`, or `top_k` in the request payload. These are rejected by the API (HTTP 400 "temperature may only be set to 1 when thinking is enabled"). Omit the fields entirely — do NOT clamp to 1. | MUST | Payload-strip test |
+| 202 | For classic models (4.6/4.5 era), adapters MUST continue sending `temperature` per req 005 (no behavior change). The strip in req 201 is conditional on model class, never global. | MUST | Classic-payload test |
+| 203 | For thinking-default models, adapters SHOULD request adaptive thinking via `thinking: {type: "adaptive"}`. Adapters MUST NOT send manual `thinking: {type: "enabled", budget_tokens: N}` to adaptive-only models — it is rejected (HTTP 400). | SHOULD | Adaptive-thinking test |
+| 204 | Rondo's `effort` level (`low`/`medium`/`high`/`xhigh`/`max`) MUST map to `output_config: {effort: <level>}` on the API path for thinking-capable models. This closes the CLI/API parity gap: previously `RondoConfig.effort` only affected the `claude` CLI subprocess path, never the HTTP adapters. | MUST | Effort-mapping test |
+| 205 | Effort resolution MUST follow COALESCE precedence: per-dispatch effort → `RondoConfig.effort` → provider default (`high`). Same idiom as routing (req 013) and tiers (req 042). | MUST | Effort-precedence test |
+| 206 | The `anthropic-version` header MUST be a value that supports the fields actually sent (`output_config`, adaptive thinking). The current value (`2023-06-01`) is retained unless a feature requires a newer date; the required version MUST be verified against live Anthropic docs before any bump, and the chosen value documented in the adapter docstring. Never bump blindly. | MUST | Version-header test |
+| 207 | `models()` MUST report current-generation model IDs sourced from config (`cheap_model`/`default_model`/`best_model` per `[providers.<name>]`), not a stale hardcoded list. A hardcoded list that omits the active `best_model` (e.g. listing `claude-opus-4-6` while config routes `claude-opus-4-8`) is a defect. | SHOULD | Models-currency test |
+| 208 | A provider that fails to dispatch OR returns no response in a multi-provider call (req 057) MUST be surfaced explicitly: logged with the reason (`error_code` + message) AND present in the result with `status="error"`/`"timeout"`. A provider MUST NEVER be silently dropped from results. (Real incident: USH cabinet review 2026-04-20 — Mistral vanished with no error; Mark received 2 of 3 with no indication the 3rd was attempted.) | MUST | No-silent-drop test |
+
+
 ### Affinity Tracking (learn which model is best)
 
 | ID | Requirement | Priority | Verified By |
@@ -370,7 +387,8 @@ base_url = "https://api.anthropic.com/v1"
 keychain_item = "ace.ai-key.anthropic"
 cheap_model = "claude-haiku-4-5"
 default_model = "claude-sonnet-4-6"
-best_model = "claude-opus-4-6"
+best_model = "claude-opus-4-8"               ## thinking-default — adapter strips temperature, sends output_config.effort (reqs 200-207)
+thinking_models = ["claude-opus-4-8", "claude-*-4-8"]   ## models that use adaptive thinking (req 200)
 budget_monthly_usd = 100.00
 trust = "trusted"
 
@@ -905,6 +923,7 @@ $ rondo providers --scores
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 1.8 | 2026-06-03 | **Thinking-model adapters + effort control (Session 102 — Opus 4.8 audit).** Added reqs 200-208: thinking-default model classification (200), strip temperature/top_p/top_k for thinking models (201-202), adaptive thinking shape (203), effort→`output_config.effort` API-path wiring with COALESCE precedence (204-205), anthropic-version verification rule (206), `models()` currency (207), no-silent-provider-drop (208). Updated anthropic config example to `claude-opus-4-8` + `thinking_models`. Driver: real HTTP 400 failure dispatching Opus 4.8 (USH essay-split experiment, 2026-06-03). Evidence: `rondo/research/2026-06-03-rondo-audit/`. Note: prior research finding "Anthropic/Gemini adapters lack retry/breaker" was VERIFIED FALSE against live code (all 3 adapters have `retry_http`+`circuit_breaker`) — not actioned. |
 | 1.0 | 2026-03-20 | Initial. Provider adapter interface, credential management, model routing, affinity tracking. 25 requirements. Session 83: 3 providers proven live. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-31 | **Split-brain fix (Session 94).** Removed ClaudeCLIAdapter (D6). Added shared finalization pipeline reqs 026-029 (D7). Phased approach: Phase 1 fixes pipeline gap, Phase 2 extracts Claude into real adapter (D8). recommend_model to TOML config (D9). New architecture diagram: two transports, one finalization. Risk added: split-brain anti-pattern. Feature maturity updated to reflect built state. AI body review: Qwen 32B (architectural) + DeepSeek-R1 8B (contrarian). Cross-product verified: CORE-ADR-001 already mandates this design, no changes needed to OB/Caliber/ACE specs. |

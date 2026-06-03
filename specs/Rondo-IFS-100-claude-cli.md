@@ -2,9 +2,9 @@
 
 *The exact contract between Rondo and Claude Code's `claude -p` command.*
 
-**Created:** 2026-03-13 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.5
+**Version:** 0.6
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -307,6 +307,17 @@ Numbered requirements for Rondo-VER-100 traceability:
 | 009 | Rondo MUST handle missing `rate_limit_event` gracefully — set rate limit fields to defaults (`status="unknown"`, `is_using_overage=False`) | MUST |
 | 010 | Rondo MUST accept `[1m]` model suffix variants (e.g., `opus[1m]`, `sonnet[1m]`) as valid model names | MUST |
 
+### Subprocess Auth-Loss Detection & Recovery (Session 102 — runtime audit)
+
+*Real incident: 13.3% of dispatches (113 of 847 in `~/.rondo/audit/`) returned partial/malformed JSON whose body was `"Not logged in · Please run /login"`. The `claude -p` subprocess lost its session mid-run; the message was misclassified as `ERR_MALFORMED_JSON`/`partial` instead of an auth failure, and multi-turn dispatch (`max_turns>1`) kept issuing turns on a dead session. Auth loss is NOT transient — it must short-circuit. Evidence: `rondo/research/2026-06-03-rondo-audit/`.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 011 | Rondo MUST scan subprocess output AND stderr for auth-loss signals — `"Not logged in"`, `"Please run /login"`, `"Invalid API key"`, `"Credit balance is too low"` — as a STRUCTURED check that runs BEFORE JSON-parse fallback. A response whose body is an auth-loss message MUST be classified `status="error"`, `error_code="ERR_AUTH"`, never `status="partial"`/`ERR_MALFORMED_JSON`. | MUST |
+| 012 | On detected `ERR_AUTH`, Rondo MUST NOT continue subsequent tasks/turns on the known-bad session. Auth failure halts the affected phase (consistent with Rondo-STD-108 ERR_AUTH "stop phase") — every following dispatch on that session would fail identically. | MUST |
+| 013 | For multi-turn dispatch (`max_turns > 1`), Rondo MUST verify session auth is intact before each turn after the first. If auth was lost mid-run, remaining turns MUST NOT be attempted on the dead session: record what completed, mark the remainder `ERR_AUTH`. (`max_turns=5` previously wasted turns 2-5 on dead sessions.) | MUST |
+| 014 | The auth-loss `error_message` persisted to the audit record MUST state the detected signal (e.g. "session not logged in") so the failure is actionable without reproduction (pairs with Rondo-STD-108 req 013). | MUST |
+
 ---
 ## Stream-JSON to Dataclass Mapping
 How each stream-json event maps to Rondo's dataclasses (Rondo-REQ-100, Rondo-STD-108):
@@ -606,3 +617,4 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.3 | 2026-03-14 | Deep review fixes: added 10 numbered requirements, stream-json-to-dataclass mapping tables (rate_limit_event→DispatchUsage, result→DispatchUsage, assistant→TaskResult) |
 | 0.4 | 2026-03-14 | Added `--permission-mode` to invocation table — controls tool access prompts in non-interactive dispatch |
 | 0.5 | 2026-03-28 | Added `dontAsk` to permission modes (CC v2.1.86+). Clarified `--allow-dangerously-skip-permissions` as safer sandbox variant. Session 91 spike verified all flags exist. |
+| 0.6 | 2026-06-03 | **Subprocess auth-loss detection & recovery (Session 102 — runtime audit).** Added reqs 011-014: structured auth-loss detection before JSON fallback (011), halt phase on ERR_AUTH (012), per-turn auth check for multi-turn (013), actionable auth error_message (014). Driver: 13.3% of real dispatches returned "Not logged in" misclassified as ERR_MALFORMED_JSON/partial; max_turns=5 continued on dead sessions. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

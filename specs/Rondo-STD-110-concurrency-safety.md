@@ -2,9 +2,9 @@
 
 *How Rondo runs tasks in parallel safely — no injection, no leaks, no corruption.*
 
-**Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.4
+**Version:** 0.5
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -419,6 +419,18 @@ REQUIRED — fill before build.
 | 014 | Result files SHALL be bounded — truncate output exceeding configurable max size | MUST |
 | 015 | Event log SHALL be rolling — oldest entries removed when log exceeds configurable max entries | MUST |
 
+### Cross-Process State Safety (Session 102 — auto_reconcile race, Finding #257)
+
+*Finding #257 (flagged HIGH independently by Gemini and Grok during RONDO-210 Phase D review): the audit trail's INTENT→IN-FLIGHT→DONE state machine is filesystem-backed (JSONL) with no distributed lock. Concurrent workers see a stale mid-transition view; a worker's `reconcile_stuck_intents()` marks another worker's VALID in-flight dispatch as "stuck" and re-dispatches it → duplicate cost + confusing results. STD-110 owns locks; the audit record schema is STD-113. Evidence: `rondo/research/2026-06-03-rondo-audit/`.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 016 | Cross-process audit state transitions (INTENT→IN-FLIGHT→DONE, and stuck reconciliation) SHALL be atomic w.r.t. other workers: a worker SHALL hold an exclusive `fcntl.flock` on the audit file before any read-modify-write of a dispatch's state. Unlocked read-then-write of shared state is forbidden. | MUST |
+| 017 | `reconcile_stuck_intents()` SHALL mark an INTENT "stuck" ONLY when it holds the lock AND the INTENT's age exceeds `stuck_after_sec` (default 300s). A peer worker's in-flight dispatch younger than the threshold SHALL NEVER be declared stuck or re-dispatched. | MUST |
+| 018 | Reconciliation SHALL be idempotent: re-running it SHALL NOT create duplicate OUTCOME records nor re-dispatch a dispatch already completed by another worker. Check-then-act SHALL be guarded by the lock held in req 016. | MUST |
+| 019 | Lock acquisition SHALL degrade gracefully where `flock` is unavailable (NFS / Windows): fall back to single-writer mode and emit a WARNING — NEVER silently skip the safety check. (Dual-Path-With-Alerting.) | MUST |
+| 020 | Concurrency safety for state transitions SHALL be verified by a stress test at ≥20 concurrent dispatches. Prior tests (10-20 concurrent) were insufficient to expose the TOCTOU window in Finding #257. | MUST |
+
 ---
 
 ## 4. Architecture / Design
@@ -633,3 +645,4 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.2 | 2026-03-14 | Beefed up: code patterns for every rule, attack prevention table, thread safety matrix, conflict detection pattern |
 | 0.3 | 2026-03-14 | Deep review fix: sanitize_result() uses dc_replace() instead of setattr (frozen dataclass safe) |
 | 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches CORE-IFS-001 reqs 53-54 (status vocabulary)) |
+| 0.5 | 2026-06-03 | **Cross-process state safety (Session 102 — auto_reconcile race).** Added reqs 016-020: flock-guarded atomic state transitions (016), age-gated stuck reconciliation (017), idempotent reconcile (018), graceful flock degradation w/ alert (019), ≥20-concurrent stress test (020). Driver: Finding #257 (RONDO-210 Phase D) — Gemini+Grok both flagged HIGH; INTENT/IN-FLIGHT/DONE not atomic across workers → valid in-flight marked stuck → duplicate re-dispatch. Pairs with STD-113 (audit record schema). Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

@@ -2,9 +2,9 @@
 
 *How Rondo handles failures — subprocess crashes, bad output, timeouts.*
 
-**Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.4
+**Version:** 0.5
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -348,6 +348,17 @@ Filled Session 93 — see requirements table and implementation in dispatch.py, 
 | 009 | All exceptions in dispatch SHALL be caught, logged with context, and converted to error results — no unhandled exceptions escape the dispatch layer | MUST |
 | 010 | The morning report SHALL always be generated — even if all phases fail | MUST |
 
+### HTTP Provider Error-Body Capture (Session 102 — Opus 4.8 audit)
+
+*Real incident (2026-06-03): dispatching Opus 4.8 returned HTTP 400. The adapter reported only `"Anthropic HTTP 400: Bad Request"` (from `exc.reason`) and discarded the response body — which contained the exact cause (`"temperature may only be set to 1 when thinking is enabled"`). Diagnosis took manual source-reading + doc-reading + guesswork. This generalizes: a 4xx is the one status with no useful category (REQ-109 req 068), so the body is the ONLY signal. Evidence: `rondo/research/2026-06-03-rondo-audit/`.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 011 | On any provider HTTP error (4xx/5xx), the adapter SHALL read the response body (`exc.read()` for `urllib`) and include it in `error_message`. A status-line-only message (e.g. `"HTTP 400: Bad Request"`) is NOT acceptable when a body is available — the body names the exact cause. Applies to ALL HTTP adapters (anthropic, gemini, chat_completions). | MUST |
+| 012 | The captured error body SHALL pass through the same credential sanitization as result output (req 008) before being stored or logged, and SHALL be length-capped (default 500 chars) to bound log/record size. | MUST |
+| 013 | The captured (sanitized) error body SHALL be persisted in the dispatch/audit record (Rondo-STD-113), not only emitted to a transient log, so a failure is diagnosable after the fact without reproducing it. | MUST |
+| 014 | Reading the error body SHALL be best-effort: if `exc.read()` itself fails, the adapter SHALL fall back to the status-line message and continue — error-body capture MUST NEVER raise a secondary exception that masks the original failure. | MUST |
+
 ## 4. Architecture / Design
 
 Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
@@ -556,3 +567,4 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.2 | 2026-03-14 | Beefed up: error codes, result structure, flow diagram, stderr patterns, credential safety, timeout sequence |
 | 0.3 | 2026-03-14 | Deep review fixes: added files_modified + extract_modified_files(), ERR_WATCHDOG_TIMEOUT code, two-timeout explanation, SIGTERM-first kill sequence, Popen implementation note |
 | 0.4 | 2026-03-14 | Defense in depth: pre-dispatch validation (task/round/model/config), CLI exit code contract, KeyboardInterrupt handling, top-level exception safety net |
+| 0.5 | 2026-06-03 | **HTTP error-body capture (Session 102 — Opus 4.8 audit).** Added reqs 011-014: read+surface provider HTTP error body (011), sanitize+cap it (012), persist to audit record (013), best-effort never-mask-original (014). Driver: Opus 4.8 HTTP 400 whose body ("temperature may only be set to 1 when thinking is enabled") was discarded by the adapter, forcing manual diagnosis. Closes the gap REQ-109 req 068 opened for the one status (4xx) with no useful category. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

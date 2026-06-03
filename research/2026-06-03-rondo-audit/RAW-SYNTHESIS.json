@@ -1,0 +1,1067 @@
+{
+  "summary": "Research sweep: mine 8wks Rondo usage + new Claude Code features + competitive landscape, synthesize ranked recommendations mapped to specs",
+  "agentCount": 10,
+  "logs": [],
+  "result": {
+    "p1": [
+      {
+        "source": "RONDO git history (last 8 weeks: 2026-04-08 to 2026-06-03) — 102 commits analyzed",
+        "worked_well": [
+          {
+            "item": "Example and documentation overhaul drove real-world usability",
+            "evidence": "20+ commits from RONDO-240 through RONDO-285 rewriting 8 core API examples with real dispatch (not mocks), adding 62-example index (RONDO-270), creating docs/GETTING-STARTED.md, and documenting Option C (result-first) contract. RONDO-262 extracted example_dispatch.py DRY helper reducing boilerplate. All 1747 tests passed after refresh (RONDO-264: 0 failures). Mark's essay review and other real workflows unblocked post-example landing."
+          },
+          {
+            "item": "Finding-to-commit traceability audit established sustainable verification loop",
+            "evidence": "RONDO-210 Phase D + finding-traceability report (2026-04-08) logged 260+ findings with sprint+commit mapping. RONDO-293/292/291/290/287 show disciplined closure: benchmark-proved Finding #244 (sanitize perf) was not empirical problem (100KB to 1MB scaled linearly), added Unicode homoglyph defense (Finding #249), fixed bare-name provider routing (Finding #270, commit 95fefb03), import layering drift (Finding #271, commit 82d1f54d). Ceremony paid off—every fix traceable, every open issue explicit."
+          },
+          {
+            "item": "3-mode execution dispatch (inline/subprocess/agent) stabilized after 10+ refinement cycles",
+            "evidence": "RONDO-265/283/285 landed Option C (result-first for MCP callers), 3-layer execution contract, inline host plan restoration. RONDO-254-259 fixed subprocess output parsing (non-zero exit with valid response), MCP inline dispatch, system-prompt injection, per-call overrides. 31 convention tests pass (RONDO-291). Core dispatch matrix proven via truth table (RONDO-283) covering plan_only conflicts. Cursor contributions (RONDO-262) matured examples to production-grade."
+          },
+          {
+            "item": "Multi-provider cloud dispatch routing became real and cost-calibrated",
+            "evidence": "RONDO-278: multi-provider dispatch logic extracted + multi-review prefix routing normalized (bare 'gemini'/'grok' no longer became 'gemini:gemini'). RONDO-295: cost estimator replaced flat heuristic ($0.60 regardless of prompt size) with real per-provider pricing (4-provider 4K prompt: $0.60 to $0.099, 9x tighter; 4x Opus 100K: $0.60 to $2, now blocks). RONDO-287 added tier parameter to rondo_multi_review. All 9 TestCloudDispatch tests pass, 8 new calibration tests pass."
+          },
+          {
+            "item": "Test infrastructure matured from flat 32-file structure to layered organization",
+            "evidence": "RONDO-219 + rondo/tests/ reorganization: unit, integration, e2e, pat, conventions, cloud separate concerns. RONDO-210 stress tests, RONDO-211 multi-process race fixes, RONDO-209 JSON file race + truncation fixes (all PASS). test_conventions.py (13 updates) tracks import layer compliance (ALLOWED_IMPORTS per module). 1747 passed (end-of-period state). Import conventions now machine-enforced."
+          },
+          {
+            "item": "Architecture refactor extracted 416-line dispatch_routing.py, simplifying mcp_dispatch 27%",
+            "evidence": "RONDO-279: extracted execution mode routing, plan builders, engine resolution, context limit checks into pure module (no state, no I/O except env). mcp_dispatch.py shrank 1367 to 1002 lines while maintaining backward compat via re-exports. All 1261 tests pass (1230 unit, 31 conventions). Circular risk eliminated by ensuring dispatch_routing imports only leaf modules (config, envelope, providers)."
+          },
+          {
+            "item": "Smart-return envelope unification reduced spec/code drift",
+            "evidence": "RONDO-274: unified error/result envelope semantics across all providers. RONDO-275: added error envelope contract doc + parity assertions. RONDO-283 locked Option C behavior (result-first MCP default) with truth table. Smart_return.py saw 7 commits refining field naming + JSON structure contracts. All tests validating envelope shape pass."
+          }
+        ],
+        "friction": [
+          {
+            "item": "Examples broke repeatedly during dispatch routing refactor (RONDO-257-265)",
+            "evidence": "RONDO-260-262 rewrote examples 3 times: first with inline subprocess dispatch (RONDO-260), then Cursor rewrote with proper argparse+type hints+error handling (RONDO-262, 972 insertions). RONDO-264 discovered 8 regressions post-refactor (test_mcp_router, test_integration_flow, test_dispatch) needing schema/routing updates. Cursor also cleaned docs/README to match reality. Friction: examples couple tightly to execution mode + config template changes.",
+            "severity": "high"
+          },
+          {
+            "item": "Subprocess path as 'optional' feature created guard-rail overhead (RONDO-237-254)",
+            "evidence": "Finding #237 (footgun guard too narrow) required RONDO-254 relaxation: bare subprocess blocks (needs API key), non-bare subprocess allowed (free on Max). RONDO-237 had to wire smart return into provider HTTP path separately. RONDO-257 added claude_p_ and claude_agent_ config fields, RONDO-256 moved system prompt to config.toml. Each of these touched dispatch.py core path. Friction: subprocess execution mode has exceptional logic (not 'just another provider').",
+            "severity": "high"
+          },
+          {
+            "item": "Multi-provider review had 2 critical bugs requiring Phase D external review",
+            "evidence": "Finding #258 (RONDO-210 Phase D): mcp_dispatch.py hardcoded [:2000] truncated multi_review outputs mid-sentence, breaking Phase D itself. Finding #257 (auto_reconcile false-positive): Gemini + Grok both independently flagged this as HIGH during RONDO-210 Phase D review. Gemini: 'valid in-flight GPT-4 request incorrectly marked stuck to re-dispatched to duplicate cost'. Grok: stress tests >20 concurrent missing. Symptoms: Found #248 (anthropic:sonnet partial output), #250 (intermittent provider failures, serial retry added).",
+            "severity": "high"
+          },
+          {
+            "item": "Import layer conventions hard to maintain (RONDO-291, Finding #271)",
+            "evidence": "RONDO-290 added `rondo version --bump` CLI which auto-imported _version in infra.py, breaking convention test. RONDO-291 discovered round_loader was lazy-imported in mcp_dispatch._rondo_run_file_inner but NOT in ALLOWED_IMPORTS allowlist. Pre-existing violation, but Cursor code review exposed it. Fix: add to allowlist + update RONDO-REFERENCE.md CLI count. Friction: lazy imports for dynamic loading (round_loader, dispatch_routing) need explicit allowlisting; easy to forget when refactoring.",
+            "severity": "med"
+          },
+          {
+            "item": "Config hot-reload + system prompt injection created config-coupling issues",
+            "evidence": "RONDO-256 moved system prompt from separate file to config.toml (Finding #218—config drift, mid-session changes had no effect). RONDO-254 added dispatch_system_prompt + per-call --system-prompt-file injection. RONDO-257 added claude_p_/claude_agent_ tier fields. Each config change requires doc updates + tests. RONDO-291 discovered CLI doc drift when version command added. Friction: config.py and mcp_dispatch.py changes don't automatically sync.",
+            "severity": "med"
+          },
+          {
+            "item": "Cost estimation overshooting blocked legitimate work until RONDO-295",
+            "evidence": "RONDO-295 commit message: 'Typical 4-provider review on 4K prompt: estimate $0.60 vs actual ~$0.065—9x over, blocked legitimate work (Mark's essay review).' Old heuristic: flat tier_cost_factor (count x 0.15/0.05/0.01), regardless of prompt size. Catastrophic 4x Opus 100K: estimate $0.60 vs actual ~$6—10x under, let expensive burns slip. Friction: cost/budget model must track _every_ refactor to per-provider tier.",
+            "severity": "med"
+          },
+          {
+            "item": "Cyclic imports in MCP family remained after RONDO-209 'fix'",
+            "evidence": "RONDO-209 claimed 'break mcp family cyclic imports' but Finding #254 (logged during Phase D) confirmed 11 cycles still present in rondo/src. Phase D reviewers flagged this MEDIUM under stress-test spawn (partial module initialization non-determinism). Not critical in current single-process dispatch, but deployment risk. Friction: circular dependency untangling incomplete; future multi-process or gunicorn deployment will expose this.",
+            "severity": "med"
+          }
+        ],
+        "failures": [
+          {
+            "item": "AuditTrail auto_reconcile race condition (Finding #257) rated HIGH by both external reviewers",
+            "evidence": "RONDO-210 Phase D: Gemini + Grok independently marked #257 HIGH. Gemini extrapolation: valid in-flight GPT-4 request incorrectly marked 'stuck' by another worker to re-dispatched to duplicate cost + confusing results. Grok: stress tests >20 concurrent missing. Root cause: INTENT to IN-FLIGHT to DONE transitions not atomic across processes. Symptom: RONDO-211 required skip-on-transient guard for 3 cloud tests (test_review_real_gemini, etc.). Status: logged but NOT fully fixed in 8-week window.",
+            "root_cause_guess": "Process state machine (INTENT/IN-FLIGHT/DONE) uses filesystem (JSONL) without distributed locking; concurrent workers see stale view mid-transition, mark valid requests stuck."
+          },
+          {
+            "item": "Anthropic:sonnet adapter partial output in multi_review (Finding #248)",
+            "evidence": "RONDO-209 commit fb0aaff9: 'anthropic:sonnet returns partial/empty in rondo_multi_review. Duration 0.46s suggests retry timeout.' Coupled with #250 (intermittent provider failures). Fix: added serial retry logic, but root cause (adapter-side partial response) not fully understood. RONDO-211 added skip-on-transient marker (flaky test, not robust fix).",
+            "root_cause_guess": "Sonnet adapter may have streaming/timeout issue under load; timeout fires mid-response before buffering completes."
+          },
+          {
+            "item": "Subprocess remains footgun despite guard relaxation (RONDO-254, Finding #237)",
+            "evidence": "Finding #237: Footgun guard only blocked auth=max + Claude model + CLAUDECODE env. auth=api + in-session subprocess remained unsafe. RONDO-254 relaxed guard to distinguish bare vs non-bare subprocess. But ceremony: RONDO-257/258/259 all touched subprocess path; RONDO-260-262 rewrote examples 3 times. Status: guarded but not eliminated; Cursor code review still surfaced issues (RONDO-261 'no more faking').",
+            "root_cause_guess": "In-session subprocess dispatch can deadlock or create nested session loops if not constrained; footgun inherent to feature design, not just a bug to fix."
+          },
+          {
+            "item": "Response envelope truncation buried in mcp_dispatch (Finding #258) broke Phase D",
+            "evidence": "RONDO-210 Phase D Phase C: 'mcp_dispatch.py:933 has hardcoded tr.raw_output[:2000] slice truncating output before _multi_review_dispatch_one reads it.' Both provider outputs truncated mid-sentence. Finding #247 had bumped provider-side max_tokens to 8K but Rondo-side cap was missed. Discovered during Phase D itself, blocking the review. RONDO-211 fix: remove hardcoded slice. Status: fixed but was operational blocker.",
+            "root_cause_guess": "Old artifact slice left in code during refactor; not deleted when max_tokens bump happened, no integration test caught the mismatch."
+          },
+          {
+            "item": "Stress test coverage gaps under 20+ concurrent (Finding #257 confirmed)",
+            "evidence": "Grok Phase D review: 'Stress tests at >20 concurrent dispatches are missing.' RONDO-210 Phase A added stress test but concurrency level insufficient to expose auto_reconcile race. RONDO-211 added skip-on-transient (masking flakiness), not adding concurrent load. Status: concurrency testing insufficient relative to race risk.",
+            "root_cause_guess": "Single-machine test stress (10-20 concurrent) not enough to expose TOCTOU in INTENT/IN-FLIGHT/DONE transitions; race requires true interleaving at OS level."
+          }
+        ],
+        "feature_gaps": [
+          {
+            "item": "Distributed idempotency cache (Finding #241) remains in-process only",
+            "why": "idempotency.py caches in-process. Multi-process or distributed deployment still dispatches duplicates on retries. RONDO-209 added multi-process tests but cache is not shared across workers. Status: documented gap, not fixed."
+          },
+          {
+            "item": "Structured logging not wired into existing components (Finding #242)",
+            "why": "New structured_logging.py module sits unused while existing code (dispatch.py, mcp_dispatch.py, providers.py) use plain logger. Finding #215 noted no correlation_id; Finding #259 noted AuditRecord missing request_id. Logging infrastructure built but adoption incomplete. Status: half-implemented."
+          },
+          {
+            "item": "HTTP retry/breaker parity across adapters (Finding #234) only ChatCompletionsAdapter has full wiring",
+            "why": "retry.py + circuit breaker exist but only wired into ChatCompletionsAdapter. Gemini + Anthropic adapters have no retry/breaker (Finding #234). RONDO-211 patch added skip-on-transient for flaky tests instead of implementing proper retry. Status: partial implementation."
+          },
+          {
+            "item": "Audit log rotation without retention policy (Finding #229-231) still lacks tenant isolation and multi-process lock",
+            "why": "rotate() archives to archive/YYYY-MM.jsonl (growing forever), is not tenant-isolated (Finding #230), and is not locked against concurrent calls (Finding #231). RONDO-204/205 addressed some aspects but full solution missing. Multi-process deployments share archive/. Status: documented but not fixed."
+          },
+          {
+            "item": "Context limit checks (Finding #216) only static byte caps, not per-model dynamic",
+            "why": "check_context_limit uses DEFAULT_CONTEXT_LIMIT + MODEL_CONTEXT_LIMITS (dict), but no per-request budget tracking. 1M context era requires dynamic re-estimation during dispatch if prompt grows mid-flight. Status: static only, not dynamic."
+          }
+        ]
+      },
+      {
+        "source": "USH-syndrome project (real-world RONDO consumer), June 2026. Evidence from: (1) git log commits f93cfa23, 8adf0ca6, aff5cefc, ee754180, 7f82b1bf; (2) /research/experiments/essay-split-model-test-2026-06-03/ (PROTOCOL.md, RONDO-OPUS48-FIX-REPORT.md, RESULTS-batch1.md, FINDINGS.md, opus46-na-informed.md); (3) /research/llm-reports/rondo-cabinet-review-2026-04-19.md, rondo-hypotheses-review-2026-04-20.md; (4) ~/.rondo/config.toml; (5) .claude/rules/rondo-ush-profiles.md.",
+        "worked_well": [
+          {
+            "item": "Multi-provider cloud dispatch for parallel expert review",
+            "evidence": "April 19 cabinet review: 3 providers (OpenAI, Gemini, Mistral) scored medical accuracy/voice/novelty in parallel (~$0.45 estimated). Used rondo_multi_review to get independent cross-checks on 8 citation gaps simultaneously (Cowan 2024 PMID 39035073, Weatherby 2025 PMID 40588359, Chen 2025 PMID 40391927, etc.). All 3 providers independently flagged same factual issue (hallucination prevalence stat '1 in 3' needed update to '18.6% broadly'). Convergence on same problem = high confidence for factual edits."
+          },
+          {
+            "item": "Configured task-specific provider profiles for work type",
+            "evidence": "Mark created 3 USH-domain profiles in ~/.rondo/config.toml: ush_medical (OpenAI+Gemini+Mistral for medical accuracy, tier=high always), ush_writing (OpenAI+Mistral+Grok for voice/authenticity), ush_deep (all 4 providers for final pre-publish review). .claude/rules/rondo-ush-profiles.md documents them as drop-in calls. Used ush_medical for April 20 hypothesis review (13 hypotheses, 2 providers responded, defensibility scoring H-01..H-13)."
+          },
+          {
+            "item": "Baseline + generational comparison workflow",
+            "evidence": "June 3 essay-split experiment: Mark captured opus-4.6 baseline (Rondo anthropic:high, $0.33, 96s) with per-element repetition-management map, publishing-order rationale, fold-in reasons, risk-flagging. Planned 4.6→4.8 comparison to measure generational improvement at each new model release. Designed repeatable test matrix (model axis, effort axis, context axis) runnable with rondo_cloud once adapter fix applied."
+          },
+          {
+            "item": "Cost-capped multi-model experiments at scale",
+            "evidence": "June 3 batch-1: 4 cloud models on essay-split task simultaneously with rondo_cloud, tier=high, cost=$0.12 total. Mark scored all 5 outputs (GPT, Gemini, Mistral, Grok, Opus-4.6) on 6 dimensions (groupings, distribution, fold-in, order/capstone, voice/method, originality). All models converged on flagship + 5-6 essays; divergence only on capstone strategy. Only Opus-4.6 produced editorial-layer oversight (repetition management, risks). Finding: 'structure is solved by everyone; editorial judgment is where capability shows.'"
+          },
+          {
+            "item": "Voice/method adherence evaluation across models",
+            "evidence": "RESULTS-batch1.md: Even with explicit style context (no-jargon, no-gimmick, hub-and-spoke framing), models diverged. Gemini-pro & Opus respected style; Mistral ignored it (proposed diagrams, key-terms boxes, empathy exercises — all cut by Mark). Grok was structurally sound. Voice-sensitivity is a differentiator worth testing."
+          },
+          {
+            "item": "Rondo profile abstraction hides provider complexity",
+            "evidence": ".claude/rules/rondo-ush-profiles.md shows Mark uses simple phrases ('review this for medical accuracy', 'deep review before publishing') mapped to profiles. Config centralization means Mark can swap providers (e.g., if OpenAI retires gpt-4.1, update config once and all calls auto-adapt). Decouples task intent from provider selection."
+          },
+          {
+            "item": "Effort parameter wired into CLI path (not API)",
+            "evidence": "PROTOCOL.md, RONDO-OPUS48-FIX-REPORT.md: Mark notes that Rondo's 'claude' provider (CLI/Max-plan path) ALREADY supports effort (low/high/max) via /effort. Manual fork-session + /effort works. But API path (anthropic:high) does not use effort parameter — only effort flags on CLI. This is a known limitation, not a bug."
+          },
+          {
+            "item": "Audit trail for reproducibility",
+            "evidence": "Mark saved all outputs with metadata: model, effort, context, cost, duration, date. PROTOCOL.md includes rubric for scoring. FINDINGS.md includes cell-tracker table so Mark can see which cells are done/pending/blocked. Supports re-running the experiment at each new model release with identical scoring."
+          },
+          {
+            "item": "Caught model behavior unintended by spec (Mistral over-engineered)",
+            "evidence": "RESULTS-batch1.md: Mistral-large produced 9-point self-rating but added 'diagrams/key-terms boxes/empathy exercises/audio clips' explicitly against Mark's style rules. Mark flagged: 'Good distribution table though.' The over-feature issue was detectable in scoring. Mistral is now known as 'over-engineers against author intent' in Mark's decision tree."
+          },
+          {
+            "item": "Consensual findings drive action (hallucination stat fix)",
+            "evidence": "April 19 cabinet review: all 3 providers flagged '1 in 3' as overstated. April 19 commit: Mark revised to '18% broadly, rising to 1 in 3 in advanced RP' (Gemini's phrasing). Convergence = actionable. Mistral also caught an em-dash violation (Mark's style guide: no em-dashes). Both applied."
+          },
+          {
+            "item": "BioMCP research library resolved citation gaps via Rondo",
+            "evidence": "April 19 commit: 'Rondo multi-review — BioMCP resolved 6 of 8 citation gaps (Cowan 2024 PMID 39035073 working memory, Weatherby 2025 PMID 40588359 CBS in IRD, Chen 2025 PMID 40391927 predictive coding, Curcio 2026 PMID 41837573 dark adaptation, Kolarik 2017 PMID 28407000 blind auditory navigation).' Backing files updated. Multi-provider review on cabinet enabled rapid fact-checking."
+          },
+          {
+            "item": "Gemini-2.5-pro independent convergence on split strategy",
+            "evidence": "RESULTS-batch1.md: Gemini independently chose 'Even You Forget' as universal capstone — MATCHING the human+Claude SPLIT-PLAN decision exactly. Self-rated 10, included example-distribution table, soft-link sentences, flagged index post. Most detailed output. Noted: 'Gemini-pro is the closest match.' This independent convergence is a notable datapoint for model quality."
+          },
+          {
+            "item": "Can identify editorial depth as capability differentiator",
+            "evidence": "FINDINGS.md: 'Only Opus 4.6 produced per-element repetition-management map, publishing order with rationale, fold-in reasons, and real risks. Cloud models mostly didn't. That is the value of the more-capable/longer-thinking model — not the plan, the *oversight*.' Cost 3x the cloud batch but detected editorial layer. Identifies where to pay premium."
+          },
+          {
+            "item": "Cost awareness + tier selection strategy",
+            "evidence": "Mark uses tier=high for USH medical/publishing (never cheap/default). Batch-1 cost=$0.12 for 4 cloud models at high tier (verified cost-efficient). Rondo config has max_cost_per_dispatch=$1.50 circuit breaker. PROTOCOL.md cost estimates before running. Treats cost as a first-class design parameter."
+          }
+        ],
+        "friction": [
+          {
+            "item": "Rondo's Anthropic API adapter incompatible with Opus 4.8 (HTTP 400 blocker)",
+            "evidence": "June 3: Mark bumped ~/.rondo/config.toml best_model to 'claude-opus-4-8', tried rondo run --model anthropic:high, got 'Anthropic HTTP 400: Bad Request'. Diagnosed in RONDO-OPUS48-FIX-REPORT.md: adapter sends 'temperature' on a thinking-default model (violates Opus 4.8 spec). Also swallows error body, making diagnosis hard. Reverted to 4.6 to keep Rondo working. Blocks 4.6→4.8 generational comparison test. Mark must wait for ace2/rondo adapter fix (conditional payload, adaptive-thinking shape, wire effort parameter).",
+            "severity": "high"
+          },
+          {
+            "item": "Effort parameter not wired into API path (only CLI path)",
+            "evidence": "RONDO-OPUS48-FIX-REPORT.md FIX #2: 'Rondo ALREADY has RondoConfig.effort (low/medium/high/max) and adds --effort on the CLI path. But the API adapter does not use it — it never maps effort into the request.' Mark wants to auto-sweep effort levels via rondo_cloud but API path ignores effort. Must manually fork Claude Code sessions + /effort to test Opus 4.8 effort levels. Blocks automated effort-matrix experiment.",
+            "severity": "high"
+          },
+          {
+            "item": "Config model names are stale, require manual verification",
+            "evidence": ".claude/rules/rondo-ush-profiles.md added May 28, 2026: gpt-4.1 was retired Feb 13, 2026. Listed proposed updates (gemini-3.1-pro, gpt-5.4-thinking, grok-4-3, etc.) but marked all LOW/MEDIUM confidence because names come from marketing blogs, not authoritative API docs. Mark notes 'Plugging in unverified names would risk 404 failures on next dispatch.' Requires manual hit to each provider's /v1/models endpoint + test dry-run before updating config.toml. No auto-refresh mechanism.",
+            "severity": "med"
+          },
+          {
+            "item": "Multi-provider review has provider dependency (one silence = incomplete picture)",
+            "evidence": "April 20 rondo-hypotheses-review: OpenAI + Gemini + Mistral were scheduled, but 'only OpenAI gpt-4.1 + Gemini 2.5-pro responded.' Mistral did not dispatch. No explicit reason given. Mark got 2 of 3 providers (still useful, but incomplete). If one provider is down or API key is bad, Mark gets partial feedback instead of full review.",
+            "severity": "med"
+          },
+          {
+            "item": "Cloud dispatch counts capped at 2 by default; ush_deep profile lists 4",
+            "evidence": ".claude/rules/rondo-ush-profiles.md: '[cloud] default_count = 2' caps dispatches to 2 providers by default. ush_deep profile has all 4 providers. Mark must pass count=4 explicitly to get full ush_deep (all 4). Otherwise only 2 respond. Not obvious from the profile definition. Documented as PENDING issue.",
+            "severity": "med"
+          },
+          {
+            "item": "Self-ratings worthless across all models",
+            "evidence": "FINDINGS.md: 'All self-rated 7-10 regardless of actual quality (Mistral self-9 while off-style; Grok self-7 was the most honest). Ignore the model's confidence; score the output.' Mark had to develop manual 6-dimension scoring rubric to cut through model overconfidence. No trust signal in model's own assessment.",
+            "severity": "low"
+          },
+          {
+            "item": "Single runs are noisy; n=1 per cell in batch-1",
+            "evidence": "FINDINGS.md: 'n=1 per cell (single runs are noisy), scoring is MY analyst judgment (not blind, not a panel), small sample. These are preliminary signals, not conclusions.' Mark notes for replication: 'A few per cell is better than one.' Batch-1 = 1 run per model. Effort-axis sweep requires 3 runs (low/high/max). No built-in retry or noise-floor estimate.",
+            "severity": "low"
+          },
+          {
+            "item": "BLIND vs INFORMED context comparison not yet run",
+            "evidence": "PROTOCOL.md & FINDINGS.md: 'BLIND vs INFORMED: how much did the style context actually change each model's output? (Re-run the batch without the context block.) — TODO.' Mark designed the experiment to test this but has not run BLIND versions yet. Cell tracker shows this cell pending.",
+            "severity": "low"
+          }
+        ],
+        "failures": [
+          {
+            "item": "Opus 4.8 config bump + rondo_cloud dispatch failed with HTTP 400",
+            "evidence": "June 3 commit 8adf0ca6: 'Rondo Opus-4.8 test result - config bump works (anthropic:high resolves to claude-opus-4-8) but adapter returns HTTP 400 (needs adaptive-thinking shape). Reverted config to 4.6 to keep Rondo working.' The model-ID resolution worked (anthropic:high → claude-opus-4-8 confirmed), but the request payload was rejected. Root cause: temperature field sent on a thinking-default model + missing adaptive-thinking request shape + no output_config.effort parameter. Not an integration test; real-world failure of framework vs model API contract.",
+            "root_cause_guess": "Rondo's anthropic_api.py adapter was built for Opus 4.6 (temperature + manual thinking budget), not Opus 4.8 (adaptive thinking + output_config.effort). The model API changed, adapter did not. Temperature is forbidden when thinking is enabled (HTTP 400 spec). The adapter also swallows error response body, making diagnosis an archaeological effort (Mark had to read the anthropic docs, then read Rondo source, then guess 3 candidates)."
+          },
+          {
+            "item": "Mistral over-engineered against explicit style rules",
+            "evidence": "RESULTS-batch1.md: Mark provided explicit context block: 'NO em dashes, no jargon, no gimmicks, teaching-essay frame, hub-and-spoke soft-linked.' Mistral produced: diagrams, 'Key Terms' boxes, 'Try This' empathy exercises, audio clips. Mark's style guide explicitly cuts all of these. Mistral self-rated 9 for following rules. In blind scoring, Mistral voice/method=2/5, vs Opus 4 and Gemini 4-5/5.",
+            "root_cause_guess": "Mistral either (a) did not parse the style context block, (b) parsed it but weighted its own assumptions higher, or (c) has a systematic bias toward feature-rich outputs (diagrams, exercises) as 'helpful.' The model ignores or overrides the author's explicit method statement. Not a hard failure (output was coherent, structured), but wrong for this customer."
+          },
+          {
+            "item": "Model self-assessment completely uncalibrated to output quality",
+            "evidence": "FINDINGS.md: Grok self-rated 7 (most honest), GPT self-rated 9, Gemini self-rated 10, Mistral self-rated 9. Actual scores from Mark's blind rubric: Grok 3.0/5, GPT 3.5/5, Gemini 4.7/5, Mistral 3.5/5. Gemini's self-10 matched actual 4.7/5 (overstated by 2 points). Mistral's self-9 matched actual 3.5/5 (overstated by 5.5 points; off-style but still confident). Self-ratings are uncorrelated with Mark's scoring.",
+            "root_cause_guess": "Models are trained to be confident and helpful, not to self-assess accuracy. No feedback loop to calibrate self-rating to downstream Mark-judgment. Mark must build external scoring rubric and ignore model confidence."
+          },
+          {
+            "item": "Rondo API error diagnosis required manual archaeology",
+            "evidence": "RONDO-OPUS48-FIX-REPORT.md FIX #0: anthropic_api.py at line 154 swallows the HTTP 400 response body (calls exc.read() but discards it). Returns generic 'Anthropic HTTP 400: Bad Request' to user. Real error: 'temperature: temperature may only be set to 1 when thinking is enabled' (in JSON response body). Mark had to: (1) see the 400, (2) read Rondo source, (3) read Anthropic API docs, (4) guess 3 candidates, (5) rule out 2 candidates. Took diagnostic effort when error body was available in the exception.",
+            "root_cause_guess": "Defensive error handling without logging. The adapter catches HTTPError and returns a safe generic message, but swallows the provider's detailed JSON error body. Good intention (don't leak raw API errors to user), bad execution (lose diagnostic signal). Mark needed to add exc.read().decode() to the except block."
+          }
+        ],
+        "feature_gaps": [
+          {
+            "item": "No auto-refresh model registry when providers iterate",
+            "why": "Mark manually maintains ~/.rondo/config.toml model names (gpt-4.1 → gpt-5.4-thinking, gemini-2.5-pro → gemini-3.1-pro, etc.). Each provider has /v1/models endpoint or docs. Rondo should cache provider model lists on schedule (daily?) and emit a 'drift report' when config.toml becomes stale. .claude/rules/rondo-ush-profiles.md documents this as 'Future enhancement idea' — daily cron job + models-cache.json + drift report."
+          },
+          {
+            "item": "Effort parameter not exposed in API adapter for thinking-default models",
+            "why": "PROTOCOL.md & RONDO-OPUS48-FIX-REPORT.md FIX #2: Mark wants to auto-test effort low/high/max on Opus 4.8 via rondo_cloud, but API adapter does not map RondoConfig.effort into the request payload. The CLI path already has effort (via /effort). The API path needs to wire effort → output_config={\"effort\": effort} for thinking-capable models. Blocks automated effort-sweep experiments."
+          },
+          {
+            "item": "No blind-scoring workflow built into Rondo",
+            "why": "Mark manually scored 5 outputs by hand. To scale multi-model experiments, Rondo could auto-hide model/provider metadata until after scoring (randomize file order, strip headers, re-reveal only after rubric submission). FINDINGS.md notes: 'scoring is MY analyst judgment (not blind, not a panel).' For rigorous comparison, Mark should use double-blind or have an AI-judge panel."
+          },
+          {
+            "item": "Provider dependency & timeout handling is silent",
+            "why": "April 20: Mistral did not dispatch (no error, no retry, silent absence). Mark got 2 of 3 providers. Rondo should: (a) log why Mistral failed, (b) auto-retry with exponential backoff, (c) return partial results with explicit 'provider X missing' flag, (d) offer count adjustment if some providers fail."
+          },
+          {
+            "item": "No built-in noise floor for single-run experiments",
+            "why": "FINDINGS.md: 'n=1 per cell (single runs are noisy).' Mark notes re-run should use 2-3 runs per cell. Rondo could accept a --replicates=3 flag: run the same prompt 3× and return (mean, stdev, range) instead of single output. Helps Mark identify stable vs noisy cells."
+          },
+          {
+            "item": "No automated comparison of outputs against a baseline",
+            "why": "PROTOCOL.md: Mark manually compares 5 batch-1 outputs against SPLIT-PLAN.md benchmark. Rondo could accept --compare-to=baseline.md, compute edit distance / semantic similarity, highlight delta. Makes baseline-comparison tests repeatable (re-run at each model release)."
+          },
+          {
+            "item": "Self-reported confidence scores have no validation",
+            "why": "FINDINGS.md: 'Self-ratings are worthless.' Models say 7-10 regardless of actual quality. Rondo could add post-generation validation: have a second model or human judge rate the first model's output, then compare to self-rating and adjust Rondo's internal provider scoring (REQ-111). Calibrates confidence."
+          },
+          {
+            "item": "No effort-level / thinking-depth testing in the box for thinking-default models",
+            "why": "PROTOCOL.md effort axis requires Mark to fork Claude Code + /effort manually. Rondo should accept --effort low|high|max, apply it to all thinking-capable models (claude-opus-4-8, etc.), and return outputs with effort metadata. Blocks automated effort-matrix tests."
+          },
+          {
+            "item": "Context variants (BLIND vs INFORMED) require manual prompt duplication",
+            "why": "PROTOCOL.md: Mark created two prompt versions (BLIND = task only, INFORMED = task + context block). Rondo could accept --context-variants='blind|informed', generate N prompts, and return N×M outputs (N contexts × M models) in one dispatch. Currently Mark manually creates variant prompts."
+          },
+          {
+            "item": "No provider-specific cost pre-estimation before dispatch",
+            "why": "PROTOCOL.md: Mark manually estimates cost before running ('batch cost $0.12'). Rondo queries each provider's pricing API and returns (estimated_cost, estimated_latency) before dispatching. Currently Mark guesses or runs and checks the audit trail after."
+          },
+          {
+            "item": "Model profile definitions are not self-documenting",
+            "why": ".claude/rules/rondo-ush-profiles.md lists ush_medical, ush_writing, ush_deep profiles. But when Mark calls rondo_cloud(profile=\"ush_deep\"), Rondo should return (a) which providers will be used, (b) which models at which tier, (c) estimated cost, (d) why this profile is recommended for the task. Currently only defined in config.toml; Mark must refer to docs."
+          }
+        ]
+      },
+      {
+        "source": "RONDO Live Runtime Data Analysis (~/.rondo/ directory) — 847 total audit records, 50 retry queue entries, config.toml, build-counter tracking, logs from April-May 2026.",
+        "worked_well": [
+          {
+            "item": "High baseline success rate (68.5% of dispatches complete successfully)",
+            "evidence": "580/847 dispatches have status=done. No provider failures blocking work. Cost stays at $0 due to Max auth mode + free subprocess dispatch."
+          },
+          {
+            "item": "Graceful handling of safety guards on in-session subprocess dispatch",
+            "evidence": "ERR_SUBPROCESS_FOOTGUN (30 retries) correctly blocks risky Claude model subprocess calls from within Claude Code sessions. The safety gate is working as designed per v0.7 spec, preventing cost surprises and auth failures."
+          },
+          {
+            "item": "Clean separation of concerns: inline vs cloud dispatch",
+            "evidence": "Config shows 3 enabled cloud providers (gemini, openai, grok) with explicit trust labels. Claude -P mode (inline subprocess) has focused, constrained rules. MCP server dispatch works independently. No cross-talk or mode conflicts visible in audit trail."
+          },
+          {
+            "item": "Audit trail completeness — 1,752 prompt/result pairs in audit directory",
+            "evidence": "Each dispatch generates .prompt.txt + .result.json. Latest entries dated 2026-05-20 (recent activity). Full dispatch_id tracking for drill-down. Secrets properly scrubbed (secrets_scrubbed=0 in results sampled)."
+          },
+          {
+            "item": "Config stability — minimal churn, well-documented defaults",
+            "evidence": "config.toml last modified 2026-06-03 10:41 (today). One backup from 2026-06-03 10:25. Pre-RONDO-212 backup shows historical evolution. All provider tiers explicitly configured with clear comments referencing REQ-109 req 041-045."
+          }
+        ],
+        "friction": [
+          {
+            "item": "High rate of partial/malformed JSON responses (13.3% of dispatches, 113 total)",
+            "evidence": "113 dispatches with status=partial, error_code=ERR_MALFORMED_JSON or no output. Common pattern: 'Not logged in · Please run /login'. Indicates subprocess dispatch sometimes encounters auth state issues mid-execution.",
+            "severity": "high"
+          },
+          {
+            "item": "Retry queue actively accumulating stale entries (50 files in ~/.rondo/retry/, 60% from ERR_SUBPROCESS_FOOTGUN)",
+            "evidence": "30 retries queued with ERR_SUBPROCESS_FOOTGUN. These are NOT transient — they are semantic blocks (safety guard is working) but creating permanent queue buildup. 11 ERR_MALFORMED_JSON retries. 7 ERR_INTERNAL retries. 2 ERR_SUBPROCESS. No evidence of periodic cleanup or aging-out.",
+            "severity": "med"
+          },
+          {
+            "item": "Blocked status category (5.2% of dispatches, 44 total) — root cause opaque",
+            "evidence": "44 dispatches have status=blocked with null tasks array. No error_code, error_message, or raw_output. Invisible failure mode — cannot drill down to see why blocked. Suggest adding error context to blocked status.",
+            "severity": "med"
+          },
+          {
+            "item": "100% cost is $0 — masks provider overhead and cloud API usage patterns",
+            "evidence": "All 847 dispatches show total_cost_usd=0. Expected for Max auth (free subprocess). But cloud provider calls (gemini, openai, grok) should still incur costs — they are not being tracked or reported in audit results, making it impossible to see per-provider cost distribution.",
+            "severity": "med"
+          },
+          {
+            "item": "Subprocess auth fragility — multiple 'Not logged in' failures in partial outputs",
+            "evidence": "Partial dispatch outputs show raw_output='Not logged in · Please run /login'. Indicates claude -p subprocess dispatch encounters credential/session loss mid-run. Affects reliability of multi-turn executions.",
+            "severity": "high"
+          }
+        ],
+        "failures": [
+          {
+            "item": "13% of dispatches fail to produce usable JSON output (113 partial + unclear error handling)",
+            "evidence": "113 partial statuses with ERR_MALFORMED_JSON. Subprocess dispatch often yields 'Not logged in' or truncated responses. Error message is often blank even when status=error. Makes debugging extremely difficult.",
+            "root_cause_guess": "Claude -P mode subprocess dispatch loses session state during execution or encounters auth timeouts. JSON parsing on raw output fails silently. Error messages not propagated from subprocess back to audit trail."
+          },
+          {
+            "item": "Blocked status category provides zero diagnostics (44 instances)",
+            "evidence": "tasks array is null. error_code is null. error_message is null. raw_output is null. Status is simply 'blocked' with no context. Happened 44 times — cannot root cause without adding debug logging.",
+            "root_cause_guess": "Dispatch likely encountered circuit breaker trip, quota limit, or permission denial, but that exception is being caught and converted to a blank 'blocked' status instead of a detailed error. Requires code inspection of dispatch logic."
+          },
+          {
+            "item": "Retry queue is a 'write-only' bin — no evidence of automatic retry logic or aging",
+            "evidence": "50 files in ~/.rondo/retry/ directory. Oldest are likely from early April (based on audit date ranges). No cleanup. Calling rondo_retry manually is the only way to drain it, but no auto-trigger or monitoring in place.",
+            "root_cause_guess": "Retry queue is designed as a manual inspection point, not an automatic recovery mechanism. Works for human-triggered 'rondo retry <dispatch_id>', but silent queue growth suggests low visibility into when retries are genuinely needed vs. permanent blocks."
+          }
+        ],
+        "feature_gaps": [
+          {
+            "item": "No per-provider cost tracking or billing attribution in audit trail",
+            "why": "All total_cost_usd=0. Cloud provider dispatch (gemini, openai, grok) via API should incur costs, but they are not recorded in result JSON. Makes it impossible to measure provider-specific ROI, detect cost anomalies, or allocate costs across projects."
+          },
+          {
+            "item": "No dispatch retry auto-trigger or health monitor (retry queue remains static)",
+            "why": "50 items in retry/ directory are user-triggered only. No background job to re-attempt. No alert when retry queue exceeds threshold. No logic to distinguish 'should retry' vs 'permanent block'. Requires manual intervention to recover stalled tasks."
+          },
+          {
+            "item": "Blocked status lacks diagnostic context — no error codes or messages captured",
+            "why": "44 blocked dispatches have null tasks/error_code/raw_output. Cannot tell if blocked due to circuit breaker, quota, auth, or malformed input. Requires code inspection or logs to debug."
+          },
+          {
+            "item": "No spool monitoring or overnight batch metrics",
+            "why": "~/.rondo/spool/ exists but appears empty/unused. No metrics on overnight dispatch success/failure, batch completion time, or task volume. Config supports overnight automation (per spec STD-113) but runtime data doesn't show batch results."
+          },
+          {
+            "item": "Subprocess auth state not reset between turns — fragments session",
+            "why": "Multiple 'Not logged in' in partial outputs indicate claude -p subprocess does not re-authenticate mid-execution. Configuration allows max_turns=5 but if auth times out on turn 2, turns 3-5 are lost."
+          }
+        ]
+      },
+      {
+        "source": "/Users/markhubers/.rondo/audit/rondo_audit.jsonl + /Users/markhubers/git/mhubers/ace2/rondo/src/rondo/history.py + /Users/markhubers/git/mhubers/ace2/rondo/src/rondo/audit.py + /Users/markhubers/git/mhubers/ace2/rondo/src/rondo/dispatch.py",
+        "worked_well": [
+          {
+            "item": "Two-phase append-only audit trail (INTENT/OUTCOME records)",
+            "evidence": "Audit trail design in audit.py allows crash detection via reconcile_stuck_intents(). File shows RONDO-STD-113 req 003-010 fully implemented: INTENT records dispatched_at, OUTCOME records completed_at + cost. 1808 total dispatch records, 3 stuck records properly reconciled with ERR_RECONCILED_STUCK."
+          },
+          {
+            "item": "Comprehensive error classification with 9 error types",
+            "evidence": "dispatch_parse.py classify_error() maps stderr to error codes: ERR_SUBPROCESS (103), ERR_PROVIDER_DOWN (28), ERR_TIMEOUT (13), ERR_PROVIDER (17), ERR_AUTH (3), ERR_NESTED_SESSION, ERR_RATE_LIMIT, etc. Each has recovery guidance attached."
+          },
+          {
+            "item": "JSONL-based queryable history with aggregation",
+            "evidence": "history.py provides load_history(), query_history(model/status/round_name/task_name), and aggregate_by_model() for cost tracking. Audit records support: dispatch_id, task_name, model, status, cost_usd, input_tokens, output_tokens, duration_sec, error_code."
+          },
+          {
+            "item": "Atomic write protection against crash-induced torn reads",
+            "evidence": "audit.py atomic_write() uses temp file + os.replace, preventing partial writes. Finding #210 documented. fcntl.flock in _append_jsonl prevents concurrent writes from parallel threads."
+          },
+          {
+            "item": "Secret scrubbing before audit storage",
+            "evidence": "dispatch.py calls sanitize_task_result() and _sanitize_module.sanitize_text() before audit_trail.record_outcome() writes. Result files store secrets_scrubbed count (e.g., dsp_0aed316993fe4a83.result.json shows 1 secret scrubbed)."
+          },
+          {
+            "item": "Smart return JSON auto-rating (optional)",
+            "evidence": "dispatch.py lines 742-750: validate_return_json() called on done status to populate json_valid and fields_complete fields. 420 done records have json_valid populated; records pre-dating smart_return feature have null."
+          },
+          {
+            "item": "Per-model cost aggregation and daily JSONL rollover",
+            "evidence": "history.py log_dispatch() writes one file per day (history-YYYY-MM-DD.jsonl). aggregate_by_model() sums cost/count/duration/success/error per model. audit.py auto-rotates JSONL when size exceeds max_jsonl_bytes (10MB default)."
+          },
+          {
+            "item": "Cross-process and thread-safe append with file locking",
+            "evidence": "audit.py rotate() and _append_jsonl() use fcntl.flock() (Finding #251, #209) to prevent cross-process race conditions. RONDO-204 Finding #231 documents thread lock. Best-effort fallback on Windows."
+          },
+          {
+            "item": "Request_id correlation for cross-retry tracing",
+            "evidence": "RONDO-211 Finding #259: audit.py stores request_id in AuditRecord (line 162). 473 done records have request_id populated; propagated from INTENT to OUTCOME (line 326). Enables tracing retries across invocations."
+          },
+          {
+            "item": "Stuck INTENT reconciliation on process startup",
+            "evidence": "audit.py reconcile_stuck_intents() (lines 558-614) detects dispatch_ids with INTENT but no OUTCOME. Respects stuck_after_sec threshold (default 300s) to avoid false-positives on peer workers. 3 stuck records in dataset prove it's working."
+          }
+        ],
+        "friction": [
+          {
+            "item": "Cost data missing for all error and subprocess timeout cases",
+            "evidence": "Queried rondo_audit.jsonl: error_with_cost=0, done_with_cost=475/580, blocked_with_cost=44/44. Error records show cost_usd=0.0, input_tokens=0, output_tokens=0 even when duration_sec > 0. dispatch.py doesn't capture usage on failure path — cost populated only after API call completes successfully.",
+            "severity": "med"
+          },
+          {
+            "item": "json_valid and fields_complete fields added late, sparse coverage",
+            "evidence": "164 error records have json_valid=null (all), done records split: 420/580 have json_valid != null (74%), 160/580 have null. smart_return validate_return_json() only runs if status=='done' (dispatch.py line 742), skipping error/partial/blocked. Coverage started mid-April; March records are all null.",
+            "severity": "med"
+          },
+          {
+            "item": "Request_id missing in early audit records, retroactively sparse",
+            "evidence": "112/164 error records missing request_id (empty string). Only 473/580 done records have populated request_id. RONDO-214 C-3 fix (dispatch.py lines 322-326) added request_id propagation AFTER many records written. No backfill for old records.",
+            "severity": "low"
+          },
+          {
+            "item": "Prompt and result files stored separately; JSONL doesn't embed them",
+            "evidence": "audit.py stores prompt_file (e.g., dsp_XXX.prompt.txt) and result_file (e.g., dsp_XXX.result.json) as filenames in JSONL records, not inline. prompt_file empty in OUTCOME records. Consumers must do second I/O to read prompt/result. Scales poorly for large result sets.",
+            "severity": "low"
+          },
+          {
+            "item": "Error records missing any diagnostic context beyond error_code",
+            "evidence": "Error records have exit_code (0 or 1) and error_code (e.g., ERR_SUBPROCESS) but no stderr snippet, CLI invocation details, or environment context. Result files exist but are only populated if code ran far enough to produce output. 103 ERR_SUBPROCESS records provide no hint what went wrong.",
+            "severity": "high"
+          }
+        ],
+        "failures": [
+          {
+            "item": "Subprocess errors (ERR_SUBPROCESS) dominate failure cohort but are opaque",
+            "evidence": "103/164 errors are ERR_SUBPROCESS (exit code 1). Error records show cost_usd=0, duration_sec=0.3-0.4s (too fast to be real work — likely early crash in subprocess init). No stderr captured in audit trail or result files. classify_error() in dispatch_parse.py line 158 maps exit_code==1 to ERR_SUBPROCESS broadly.",
+            "root_cause_guess": "dispatch.py subprocess launch probably exits on: missing claude binary (Rondo-REQ-100 req 071), permission issue, missing file, or bad args. stderr from subprocess.run() not saved to audit. Could add stderr capture to error records."
+          },
+          {
+            "item": "Provider errors (ERR_PROVIDER_DOWN=28, ERR_PROVIDER=17) show 0 tokens and $0 cost",
+            "evidence": "All 45 provider-related errors have cost_usd=0.0, input_tokens=0, output_tokens=0, duration_sec varies (0.3s to 30s). provider-side failures detected after subprocess completes but before API response parsed. Result files missing for some.",
+            "root_cause_guess": "dispatch.py calls DispatchUsage() with default 0 tokens when parsing fails (line 629-630). Provider returns error response; rondo classifies it but doesn't extract token counts from error payload. Missing: parse API error responses to extract actual token usage."
+          },
+          {
+            "item": "Timeout errors (13 records, some >150s) not distinguished from blocked status",
+            "evidence": "ERR_TIMEOUT records show duration_sec=152s-164s, cost_usd=0, tokens=0, but status='error' not 'blocked'. Blocked records (44 total) have cost_usd>0 and tokens>0, implying API succeeded. Timeout detection happens after process.wait(timeout=X), not reflected in cost/tokens fields.",
+            "root_cause_guess": "Timeout fires in subprocess or watchdog, subprocess already exited. dispatch.py line 591 sets error_code='ERR_TIMEOUT' but doesn't retroactively fill cost/tokens — they're only populated on successful API response (line 351)."
+          },
+          {
+            "item": "Stuck INTENT records show 0s duration and no completion metadata",
+            "evidence": "3 stuck records: dispatched_at filled, completed_at added by reconcile (not during dispatch), duration_sec=0.0, cost=0, tokens=0, files_modified=[]. reconcile_stuck_intents() synthesizes OUTCOME with status='stuck' and ERR_RECONCILED_STUCK but can't populate true duration or cost.",
+            "root_cause_guess": "Stuck records indicate process crash before OUTCOME recorded. True duration is now - dispatched_at (minutes in some cases), but audit records it as duration=0 since no timing was captured. Reconciliation fills timestamp gap but not duration."
+          }
+        ],
+        "feature_gaps": [
+          {
+            "item": "No capture of provider HTTP status codes or API error details",
+            "why": "dispatch.py parses provider response but doesn't log HTTP status, error message, or error type (429 vs 500 vs malformed response) to audit. Blocked status records have cost but not detailed error reason. Makes root-cause triage hard for provider failures."
+          },
+          {
+            "item": "No per-step timing breakdown (subprocess startup vs API latency vs response parse)",
+            "why": "dispatch.py measures wall-clock duration_sec only. No breakdown: how long for subprocess startup? API call? result parsing? Timeout detection is coarse (either fires or doesn't). Can't isolate where 10s delays come from."
+          },
+          {
+            "item": "Prompt_file empty in OUTCOME records; prompt not stored inline in audit for analysis",
+            "why": "audit.py records prompt_file in INTENT (line 251), blank in OUTCOME (line 179 to_dict() sets empty). If audit.jsonl is the 'source of truth', prompt is orphaned in filesystem. No way to correlate prompt hash to full text retroactively from JSONL alone."
+          },
+          {
+            "item": "No model capability hints or retry-ability markers in error records",
+            "why": "classify_error() returns error_code and recovery guidance, but audit records don't store is_retryable or is_transient flags. Consumers must hardcode retry logic per error_code. dispatch.py get_error_recovery() (line 423) has this info but it's not persisted."
+          },
+          {
+            "item": "No tenant isolation validation in audit records; cross-tenant leakage possible",
+            "why": "RONDO-200 Finding #217 noted tenant_id should be in audit for isolation. audit.py _get_tenant_for_audit() computes it (line 53) but doesn't store it in AuditRecord. Tenant is only in directory path (~/.rondo/audit/{tenant}). If directory is breached, no audit_id field proves which tenant a record belongs to."
+          },
+          {
+            "item": "No distributed tracing fields (parent_request_id, trace_id, span_id) for multi-hop scenarios",
+            "why": "request_id added for cross-retry correlation, but no trace_id for multi-dispatch workflows. If task A dispatches task B, no way to trace lineage in audit. RONDO-211 C-3 covers request_id only."
+          },
+          {
+            "item": "No dispatch arguments (model, do/read/done, --auth, --timeout) recorded in audit",
+            "why": "audit_record has task_name, model, but not the full CLI args or config that produced the dispatch. If model changes between runs, can't compare cost/duration fairly. task.py Task dataclass and config not stored."
+          },
+          {
+            "item": "Result files contain raw_output + secrets_scrubbed count but not sanitization metadata (which patterns matched, confidence scores)",
+            "why": "dispatch.py calls sanitize_text() but only stores count in result_file (line 354). No log of which secrets were found, confidence, or pattern names. Can't audit if scrubbing is over/under-aggressive."
+          }
+        ]
+      }
+    ],
+    "p2": [
+      {
+        "area": "Claude Code (CLI) — April–June 2026 Features & RONDO Relevance",
+        "features": [
+          {
+            "name": "Dynamic Workflows (Multi-Agent Orchestration)",
+            "summary": "Claude writes JavaScript orchestration scripts dynamically to coordinate 16 concurrent agents (max 1,000 total). Subagents validate each other's claims adversarially. Proven: rewrote Bun (750k lines) Zig→Rust in 11 days with 99.8% test pass rate.",
+            "rondo_relevance": "high",
+            "suggested_use": "RONDO should offer `--backend=workflows` flag to translate dispatch tasks into Dynamic Workflow definitions and execute via Claude API instead of raw provider calls. This handles RONDO's `rondo_cloud(..., count=N)` / `rondo_multi_review` patterns natively in Claude Code.",
+            "effort": "L",
+            "source": "https://claudefa.st/blog/guide/development/dynamic-workflows, https://www.infoq.com/news/2026/06/dynamic-workflows-claude-code/"
+          },
+          {
+            "name": "Agent Teams & Subagents (Worker Coordination)",
+            "summary": "Agent teams: multiple Claude Code sessions coordinate via shared task lists; agents message each other. Subagents: YAML-defined workers (custom prompt + tools) run within parent session, token-efficient. Launched Feb 2026 with Opus 4.6 (experimental).",
+            "rondo_relevance": "high",
+            "suggested_use": "RONDO should emit subagent YAML definitions and orchestrate via Claude Code agent teams for long-running parallel work. Keeps RONDO in orchestration layer while delegating session/context management to Claude Code.",
+            "effort": "M",
+            "source": "https://code.claude.com/docs/en/agent-teams, https://www.cloudzero.com/blog/claude-code-agents/"
+          },
+          {
+            "name": "Structured Output with JSON Schema",
+            "summary": "Define JSON Schema; agent returns validated output matching that schema. Supports Zod (TypeScript) and Pydantic (Python). No post-processing needed; schema enforced end-to-end.",
+            "rondo_relevance": "high",
+            "suggested_use": "Make `output_format` a first-class RONDO parameter. Require schemas for machine-readable results to eliminate custom parsing and ensure result reliability across providers.",
+            "effort": "M",
+            "source": "https://code.claude.com/docs/en/agent-sdk/structured-outputs, https://egghead.io/enforcing-structured-output-with-json-schema-and-zod-in-claude-code-workflows~fm674"
+          },
+          {
+            "name": "Prompt Caching (5-Minute TTL, Workspace Isolation)",
+            "summary": "84% cache hit rate documented (74% cost savings). Input tokens served from cache reduce $100 session cost to $19 at 90% hit rate. TTL shortened 60 min → 5 min (early 2026); caches now isolated per workspace.",
+            "rondo_relevance": "med",
+            "suggested_use": "Auto-enable prompt caching for multi-provider reviews where same context is sent to Gemini, Grok, Anthropic. Cache aggressively for interactive dispatch; skip for overnight batches (5-min TTL won't survive). Track cache efficiency per provider.",
+            "effort": "M",
+            "source": "https://code.claude.com/docs/en/prompt-caching, https://dev.to/whoffagents/claude-prompt-caching-in-2026-the-5-minute-ttl-change-thats-costing-you-money-4363"
+          },
+          {
+            "name": "1 Million Token Context Window",
+            "summary": "Opus 4.6 & Sonnet 4.6 support 1M context (≈830K usable tokens = full monorepo + docs). No premium cost beyond 200K. Auto-enabled on Max/Team/Enterprise for Opus. Maintains entity relationships; 78.3% MRCR v2 accuracy.",
+            "rondo_relevance": "med",
+            "suggested_use": "Expose 1M context as config option. Map RONDO effort levels to context size: low=200K, med=500K, high=1M. Enable full-codebase analysis in single agent invocation without context thrashing.",
+            "effort": "S",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/context-windows, https://karozieminski.substack.com/p/claude-1-million-context-window-guide-2026"
+          },
+          {
+            "name": "MCP Server Improvements & Background Task Fixes",
+            "summary": "Fixed `/mcp tools list` rendering for long tool names. `/bg while responding` continues in background without dropping. Fixed temp file permission prompts. Dynamic Workflows integrate seamlessly with MCP.",
+            "rondo_relevance": "med",
+            "suggested_use": "Rely on Claude Code's native MCP server diagnostics instead of duplicating validation. If RONDO implements its own MCP server, wire it into Claude Code workflows for dispatch feedback and result streaming.",
+            "effort": "S",
+            "source": "https://releasebot.io/updates/anthropic/claude-code, https://gist.github.com/septimlabs-code/1f52e699a4a6fbe9c29621b670b958d1"
+          },
+          {
+            "name": "Hooks Automation (21 Lifecycle Events)",
+            "summary": "21 lifecycle hooks (pre/post tool execution, session start/end, etc.). Command hooks receive JSON on stdin; structured JSON output on stdout. Enable auto-run shell commands, integrations, safety checks on every tool invocation.",
+            "rondo_relevance": "med",
+            "suggested_use": "Document how RONDO workflows integrate with Claude Code hooks. Example: submit rondo_run task in hook, consume overnight results via rondo_spool_consume on session_end hook. Automates dispatch without RONDO managing session lifecycle.",
+            "effort": "S",
+            "source": "https://code.claude.com/docs/en/hooks-guide, https://smartscope.blog/en/generative-ai/claude/claude-code-hooks-guide/"
+          }
+        ]
+      },
+      {
+        "area": "Anthropic API Opus 4.8 Features for RONDO Integration",
+        "features": [
+          {
+            "name": "Adaptive Thinking (type: 'adaptive')",
+            "summary": "Claude Opus 4.8 only supports adaptive thinking mode — manual thinking with budget_tokens is rejected with HTTP 400. Adaptive thinking auto-determines when/how much to use extended thinking per-request; no budget_tokens parameter allowed.",
+            "rondo_relevance": "high",
+            "suggested_use": "RONDO adapters for Opus 4.8 must use thinking: {type: 'adaptive'} (or omit thinking entirely if disabled). Remove any code sending thinking: {type: 'enabled', budget_tokens: N}. Interleaved thinking automatically enabled on Opus 4.8.",
+            "effort": "M",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking"
+          },
+          {
+            "name": "Output Config + Effort Parameter (output_config.effort)",
+            "summary": "The effort parameter (low/medium/high/xhigh/max) controls thinking depth & token spend across text, tool calls, and reasoning. Replaces manual budget_tokens. Available on Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 4.6, Opus 4.5. At high/xhigh/max, Claude almost always thinks; at low/medium, may skip for simple tasks.",
+            "rondo_relevance": "high",
+            "suggested_use": "RONDO adapters should accept effort in output_config: {effort: 'medium'|'high'|'xhigh'|'max'}. Combine with adaptive thinking for best control: thinking: {type: 'adaptive'} + output_config: {effort: 'xhigh'}. Effort=high is default (omitting = same behavior). For coding/agentic, start with xhigh.",
+            "effort": "M",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/effort"
+          },
+          {
+            "name": "Temperature/top_p/top_k Rejection (HTTP 400 Fix)",
+            "summary": "Opus 4.8 rejects temperature, top_p, top_k parameters entirely—any of these in request body returns 400 error. Adaptive thinking has replaced sampling control; these fields are incompatible.",
+            "rondo_relevance": "high",
+            "suggested_use": "RONDO HTTP adapters must STRIP temperature, top_p, top_k entirely from request payloads before sending to Opus 4.8/4.7. Don't conditionally send—omit them. Check adapters for any param-building logic that adds these fields.",
+            "effort": "M",
+            "source": "https://help.apiyi.com/en/claude-opus-4-7-deprecated-parameters-guide-en.html"
+          },
+          {
+            "name": "Anthropic-Version Header",
+            "summary": "All Anthropic API requests require anthropic-version header (e.g., 2023-06-01). SDK handles this automatically; HTTP requests must include it explicitly. Current standard version is 2023-06-01.",
+            "rondo_relevance": "med",
+            "suggested_use": "RONDO HTTP adapter must set header: 'anthropic-version: 2023-06-01' on all requests. SDK clients (python anthropic, JS @anthropic-ai/sdk) handle this automatically.",
+            "effort": "S",
+            "source": "https://platform.claude.com/docs/en/api/versioning"
+          },
+          {
+            "name": "1M Token Context Window",
+            "summary": "Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 4.6 all support 1M token context at standard pricing (no premium). 200k on Microsoft Foundry. No additional cost for full context utilization.",
+            "rondo_relevance": "med",
+            "suggested_use": "RONDO can safely submit requests up to 1M tokens of context without cost penalty. Useful for large codebase analysis, batch document processing, in-context learning.",
+            "effort": "S",
+            "source": "https://www.anthropic.com/news/claude-opus-4-8"
+          },
+          {
+            "name": "Prompt Caching (5-min & 1-hour durations)",
+            "summary": "Cache hits cost 10% of input token price. Write costs ~1.25x after 5 min, 2x after 1 hr. Opus 4.8 supports prompt caching. Batch API supports caching with best-effort 30-98% hit rates depending on traffic patterns.",
+            "rondo_relevance": "med",
+            "suggested_use": "RONDO can include cache_control: {type: 'ephemeral'} blocks in system/context for shared content across multiple requests. For batches, use 1-hour cache duration for better hit rates (since batches process asynchronously).",
+            "effort": "M",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+          },
+          {
+            "name": "Message Batches API (50% Cost Reduction)",
+            "summary": "Async batch processing: submit up to 100k requests per batch or 256MB max. Most complete <1hr. All params supported except stream, speed (fast mode), store, cache_hint, context_hint, max_tokens:0. 50% discount on input+output tokens.",
+            "rondo_relevance": "high",
+            "suggested_use": "RONDO should add batch() mode for overnight/non-urgent tasks. Support thinking, effort, caching in batches. Each request must have custom_id (1-64 chars alphanumeric/hyphen/underscore). Pricing: Opus 4.8 batch = $2.50 in / $12.50 out per MTok (vs $5/$25 regular).",
+            "effort": "L",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+          },
+          {
+            "name": "Dynamic Workflows + Claude Code Integration",
+            "summary": "Claude Code now supports dynamic workflows (multi-agent, codebase-scale migrations). Opus 4.8 powers large-scale transformations. Claude Agent SDK separates billing from interactive Claude (June 15 2026: Pro=$20/mo credit, Max5x=$100, Max20x=$200 Agent credit, separate pool).",
+            "rondo_relevance": "med",
+            "suggested_use": "RONDO can delegate complex multi-step tasks to Claude Code subprocess mode (--auth max) or Agent SDK. Separate billing pool for agent work; monitor Jun 15 billing split. Use rondo_cloud with profile=coding for leverage.",
+            "effort": "M",
+            "source": "https://www.anthropic.com/news/claude-opus-4-8"
+          },
+          {
+            "name": "Thinking Display Control (display: 'summarized' vs 'omitted')",
+            "summary": "On Opus 4.8/4.7, thinking.display defaults to 'omitted' (empty thinking field, signature still carries encrypted full thinking for multi-turn). Set display: 'summarized' to see thinking text. Omitted mode = faster time-to-first-token when streaming.",
+            "rondo_relevance": "low",
+            "suggested_use": "For RONDO, typically omit thinking from responses (use display: 'omitted'). Only set display: 'summarized' if user explicitly wants to see reasoning. Both modes charged full thinking tokens—display choice affects latency, not cost.",
+            "effort": "S",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking"
+          },
+          {
+            "name": "Fast Mode (2.5x speed, 3x cheaper than Opus 4.7)",
+            "summary": "Fast mode parameter (speed: 'low'/'default'/'high') NOT supported in batch requests. Available for sync Messages API only. Opus 4.8 fast: $10 in / $50 out per MTok (was much pricier on 4.7).",
+            "rondo_relevance": "low",
+            "suggested_use": "RONDO interactive (non-batch) requests can opt into fast mode for speed-sensitive tasks, but batches cannot use it. Mentioned for completeness; not a blocker for current dispatch flows.",
+            "effort": "S",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+          },
+          {
+            "name": "System Messages in Messages Array (Mid-Conversation)",
+            "summary": "Messages API now accepts system entries inside the messages array (not just top-level), allowing dynamic instruction updates mid-conversation. Feature for advanced agent workflows.",
+            "rondo_relevance": "low",
+            "suggested_use": "RONDO multi-turn agentic flows can inject system prompt updates between assistant/user turns. Useful for effort escalation or context refinement mid-dispatch. Optional feature; standard top-level system still works.",
+            "effort": "S",
+            "source": "https://www.anthropic.com/news/claude-opus-4-8"
+          },
+          {
+            "name": "Structured Outputs (format parameter in output_config)",
+            "summary": "output_config can include format: {type: 'json', schema: {...}} for JSON schema validation. Combines with effort parameter in same output_config object. Opus 4.8 stable API (no beta header needed).",
+            "rondo_relevance": "med",
+            "suggested_use": "RONDO adapters can request structured JSON responses via output_config: {format: {type: 'json', schema: {...}}, effort: 'high'}. Useful for parsing dispatch results, ensuring schema compliance.",
+            "effort": "M",
+            "source": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+          }
+        ]
+      }
+    ],
+    "p3": [
+      {
+        "tool": "Anthropic Claude Agent SDK",
+        "what_it_does": "The Claude Agent SDK is a Python/TypeScript library that packages Claude Code (the interactive development environment) as a programmable framework for building multi-turn autonomous AI agents. It provides spawned subprocess execution of the Claude Code CLI, built-in tool execution via MCP protocol, persistent session state management with automatic disk persistence and resumption, and provider routing through ANTHROPIC_API_KEY (with fallback to AWS Bedrock, Google Vertex AI, and Anthropic Foundry). The SDK emphasizes agent autonomy with Claude handling tool calls and control flow internally; it is designed primarily for interactive, long-running agent workflows with strong codebase interaction (file editing, command execution, reasoning).",
+        "strengths": [
+          "Deep MCP integration with in-process custom tool support via @tool decorators",
+          "Multi-turn persistent session state with automatic resumption and fork/continue/resume lifecycle hooks",
+          "Native code editing, command execution, and codebase exploration built into Claude Code",
+          "First-party support from Anthropic with tight Claude Code UI/CLI/SDK ecosystem",
+          "Lifecycle hooks (on_tool_use, on_message, etc.) for fine-grained agent loop control",
+          "Supports streaming input and single-response modes for different use cases",
+          "Cloud provider routing (Bedrock, Vertex AI, Foundry) in addition to Anthropic API"
+        ],
+        "weaknesses": [
+          "Requires Node.js 18+ (CLI binary bundled but external runtime dependency)",
+          "Tightly coupled to Claude Code — limited flexibility for alternative providers",
+          "Spawns subprocess (same as RONDO) but with less control over retry/circuit-breaker/cost-gating semantics",
+          "Persistent session state is powerful for interactive workflows but adds complexity for stateless batch/overnight automation",
+          "No multi-provider consensus, cost-aware routing, or provider-agnostic abstraction layer",
+          "Authentication model routes through Anthropic API key or cloud provider auth — no Max plan $0 option documented",
+          "Designed for interactive agent development, not for scripted dispatch workflows with structured output contracts",
+          "No built-in audit trail, metrics, retry history, or dispatch result comparison features"
+        ],
+        "overlap_with_rondo": "Both RONDO and Claude Agent SDK spawn the Claude Code CLI as a subprocess and communicate via structured messages. Both provide MCP integration for tool access. Both support multi-turn workflows and can route through Anthropic API. Both abstract away direct prompt engineering to some degree. The sdkNote: Simon Willison's `llm` tool overlaps in that it provides a multi-provider CLI for AI dispatch and supports tool calling via plugins, but it is fundamentally a command-line repl with logging/embedding persistence, not a programmatic dispatch framework — it lacks RONDO's structured task contracts, circuit breakers, retry logic, cost gating, overnight automation, and multi-provider consensus routing. The `llm` tool is mentioned here as it is a notable CLI alternative in the space but is not the primary comparison subject.",
+        "rondo_advantage": "RONDO's durable competitive advantages over the Claude Agent SDK are: (1) **Provider-agnostic abstraction**: routes to Anthropic, OpenAI, Gemini, Grok, Mistral, Ollama via unified adapter layer without rewriting dispatch code; (2) **$0 Max plan authentication**: can dispatch to Claude Code with zero API cost by leveraging Claude Code's Max plan subscription (Claude Agent SDK requires API key auth); (3) **Minimal dependencies**: only requires mcp>=1.0 and PyYAML>=6.0, no external runtime (vs. Node.js requirement); (4) **Overnight/batch automation**: built-in phase scheduling, event logging, cost monitoring, and spool-based background dispatch that Agent SDK leaves to the host; (5) **Structured dispatch contracts**: Three-field Do/Read/Done model with output validation, error classification, and result schemas that make workflows repeatable and auditable; (6) **Cost-aware execution**: circuit breakers, budget caps, health metrics, and retry logic with configurable thresholds; (7) **Audit and observability**: dispatch history, metrics aggregation, diff-based regression checking, and cost-per-model reporting; (8) **Execution mode separation**: explicit control over inline (host planning), subprocess (independent execution), or agent (plan return for host spawn) vs. Agent SDK's implicit subprocess model.",
+        "gaps_rondo_should_close": [
+          "Add first-class session resumption hooks (Agent SDK's continue/fork/resume pattern) to make long-running workflows with state carry-over more ergonomic than current 'context-passing' approach",
+          "Implement native Claude Code interactive mode integration so RONDO tasks can invoke Claude Code as a subprocess in interactive-repl mode (vs. current pipe-json model), useful for exploratory agent workflows",
+          "Document and optimize for TypeScript/Node.js parity; currently Python-first with limited TypeScript support, while Agent SDK targets both equally",
+          "Add streaming response support for long-form outputs (current model collects full result before returning), useful for real-time feedback in interactive MCP scenarios",
+          "Build tighter integration with Claude Code projects/ session store so RONDO tasks can resume broken workflows without explicit state management",
+          "Publish benchmark suite comparing provider latency, cost, and accuracy across identical dispatch rounds to compete with Agent SDK's credibility in enterprise adoption",
+          "Expand custom tool ecosystem beyond current MCP; consider a lighter-weight decorator pattern like Agent SDK's @tool to lower barrier for inline tool definition",
+          "Add native support for Agent SDK's new lifecycle hooks (on_tool_use, on_message, on_response) to allow fine-grained observability hooks in RONDO dispatch loops"
+        ],
+        "sources": [
+          "https://github.com/anthropics/claude-agent-sdk-python",
+          "https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk",
+          "https://code.claude.com/docs/en/agent-sdk/overview",
+          "https://platform.claude.com/docs/en/agent-sdk/overview",
+          "https://platform.claude.com/docs/en/agent-sdk/python",
+          "https://platform.claude.com/docs/en/agent-sdk/mcp",
+          "https://code.claude.com/docs/en/agent-sdk/sessions",
+          "https://github.com/simonw/llm",
+          "https://simonwillison.net/2025/May/27/llm-tools/",
+          "https://llm.datasette.io/en/stable/",
+          "https://llm.datasette.io/en/stable/embeddings/",
+          "https://github.com/simonw/llm/blob/0.28/pyproject.toml"
+        ]
+      },
+      {
+        "tool": "aider (AI pair-programming CLI)",
+        "what_it_does": "Aider is an open-source terminal-based AI pair-programming tool that helps developers code by reading a Git repository, sending relevant file context to an LLM (Claude, GPT-4, Gemini, DeepSeek, or local models), applying edits, and auto-committing changes with descriptive messages. It operates interactively in the terminal, making codebase maps for context efficiency, and supports multiple languages, git integration, voice input, image/webpage context injection, and lint-and-test fixing.",
+        "strengths": [
+          "Git-native workflow with atomic, reviewable commits for each AI change",
+          "Multi-provider LLM support (Claude, OpenAI, Gemini, DeepSeek, Ollama) via LiteLLM",
+          "Comprehensive repository context mapping (Tree-sitter based) for intelligent multi-file edits",
+          "Voice-to-code, image/webpage context injection, and visual reference support",
+          "Full open-source (free software, you only pay API providers)",
+          "Interactive terminal UX optimized for developer workflow",
+          "Lint-and-test fixing loops to validate changes",
+          "Prompt caching support (Claude/OpenAI) for cost savings",
+          "Unlimited session history in markdown transcripts for review and sharing",
+          "Mid-chat model switching capability"
+        ],
+        "weaknesses": [
+          "Not designed for headless automation or batch processing—requires interactive developer guidance between steps",
+          "No built-in test-fix iteration loops or feedback loops beyond linting",
+          "Limited to interactive single-session workflows—no parallel agent support or orchestration",
+          "No circuit breaker, retry logic, or resilience patterns for API failures",
+          "Requires developer to stay present to guide direction—cannot run overnight autonomously",
+          "No cost capping, budget tracking, or multi-tier execution (high/default/low effort) options",
+          "Weak audit trail—only markdown chat history and optional llm-history file (no structured dispatch history or metrics dashboard)",
+          "No scheduling, cron automation, or task queue for recurring work",
+          "Cannot handle complex multi-step workflows where each step branches on results",
+          "Analytics only via PostHog (external, not built-in structured logging)"
+        ],
+        "overlap_with_rondo": "Both are CLI-first tools for AI dispatch without requiring an IDE or GUI. Both support multiple LLM providers and focus on developer-friendly workflows. Both log interaction history (Aider via markdown transcripts, RONDO via structured audit/history). Both emphasize non-interactive use in some form (Aider has headless mode for CI/CD, RONDO is designed for it).",
+        "rondo_advantage": "RONDO is purpose-built for autonomous overnight batch dispatch and orchestration, while Aider requires interactive direction. RONDO offers circuit breaker/retry logic, cost capping, multi-tier effort levels (low/med/high/max), dual auth modes (subscription $0 vs pay-per-token), structured dispatch history/audit trails with metrics, job scheduling/cron support, and the ability to chain complex multi-step workflows where each step feeds output to the next. RONDO supports parallel dispatches to multiple providers for comparison and can run unattended for hours/days, whereas Aider is optimized for a human sitting at the terminal guiding edits in a single session. RONDO's three-field Do/Read/Done contract makes it composable for orchestration across projects (OB, Caliber, ACE, USH research).",
+        "gaps_rondo_should_close": [
+          "Add interactive terminal UI mode (Aider-style scrollback + chat) for developers who want to stay in the loop—currently RONDO is dispatch-heavy, not conversational",
+          "Implement native Git integration layer (auto-commit, branch creation, diff review) like Aider's for code-focused workflows—currently RONDO is task-agnostic",
+          "Build in lint-and-test loop automation (detect failures, re-prompt, iterate) for code tasks—Aider has this, RONDO does not",
+          "Add codebase mapping/context intelligence (Tree-sitter or similar) to reduce token waste and improve relevance on large repos—Aider does this, RONDO relies on user-specified context",
+          "Support voice input and multimodal context injection (images/webpages)—Aider has these, RONDO is text-only dispatch",
+          "Create a web UI for reviewing dispatch results in real-time (complementing CLI-first design)—useful for overnight jobs that finish while asleep"
+        ],
+        "sources": [
+          "https://aider.chat/",
+          "https://aider.chat/docs/",
+          "https://github.com/Aider-AI/aider",
+          "https://github.com/simonw/llm",
+          "https://llm.datasette.io/",
+          "https://simonwillison.net/2025/May/27/llm-tools/",
+          "https://www.tembo.io/blog/aider-alternatives",
+          "https://alternativeto.net/software/aider/",
+          "https://www.ikangai.com/agentic-coding-tools-explained-complete-setup-guide-for-claude-code-aider-and-cli-based-ai-development/",
+          "https://aider.chat/docs/faq.html",
+          "https://aider.chat/docs/more/analytics.html"
+        ]
+      },
+      {
+        "tool": "RONDO (Rondo: Reliable AI Dispatch Layer)",
+        "what_it_does": "RONDO is a zero-external-dependency Python framework for dispatching AI tasks to multiple providers (Anthropic, OpenAI, Gemini, Ollama, Mistral, Groq) with structured output contracts. Declarative task definitions (YAML), repeatable execution modes (inline/subprocess/agent), parallel + overnight automation, cost control, audit trails, and MCP server interface for Claude Code integration. Designed for operational workflows (code review, fixes, batch processing) where reliability, cost visibility, and 24/7 unattended automation matter more than conversation-driven reasoning.",
+        "strengths": [
+          "Zero external dependencies (stdlib + 2 packages: mcp, PyYAML) — lightweight, minimal supply chain risk, fast install",
+          "Explicit cost control: effort levels (low/med/high/max), budget caps, rate limit gating, overnight overage handling, daily cost tracking",
+          "Overnight automation: phase orchestration, self-healing watchdog (kills hung tasks on output silence), morning reports, spool mailbox pattern for disconnected consumers",
+          "Multiple execution modes decouple caller from runner: inline (planning), subprocess (isolated), agent (Claude AI spawning), provider API (HTTP adapter)",
+          "Structured output contracts enforce consistent data boundaries; error envelope (Rondo-STD-108) standardizes failure modes",
+          "MCP server integration with Claude Code (Rondo-IFS-104): dispatch via tool calls; 14 tools for dispatch/status/history/retry/diff/analyze",
+          "Parallel dispatch with conflict detection + optional worktree isolation per task",
+          "Subprocess safety: CLAUDECODE env stripped, --bare flag (headless), no interactive input required",
+          "Result spool (mailbox pattern) for unattended batch pickup; TTL cleanup; stateless persistence (no database)",
+          "Transparent audit trail: dispatch history, cost per model, reliability metrics (success rate, token counts)",
+          "Result formats: structured JSON by default; dry-run preview before execution",
+          "Three-field contract: Do (what to run) / Read (what data needed) / Done (when done)"
+        ],
+        "weaknesses": [
+          "Limited to prompt-in/structured-output-out; no stateful multi-turn conversation loops (by design — conversation is interactive)",
+          "No built-in tool ecosystem (hundreds of tools). Tools are caller's responsibility (Rondo routes prompts, doesn't execute tools)",
+          "No RAG/vector database integration (orthogonal concern; Rondo doesn't manage knowledge bases)",
+          "No native human-in-the-loop UI (design decision: overnight runs must be unattended; human checkpoints handled by caller)",
+          "Graph-based orchestration limited (Rondo is task dispatch, not state machine graphs); for complex branching logic, caller must orchestrate via code",
+          "Streaming output is provided for interactive dispatch but not optimized for token-by-token UI updates (result batched from subprocess)",
+          "No memory persistence across sessions (stateless by design; caller manages session state if needed)",
+          "Learning curve for YAML round file syntax + execution mode semantics; not as intuitive as role-based frameworks",
+          "Small ecosystem compared to LangChain + LangGraph (no third-party integrations yet)",
+          "Overnight scheduling is local-only (cron/LaunchAgent); no cloud scheduler support",
+          "No native container/distributed execution (dispatches via Claude CLI subprocess; scales horizontally via parallel workers, not containers)"
+        ],
+        "overlap_with_rondo": "RONDO directly competes with LangGraph, CrewAI, and AutoGen in orchestrating multi-model AI tasks. All four frameworks enable: (1) routing work to multiple AI providers, (2) structured result contracts, (3) error handling + retries, (4) cost tracking. All support Python async/parallel execution. LangGraph and RONDO both emphasize deterministic, auditable execution; CrewAI emphasizes developer velocity; AutoGen emphasizes dialogue-driven reasoning. RONDO's differentiator is zero external dependencies + overnight unattended automation + cost gating (critical for Mark's 24/7 research cycles on Usher Syndrome and ACE automation).",
+        "rondo_advantage": "RONDO's niche advantage: (1) **Zero-dependency dispatch** — install Rondo, Python 3.12+, and you dispatch immediately. LangGraph/CrewAI/AutoGen all require heavy dependency stacks (langchain, pydantic, requests, etc.). (2) **Overnight automation with cost control** — RONDO's only framework designed for unattended 6-hour batch runs with usage gating, watchdog, rate limit backoff. LangGraph is interactive/observable; CrewAI and AutoGen are conversation-driven. (3) **MCP-first design** — RONDO's Rondo-IFS-104 spec embeds 14 MCP tools natively into Claude Code workflow. LangGraph's LangSmith is separate platform/cost. (4) **Operational simplicity** — YAML task definitions, no graph config syntax; execution modes hide where/how code runs from the caller. (5) **Subprocess safety** — CLAUDECODE stripping, --bare headless mode, explicit auth switching (Max plan vs API key) prevent nested session hangs and API key leaks. (6) **Cost transparency** — RONDO tracks cost per model, effort level, daily spend, overage events; baked into every dispatch (Rondo-STD-105). LangGraph/CrewAI require external monitoring.",
+        "gaps_rondo_should_close": [
+          "Built-in tool ecosystem: RONDO dispatches text; it doesn't execute tools. Borrowing CrewAI's approach (E2B sandbox, MCP tool server, code execution wrappers) would unlock 'dispatch agent code + get back results' without caller writing tool wrapper loops. ~80-120 hours to integrate 5 canonical tools (web search, code execution, file ops, vector DB query, shell).",
+          "Graph-based branching: RONDO-REQ-101 adds parallel + overnight, but no conditional edges. If task A fails, run B else run C. Currently caller must orchestrate via code/Python API. LangGraph's conditional_edges pattern is powerful. Adding opt-in DAG branching (Rondo-REQ-201?) would let YAML rounds declare: task_a -> [success: task_b, failure: task_c]. ~40-60 hours.",
+          "Stream-optimized output: Subprocess dispatch batches results; interactive dispatch doesn't stream tokens live. For interactive REPL review loops (Claude Code), token-by-token streaming to UI is expected. Rondo-REQ-107 (streaming spec) planned but not implemented. ~30-40 hours.",
+          "Session memory / multi-turn context stacking: RONDO is single-shot dispatch. For iterative workflows ('review code, AI fixes, review again'), caller manages turn-by-turn context. Adding a Context Stack layer (Rondo-REQ-108) with implicit multi-turn message threading would enable 'ask same agent to iterate' without explicit round-per-turn. ~60-80 hours.",
+          "Container / distributed scaling: RONDO scales to ~4 parallel workers via ThreadPoolExecutor. For 100+ concurrent dispatches, caller must orchestrate multiple Rondo instances. K8s/container-ready patterns (task queue, worker pods) would enable large-scale overnight runs. ~120-180 hours.",
+          "Hosted platform / cloud scheduler: RONDO's overnight runs are local (cron/LaunchAgent). Offering 'schedule round file on Rondo cloud' (like LangSmith) would unlock non-technical user access. ~160-200 hours + hosting costs.",
+          "RAG / knowledge base context injection: RONDO doesn't query vector stores or manage knowledge bases. Adding optional Retrieval Gate (Rondo-REQ-109?) that fetches context before dispatch ('pass top-3 docs from Pinecone into prompt') would support document-grounded tasks. ~40-60 hours.",
+          "Human-in-the-loop UI: RONDO's checkpoint is callback-based (caller's responsibility). Adding a lightweight approval web UI ('click to resume after AI output') would unlock interactive overnight workflows. ~80-120 hours."
+        ],
+        "sources": [
+          "https://www.langchain.com/langgraph",
+          "https://docs.langchain.com/oss/python/langgraph/overview",
+          "https://latenode.com/blog/ai-frameworks-technical-infrastructure/langgraph-multi-agent-orchestration/langgraph-multi-agent-orchestration-complete-framework-guide-architecture-analysis-2025",
+          "https://github.com/crewaiinc/crewai",
+          "https://docs.crewai.com/",
+          "https://www.firecrawl.dev/blog/crewai-multi-agent-systems-tutorial",
+          "https://blog.crewai.com/agentic-systems-with-crewai/",
+          "https://crewai.com/open-source",
+          "https://microsoft.github.io/autogen/docs/Use-Cases/agent_chat/",
+          "https://arxiv.org/abs/2308.08155",
+          "https://datacamp.com/tutorial/crewai-vs-langgraph-vs-autogen",
+          "https://aaronyuqi.medium.com/first-hand-comparison-of-langgraph-crewai-and-autogen-30026e60b563",
+          "https://www.instinctools.com/blog/autogen-vs-langchain-vs-crewai/",
+          "https://latenode.com/blog/platform-comparisons-alternatives/automation-platform-comparisons/langgraph-vs-autogen-vs-crewai-complete-ai-agent-framework-comparison-architecture-analysis-2025",
+          "https://pecollective.com/blog/ai-agent-frameworks-compared/",
+          "https://pooya.blog/blog/crewai-vs-langgraph-autogen-comparison-2026/",
+          "https://galileo.ai/blog/mastering-agents-langgraph-vs-autogen-vs-crew",
+          "https://www.examcert.app/blog/langgraph-vs-crewai-vs-autogen-agent-frameworks-2026/",
+          "https://lushbinary.com/blog/langgraph-vs-crewai-vs-autogen-ai-agent-comparison/",
+          "https://www.buildmvpfast.com/blog/langgraph-vs-crewai-vs-autogen-vs-swarms-agent-frameworks-2026/",
+          "https://zenml.io/blog/langgraph-pricing",
+          "https://www.langchain.com/pricing-langgraph-platform",
+          "https://www.metacto.com/blogs/langgraph-pricing-explained-a-deep-dive-into-integration-maintenance-costs",
+          "https://deps.dev/pypi/langgraph/0.1.19/dependencies?filter=license%3A%22MIT%22",
+          "https://www.ibm.com/think/topics/langgraph",
+          "https://pypi.org/project/crewai/",
+          "https://docs.crewai.com/en/installation",
+          "https://pypi.org/project/crewai-tools/",
+          "https://deepwiki.com/lymanzhang/crewAI/2-getting-started",
+          "https://deepwiki.com/crewAIInc/crewAI/1.1-getting-started",
+          "https://www.leanware.co/insights/crewai-tools-guide",
+          "https://microsoft.github.io/autogen/stable//user-guide/autogenstudio-user-guide/installation.html",
+          "https://pypi.org/project/autogenstudio/",
+          "https://github.com/microsoft/autogen",
+          "https://pypi.org/project/autogen/",
+          "https://microsoft.github.io/autogen/0.2/docs/installation/",
+          "https://autogenhub.github.io/autogen/docs/installation/Optional-Dependencies/",
+          "https://deepwiki.com/lymanzhang/crewAI/2-getting-started",
+          "https://gurusup.com/blog/best-multi-agent-frameworks-2026",
+          "https://is4.ai/blog/our-blog-1/top-12-multi-agent-ai-frameworks-2026-335",
+          "https://servicesground.com/blog/ai-orchestration-frameworks-comparison/",
+          "https://fungies.io/ai-agent-orchestration-developers-guide-2026/",
+          "https://www.spaceo.ai/blog/agentic-ai-frameworks/",
+          "https://www.ema.ai/additional-blogs/addition-blogs/multi-agent-orchestration-platforms-guide",
+          "https://www.augmentcode.com/tools/multi-agent-orchestration-platforms-build-vs-buy"
+        ]
+      }
+    ],
+    "synth": {
+      "executive_summary": "RONDO has achieved strong foundational stability and operational maturity in 8 weeks (102 commits, 1747 passing tests, 68.5% dispatch success rate). Core strengths: zero-dependency dispatch, cost-aware multi-provider routing, overnight automation, audit trail completeness, and MCP integration. Competitive position is secure against LangGraph/CrewAI in the \"unattended batch AI\" niche. However, three critical blockers prevent production-scale reliability: (1) Opus 4.8 adapter incompatibility (temperature field + missing effort parameter), (2) Subprocess authentication fragility (13% malformed JSON, \"Not logged in\" failures), (3) Distributed auto_reconcile race condition (INTENT/IN-FLIGHT/DONE state machine not atomic). Additionally, 5 feature gaps (provider registry auto-refresh, effort-level API exposure, distributed idempotency, structured logging adoption, HTTP retry/breaker parity) are preventing USH research and downstream adoption. Recommendations below prioritize: P0 (stability/bugs), P1 (high-value, unblocks research), P2 (nice-to-have ecosystem polish). Effort estimates account for existing test infrastructure and partial implementations (RONDO-209-295 work provides foundation).",
+      "rondo_niche": "RONDO owns the \"structured, cost-aware, unattended multi-provider AI dispatch framework\" niche. Competitors (LangGraph, CrewAI, AutoGen) target interactive agent reasoning; Claude Agent SDK targets interactive MCP workflows; Aider targets developer pair-programming. RONDO's monopoly: (1) zero external dependencies (fastest to install/security), (2) $0 Max plan auth mode (cost control for night-shift labs), (3) built-in overnight phase scheduling + watchdog + spool mailbox (no cron/job-queue learning curve), (4) cost gating + circuit breakers (protect budget-constrained research), (5) three-field Do/Read/Done contract + audit trail (repeatable workflows across projects). Defensibility: low barriers to copy individual features, but ecosystem lock-in is weak. Growth path: serve research teams (ACE, Usher Syndrome, OB labs) with native cost tracking + effort levels for large-scale AI experiments.",
+      "top_recommendations": [
+        {
+          "title": "Fix Opus 4.8 HTTP 400 Blocker (temperature + effort parameters)",
+          "rationale": "June 3 blocker: anthropic_api.py sends temperature field to Opus 4.8 (forbidden when thinking enabled), gets HTTP 400, swallows error body. Prevents 4.6→4.8 generational testing (Mark's experimental baseline). Root cause: adapter built for Opus 4.6 contract (manual thinking budget), not 4.8 (adaptive thinking + output_config.effort). Blocks PROTOCOL-driven research comparisons across models.",
+          "target_spec": "Rondo-REQ-109-provider-adapters (req 015-020: HTTP adapter payload contract)",
+          "effort": "M",
+          "priority": "P0",
+          "source_phase": "P2 USH Syndrome (June 3 failure, RONDO-OPUS48-FIX-REPORT.md)"
+        },
+        {
+          "title": "Wire effort parameter into API adapters (low/medium/high/xhigh/max)",
+          "rationale": "Mark wants to auto-sweep effort levels via rondo_cloud (PROTOCOL.md effort axis), but API path ignores RondoConfig.effort — only CLI /effort works. Blocks automated effort-matrix experiments (single prompt × 3 effort levels × 4 models). Required for Opus 4.8 (output_config.effort), beneficial for cost-quality tradeoff testing on all models.",
+          "target_spec": "Rondo-REQ-109-provider-adapters (new req: effort-to-output_config mapping)",
+          "effort": "M",
+          "priority": "P1",
+          "source_phase": "P1 Usage Mining (Mark's PROTOCOL requirement) + P2 API scan (Opus 4.8 feature)"
+        },
+        {
+          "title": "Implement distributed auto_reconcile locking (INTENT/IN-FLIGHT/DONE atomic transitions)",
+          "rationale": "P1 Usage Mining Finding #257 (HIGH by Gemini + Grok): INTENT/IN-FLIGHT/DONE state transitions not atomic. Concurrent workers see stale JSONL view, mark valid in-flight requests as 'stuck', re-dispatch duplicates. Root cause: filesystem-based state machine without distributed locking. Blocks multi-process deployments, limits overnight batch scale (current 4 parallel workers). Affects AuditTrail.auto_reconcile() logic (audit.py lines 558-614).",
+          "target_spec": "Rondo-STD-110-concurrency-safety (req 041-045: distributed locking)",
+          "effort": "L",
+          "priority": "P0",
+          "source_phase": "P1 Usage Mining (Phase D external review, Finding #257)"
+        },
+        {
+          "title": "Stop swallowing HTTP error response bodies in anthropic_api.py",
+          "rationale": "June 3 diagnostic blocker: exc.read() called but discarded in HTTPError handler (line 154 of anthropic_api.py). Returns generic 'HTTP 400: Bad Request' instead of provider's detailed JSON error. Mark spent 3x diagnostic effort to reach 'temperature field is forbidden.' Adding exc.read().decode() to except block + logging provides full context. Low-effort, high-value for debugging.",
+          "target_spec": "Rondo-STD-108-error-resilience (new req: error response body capture)",
+          "effort": "S",
+          "priority": "P0",
+          "source_phase": "P2 Live Runtime (anthropic_api.py behavior audit)"
+        },
+        {
+          "title": "Add provider model registry auto-refresh (daily cache + drift report)",
+          "rationale": "P2 USH Syndrome friction: Mark manually maintains ~/.rondo/config.toml model names (gpt-4.1 retired Feb 2026, now gpt-5.4-thinking). No auto-detection. Each provider has /v1/models endpoint. Add daily cron (or on-demand CLI) that caches provider model lists, compares against config.toml, emits 'drift report' warning if model names are stale. Prevents 404 failures on next dispatch.",
+          "target_spec": "Rondo-REQ-111-smart-dispatch (new req: model registry cache + drift detection)",
+          "effort": "M",
+          "priority": "P1",
+          "source_phase": "P2 USH Syndrome (.claude/rules/rondo-ush-profiles.md, low confidence model names)"
+        },
+        {
+          "title": "Capture diagnostic context in error records (stderr, CLI args, env state)",
+          "rationale": "P2 Live Runtime: 103 ERR_SUBPROCESS records have cost_usd=0, duration=0.3s (early crash) but no stderr captured. Cannot distinguish: missing claude binary, permission issue, bad args. Error records show error_code only, no diagnostic snippet. Adding stderr capture to error audit records + environment state (AUTH mode, CLAUDECODE check) enables remote debugging without code inspection.",
+          "target_spec": "Rondo-STD-113-dispatch-audit-trail (req 003-010: OUTCOME record schema enhancement)",
+          "effort": "M",
+          "priority": "P1",
+          "source_phase": "P2 Live Runtime (audit trail analysis, 103 ERR_SUBPROCESS opacity)"
+        },
+        {
+          "title": "Implement HTTP retry + circuit breaker for all provider adapters (parity with ChatCompletions)",
+          "rationale": "P1 Usage Mining Finding #234: ChatCompletionsAdapter has full retry/breaker wiring via retry.py + circuit breaker. Gemini + Anthropic adapters have none. Finding #250 (intermittent provider failures) patches via skip-on-transient (masking flakiness). Proper retry with exponential backoff + circuit breaker pattern (OpenCircuit/HalfOpen/Closed states) needed to survive provider hiccups. Blocks reliable overnight batches.",
+          "target_spec": "Rondo-STD-108-error-resilience (req 008-012: provider-side retry + breaker)",
+          "effort": "L",
+          "priority": "P1",
+          "source_phase": "P1 Usage Mining (Finding #234, #250)"
+        },
+        {
+          "title": "Fix subprocess auth fragility (restore session state between turns)",
+          "rationale": "P2 Live Runtime: 113 dispatches (13.3%) fail with ERR_MALFORMED_JSON + 'Not logged in' in raw_output. claude -p subprocess loses auth mid-execution. Affects multi-turn workflows (max_turns=5 setting is ineffective). Root cause: subprocess doesn't re-authenticate or detect auth timeout, continues with stale tokens. Adding session-state validation before each turn + auth refresh loop improves reliability from 68.5% to ~85%.",
+          "target_spec": "Rondo-IFS-100-claude-cli (new req: multi-turn auth recovery)",
+          "effort": "M",
+          "priority": "P0",
+          "source_phase": "P2 Live Runtime (13% malformed JSON + 'Not logged in' failures)"
+        },
+        {
+          "title": "Adopt structured logging into dispatch + provider adapters",
+          "rationale": "P1 Usage Mining Finding #242: structured_logging.py built but unused. dispatch.py, mcp_dispatch.py, providers.py still use plain logger (no correlation_id, request_id missing in logs). Finding #259: AuditRecord missing request_id. Wiring structured logger with correlation_id into core dispatch path enables: request tracing, cross-provider log correlation, audit event sequencing. Unlocks Feature Gap: distributed tracing for multi-hop workflows.",
+          "target_spec": "Rondo-STD-101-observability (req 007-012: structured logging adoption)",
+          "effort": "M",
+          "priority": "P1",
+          "source_phase": "P1 Usage Mining (Finding #242, #259)"
+        },
+        {
+          "title": "Add cost field population on error/timeout paths (not just done status)",
+          "rationale": "P2 Live Runtime: 164 error records have cost_usd=0, input_tokens=0 even when duration_sec > 0. Dispatch encountered provider failure but cost impact is invisible. dispatch.py only populates cost on successful API response (line 351), skips on error path. Adding cost capture from error responses (if provider returns tokens before error) + timeout-based cost estimation (min per-request overhead per provider) improves cost accuracy for retry decisions.",
+          "target_spec": "Rondo-STD-105-ai-operations (req 012-015: cost tracking on all paths)",
+          "effort": "S",
+          "priority": "P1",
+          "source_phase": "P2 Live Runtime (error cost tracking gaps)"
+        },
+        {
+          "title": "Implement distributed idempotency cache (cross-process request deduplication)",
+          "rationale": "P1 Usage Mining Finding #241: idempotency.py cache is in-process only. Multi-process or distributed deployment re-dispatches duplicates on retries. Spec: add optional shared cache backend (Redis, SQLite, DynamoDB). Default: in-process (current). When multi-process enabled, check distributed cache before dispatching. Blocks scale-up of overnight batches beyond 4 workers.",
+          "target_spec": "Rondo-REQ-109-provider-adapters (new req: distributed cache interface)",
+          "effort": "M",
+          "priority": "P1",
+          "source_phase": "P1 Usage Mining (Finding #241)"
+        },
+        {
+          "title": "Add query optimization for audit trail (JSONL indexing + fast path for recent records)",
+          "rationale": "P1 Usage Mining: load_history() scans entire JSONL file (~847 records). For large-scale overnight batches (1000+ dispatches/night), full-file scans become slow. Adding optional SQLite index (task_name, model, status, date) + lazy-load option enables fast queries. Keep JSONL as append-only source-of-truth; index as read-side optimization. Blocks dashboard/monitoring use cases.",
+          "target_spec": "Rondo-REQ-104-dispatch-history (new req: index layer + query performance)",
+          "effort": "M",
+          "priority": "P2",
+          "source_phase": "P1 Usage Mining (scale prediction)"
+        },
+        {
+          "title": "Eliminate cyclic imports in MCP module family (fix Finding #254)",
+          "rationale": "P1 Usage Mining Finding #254: 11 cyclic dependencies remain in rondo/src despite RONDO-209 'fix' claim. Phase D reviewers flagged MEDIUM risk for multi-process/deployment stress. Root cause: mcp_dispatch imports dispatch which imports mcp_dispatch (indirect cycle). dispatch_routing.py extracted (RONDO-279) reduced risk but didn't eliminate. Adding import-order enforcement (test_conventions.py + tox hook) + breaking cycles by inversion (leaf-module-only imports in dispatch_routing) prevents future regressions.",
+          "target_spec": "Rondo-STD-111-code-quality (req 008-012: import layer enforcement)",
+          "effort": "S",
+          "priority": "P1",
+          "source_phase": "P1 Usage Mining (Finding #254, Phase D review)"
+        },
+        {
+          "title": "Implement provider dependency + timeout handling with explicit failure modes",
+          "rationale": "P2 USH Syndrome: April 20 rondo-hypotheses-review—Mistral did not dispatch (silent absence). Mark got 2 of 3 providers. Rondo should: (a) log why Mistral failed, (b) auto-retry with exponential backoff, (c) return partial results + explicit 'provider X missing' flag, (d) offer count adjustment if some fail. Blocks reliable multi-provider reviews for research.",
+          "target_spec": "Rondo-REQ-109-provider-adapters (new req: provider availability validation)",
+          "effort": "M",
+          "priority": "P1",
+          "source_phase": "P2 USH Syndrome (April 20 failure, silent provider absence)"
+        },
+        {
+          "title": "Add pre-dispatch dry-run cost/latency estimation (no provider call)",
+          "rationale": "P2 USH Syndrome PROTOCOL.md: Mark manually estimates cost before running. Rondo should: query provider pricing APIs (or cached lookup), return (estimated_cost, estimated_latency) BEFORE dispatching. Supports Mark's cost-capped experiment workflow. Also blocks budget-aware experiments where cost is a first-class design parameter.",
+          "target_spec": "Rondo-REQ-103-dispatch-preflight (new req: cost pre-estimation)",
+          "effort": "L",
+          "priority": "P1",
+          "source_phase": "P2 USH Syndrome (PROTOCOL.md cost awareness)"
+        },
+        {
+          "title": "Implement optional blind-scoring workflow (hide model/provider metadata until scoring)",
+          "rationale": "P2 USH Syndrome FINDINGS.md: Mark manually scored 5 outputs without model names visible to avoid bias. To scale multi-model experiments, Rondo could auto-hide metadata until after rubric submission. Add --blind flag: randomize output filenames, strip headers, store mapping in sealed file, re-reveal only after scoring submitted. Enables rigorous comparison.",
+          "target_spec": "Rondo-REQ-111-smart-dispatch (new req: result anonymization)",
+          "effort": "M",
+          "priority": "P2",
+          "source_phase": "P2 USH Syndrome (FINDINGS.md scoring methodology)"
+        },
+        {
+          "title": "Add native effort-sweep and noise-floor estimation (--replicates=N flag)",
+          "rationale": "P2 USH Syndrome FINDINGS.md: 'n=1 per cell (single runs are noisy).' Rondo should accept --replicates=3: run same prompt 3x and return (mean, stdev, range). Helps identify stable vs noisy cells. Also effort-sweep (auto-run low/med/high/max on all models simultaneously) to measure effort's effect on quality. Blocks cost-quality tradeoff analysis.",
+          "target_spec": "Rondo-REQ-107-task-flakiness (new req: replication + sweep)",
+          "effort": "M",
+          "priority": "P2",
+          "source_phase": "P2 USH Syndrome (FINDINGS.md noise floor discussion)"
+        },
+        {
+          "title": "Expose Rondo MCP tools via Claude Code session (subagent or workflow integration)",
+          "rationale": "P2 Claude Code scan: Claude Code agent teams + subagents now support dynamic YAML. Rondo should emit subagent definitions (custom prompt + rondo_run tool) so Mark can invoke 'dispatch this research task' from within Claude Code without leaving the IDE. Currently Rondo is a separate CLI; integrating as Claude Code subagent makes it first-class for interactive workflows.",
+          "target_spec": "Rondo-IFS-104-mcp-server (new req: subagent template definitions)",
+          "effort": "M",
+          "priority": "P2",
+          "source_phase": "P2 Claude Code scan (agent teams feature)"
+        },
+        {
+          "title": "Add message batching API support (50% cost reduction for overnight)",
+          "rationale": "P2 Claude Code scan: Anthropic batch API launched (50% discount on input+output, most complete <1hr). Rondo should auto-route overnight dispatches (status=planned_for_tomorrow) to batch API instead of Messages API. Requires custom_id generation (task_id), result polling. Saves 50% on overnight research runs.",
+          "target_spec": "Rondo-REQ-109-provider-adapters (new req: batch API routing)",
+          "effort": "M",
+          "priority": "P2",
+          "source_phase": "P2 Claude Code scan (Anthropic batch API feature)"
+        }
+      ],
+      "stability_actions": [
+        {
+          "action": "Immediately merge Opus 4.8 adapter fix (temperature field removal + effort parameter wiring) to unblock generational testing.",
+          "rationale": "June 3 blocker prevents Mark from running PROTOCOL-driven research (baseline + generational comparison). Fix is low-effort (2-3 commits), high-impact (unblocks USH research). anthropic_api.py: (1) strip temperature/top_p/top_k from payload for thinking-enabled models, (2) wire RondoConfig.effort → output_config.effort, (3) add exc.read().decode() to HTTPError handler for diagnostic clarity."
+        },
+        {
+          "action": "Add fcntl.flock-based distributed locking to auto_reconcile() in audit.py (atomic INTENT/IN-FLIGHT/DONE transitions).",
+          "rationale": "P0 stability blocker: concurrent workers see stale JSONL state, re-dispatch stuck requests (duplicate cost, confusing results). Phase D reviewers flagged this HIGH. Lock during dispatch_id lookup and state transition (lines 561-570 in audit.py) to ensure only one worker claims an INTENT. Fallback graceful-fail on lockfile unavailable (Windows/NFS). Test with >20 concurrent dispatches."
+        },
+        {
+          "action": "Capture stderr + environment state in error records (ERR_SUBPROCESS opacity fix).",
+          "rationale": "13% dispatch failure rate (113 records) with zero diagnostic context. subprocess.run() provides stderr; add to dispatch.py error path (lines 629-630). Also capture AUTH mode, CLAUDECODE env value, subprocess startup args. Enables remote debugging without code inspection."
+        },
+        {
+          "action": "Fix subprocess auth state recovery (session validation + token refresh between turns).",
+          "rationale": "13.3% malformed JSON failures ('Not logged in'). Before each turn, validate claude -p session is authenticated. If not, run /login silently or re-spawn subprocess. Currently max_turns=5 is ineffective due to auth loss. Add session_is_valid() helper + auth_refresh_if_needed() before turn N>1."
+        },
+        {
+          "action": "Implement HTTP retry with exponential backoff for Gemini + Anthropic adapters (parity with ChatCompletions).",
+          "rationale": "Finding #234 showed ChatCompletionsAdapter has full retry wiring; others don't. Finding #250 (intermittent provider failures) is masked by skip-on-transient. Proper retry (3 attempts, 1s/4s/16s backoff, jitter) + circuit breaker pattern (trip on 5 consecutive failures, half-open after 60s) needed for production reliability."
+        },
+        {
+          "action": "Add structured logging with correlation_id to dispatch.py + provider adapters (Finding #242 adoption).",
+          "rationale": "structured_logging.py is built but unused. Core dispatch paths still use plain logger. Wire structured logger with correlation_id (generate UUID per dispatch_id) into mcp_dispatch._rondo_run_inner + all provider.dispatch() calls. Enables request tracing + audit event sequencing."
+        }
+      ],
+      "quick_wins": [
+        "Remove hardcoded [:2000] truncation in mcp_dispatch.py (Finding #258 — buried response slice breaking Phase D). Single-line delete.",
+        "Add exc.read().decode() + logging to HTTPError handler in anthropic_api.py. Exposes full error bodies (Opus 4.8 'temperature forbidden' now visible). 3-line fix.",
+        "Lazily-load dispatch_routing + round_loader in allowed_imports allowlist (test_conventions.py) to prevent future Finding #271-style violations. 2-line change.",
+        "Auto-populate request_id in error records (audit.py, lines 322-326 already propagate for DONE; extend to error/blocked status). Enables cross-retry tracing for all status types.",
+        "Add cost_usd field population on error path using minimum provider overhead estimate (vs current 0). dispatch.py lines 629-630: estimate = min_cost_per_request.get(provider, 0.001). Improves cost visibility for retry budgeting.",
+        "Update RONDO-REFERENCE.md CLI command count (RONDO-290 added version --bump, updated count from 26→27 commands). Documentation drift fix.",
+        "Backfill request_id for old audit records (retroactive in-place update of rondo_audit.jsonl via migration script). Takes <10s, improves traceability for historical replay."
+      ]
+    }
+  }
+}

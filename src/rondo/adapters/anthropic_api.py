@@ -16,6 +16,18 @@ Health strategy (REQ-109 req 073):
     HEAD request to base_url/messages — returns 405 (Method Not Allowed)
     which proves API is reachable. Key-present-only is NOT sufficient
     per REQ-109 req 072. Any non-timeout response = healthy.
+
+Thinking-default models (REQ-109 reqs 200-205, RONDO-296):
+    Opus 4.8-era models use adaptive thinking. Their request contract differs
+    from classic (4.6-era) models:
+      - temperature/top_p/top_k are REJECTED (HTTP 400) — omitted entirely
+      - thinking: {"type": "adaptive"} requested (manual budget_tokens rejected)
+      - output_config: {"effort": low|medium|high|xhigh|max} controls depth
+    Classic models keep the proven temperature payload (req 202).
+
+anthropic-version (REQ-109 req 206): "2023-06-01" verified current as of
+    2026-06-03 — new fields (output_config, adaptive thinking) gate on the
+    MODEL, not the version date. Do not bump without re-verifying docs.
 """
 
 from __future__ import annotations
@@ -25,6 +37,7 @@ import logging
 import time
 import urllib.error
 import urllib.request
+from fnmatch import fnmatch
 from typing import Any
 
 from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
@@ -32,6 +45,10 @@ from rondo.provider_base import ProviderAdapter
 from rondo.retry import get_circuit_breaker, retry_http
 
 logger = logging.getLogger(__name__)
+
+# -- REQ-109 req 200 (RONDO-296): models that use adaptive thinking (4.8-era contract).
+# -- Config-overridable via constructor; these are the built-in defaults.
+DEFAULT_THINKING_MODEL_PATTERNS: tuple[str, ...] = ("claude-opus-4-8", "claude-*-4-8")
 
 
 class AnthropicAPIAdapter(ProviderAdapter):
@@ -46,12 +63,27 @@ class AnthropicAPIAdapter(ProviderAdapter):
         temperature: float = 0.2,
         max_tokens: int = 8192,  # -- RONDO-209 #247: bumped from 4096
         base_url: str = "https://api.anthropic.com/v1",
+        effort: str = "high",  # -- REQ-109 req 205: adapter-level effort default
+        thinking_models: list[str] | None = None,  # -- REQ-109 req 200: pattern override
     ) -> None:
         self.api_key = api_key
         self.default_model = default_model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.base_url = base_url.rstrip("/")
+        self.effort = effort
+        self.thinking_models: list[str] = (
+            list(thinking_models) if thinking_models is not None else list(DEFAULT_THINKING_MODEL_PATTERNS)
+        )
+
+    def is_thinking_model(self, model: str) -> bool:
+        """Classify a model as thinking-default — REQ-109 req 200 (RONDO-296).
+
+        Thinking-default models (Opus 4.8 era) reject temperature/top_p/top_k
+        and use adaptive thinking + output_config.effort. fnmatch patterns so
+        config can say "claude-*-4-8" once instead of listing every variant.
+        """
+        return any(fnmatch(model, pattern) for pattern in self.thinking_models)
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Anthropic Messages API, return TaskResult.
@@ -86,14 +118,24 @@ class AnthropicAPIAdapter(ProviderAdapter):
             )
 
         url = f"{self.base_url}/messages"
-        payload = {
+        payload: dict[str, Any] = {
             "model": use_model,
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
             "messages": [
                 {"role": "user", "content": prompt},
             ],
         }
+        if self.is_thinking_model(use_model):
+            # -- REQ-109 reqs 201/203/204 (RONDO-296): thinking-default contract.
+            # -- temperature/top_p/top_k are REJECTED by 4.8-era models (HTTP 400
+            # -- "temperature may only be set to 1 when thinking is enabled") — omit.
+            # -- Adaptive thinking only; manual budget_tokens is also rejected.
+            # -- Effort COALESCE (req 205): per-dispatch → adapter default → "high".
+            payload["thinking"] = {"type": "adaptive"}
+            payload["output_config"] = {"effort": kwargs.get("effort") or self.effort or "high"}
+        else:
+            # -- REQ-109 req 202: classic (4.6-era) models keep the proven payload
+            payload["temperature"] = self.temperature
         headers = {
             "Content-Type": "application/json",
             "x-api-key": self.api_key,
@@ -168,11 +210,28 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 breaker.record_failure("anthropic")
             else:
                 error_code = ERR_PROVIDER
+            # -- STD-108 reqs 011-014 (RONDO-296): include response body snippet.
+            # -- Port of RONDO-287 (Finding #270) pattern from gemini/chat_completions —
+            # -- this was the ONE adapter missing it. The 400 body names the exact
+            # -- cause (e.g. "temperature may only be set to 1 when thinking is
+            # -- enabled"); without it diagnosis is archaeology. Best-effort: a
+            # -- failed read falls back to the status line (req 014).
+            body_snippet = ""
+            try:
+                body_bytes = exc.read() or b""
+                body_snippet = body_bytes.decode("utf-8", errors="replace")[:500]
+                if self.api_key and self.api_key in body_snippet:
+                    body_snippet = body_snippet.replace(self.api_key, "[REDACTED]")
+            except (OSError, AttributeError):
+                body_snippet = ""
+            err_msg = f"Anthropic HTTP {exc.code}: {exc.reason}"
+            if body_snippet:
+                err_msg = f"{err_msg} | body: {body_snippet}"
             return TaskResult(
                 task_name=task_name,
                 status="error",
                 error_code=error_code,
-                error_message=f"Anthropic HTTP {exc.code}: {exc.reason}",
+                error_message=err_msg,
                 model=use_model,
                 duration_sec=duration,
             )
@@ -216,8 +275,12 @@ class AnthropicAPIAdapter(ProviderAdapter):
             return False
 
     def models(self) -> list[str]:
-        """Available Claude models via API."""
-        return ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
+        """Available Claude models via API — REQ-109 req 207: include active generation.
+
+        A list that omits the routed best_model (4-8) misleads health/benchmark
+        tooling into thinking the active model is unavailable.
+        """
+        return ["claude-opus-4-8", "claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
 
 
 # -- sig: mgh-6201.cd.bd955f.a109.d03004

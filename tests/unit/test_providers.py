@@ -1066,4 +1066,160 @@ class TestProviderConfigWiring:
             mock_load.assert_called()
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-296: Opus 4.8 compatibility
+# --  STD-108 reqs 011-014 (error-body capture) + REQ-109 reqs 200-207
+# -- ──────────────────────────────────────────────────────────────
+
+
+def _anthropic_http_error(code: int, reason: str, body: bytes | None):
+    """Build an HTTPError the way urllib raises it — fp carries the response body."""
+    import io
+    import urllib.error
+
+    fp = io.BytesIO(body) if body is not None else None
+    return urllib.error.HTTPError("https://api.anthropic.com/v1/messages", code, reason, {}, fp)
+
+
+class _FakeHTTPResponse:
+    """Minimal context-manager response for payload-capture tests."""
+
+    def __init__(self, payload: dict) -> None:
+        import json
+
+        self._data = json.dumps(payload).encode("utf-8")
+
+    def read(self) -> bytes:
+        return self._data
+
+    def __enter__(self) -> "_FakeHTTPResponse":
+        return self
+
+    def __exit__(self, *args: object) -> bool:
+        return False
+
+
+class TestAnthropicErrorBodyCapture:
+    """STD-108 reqs 011-014: surface the provider's HTTP error body.
+
+    Port of the RONDO-287 (Finding #270) pattern already in gemini.py and
+    chat_completions.py — anthropic_api.py was the one adapter missing it.
+    Driver: Opus 4.8 HTTP 400 whose body named the exact cause but was discarded.
+    """
+
+    def _dispatch_with_error(self, exc):
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test-key-123")
+        with patch("urllib.request.urlopen", side_effect=exc):
+            return adapter.dispatch(prompt="hello", model="claude-opus-4-8")
+
+    def test_400_body_included_in_error_message(self) -> None:
+        """STD-108 req 011: the body names the exact cause — surface it."""
+        body = b'{"error": {"message": "temperature may only be set to 1 when thinking is enabled"}}'
+        result = self._dispatch_with_error(_anthropic_http_error(400, "Bad Request", body))
+        assert result.status == "error"
+        assert "temperature may only be set to 1" in result.error_message
+
+    def test_body_capped_at_500_chars(self) -> None:
+        """STD-108 req 012: captured body capped at 500 chars."""
+        body = b"x" * 2000
+        result = self._dispatch_with_error(_anthropic_http_error(400, "Bad Request", body))
+        assert "x" * 500 in result.error_message
+        assert "x" * 501 not in result.error_message
+
+    def test_api_key_redacted_from_body(self) -> None:
+        """STD-108 req 012: error body passes credential redaction."""
+        body = b'{"error": "bad key test-key-123 rejected"}'
+        result = self._dispatch_with_error(_anthropic_http_error(401, "Unauthorized", body))
+        assert "test-key-123" not in result.error_message
+        assert "[REDACTED]" in result.error_message
+
+    def test_read_failure_falls_back_to_status_line(self) -> None:
+        """STD-108 req 014: body capture is best-effort — never masks the original error."""
+        result = self._dispatch_with_error(_anthropic_http_error(400, "Bad Request", None))
+        assert result.status == "error"
+        assert "400" in result.error_message
+
+
+class TestAnthropicThinkingModels:
+    """REQ-109 reqs 200-207: thinking-default payload (Opus 4.8 API contract)."""
+
+    def _capture_payload(self, model: str, **dispatch_kwargs) -> dict:
+        import json
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        captured: dict = {}
+
+        def fake_urlopen(req, timeout=0):  # noqa: ARG001
+            captured.update(json.loads(req.data.decode("utf-8")))
+            return _FakeHTTPResponse(
+                {
+                    "content": [{"type": "text", "text": "OK"}],
+                    "usage": {"input_tokens": 1, "output_tokens": 1},
+                }
+            )
+
+        adapter = AnthropicAPIAdapter(api_key="test")
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            adapter.dispatch(prompt="hello", model=model, **dispatch_kwargs)
+        return captured
+
+    def test_thinking_model_omits_temperature(self) -> None:
+        """REQ-109 req 201: temperature/top_p/top_k stripped for thinking models."""
+        payload = self._capture_payload("claude-opus-4-8")
+        assert "temperature" not in payload
+        assert "top_p" not in payload
+        assert "top_k" not in payload
+
+    def test_thinking_model_requests_adaptive_thinking(self) -> None:
+        """REQ-109 req 203: adaptive shape — never manual budget_tokens."""
+        payload = self._capture_payload("claude-opus-4-8")
+        assert payload.get("thinking") == {"type": "adaptive"}
+
+    def test_thinking_model_sends_effort(self) -> None:
+        """REQ-109 req 204: effort maps to output_config.effort on the API path."""
+        payload = self._capture_payload("claude-opus-4-8", effort="max")
+        assert payload.get("output_config", {}).get("effort") == "max"
+
+    def test_effort_defaults_to_high(self) -> None:
+        """REQ-109 req 205: COALESCE — per-dispatch → adapter config → 'high'."""
+        payload = self._capture_payload("claude-opus-4-8")
+        assert payload.get("output_config", {}).get("effort") == "high"
+
+    def test_classic_model_keeps_temperature(self) -> None:
+        """REQ-109 req 202: classic models keep the proven 4.6-era payload."""
+        payload = self._capture_payload("claude-sonnet-4-6")
+        assert "temperature" in payload
+        assert "thinking" not in payload
+        assert "output_config" not in payload
+
+    def test_thinking_patterns_config_overridable(self) -> None:
+        """REQ-109 req 200: pattern list is constructor-overridable, not hardcoded."""
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test", thinking_models=["my-custom-model"])
+        assert adapter.is_thinking_model("my-custom-model") is True
+        assert adapter.is_thinking_model("claude-opus-4-8") is False
+
+    def test_default_patterns_match_48_family(self) -> None:
+        """REQ-109 req 200: defaults cover the 4-8 family."""
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        adapter = AnthropicAPIAdapter(api_key="test")
+        assert adapter.is_thinking_model("claude-opus-4-8") is True
+        assert adapter.is_thinking_model("claude-haiku-4-8") is True
+        assert adapter.is_thinking_model("claude-sonnet-4-6") is False
+
+    def test_models_includes_current_best(self) -> None:
+        """REQ-109 req 207: models() must include the active generation."""
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        assert "claude-opus-4-8" in AnthropicAPIAdapter(api_key="test").models()
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

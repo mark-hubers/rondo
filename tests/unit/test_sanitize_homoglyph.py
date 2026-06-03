@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
-"""Homoglyph defense tests for sanitize_text — RONDO-292 (Finding #249).
+r"""Homoglyph defense tests for sanitize_text — RONDO-292 (Finding #249).
 
 VER-001: Product acceptance / unit test coverage.
 

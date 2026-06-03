@@ -66,8 +66,11 @@ class TestMultiReview:
         assert providers == ["local:qwen2.5:32b"]
 
     def test_bare_provider_names_resolve_via_default_tier(self) -> None:
-        """RONDO-287 regression: bare names like 'gemini' used to produce
-        'gemini:gemini' (HTTP 404). Must resolve via tier parameter."""
+        """Bare provider names resolve via the default tier — RONDO-287 regression.
+
+        Bare names like 'gemini' used to produce 'gemini:gemini' (HTTP 404).
+        Must resolve via the tier parameter.
+        """
         from rondo.mcp_server import rondo_multi_review
 
         result = json.loads(

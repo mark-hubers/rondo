@@ -343,4 +343,51 @@ def _cmd_providers(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_matrix(args: argparse.Namespace) -> int:
+    """Execute 'rondo matrix run|status|report|reveal' — REQ-113 req 060 (RONDO-308)."""
+    from rondo.matrix import (  # pylint: disable=import-outside-toplevel
+        MatrixError,
+        build_grid,
+        default_effort_capable,
+        estimate_grid_cost,
+        load_matrix,
+        matrix_report,
+        matrix_status,
+        reveal_matrix,
+        run_matrix_live,
+    )
+
+    try:
+        if args.action == "run":
+            spec = load_matrix(args.target)
+            cells = build_grid(spec, effort_capable=default_effort_capable)
+            est = estimate_grid_cost(cells, spec.prompt)
+            print(f"  matrix {spec.name}: {len(cells)} cells, estimated ${est:.3f}, budget ${spec.budget_usd:.2f}")
+            if getattr(args, "dry_run", False):
+                for c in cells:
+                    print(f"    {c['key']}")
+                return EXIT_SUCCESS
+            manifest = run_matrix_live(spec)
+            done = sum(1 for r in manifest["cells"].values() if r.get("status") == "done")
+            print(f"  -PASS- {done}/{len(manifest['cells'])} cells done, spent ${manifest['spent_usd']:.4f}")
+            print(matrix_report(spec.name))
+            return EXIT_SUCCESS
+        if args.action == "status":
+            print(json.dumps(matrix_status(args.target), indent=2))
+            return EXIT_SUCCESS
+        if args.action == "report":
+            print(matrix_report(args.target))
+            return EXIT_SUCCESS
+        if args.action == "reveal":
+            mapping = reveal_matrix(args.target)
+            for code, group in sorted(mapping.items()):
+                print(f"  {code}  =  {group}")
+            return EXIT_SUCCESS
+        print(f"Unknown matrix action: {args.action}", file=sys.stderr)
+        return EXIT_FAILURE
+    except (MatrixError, OSError, json.JSONDecodeError) as exc:
+        print(f"  -ERROR- matrix: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+
+
 # -- sig: mgh-6201.cd.bd955f.a4e5.32ef29

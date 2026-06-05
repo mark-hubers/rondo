@@ -63,7 +63,9 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     )
     parser.add_argument("--text", action="store_true", default=False, help="Plain text output (no JSON)")
     parser.add_argument("--model", default=None, help="Model override for inline prompt dispatch")
-    parser.add_argument("--dry-run", action="store_true", default=False, help="Inline prompt preview without live dispatch")
+    parser.add_argument(
+        "--dry-run", action="store_true", default=False, help="Inline prompt preview without live dispatch"
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -183,8 +185,18 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     prov_parser = subparsers.add_parser("providers", help="Show all configured providers with health status")
     prov_parser.add_argument("--json", action="store_true", help="JSON output")
     prov_parser.add_argument("--scores", action="store_true", help="Show learned provider scores")
-    prov_parser.add_argument("--refresh", action="store_true", help="Refresh model registry cache from provider endpoints (REQ-111 req 600)")
-    prov_parser.add_argument("--drift", action="store_true", help="Show config-vs-served drift report (REQ-111 req 602)")
+    prov_parser.add_argument(
+        "--refresh", action="store_true", help="Refresh model registry cache from provider endpoints (REQ-111 req 600)"
+    )
+    prov_parser.add_argument(
+        "--drift", action="store_true", help="Show config-vs-served drift report (REQ-111 req 602)"
+    )
+
+    # -- matrix subcommand (REQ-113 req 060, RONDO-308)
+    matrix_parser = subparsers.add_parser("matrix", help="Experiment matrix: model x effort x context grid (REQ-113)")
+    matrix_parser.add_argument("action", choices=["run", "status", "report", "reveal"], help="Matrix action")
+    matrix_parser.add_argument("target", help="run: matrix YAML path; others: matrix name")
+    matrix_parser.add_argument("--dry-run", action="store_true", help="Show grid + estimate without dispatching")
 
     # -- version subcommand (RONDO-290 Finding #266)
     ver_parser = subparsers.add_parser("version", help="Show version or bump build counter")

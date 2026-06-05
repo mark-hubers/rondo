@@ -263,4 +263,30 @@ class TestBaseline:
         assert "len×" in text or "len x" in text
 
 
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  Req 005: inputs interpolation (first real-use lesson)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestInputsInterpolation:
+    """REQ-113 req 005: file inputs substitute into {{name}} placeholders."""
+
+    def test_inputs_substituted(self, tmp_path: Path) -> None:
+        essay = tmp_path / "essay.md"
+        essay.write_text("THE ACTUAL ESSAY BODY", encoding="utf-8")
+        yaml_text = GOOD_YAML.replace('prompt: "Reply with exactly: OK"', 'prompt: "Split this: {{essay}}"')
+        yaml_text += f"inputs:\n  essay: {essay}\n"
+        spec = load_matrix(_write_yaml(tmp_path, yaml_text))
+        assert "THE ACTUAL ESSAY BODY" in spec.prompt
+        assert "{{essay}}" not in spec.prompt
+
+    def test_unresolved_placeholder_aborts(self, tmp_path: Path) -> None:
+        """A template must never be dispatched as if it were content."""
+        yaml_text = GOOD_YAML.replace('prompt: "Reply with exactly: OK"', 'prompt: "Split this: {{essay}}"')
+        with pytest.raises(MatrixError, match="unresolved"):
+            load_matrix(_write_yaml(tmp_path, yaml_text))
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a9.mx308a

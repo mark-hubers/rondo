@@ -133,6 +133,11 @@ class AnthropicAPIAdapter(ProviderAdapter):
             # -- Effort COALESCE (req 205): per-dispatch → adapter default → "high".
             payload["thinking"] = {"type": "adaptive"}
             payload["output_config"] = {"effort": kwargs.get("effort") or self.effort or "high"}
+            # -- REQ-109 req 210 (RONDO-308 learn-by-use #2): adaptive thinking
+            # -- tokens COUNT AGAINST max_tokens. At max effort on a long task an
+            # -- 8K cap can be consumed entirely by thinking → empty body
+            # -- (ERR_EMPTY_RESPONSE, real incident 2026-06-05). Floor 32K.
+            payload["max_tokens"] = max(self.max_tokens, 32000)
         else:
             # -- REQ-109 req 202: classic (4.6-era) models keep the proven payload
             payload["temperature"] = self.temperature

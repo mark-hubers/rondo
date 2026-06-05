@@ -6,7 +6,7 @@
 **Category:** REQ
 **Created:** 2026-03-20 | **Updated:** 2026-06-03 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.9
+**Version:** 2.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -253,6 +253,7 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 207 | `models()` MUST report current-generation model IDs sourced from config (`cheap_model`/`default_model`/`best_model` per `[providers.<name>]`), not a stale hardcoded list. A hardcoded list that omits the active `best_model` (e.g. listing `claude-opus-4-6` while config routes `claude-opus-4-8`) is a defect. | SHOULD | Models-currency test |
 | 208 | A provider that fails to dispatch OR returns no response in a multi-provider call (req 057) MUST be surfaced explicitly: logged with the reason (`error_code` + message) AND present in the result with `status="error"`/`"timeout"`. A provider MUST NEVER be silently dropped from results. (Real incident: USH cabinet review 2026-04-20 — Mistral vanished with no error; Mark received 2 of 3 with no indication the 3rd was attempted.) | MUST | No-silent-drop test |
 | 209 | ChatCompletions-API reasoning-class models (OpenAI `gpt-5*`, `o*`-series — pattern list config-overridable per req 200) MUST be sent `max_completion_tokens` instead of `max_tokens`, and MUST NOT be sent `temperature`. Classic ChatCompletions models (gpt-4.x era) keep the proven `max_tokens` + `temperature` payload. (Real incident 2026-06-05: gpt-5.5 canary → HTTP 400 `"Unsupported parameter: 'max_tokens'... Use 'max_completion_tokens'"` — same new-generation contract-change class as the Opus 4.8 failure, diagnosed in one call thanks to STD-108 req 011 error-body capture.) | MUST | Reasoning-payload test |
+| 210 | Thinking-default models MUST get output-budget HEADROOM: adaptive thinking tokens count against `max_tokens`, so a thinking dispatch at high/xhigh/max effort with a classic 8K cap can spend the entire budget thinking and return an EMPTY body (`ERR_EMPTY_RESPONSE`). For thinking models the adapter SHALL use `max(configured max_tokens, 32000)`. (Real incident 2026-06-05: opus-4.8-max on a 60KB essay returned empty twice; opus-4.8-low succeeded.) | MUST | Headroom test |
 
 
 ### Affinity Tracking (learn which model is best)
@@ -924,6 +925,7 @@ $ rondo providers --scores
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 2.0 | 2026-06-05 | **Req 210: thinking output headroom** — adaptive thinking consumes max_tokens; max-effort + long task + 8K cap = empty body. Floor 32K for thinking models. Found by the FIRST real experiment-matrix run. |
 | 1.9 | 2026-06-05 | **Req 209: ChatCompletions reasoning-class payload (gpt-5*/o*-series): max_completion_tokens, no temperature.** Live gpt-5.5 canary 400'd with explicit body via STD-108 011 capture. |
 | 1.8 | 2026-06-03 | **Thinking-model adapters + effort control (Session 102 — Opus 4.8 audit).** Added reqs 200-208: thinking-default model classification (200), strip temperature/top_p/top_k for thinking models (201-202), adaptive thinking shape (203), effort→`output_config.effort` API-path wiring with COALESCE precedence (204-205), anthropic-version verification rule (206), `models()` currency (207), no-silent-provider-drop (208). Updated anthropic config example to `claude-opus-4-8` + `thinking_models`. Driver: real HTTP 400 failure dispatching Opus 4.8 (USH essay-split experiment, 2026-06-03). Evidence: `rondo/research/2026-06-03-rondo-audit/`. Note: prior research finding "Anthropic/Gemini adapters lack retry/breaker" was VERIFIED FALSE against live code (all 3 adapters have `retry_http`+`circuit_breaker`) — not actioned. |
 | 1.0 | 2026-03-20 | Initial. Provider adapter interface, credential management, model routing, affinity tracking. 25 requirements. Session 83: 3 providers proven live. |

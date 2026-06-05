@@ -1215,6 +1215,16 @@ class TestAnthropicThinkingModels:
         assert adapter.is_thinking_model("claude-haiku-4-8") is True
         assert adapter.is_thinking_model("claude-sonnet-4-6") is False
 
+    def test_thinking_model_gets_output_headroom(self) -> None:
+        """REQ-109 req 210: thinking eats max_tokens — floor 32K for thinking models."""
+        payload = self._capture_payload("claude-opus-4-8")
+        assert payload["max_tokens"] >= 32000
+
+    def test_classic_model_keeps_configured_max_tokens(self) -> None:
+        """REQ-109 req 210: classic models keep the configured cap."""
+        payload = self._capture_payload("claude-sonnet-4-6")
+        assert payload["max_tokens"] == 8192
+
     def test_models_includes_current_best(self) -> None:
         """REQ-109 req 207: models() must include the active generation."""
         from rondo.adapters.anthropic_api import AnthropicAPIAdapter

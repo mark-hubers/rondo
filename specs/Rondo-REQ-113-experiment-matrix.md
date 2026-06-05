@@ -6,7 +6,7 @@
 **Category:** REQ
 **Created:** 2026-06-05 (Session 104) | **Status:** DESIGNED
 **Classification:** open
-**Version:** 0.1
+**Version:** 0.2
 **Owner:** Mark G. Hubers
 **Depends on:** REQ-100 (Core), REQ-109 (Provider Adapters — tiers, effort, cost), REQ-111 (Smart Dispatch — normalization), STD-105 (cost), STD-113 (Audit), STD-114 (Sanitization)
 **Author:** Mark Hubers — HubersTech
@@ -41,6 +41,7 @@ judge, but judging quality is the caller's rubric); UI; cross-machine runs.
 | 001 | A matrix is defined in YAML (`rondo matrix run exp.yaml`): `prompt` (or `prompt_file`), `models: []` (provider:model or provider:tier), `efforts: []` (optional), `contexts: {name: file\|inline\|none}` (optional), `replicates: N` (default 1), `budget_usd`, `name`. | MUST | Loader test |
 | 002 | The grid = models × efforts × contexts × replicates. Axes default to single-element when omitted (a plain model sweep is the degenerate case). | MUST | Grid test |
 | 003 | YAML is `safe_load` only; schema-validated at load; unknown fields rejected with a clear error (REQ-111 req 414 idiom). | MUST | Security test |
+| 005 | `inputs: {name: path}` (optional): each named file is read and substituted into the prompt at `{{name}}` placeholders BEFORE dispatch. Unresolved `{{...}}` placeholders in the final prompt ABORT the run with a clear error — a template must never be dispatched as if it were content. (First real-use lesson: the 4.6v4.8 run dispatched a paste-here placeholder; all 6 cells correctly refused.) | MUST | Inputs test |
 | 004 | `effort` applies only to effort-capable paths (REQ-109 reqs 204-205). For models without effort support the cell records `effort: "n/a"` and runs ONCE per effort axis value collapse — never errors, never silently duplicates spend. | MUST | Effort-collapse test |
 
 ### Cost Gating (the axis multiplier makes this MANDATORY)
@@ -128,4 +129,5 @@ blind-coded; reported with noise floors. Today this is a week of hand-work.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.2 | 2026-06-05 | Req 005 inputs interpolation + unresolved-placeholder guard — from the FIRST real matrix run (template dispatched, every model honestly flagged it). Learn-by-use working as intended. |
 | 0.1 | 2026-06-05 | Initial spec from USH essay-split learnings (PROTOCOL/RESULTS/FINDINGS 2026-06-03) + competitive-scan conclusion that no other tool has this. 24 requirements. RONDO-307 follow-on; build = next sprint. |

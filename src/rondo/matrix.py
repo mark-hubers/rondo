@@ -50,6 +50,7 @@ ALLOWED_FIELDS = {
     "baseline",
     "budget_usd",
     "judge",
+    "inputs",  # -- req 005: {{name}} placeholder files
 }
 REQUIRED_FIELDS = {"name", "models", "budget_usd"}
 EST_OUTPUT_TOKENS = 2048  # -- conservative per-cell output budget for estimates
@@ -96,6 +97,18 @@ def load_matrix(path: str) -> MatrixSpec:
         prompt = Path(raw["prompt_file"]).expanduser().read_text(encoding="utf-8")
     if not prompt:
         raise MatrixError("missing required field(s): prompt (or prompt_file)")
+    # -- REQ-113 req 005 (first real-use lesson): file inputs substitute into
+    # -- {{name}} placeholders; an unresolved placeholder ABORTS — a template
+    # -- must never be dispatched as if it were content (the 4.6v4.8 run
+    # -- dispatched a paste-here placeholder; all 6 cells correctly refused).
+    for input_name, input_path in (raw.get("inputs") or {}).items():
+        content = Path(str(input_path)).expanduser().read_text(encoding="utf-8")
+        prompt = prompt.replace("{{" + str(input_name) + "}}", content)
+    import re  # pylint: disable=import-outside-toplevel
+
+    leftover = re.findall(r"\{\{\w+\}\}", prompt)
+    if leftover:
+        raise MatrixError(f"unresolved prompt placeholder(s): {sorted(set(leftover))} — add them under `inputs:`")
     contexts = raw.get("contexts") or {"default": "none"}
     return MatrixSpec(
         name=str(raw["name"]),

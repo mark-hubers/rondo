@@ -1215,6 +1215,27 @@ class TestAnthropicThinkingModels:
         assert adapter.is_thinking_model("claude-haiku-4-8") is True
         assert adapter.is_thinking_model("claude-sonnet-4-6") is False
 
+    def test_thinking_model_gets_long_read_timeout(self) -> None:
+        """REQ-109 req 211: max-effort thinking exceeds 120s — use >=600s."""
+        from unittest.mock import patch
+
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        seen = {}
+
+        def fake_urlopen(req, timeout=0):  # noqa: ARG001
+            seen["timeout"] = timeout
+            return _FakeHTTPResponse(
+                {"content": [{"type": "text", "text": "OK"}], "usage": {"input_tokens": 1, "output_tokens": 1}}
+            )
+
+        adapter = AnthropicAPIAdapter(api_key="test")
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            adapter.dispatch(prompt="p", model="claude-opus-4-8")
+            assert seen["timeout"] >= 600
+            adapter.dispatch(prompt="p", model="claude-sonnet-4-6")
+            assert seen["timeout"] == 120
+
     def test_thinking_model_gets_output_headroom(self) -> None:
         """REQ-109 req 210: thinking eats max_tokens — floor 32K for thinking models."""
         payload = self._capture_payload("claude-opus-4-8")

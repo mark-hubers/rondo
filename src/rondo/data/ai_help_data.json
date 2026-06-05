@@ -101,6 +101,21 @@
       "name": "Check provider health before dispatching",
       "task": "rondo providers --json",
       "run": "Shows all configured providers: UP/DOWN status + latency. Healthy fallback auto-selected if primary is DOWN."
+    },
+    {
+      "name": "Run a model-comparison experiment matrix (REQ-113)",
+      "task": "rondo matrix run exp.yaml --dry-run",
+      "run": "Shows the full grid (model x effort x context x replicate) + cost estimate WITHOUT spending. Drop --dry-run to execute under the hard budget_usd ceiling. Then: rondo matrix report NAME (blind-coded if blind:true) and rondo matrix reveal NAME."
+    },
+    {
+      "name": "Catch retired models before they 404",
+      "task": "rondo providers --refresh --drift",
+      "run": "Fetches every provider's live model list, reports OK/STALE per configured tier + NEW models. First run found the entire grok-3 family retired. Never auto-edits config."
+    },
+    {
+      "name": "See learned model performance (auto-tune)",
+      "task": "rondo providers --scores",
+      "run": "7-day learned scores per model (success/cost/latency). Feeds recommend_model's learned tier: manual override -> curated default -> learned best -> sonnet."
     }
   ],
   "mcp_tools": [
@@ -498,6 +513,36 @@
       "on_provider_down": "logs WARNING, routes to fallback provider, never falls back to Claude interactive",
       "cli": "rondo providers [--json]",
       "mcp": "rondo_health (includes provider status when providers configured)"
+    },
+    "experiment_matrix": {
+      "description": "Model x effort x context x replicates comparison grids as ONE budgeted, resumable, blind-scorable run (REQ-113). Rondo's signature capability - no other dispatch tool has it.",
+      "cli": "rondo matrix run exp.yaml [--dry-run] | status NAME | report NAME | reveal NAME",
+      "yaml_fields": "name, prompt|prompt_file, inputs:{name:path} substituted at {{name}} placeholders (unresolved placeholders ABORT), models[], efforts[] (collapses to n/a for non-thinking models), contexts{name: file|none}, replicates, blind, baseline, budget_usd",
+      "budget": "HARD ceiling: estimate-abort before any dispatch, running-stop mid-run (remaining cells = budget_exhausted, partials kept)",
+      "blind": "group codes sealed with SHA-256; report shows codes until reveal; reveal verifies the seal",
+      "honesty_rules": "self-ratings reported but labeled UNCALIBRATED and never ranked on; replicates report mean +/- stdev with a noisy flag",
+      "resume": "re-running the same YAML skips done cells; error cells retry"
+    },
+    "model_registry_drift": {
+      "description": "Self-updating model awareness (REQ-111 600-603): caches every provider's live model list, reports config-vs-served drift. Catches retired models BEFORE dispatches 404 (first run found the entire grok-3 family retired).",
+      "cli": "rondo providers --refresh (fetch+cache) | --drift (report OK/STALE/NO_CACHE per tier + NEW unconfigured models)",
+      "rule": "NEVER auto-edits config - detection automated, fix manual"
+    },
+    "learned_scoring": {
+      "description": "7-day learned per-model performance scores from Rondo's own audit history (REQ-109 300-324): success*0.5 + cost*0.3 + latency*0.2, min 10 dispatches.",
+      "cli": "rondo providers --scores [--json]",
+      "routing": "recommend_model COALESCE: manual override -> curated default -> LEARNED best -> sonnet. Manual ALWAYS wins; [scoring] enabled=false disables; adaptive picks are logged, never silent"
+    },
+    "reliability_scoreboard": {
+      "description": "Windowed health truth (STD-101 240-242): 7-day and 30-day success rates + trend arrow vs the 95% target in rondo metrics and the morning report. Retry-queue depth alerts. Lifetime averages never bury current health.",
+      "cli": "rondo metrics"
+    },
+    "failure_forensics": {
+      "description": "Every failed dispatch persists error_message (including the provider's HTTP error BODY), stderr snippet, blocked_reason, and project into the audit OUTCOME (STD-108 011-014 + STD-113 021-027). No failure is ever '(no message)'. Retry queue self-classifies transient vs permanent, dead-letters what can never succeed, ages out stale entries (STD-108 015-018)."
+    },
+    "thinking_models": {
+      "description": "Opus 4.8-era adaptive-thinking models handled automatically (REQ-109 200-211): temperature/top_p/top_k stripped, effort -> output_config (low/medium/high/xhigh/max), 32K output headroom (thinking tokens COUNT AGAINST max_tokens), 600s read timeout (max-effort thinking exceeds 120s). gpt-5*/o*-series get max_completion_tokens instead of max_tokens.",
+      "effort_axis": "matrix efforts:[] sweeps thinking depth; non-thinking models collapse to one cell (no duplicate spend)"
     }
   },
   "config_options": [

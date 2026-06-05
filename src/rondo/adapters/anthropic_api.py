@@ -117,6 +117,9 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 duration_sec=0.0,
             )
 
+        # -- REQ-109 req 211 (learn-by-use #3): max-effort thinking exceeds the
+        # -- classic 120s read timeout. Thinking models get 600s.
+        http_timeout = 600 if self.is_thinking_model(use_model) else 120
         url = f"{self.base_url}/messages"
         payload: dict[str, Any] = {
             "model": use_model,
@@ -156,7 +159,7 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
+            with urllib.request.urlopen(req, timeout=http_timeout) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
         try:

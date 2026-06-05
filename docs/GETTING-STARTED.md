@@ -267,6 +267,46 @@ Rondo exposes **16 subcommands** plus optional **inline prompt** mode (first arg
 
 ---
 
+## Experiment Matrix — compare models like a scientist (REQ-113)
+
+One command runs a model × effort × context × replicates grid: budgeted,
+resumable, blind-scorable. Rondo's signature capability.
+
+```yaml
+# exp.yaml
+name: my-comparison
+prompt_file: prompts/task.md          # may contain {{essay}} placeholders
+inputs:
+  essay: drafts/essay-v7.md           # substituted into {{essay}}
+models: [anthropic:claude-opus-4-8, openai:gpt-5.5]
+efforts: [low, max]                   # thinking models sweep; others collapse
+replicates: 2
+blind: true                           # results coded until you reveal
+baseline: plans/split-plan.md         # length/structure deltas in report
+budget_usd: 2.50                      # HARD ceiling: estimate-abort + mid-run stop
+```
+
+```bash
+rondo matrix run exp.yaml --dry-run   # grid + cost estimate, zero spend
+rondo matrix run exp.yaml             # execute (resumable — re-run skips done cells)
+rondo matrix report my-comparison     # replicate mean±stdev, noisy flags
+rondo matrix reveal my-comparison     # de-anonymize (seal SHA-256 verified)
+```
+
+Honesty rules baked in: self-ratings are labeled *uncalibrated* and never
+ranked on; an unresolved `{{placeholder}}` aborts instead of dispatching a
+template; one cell's failure never kills the run.
+
+## Keeping the model fleet healthy
+
+```bash
+rondo providers --refresh --drift   # catch retired models BEFORE dispatches 404
+rondo providers --scores            # 7-day learned per-model performance
+rondo metrics                       # 7d/30d success scoreboard vs 95% target
+```
+
+---
+
 ## Next steps
 
 - Copy and edit files under `examples/`.

@@ -183,6 +183,8 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     prov_parser = subparsers.add_parser("providers", help="Show all configured providers with health status")
     prov_parser.add_argument("--json", action="store_true", help="JSON output")
     prov_parser.add_argument("--scores", action="store_true", help="Show learned provider scores")
+    prov_parser.add_argument("--refresh", action="store_true", help="Refresh model registry cache from provider endpoints (REQ-111 req 600)")
+    prov_parser.add_argument("--drift", action="store_true", help="Show config-vs-served drift report (REQ-111 req 602)")
 
     # -- version subcommand (RONDO-290 Finding #266)
     ver_parser = subparsers.add_parser("version", help="Show version or bump build counter")

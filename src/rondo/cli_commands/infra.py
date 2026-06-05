@@ -259,7 +259,32 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
 
 
 def _cmd_providers(args: argparse.Namespace) -> int:
-    """Show all configured providers with health status — REQ-109 req 020."""
+    """Show providers: health (REQ-109 req 020), registry drift (REQ-111 600-603)."""
+    # -- RONDO-305: --refresh / --drift — the registry that caught dead grok-3
+    if getattr(args, "refresh", False) or getattr(args, "drift", False):
+        from rondo.adapters.auth import load_api_key  # pylint: disable=import-outside-toplevel
+        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+        from rondo.model_registry import (  # pylint: disable=import-outside-toplevel
+            drift_report,
+            format_drift_table,
+            load_cache,
+            refresh_registry,
+        )
+
+        providers_cfg = get_rondo_config().get("providers", {})
+        if getattr(args, "refresh", False):
+            cache = refresh_registry(providers_cfg, key_loader=load_api_key)
+            ok = sum(1 for v in cache["providers"].values() if not v["error"])
+            print(f"  -PASS- registry refreshed: {ok}/{len(cache['providers'])} providers cached")
+        else:
+            cache = load_cache()
+            if cache is None:
+                print("  -WARNING- no registry cache yet — run: rondo providers --refresh", file=sys.stderr)
+                return EXIT_FAILURE
+        if getattr(args, "drift", False):
+            print(format_drift_table(drift_report(cache, providers_cfg)))
+        return EXIT_SUCCESS
+
     from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
 
     health_map = get_all_providers_health()

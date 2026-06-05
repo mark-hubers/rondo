@@ -1430,19 +1430,17 @@ class TestRealDispatchSmoke:
             ["run", round_file, "--model", "haiku", "--bare"],
             timeout=120,
         )
-        # -- From inside CC session: subprocess WILL fail (known, v0.7 uses Agent path instead)
-        # -- From CLI: subprocess should work
-        import os
-
-        if os.environ.get("CLAUDECODE"):
-            # -- In-session: subprocess fails. This is EXPECTED, not a skip.
-            # -- The real dispatch path is Agent (tested in test_real_dispatch.py PAT)
-            assert result.returncode != 0, "Subprocess should fail from inside CC session"
-        else:
-            # -- Outside session: subprocess should work
-            if result.returncode == 0 and result.stdout.strip():
-                data = _json.loads(result.stdout)
-                assert data.get("status") in ("done", "partial", "error", "skipped")
+        # -- RONDO-301 (Finding #293): this test previously ASSERTED in-session
+        # -- subprocess failure as "expected" — but that failure was the bare+max
+        # -- contradiction itself (--bare disables OAuth; max strips the API key).
+        # -- The CLI now drops --bare under max auth (IFS-100 req 015), so the
+        # -- dispatch genuinely works — in-session AND from the CLI.
+        assert result.returncode == 0, f"Subprocess dispatch should succeed post-#293: {result.stderr[:200]}"
+        # -- CLI prints a human-readable summary by default; parse only if JSON
+        out = result.stdout.strip()
+        if out.startswith("{"):
+            data = _json.loads(out)
+            assert data.get("status") in ("done", "partial", "skipped")
 
 
 # -- ──────────────────────────────────────────────────────────────

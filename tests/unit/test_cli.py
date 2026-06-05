@@ -362,7 +362,7 @@ class TestExitCodes:
     def test_config_validation_error(self, tmp_path):
         """Invalid config returns EXIT_FAILURE before running."""
         filepath = _write_round_file(tmp_path)
-        with patch("rondo.cli.validate_config", return_value=["workers must be positive"]):
+        with patch("rondo.config.validate_config", return_value=["workers must be positive"]):
             assert main(["run", filepath]) == EXIT_FAILURE
 
 
@@ -619,7 +619,7 @@ class TestOvernightSubcommand:
     def test_overnight_config_validation_error(self, tmp_path):
         """Overnight with invalid config returns EXIT_FAILURE before running."""
         filepath = _write_phases_file(tmp_path)
-        with patch("rondo.cli.validate_config", return_value=["workers out of range"]):
+        with patch("rondo.config.validate_config", return_value=["workers out of range"]):
             assert main(["overnight", filepath]) == EXIT_FAILURE
 
     def test_overnight_report_save_failure(self, tmp_path):

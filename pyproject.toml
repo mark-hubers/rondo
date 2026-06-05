@@ -22,6 +22,12 @@ rondo = "rondo.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# -- RONDO-301 (Finding #294): non-.py files were silently dropped from the
+# -- wheel — installed `rondo --ai-help` crashed on missing ai_help_data.json.
+# -- Same defect class as Finding #289 (init template not packaged).
+rondo = ["data/*.json"]
+
 [tool.bandit]
 # -- B404: subprocess import is required — Rondo's core function is invoking Claude via subprocess
 # -- B603: Popen without shell=True is the SAFE pattern (we never use shell=True)

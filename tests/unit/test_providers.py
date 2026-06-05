@@ -1222,4 +1222,74 @@ class TestAnthropicThinkingModels:
         assert "claude-opus-4-8" in AnthropicAPIAdapter(api_key="test").models()
 
 
+class TestChatCompletionsReasoningModels:
+    """REQ-109 req 209 (RONDO-297): gpt-5*/o*-series ChatCompletions payload.
+
+    Reasoning-class models reject max_tokens (require max_completion_tokens)
+    and reject temperature. Same contract-change class as Opus 4.8 (RONDO-296).
+    Driver: live gpt-5.5 canary HTTP 400, 2026-06-05.
+    """
+
+    def _capture_payload(self, model: str) -> dict:
+        import json
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        captured: dict = {}
+
+        def fake_urlopen(req, timeout=0):  # noqa: ARG001
+            captured.update(json.loads(req.data.decode("utf-8")))
+            return _FakeHTTPResponse(
+                {
+                    "choices": [{"message": {"content": "OK"}}],
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                }
+            )
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="test")
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            adapter.dispatch(prompt="hello", model=model)
+        return captured
+
+    def test_gpt5_uses_max_completion_tokens(self) -> None:
+        """REQ-109 req 209: reasoning models get max_completion_tokens, never max_tokens."""
+        payload = self._capture_payload("gpt-5.5")
+        assert "max_completion_tokens" in payload
+        assert "max_tokens" not in payload
+
+    def test_gpt5_omits_temperature(self) -> None:
+        """REQ-109 req 209: reasoning models reject temperature — omit it."""
+        payload = self._capture_payload("gpt-5.4-mini")
+        assert "temperature" not in payload
+
+    def test_classic_model_keeps_proven_payload(self) -> None:
+        """REQ-109 req 209: gpt-4.x era keeps max_tokens + temperature."""
+        payload = self._capture_payload("gpt-4.1")
+        assert "max_tokens" in payload
+        assert "temperature" in payload
+        assert "max_completion_tokens" not in payload
+
+    def test_o_series_classified_as_reasoning(self) -> None:
+        """REQ-109 req 209: o*-series uses the reasoning payload too."""
+        payload = self._capture_payload("o3")
+        assert "max_completion_tokens" in payload
+        assert "temperature" not in payload
+
+    def test_grok_and_mistral_names_stay_classic(self) -> None:
+        """REQ-109 req 209: non-OpenAI naming (grok/mistral) keeps classic payload."""
+        for model in ("grok-4.3", "mistral-large-latest"):
+            payload = self._capture_payload(model)
+            assert "max_tokens" in payload, model
+            assert "temperature" in payload, model
+
+    def test_patterns_config_overridable(self) -> None:
+        """REQ-109 req 200/209: reasoning pattern list is constructor-overridable."""
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="test", reasoning_models=["my-model*"])
+        assert adapter.is_reasoning_model("my-model-7") is True
+        assert adapter.is_reasoning_model("gpt-5.5") is False
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

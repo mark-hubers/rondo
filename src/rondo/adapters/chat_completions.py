@@ -22,6 +22,7 @@ import logging
 import time
 import urllib.error
 import urllib.request
+from fnmatch import fnmatch
 from typing import Any
 
 from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
@@ -29,6 +30,11 @@ from rondo.provider_base import ProviderAdapter
 from rondo.retry import get_circuit_breaker, retry_http
 
 logger = logging.getLogger(__name__)
+
+# -- REQ-109 req 209 (RONDO-297): reasoning-class models reject max_tokens
+# -- (require max_completion_tokens) and reject temperature. OpenAI naming
+# -- only — grok/mistral names never match. Config-overridable via constructor.
+DEFAULT_REASONING_MODEL_PATTERNS: tuple[str, ...] = ("gpt-5*", "o1*", "o3*", "o4*", "o5*")
 
 
 # -- RONDO-202 (Finding #221): per-model cost table (USD per 1M tokens)
@@ -90,6 +96,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
         default_model: str = "gpt-4.1",
         temperature: float = 0.2,
         max_tokens: int = 8192,
+        reasoning_models: list[str] | None = None,  # -- REQ-109 req 209: pattern override
     ) -> None:
         self.provider_name = provider_name
         self.base_url = base_url.rstrip("/")
@@ -101,6 +108,18 @@ class ChatCompletionsAdapter(ProviderAdapter):
         # -- still enforces cost limits via compute_cost_usd on actual usage.
         self.max_tokens = max_tokens
         self.name = provider_name
+        self.reasoning_models: list[str] = (
+            list(reasoning_models) if reasoning_models is not None else list(DEFAULT_REASONING_MODEL_PATTERNS)
+        )
+
+    def is_reasoning_model(self, model: str) -> bool:
+        """Classify a model as reasoning-class — REQ-109 req 209 (RONDO-297).
+
+        Reasoning-class ChatCompletions models (gpt-5*/o*-series) require
+        max_completion_tokens (max_tokens rejected, HTTP 400) and reject
+        temperature. fnmatch patterns, constructor-overridable.
+        """
+        return any(fnmatch(model, pattern) for pattern in self.reasoning_models)
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt via Chat Completions API, return TaskResult.
@@ -135,14 +154,21 @@ class ChatCompletionsAdapter(ProviderAdapter):
             )
 
         url = f"{self.base_url}/chat/completions"
-        payload = {
+        payload: dict[str, Any] = {
             "model": use_model,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,  # -- #247: bumped default to 8K
             "messages": [
                 {"role": "user", "content": prompt},
             ],
         }
+        if self.is_reasoning_model(use_model):
+            # -- REQ-109 req 209 (RONDO-297): gpt-5*/o*-series contract.
+            # -- max_tokens is REJECTED ("Use 'max_completion_tokens' instead",
+            # -- HTTP 400, live gpt-5.5 canary 2026-06-05); temperature rejected too.
+            payload["max_completion_tokens"] = self.max_tokens
+        else:
+            # -- classic (gpt-4.x era / grok / mistral) keeps the proven payload
+            payload["temperature"] = self.temperature
+            payload["max_tokens"] = self.max_tokens  # -- #247: bumped default to 8K
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",

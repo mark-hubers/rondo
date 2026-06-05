@@ -2,10 +2,10 @@
 
 *Say what you want. Rondo handles the prompt engineering. Get structured data back.*
 
-**Created:** 2026-04-09 (Session 100)
+**Created:** 2026-04-09 (Session 100) | **Updated:** 2026-06-05
 **Status:** DRAFT
 **Classification:** open
-**Version:** 0.2
+**Version:** 0.3
 **Owner:** Mark G. Hubers
 **Depends on:** REQ-100 (Core — three-field contract, dispatch, extract_json), REQ-106 (Structured Input — context_data), REQ-109 (Provider Adapters — routing, health, scoring), STD-113 (Audit Trail)
 **Author:** Mark Hubers — HubersTech
@@ -233,6 +233,31 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | `--field` | any JSON field name | none | MUST merge named field with smart-return defaults unless overridden by full return schema. |
 | `--return` | JSON string schema | none | MUST take precedence over `--field` and defaults (COALESCE order). |
 
+### Model Registry & Auto-Tiers (new — Session 102/104, Opus 4.8 audit)
+
+*The problem (real friction, 2026-04→06): config.toml pins dated model IDs; providers retire/rename every few weeks (gpt-4.1 retired 2026-02); stale names → 404 at dispatch time; new names from blogs are unverified. Design rule: detection automated, fix manual (suggest mode) — with an OPT-IN auto mode confined to dedicated auto-tier profiles. Evidence: `rondo/research/2026-06-03-rondo-audit/`.*
+
+**Registry feeds (information only — no prompts ever sent to any feed):**
+
+| ID | Requirement | Priority | Test |
+|----|-------------|----------|------|
+| 600 | `rondo models --refresh` (and optional daily schedule) SHALL fetch each enabled provider's live models endpoint (`/v1/models` or equivalent) into `~/.rondo/models-cache.json` with per-provider timestamps. A provider fetch failure is non-fatal: keep stale cache, emit WARNING. | MUST | Refresh test |
+| 601 | Secondary free feeds MAY be pulled read-only as cross-checks: the LiteLLM community registry JSON (deprecations/pricing) and OpenRouter's public catalog (day-one listings). Secondary feeds are ADVISORY; the provider's own endpoint is authoritative. These are catalog downloads only — no dispatch, no key, no data leaves the machine. | SHOULD | Feed test |
+| 602 | Drift report (`rondo providers --drift` + morning report line): compare configured tier models vs cache. States: `OK` (served), `STALE` (configured model no longer served → ALERT), `NEW` (notable new family → inform). | MUST | Drift test |
+| 603 | Alias-first rule: where a provider publishes an undated/`-latest` alias, config SHOULD use the alias, not a dated snapshot. Drift report SHALL flag pinned dated names that have an alias equivalent. (Evidence: alias-style entries — `mistral-large-latest`, undated Claude IDs — never broke; pinned/dated ones did.) | MUST | Alias-flag test |
+| 604 | `rondo models --verify`: minimal canary dispatch per configured tier model proving each ID actually answers. Per-provider/per-tier PASS/FAIL/SKIP table. (Cheap targeted sibling of REQ-109 reqs 075-077 `cloud_full`.) | MUST | Canary test |
+
+**Registry modes (Mark's "if I want"):**
+
+| ID | Requirement | Priority | Test |
+|----|-------------|----------|------|
+| 605 | `[registry] mode = "suggest"` (default) or `"auto"`. Suggest mode NEVER writes config — it reports, Mark flips lines. | MUST | Mode test |
+| 606 | Auto mode scope: ONLY the auto-tier profiles (req 607). It NEVER modifies user profiles (`ush_*` etc.) or any manually pinned `[providers.*]` value. Every auto change is written to the audit trail AND surfaced in the morning report. | MUST | Scope test |
+| 607 | Auto-tier profiles `auto_low` / `auto_mid` / `auto_high`: per provider, tier models are DERIVED from registry metadata (capability class + pricing): `high`=flagship, `low`=cheapest viable, `mid`=middle. Re-derived on each refresh. | MUST | Derivation test |
+| 608 | Tier collapse ladder ("next best"): a provider missing a distinct `low` inherits `mid`; missing `mid` inherits `high`. Same-model tiers are valid per REQ-109 req 045 (e.g. Grok: best=default). | MUST | Collapse test |
+| 609 | Trust boundary: auto substitution stays WITHIN the same provider. The registry NEVER reroutes across providers — cross-provider changes are human decisions. REQ-109 trust/sensitivity rules (reqs 061-063) always apply. | MUST | Boundary test |
+| 610 | Resolution COALESCE: manual pin → auto-tier → collapse ladder. Manual ALWAYS wins (same idiom as REQ-109 req 024 / req 320). | MUST | Precedence test |
+
 ---
 
 ## 3. Architecture
@@ -298,3 +323,4 @@ Envelope semantics (`partial`, stable `error_code`, canonical top-level keys) ar
 |-----|------|---------|
 | 0.1 | 2026-04-09 | Initial draft from Session 100 conversation. |
 | 0.2 | 2026-04-09 | Removed 3 duplicate req blocks (JSON return, file context, extract_json). Added cross-reference map. Fixed security: only_if restricted to comparisons (no eval), template whitelist, stdin size cap, YAML safe_load. Reduced from 63 to 46 reqs. |
+| 0.3 | 2026-06-05 | **Model Registry & Auto-Tiers (Session 102/104).** Added reqs 600-610: registry refresh from provider model endpoints (600), free secondary feeds LiteLLM/OpenRouter catalogs read-only (601), drift report OK/STALE/NEW (602), alias-first rule (603), `--verify` canary (604), suggest/auto modes (605-606), auto_low/mid/high derived profiles (607), tier collapse ladder (608), within-provider trust boundary (609), manual-wins COALESCE (610). Driver: recurring breakage from pinned/retired model IDs (gpt-4.1 retired 2026-02); design rule = detection automated, fix manual, auto opt-in confined to auto-tier profiles. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

@@ -113,6 +113,18 @@ def _emit_scoreboard(lines: list[str], metrics_report: object | None = None) -> 
             f"**7-day success:** {rate:.0%} {arrow} ({count} dispatches — target {SUCCESS_TARGET:.0%} {verdict})"
         )
         lines.append("")
+        # -- STD-108 req 017 (RONDO-303): retry-queue depth alert — silent
+        # -- growth is forbidden; the morning report is where Mark looks.
+        import os  # pylint: disable=import-outside-toplevel
+
+        from rondo.retry_queue import list_queue, queue_depth_alert  # pylint: disable=import-outside-toplevel
+
+        test_dir = os.environ.get("RONDO_TEST_DIR")
+        retry_dir = os.path.join(test_dir, "retry") if test_dir else "~/.rondo/retry"
+        alert = queue_depth_alert(len(list_queue(retry_dir)))
+        if alert:
+            lines.append(f"⚠ **{alert}**")
+            lines.append("")
     except (OSError, TypeError, ValueError, ImportError) as exc:
         logger.debug("Scoreboard emit skipped (non-fatal): %s", exc)
 

@@ -6,7 +6,6 @@ Driver: the USH essay-split protocol run by hand (PROTOCOL.md 2026-06-03).
 Dispatch is injected — these tests never touch a network or a real provider.
 """
 
-import json
 from pathlib import Path
 
 import pytest

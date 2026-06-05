@@ -1,0 +1,153 @@
+## ═══════════════════════════════════════════════════════════════
+## Rondo Configuration — ~/.rondo/config.toml
+## ═══════════════════════════════════════════════════════════════
+##
+## This file configures AI providers, tiers, and cloud dispatch.
+## Copy to ~/.rondo/config.toml and edit for your setup.
+##
+## Create automatically: rondo init --config
+## Validate all models:  pytest -m cloud_full -v -s
+##
+## Resolution order:
+##   API keys:  env var → macOS Keychain → 1Password (NOT from this file)
+##   Models/tiers: code defaults → this file (this file wins)
+##   Config is loaded once at startup. Changes require restart.
+## ═══════════════════════════════════════════════════════════════
+
+
+## ─────────────────────────────────────────────────────────────
+## Providers — one section per AI provider
+## ─────────────────────────────────────────────────────────────
+##
+## Each provider has 3 tiers:
+##   cheap_model   = fast, lowest cost (quick checks, scans)
+##   default_model = balanced (daily reviews, code analysis)
+##   best_model    = highest quality (architecture, deep analysis)
+##
+## Use tiers: rondo run round.py --model gemini:high
+## Use exact: rondo run round.py --model gemini:gemini-2.5-pro
+##
+## trust = "trusted" | "untrusted"  (RESERVED — not enforced yet)
+##   Future: trusted receives any prompt, untrusted skipped for internal tasks.
+##   Currently: all providers receive all prompts regardless of trust setting.
+
+[providers.gemini]
+enabled = true
+cheap_model = "gemini-2.5-flash-lite"   ## low — cheapest Google model
+default_model = "gemini-2.5-flash"      ## mid — fast balanced review
+best_model = "gemini-2.5-pro"           ## high — deepest code review
+trust = "trusted"
+## Key: GEMINI_API_KEY env var, or macOS Keychain ace.ai-key.gemini
+
+[providers.openai]
+enabled = true
+cheap_model = "gpt-4o-mini"            ## low — cheapest OpenAI
+default_model = "gpt-4.1-mini"         ## mid — balanced code + cost
+best_model = "gpt-4.1"                 ## high — best for deep code review
+trust = "trusted"
+## Key: OPENAI_API_KEY env var, or macOS Keychain ace.ai-key.openai
+
+[providers.grok]
+enabled = true
+cheap_model = "grok-3-mini"
+default_model = "grok-3"
+best_model = "grok-3"
+trust = "untrusted"
+## Key: XAI_API_KEY env var, or macOS Keychain ace.ai-key.grok
+
+[providers.mistral]
+enabled = true
+cheap_model = "mistral-small-latest"    ## low — cheapest generalist
+default_model = "mistral-medium-latest" ## mid — balanced mid-tier
+best_model = "mistral-large-latest"     ## high — Mistral flagship
+trust = "trusted"
+## Key: MISTRAL_API_KEY env var, or macOS Keychain ace.ai-key.mistral
+
+[providers.anthropic]
+enabled = true
+cheap_model = "claude-haiku-4-5"
+default_model = "claude-sonnet-4-6"
+best_model = "claude-opus-4-6"
+trust = "trusted"
+## Key: ANTHROPIC_API_KEY env var, or macOS Keychain ace.ai-key.anthropic
+
+## To disable a provider, set enabled = false:
+## [providers.openai]
+## enabled = false
+
+
+## ─────────────────────────────────────────────────────────────
+## Auth — how API keys are loaded
+## ─────────────────────────────────────────────────────────────
+##
+## Backend chain: env var → macOS Keychain → 1Password CLI
+## First non-empty key wins. 5-minute cache.
+
+[auth]
+backend = "auto"
+onepassword_vault = "AI Keys"
+
+
+## ─────────────────────────────────────────────────────────────
+## Cloud — multi-provider dispatch settings
+## ─────────────────────────────────────────────────────────────
+
+[cloud]
+default_count = 2              ## How many providers --cloud uses by default
+max_count = 4                  ## Hard cap on parallel cloud dispatches
+max_cost_per_dispatch = 0.50   ## Abort if estimated cost exceeds this ($USD)
+default_tier = "default"       ## Which tier --cloud uses (high/default/low)
+
+
+## ─────────────────────────────────────────────────────────────
+## Cloud Profiles — named provider groups for common tasks
+## ─────────────────────────────────────────────────────────────
+##
+## Usage: rondo_cloud(prompt="...", profile="review")
+## Or:    rondo run round.py --cloud review
+
+[cloud.profiles.review]
+providers = ["gemini", "grok", "mistral"]
+description = "Code review, bug finding, spec analysis"
+
+[cloud.profiles.coding]
+providers = ["gemini", "openai"]
+description = "Code generation, refactoring"
+
+[cloud.profiles.research]
+providers = ["gemini", "mistral"]
+description = "Analysis, summarization, literature review"
+
+[cloud.profiles.security]
+providers = ["gemini", "grok", "mistral"]
+description = "Security audit — 3 independent perspectives"
+
+
+## ─────────────────────────────────────────────────────────────
+## Task Routing — which model handles which task type
+## ─────────────────────────────────────────────────────────────
+##
+## These override code defaults. Edit to change model assignments.
+## Format: task_type = "provider:model"
+
+[routing.task_models]
+code-review = "gemini:gemini-2.5-flash"
+code-fix = "gemini:gemini-2.5-flash"
+code-generate = "gemini:gemini-2.5-flash"
+reasoning = "gemini:gemini-2.5-flash"
+math = "gemini:gemini-2.5-flash"
+logic = "gemini:gemini-2.5-flash"
+classify = "local:llama3.1:8b"
+scan = "local:llama3.1:8b"
+filter = "local:llama3.1:8b"
+structured-json = "gemini:gemini-2.5-flash"
+extract = "gemini:gemini-2.5-flash"
+summarize = "gemini:gemini-2.5-flash"
+general = "gemini:gemini-2.5-flash"
+research = "gemini:gemini-2.5-flash"
+analysis = "gemini:gemini-2.5-flash"
+security = "mistral:mistral-large-latest"
+
+[routing.multi_review]
+## code-review = ["gemini:gemini-2.5-flash", "grok:grok-3"]
+## security = ["gemini:gemini-2.5-flash", "grok:grok-3", "mistral:mistral-large-latest"]

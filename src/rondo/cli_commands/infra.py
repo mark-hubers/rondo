@@ -144,8 +144,6 @@ def _cmd_version(args: argparse.Namespace) -> int:
 
 def _cmd_init(args: argparse.Namespace) -> int:
     """Create a starter round file or config — U-10 to U-14."""
-    import shutil  # pylint: disable=import-outside-toplevel
-
     # -- rondo init --config: create ~/.rondo/config.toml from template
     if getattr(args, "config", False):
         config_dir = Path.home() / ".rondo"
@@ -155,12 +153,24 @@ def _cmd_init(args: argparse.Namespace) -> int:
             print("  Edit it directly, or remove it first to regenerate.", file=sys.stderr)
             return EXIT_FAILURE
         config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        # -- Copy template from examples/
-        template = Path(__file__).parent.parent.parent.parent / "examples" / "config.toml"
-        if not template.exists():
-            print("Error: template not found at examples/config.toml", file=sys.stderr)
+        # -- RONDO-304 (Finding #289): template ships INSIDE the package so
+        # -- INSTALLED deployments work (__file__-walking only worked from a
+        # -- repo checkout — site-packages has no examples/). Package data
+        # -- first, repo examples/ as fallback for editable checkouts.
+        template_text = ""
+        try:
+            from importlib.resources import files  # pylint: disable=import-outside-toplevel
+
+            template_text = (files("rondo") / "data" / "config-template.toml").read_text(encoding="utf-8")
+        except (FileNotFoundError, ModuleNotFoundError, OSError):
+            repo_template = Path(__file__).parent.parent.parent.parent / "examples" / "config.toml"
+            if repo_template.exists():
+                template_text = repo_template.read_text(encoding="utf-8")
+        if not template_text:
+            print("Error: config template not found (package data or examples/)", file=sys.stderr)
             return EXIT_FAILURE
-        shutil.copy2(template, config_path)
+        config_path.write_text(template_text, encoding="utf-8")
+        config_path.chmod(0o600)  # -- STD-110 S5: restrictive permissions
         print(f"Created {config_path}")
         print("  Edit provider settings, then validate: pytest -m cloud_full -v -s")
         return EXIT_SUCCESS

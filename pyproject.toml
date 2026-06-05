@@ -26,7 +26,7 @@ where = ["src"]
 # -- RONDO-301 (Finding #294): non-.py files were silently dropped from the
 # -- wheel — installed `rondo --ai-help` crashed on missing ai_help_data.json.
 # -- Same defect class as Finding #289 (init template not packaged).
-rondo = ["data/*.json"]
+rondo = ["data/*.json", "data/*.toml"]
 
 [tool.bandit]
 # -- B404: subprocess import is required — Rondo's core function is invoking Claude via subprocess

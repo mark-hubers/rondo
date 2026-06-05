@@ -7,7 +7,7 @@
 **Version:** 0.6
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Supersedes:** none
+**Supersedes:** Rondo-STD-102 (duplicate 'Configuration' STD — contradicted code reality; Session 104)
 **Depends on:** Nothing | **Blocks:** Rondo-REQ-100 (Core), Rondo-REQ-101 (Automation)
 **Author:** Mark Hubers — HubersTech
 

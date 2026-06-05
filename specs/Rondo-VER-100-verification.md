@@ -5,7 +5,7 @@
 **Product name:** Rondo — AI Task Orchestration Engine
 **Created:** 2026-03-13 | **Updated:** 2026-03-16 | **Status:** ACTIVE
 **Classification:** open
-**Version:** 1.0
+**Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -703,4 +703,43 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.7 | 2026-03-14 | Deep review v2: added Rondo-REQ-100 reqs 45-46 (run_round, RoundResult.status). Added CORE-IFS-001 reqs 53-54 / Rondo-STD-108 / Rondo-STD-111 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
 | 0.8 | 2026-03-14 | Added Rondo-REQ-100 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
 | 0.9 | 2026-03-14 | Added Rondo-STD-111 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
+| 1.1 | 2026-06-05 | **Reliability Campaign Addendum (§11, RONDO-307).** ~80 new reqs (RONDO-296→306) mapped to existing tests; 2 production-data corpora (80 parser + 33 auth) registered as permanent regression gates; pending items (REQ-111 604-610, STD-110 016-020) explicitly marked. |
 | 1.0 | 2026-03-16 | Full rebuild to Rondo-VER-100 standard. Added: 6 verification methods, test index (418 tests across 10 files), coverage summary with grand total, 10 key findings, convergence test baseline, Rondo+Caliber buggy.py integration evidence, production targets. All 153 items verified 100%. |
+
+
+---
+
+## 11. Reliability Campaign Addendum (Session 102-104, 2026-06-03→05) — RONDO-307
+
+~80 requirements were added across 8 specs during the reliability campaign
+(RONDO-296→306). Every BUILT requirement maps to a test that exists TODAY;
+two production-data corpora serve as permanent regression suites.
+
+### New Req → Proof Matrix
+
+| Spec + Reqs | Built? | Verified By (real, existing) |
+|-------------|--------|------------------------------|
+| REQ-109 200-208 (thinking-model payload, effort, no-silent-drop) | ✓ | `TestAnthropicThinkingModels` (8) + live Opus 4.8 canary (done/OK) |
+| REQ-109 209 (gpt-5/o-series payload) | ✓ | `TestChatCompletionsReasoningModels` (6) + live gpt-5.5/5.4 canaries |
+| REQ-109 310-313, 320, 323 (learned routing, --scores) | ✓ | `TestLearnedRoutingFallback` (5) + live --scores table |
+| REQ-100 123-126 (parser dual-schema, scanner, corpus gate) | ✓ | `TestSmartReturnParsing` (7) + `TestHistoricCorpusParsing` — **80-record production corpus** |
+| STD-108 011-014 (HTTP error-body capture) | ✓ | `TestAnthropicErrorBodyCapture` (4) |
+| STD-108 015-018 (retry lifecycle) | ✓ | `test_retry_queue.py` (15); live sweep triaged all 50 real stale files |
+| STD-101 240-242 (windowed scoreboard) | ✓ | `TestWindowedScoreboard` (7) + `TestScoreboardInMorningReport` (2) |
+| STD-113 021-027 (failure forensics) | ✓ | `TestFailureForensics` (8) |
+| IFS-100 011-014 (auth-loss detection/halt) | ✓ | `TestAuthLossDetection` (5) — **33-record production corpus** + `TestAuthHaltsPhase` |
+| IFS-100 015 (bare+max contradiction) | ✓ | `test_bare_dropped_under_max_auth` + 24/24 live integration tests |
+| REQ-111 600-603 (registry refresh/drift) | ✓ | `test_model_registry.py` (10) + live 5/5-provider drift run |
+| REQ-111 604-610 (auto-tiers, collapse ladder, verify canary) | ✗ pending | next-wave build — tests TBD with build |
+| STD-110 016-020 (cross-process flock + ≥20-concurrent stress) | ✗ verify-first | stress test FIRST decides whether the flock layer is built at all |
+
+### Production-Data Regression Corpora (new verification method)
+
+| Corpus | Records | Gate |
+|--------|---------|------|
+| Misfiled-JSON outputs (`~/.rondo/audit/` partials) | 80 | `TestHistoricCorpusParsing` — ≥95% must parse |
+| Auth-loss outputs | 33 | `TestAuthLossDetection.test_historic_auth_corpus_detected` — 100% detected |
+
+Real failures from production ARE the regression suite — synthetic fixtures
+can drift from reality; preserved history cannot. (Data-preservation golden
+rule paying out as verification.)

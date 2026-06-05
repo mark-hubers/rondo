@@ -470,3 +470,8 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 |---------|------|-------------|
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-121. 16 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
+
+
+## Number Collision Resolved (Session 104)
+
+A second spec (Structured Task Input, created 2026-03-28) accidentally also used REQ-106. It is now **Rondo-REQ-114**. This spec (Dispatch Trend Alerting) is the sole REQ-106. RONDO-307.

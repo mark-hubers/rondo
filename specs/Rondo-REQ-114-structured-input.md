@@ -1,4 +1,4 @@
-# Rondo-REQ-106: Structured Task Input
+# Rondo-REQ-114: Structured Task Input
 
 *Tasks can receive structured data (JSON, findings, results) — not just file paths.*
 
@@ -193,3 +193,8 @@ if task.context_data:
 | 1.1 | 2026-03-28 | Session 90: 4-AI review fixes — TaskResult field, size enforcement at engine, live mode display, chaining deferred, feature maturity table. |
 | 1.2 | 2026-03-28 | Session 90: Added JSONL support for large lists (reqs 010-011). Mistral suggestion from AI review. |
 | 1.3 | 2026-03-28 | Session 90: Fixed 4 AI findings — storage is JSON files not DB, size cap extends REQ-100, security note, JSONL parse instruction in prompt. |
+
+
+## Renumber Note (Session 104)
+
+**Was Rondo-REQ-106** — that number was already held by Dispatch Trend Alerting (created 2026-03-20, referenced by STD-113/IFS-101/REQ-105). This spec (created 2026-03-28) collided into the number. Renumbered REQ-114; REQ-111's references updated. RONDO-307.

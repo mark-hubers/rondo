@@ -1,5 +1,11 @@
 # Rondo-STD-102: Configuration
 
+> ⚠ **SUPERSEDED by Rondo-STD-109 (Session 104, RONDO-307).** Two 'Configuration'
+> STDs existed with CONTRADICTING rules (102: rondo.toml at project root;
+> 109: zero-config + ~/.rondo/config.toml). The CODE follows STD-109 — it governs.
+> Unique requirements here are being folded into STD-109 (Finding #298); do not
+> add new requirements to this file.
+
 *How Rondo handles configuration, paths, and round definitions. Config-driven dispatch, code-driven rounds.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED

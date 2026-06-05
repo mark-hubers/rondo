@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.6
+**Version:** 0.7
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -565,10 +565,12 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 
 | Feature | Maturity | Evidence | Retest |
 |---------|----------|----------|--------|
-| Dual-path-with-alerting | WORKING | Pattern enforced via CORE-STD-010 | After pattern changes |
-| Graceful degradation | THEORY | Specced for Rondo-specific failure modes | Phase 1 build |
-| Timeout handling | THEORY | Specced for claude -p subprocess timeouts | Phase 1 build |
-| Partial result recovery | THEORY | Specced for salvaging work from failed tasks | Phase 1 build |
+| Dual-path-with-alerting | WORKING | Pattern enforced via CORE-STD-010; bare+max fix (IFS-100 req 015) is a live instance | After pattern changes |
+| Graceful degradation | WORKING | 1,666-test suite incl. failure-path tests; provider drop-out partial results | After dispatch changes |
+| Timeout handling | WORKING | ERR_TIMEOUT/ERR_WATCHDOG live in production audit data (13 records) | After kill-sequence changes |
+| Partial result recovery | WORKING | RONDO-298: 80 misfiled partials recovered; parser corpus gate | After parser changes |
+| HTTP error-body capture (011-014) | WORKING | RONDO-296: live 400 bodies drove the gpt-5 diagnosis in one call | After adapter changes |
+| Retry queue lifecycle (015-018) | WORKING | RONDO-303: live sweep triaged all 50 real stale files | After queue changes |
 
 
 ## 35. Change History
@@ -579,5 +581,6 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.2 | 2026-03-14 | Beefed up: error codes, result structure, flow diagram, stderr patterns, credential safety, timeout sequence |
 | 0.3 | 2026-03-14 | Deep review fixes: added files_modified + extract_modified_files(), ERR_WATCHDOG_TIMEOUT code, two-timeout explanation, SIGTERM-first kill sequence, Popen implementation note |
 | 0.4 | 2026-03-14 | Defense in depth: pre-dispatch validation (task/round/model/config), CLI exit code contract, KeyboardInterrupt handling, top-level exception safety net |
+| 0.7 | 2026-06-05 | Maturity table refreshed THEORY→WORKING with campaign evidence (RONDO-307). |
 | 0.6 | 2026-06-05 | **Retry Queue Lifecycle (Session 104, F6).** Reqs 015-018: transient/permanent classification + dead-letter, age-out, depth alerting, drain/purge CLI. Driver: 50 stale write-only retry files, 60% permanent-class. |
 | 0.5 | 2026-06-03 | **HTTP error-body capture (Session 102 — Opus 4.8 audit).** Added reqs 011-014: read+surface provider HTTP error body (011), sanitize+cap it (012), persist to audit record (013), best-effort never-mask-original (014). Driver: Opus 4.8 HTTP 400 whose body ("temperature may only be set to 1 when thinking is enabled") was discarded by the adapter, forcing manual diagnosis. Closes the gap REQ-109 req 068 opened for the one status (4xx) with no useful category. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

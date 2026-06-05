@@ -7,7 +7,7 @@
 **Classification:** open
 **Version:** 0.3
 **Owner:** Mark G. Hubers
-**Depends on:** REQ-100 (Core — three-field contract, dispatch, extract_json), REQ-106 (Structured Input — context_data), REQ-109 (Provider Adapters — routing, health, scoring), STD-113 (Audit Trail)
+**Depends on:** REQ-100 (Core — three-field contract, dispatch, extract_json), REQ-114 (Structured Input — context_data), REQ-109 (Provider Adapters — routing, health, scoring), STD-113 (Audit Trail)
 **Author:** Mark Hubers — HubersTech
 
 ---
@@ -27,13 +27,13 @@ Adds three things to Rondo that make it usable without Python knowledge:
 
 **IN scope:** Simple CLI, YAML/JSON loader, smart return prompts, per-provider return templates, auto-rating, learning loop.
 
-**OUT of scope:** Engine changes (REQ-100), structured input (REQ-106), provider adapters (REQ-109), audit trail (STD-113), DAG orchestration (future), HITL (future).
+**OUT of scope:** Engine changes (REQ-100), structured input (REQ-114), provider adapters (REQ-109), audit trail (STD-113), DAG orchestration (future), HITL (future).
 
 **What this spec does NOT redefine:**
 - Three-field contract → REQ-100 req 003
 - Structured JSON from Claude → REQ-100 reqs 029-031
 - extract_json fallback → REQ-100 req U-26
-- context_data / file context → REQ-106 reqs 001-010
+- context_data / file context → REQ-114 reqs 001-010
 - Provider routing → REQ-109 reqs 011-028
 - Prompt size limits → REQ-100 req 003 (500KB cap)
 
@@ -48,7 +48,7 @@ Adds three things to Rondo that make it usable without Python knowledge:
 | 400 | `rondo "prompt"` (positional argument) MUST create an inline Round and dispatch to the default provider (config `[routing.default]`, fallback "sonnet"). | MUST | CLI test |
 | 401 | `rondo "prompt" --model gemini:flash` MUST route to specified provider. | MUST | CLI test |
 | 402 | `--json` forces JSON output (default). `--text` forces plain text (skips return prompt injection). | MUST | Output test |
-| 403 | Stdin pipe: `echo "data" \| rondo "analyze this"` MUST append stdin to prompt as context. Uses REQ-106 context_data mechanism. Max stdin: 1MB (extends REQ-100 req 003 cap). | MUST | Pipe test |
+| 403 | Stdin pipe: `echo "data" \| rondo "analyze this"` MUST append stdin to prompt as context. Uses REQ-114 context_data mechanism. Max stdin: 1MB (extends REQ-100 req 003 cap). | MUST | Pipe test |
 | 404 | File context: `rondo "review" ./file.py` MUST read file as context. Uses REQ-100 req 003 context_files with existing path validation (no traversal, no symlinks). | MUST | File test |
 | 405 | When both `--return` and `--field` provided, `--return` takes full precedence. `--field` is ignored. | MUST | Precedence test |
 
@@ -290,7 +290,7 @@ No new modules needed for core path. Adds:
 |---|---|---|
 | Simple CLI | REQ-100 inline prompt path | New entry point |
 | File context | REQ-100 req 003 (context_files) | Reuses existing |
-| Stdin context | REQ-106 (context_data) | Reuses existing |
+| Stdin context | REQ-114 (context_data) | Reuses existing |
 | JSON return parsing | REQ-100 reqs 029-031, U-26 | Adds smart defaults |
 | Prompt size limits | REQ-100 req 003 (500KB) | Extends to stdin |
 | Provider routing | REQ-109 reqs 011-028 | Adds return_prompt |

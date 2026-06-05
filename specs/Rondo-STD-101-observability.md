@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-18 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 0.2
+**Version:** 0.3
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -448,6 +448,17 @@ CORE-STD-012 readiness tracking depends on accurate dispatch metrics to assess w
 |-------|-------------|----------|------|
 | 230 | INTENT audit records (STD-113 req 003) MUST include a `decisions` field when trace is enabled. This persists the decision trace for post-hoc explain. | MUST | Audit test |
 | 231 | Decision trace data MUST NOT increase INTENT record size by more than 500 bytes (typical: 200-300 bytes for 3-5 decisions). | SHOULD | Size test |
+
+### Windowed Stability Scoreboard (Session 104 — F9, the campaign metric)
+
+*Lifetime success-rate (64%) buried the truth: recent Rondo runs ~97%. Build-era failures dominated the average for months. Health metrics MUST window. Evidence: `rondo/research/2026-06-05-failure-taxonomy/`.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 240 | `rondo metrics` SHALL report dispatch success rate over WINDOWS — 7-day and 30-day — alongside (clearly labeled) lifetime. Windowed numbers lead; lifetime is context. | MUST | Window test |
+| 241 | Success-rate computation SHALL exclude `skipped` and count misfiled-then-recovered records (REQ-100 req 126 recovery) under their corrected verdict. | MUST | Recompute test |
+| 242 | The morning report SHALL include the 7-day success rate with trend arrow vs prior week. Target line: 95%. This is the reliability campaign scoreboard. | MUST | Report test |
+
 
 ---
 

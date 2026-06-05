@@ -18,33 +18,56 @@ from typing import Any
 from rondo.engine import DispatchUsage
 
 
-def parse_task_json(text: str) -> dict[str, Any] | None:
-    """Extract the last valid JSON block from Claude's text output.
+def _is_result_dict(parsed: Any) -> bool:
+    """A dict matching either recognized result schema — REQ-100 req 123.
 
-    Looks for JSON blocks in code fences or bare JSON objects.
-    Returns None if no valid JSON found (Rondo-REQ-100 req 26 → "partial").
+    `status` = three-field contract (req 079 shape).
+    `passed` = smart-return schema (REQ-111 shape).
+    RONDO-298 (Finding #290): the old status-only gate rejected Rondo's OWN
+    smart-return outputs — 80 successful dispatches were misfiled "partial".
+    """
+    return isinstance(parsed, dict) and ("status" in parsed or "passed" in parsed)
+
+
+def parse_task_json(text: str) -> dict[str, Any] | None:
+    r"""Extract the last recognized result-JSON block from Claude's text output.
+
+    Looks for JSON blocks in code fences first, then bare JSON objects.
+    Accepts both result schemas (REQ-100 req 123). Bare extraction uses
+    json.JSONDecoder.raw_decode — a real scanner that handles nested
+    objects, arrays, and escaped braces (req 124; the old flat regex
+    `\\{[^{}]*\\}` could not). Last matching block wins (req 125).
+    Returns None if no recognized result found (REQ-100 req 26 → "partial").
     """
     # -- Try code-fenced JSON blocks first (last one wins)
     fenced = re.findall(r"```(?:json)?\s*\n(.*?)\n\s*```", text, re.DOTALL)
     for block in reversed(fenced):
         try:
             parsed = json.loads(block.strip())
-            if isinstance(parsed, dict) and "status" in parsed:
-                return parsed
         except (json.JSONDecodeError, ValueError):
             continue
+        if _is_result_dict(parsed):
+            return parsed
 
-    # -- Try bare JSON objects (last one wins)
-    bare = re.findall(r"\{[^{}]*\}", text)
-    for block in reversed(bare):
+    # -- Bare JSON objects: scan every '{' with raw_decode (req 124)
+    decoder = json.JSONDecoder()
+    last_match: dict[str, Any] | None = None
+    idx = 0
+    while True:
+        start = text.find("{", idx)
+        if start == -1:
+            break
         try:
-            parsed = json.loads(block)
-            if isinstance(parsed, dict) and "status" in parsed:
-                return parsed
-        except (json.JSONDecodeError, ValueError):
+            parsed, end = decoder.raw_decode(text, start)
+        except ValueError:
+            idx = start + 1
             continue
+        if _is_result_dict(parsed):
+            last_match = parsed
+        # -- skip past the decoded object so nested '{' aren't re-scanned
+        idx = max(end, start + 1)
 
-    return None
+    return last_match
 
 
 def parse_stream_json_events(

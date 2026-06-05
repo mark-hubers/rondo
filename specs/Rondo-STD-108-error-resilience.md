@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.5
+**Version:** 0.6
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -359,6 +359,18 @@ Filled Session 93 — see requirements table and implementation in dispatch.py, 
 | 013 | The captured (sanitized) error body SHALL be persisted in the dispatch/audit record (Rondo-STD-113), not only emitted to a transient log, so a failure is diagnosable after the fact without reproducing it. | MUST |
 | 014 | Reading the error body SHALL be best-effort: if `exc.read()` itself fails, the adapter SHALL fall back to the status-line message and continue — error-body capture MUST NEVER raise a secondary exception that masks the original failure. | MUST |
 
+### Retry Queue Lifecycle (Session 104 — the write-only bin, F6)
+
+*50 stale files in `~/.rondo/retry/`, 60% ERR_SUBPROCESS_FOOTGUN (semantic blocks that will NEVER succeed on retry). Nothing ages out, nothing alerts, nothing drains. A queue nobody reads is a black hole with extra steps. Evidence: `rondo/research/2026-06-05-failure-taxonomy/`.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 015 | Retry-queue entries SHALL be classified at enqueue time: `transient` (timeout, 5xx, rate-limit — retryable) vs `permanent` (footgun guard, auth, validation — NOT retryable). Permanent failures go to a dead-letter list, never the retry queue. | MUST |
+| 016 | Retry entries SHALL age out: configurable `retry_max_age_days` (default 7). Aged-out entries move to dead-letter with reason `expired`. | MUST |
+| 017 | Queue depth SHALL alert: when retry queue exceeds `retry_alert_threshold` (default 10) the morning report and `rondo preflight` SHALL surface it. Silent growth is forbidden (Dual-Path-With-Alerting). | MUST |
+| 018 | `rondo spool`/`rondo retry` CLI SHALL list queue + dead-letter with age, error class, and one-line reason, and support `--drain` (retry all transient) and `--purge-dead`. | MUST |
+
+
 ## 4. Architecture / Design
 
 Filled Session 93 — see requirements table and implementation in dispatch.py, runner.py.
@@ -567,4 +579,5 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.2 | 2026-03-14 | Beefed up: error codes, result structure, flow diagram, stderr patterns, credential safety, timeout sequence |
 | 0.3 | 2026-03-14 | Deep review fixes: added files_modified + extract_modified_files(), ERR_WATCHDOG_TIMEOUT code, two-timeout explanation, SIGTERM-first kill sequence, Popen implementation note |
 | 0.4 | 2026-03-14 | Defense in depth: pre-dispatch validation (task/round/model/config), CLI exit code contract, KeyboardInterrupt handling, top-level exception safety net |
+| 0.6 | 2026-06-05 | **Retry Queue Lifecycle (Session 104, F6).** Reqs 015-018: transient/permanent classification + dead-letter, age-out, depth alerting, drain/purge CLI. Driver: 50 stale write-only retry files, 60% permanent-class. |
 | 0.5 | 2026-06-03 | **HTTP error-body capture (Session 102 — Opus 4.8 audit).** Added reqs 011-014: read+surface provider HTTP error body (011), sanitize+cap it (012), persist to audit record (013), best-effort never-mask-original (014). Driver: Opus 4.8 HTTP 400 whose body ("temperature may only be set to 1 when thinking is enabled") was discarded by the adapter, forcing manual diagnosis. Closes the gap REQ-109 req 068 opened for the one status (4xx) with no useful category. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

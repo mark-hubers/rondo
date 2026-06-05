@@ -1,0 +1,1941 @@
+[
+ {
+  "dispatch_id": "dsp_f3d138b7d4eb4cd1",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f3d138b7d4eb4cd1.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a98fa688ea8b4feb",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a98fa688ea8b4feb.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_54533e9e764849ef",
+  "error_code": "ERR_TIMEOUT",
+  "model": "opus",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_54533e9e764849ef.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5e086fa28fc34e01",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5e086fa28fc34e01.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ec778119cfb04cdd",
+  "error_code": "ERR_TIMEOUT",
+  "model": "opus",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ec778119cfb04cdd.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b2ab5917e38a4c7b",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b2ab5917e38a4c7b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d25143f278314bdc",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d25143f278314bdc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_71d82f8849824dad",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_71d82f8849824dad.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a5258ac61c49488c",
+  "error_code": "ERR_TIMEOUT",
+  "model": "opus",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a5258ac61c49488c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7f95666c1d1b4c7c",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7f95666c1d1b4c7c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_285ba493449f4042",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_285ba493449f4042.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7ccf1e4c48474bc4",
+  "error_code": "ERR_PROVIDER",
+  "model": "local:llama3.1:8b",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7ccf1e4c48474bc4.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_3b93fe9ec9c44d40",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_3b93fe9ec9c44d40.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_555d43760e5a4a80",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_555d43760e5a4a80.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b2dcc46add1a47a6",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b2dcc46add1a47a6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8b4199ba5b3444fc",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8b4199ba5b3444fc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8bd9ec1fafd84917",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8bd9ec1fafd84917.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_9a2385116a3042d9",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_9a2385116a3042d9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e383b503f927467f",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e383b503f927467f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7c78048e1b3c4628",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7c78048e1b3c4628.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1dcbef6af0c54d32",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1dcbef6af0c54d32.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0f2f53fc13234b24",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0f2f53fc13234b24.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a20bc1534f954bd1",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a20bc1534f954bd1.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_2974cf5e38f543bc",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_2974cf5e38f543bc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_da360c603f984218",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_da360c603f984218.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_837cf404813e4e16",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_837cf404813e4e16.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8bd22780a81f4870",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8bd22780a81f4870.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_794ac2d4a7034635",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_794ac2d4a7034635.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8f2ce597a1d548de",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8f2ce597a1d548de.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_88e9326ea09441a4",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_88e9326ea09441a4.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f3ccafb168b94f29",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f3ccafb168b94f29.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_554b18723e654b87",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_554b18723e654b87.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_72c35195f2e64c02",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_72c35195f2e64c02.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ce50e4f3db1148a1",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ce50e4f3db1148a1.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b7344768eb7b4a2a",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b7344768eb7b4a2a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a43d96f3820549d5",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a43d96f3820549d5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f0e0fc1c9de64629",
+  "error_code": "ERR_PROVIDER",
+  "model": "flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f0e0fc1c9de64629.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7b5c4183ba394e46",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7b5c4183ba394e46.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a542a384ac4d488b",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a542a384ac4d488b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e30d98951a6a4f8e",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e30d98951a6a4f8e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b65288c4d28843c1",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b65288c4d28843c1.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1d56af73488e4c97",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1d56af73488e4c97.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_96b301c9fc5b4ad6",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_96b301c9fc5b4ad6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_bb69b2707abb4174",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "grok-3",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_bb69b2707abb4174.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_86eca15de26145a9",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_86eca15de26145a9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_6ce29f7823324577",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_6ce29f7823324577.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_62ebb15ce74b43d6",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_62ebb15ce74b43d6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_dcbd10114fdd4d33",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_dcbd10114fdd4d33.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d4559a8f62514f8f",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d4559a8f62514f8f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c274cff0a11242d8",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c274cff0a11242d8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7cec57d386f54efd",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7cec57d386f54efd.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c147b7691a2841ea",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c147b7691a2841ea.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_3fd55a392a12455b",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_3fd55a392a12455b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8289384f95414c9d",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8289384f95414c9d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0ba76669ca704b42",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0ba76669ca704b42.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d1205a7304b54927",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d1205a7304b54927.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_52d5c65a4f854516",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_52d5c65a4f854516.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a175fd7e0661401e",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a175fd7e0661401e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e7ee424ed4d14cf6",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e7ee424ed4d14cf6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_823da3c073194482",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_823da3c073194482.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_797e53f767fe4478",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_797e53f767fe4478.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d6adb1025cd54a05",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d6adb1025cd54a05.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d90320d081784bd7",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d90320d081784bd7.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8981b64dc8d8480f",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8981b64dc8d8480f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_fcd30a34720c44d5",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_fcd30a34720c44d5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_85736e8de7de420b",
+  "error_code": "ERR_PROVIDER",
+  "model": "mistral-large-latest",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_85736e8de7de420b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c74ee682858243bd",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c74ee682858243bd.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_277e4460eb2149d3",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_277e4460eb2149d3.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c728e99ecb1a4f2d",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c728e99ecb1a4f2d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a71dc9c61eb548bb",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a71dc9c61eb548bb.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8671d56e871f4537",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8671d56e871f4537.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_bb87c26b416345ec",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_bb87c26b416345ec.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_285e7dcd244d442b",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_285e7dcd244d442b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8b877ff2b2844559",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8b877ff2b2844559.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d5a7c12adc1a4869",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d5a7c12adc1a4869.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_2d97933d6566440c",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_2d97933d6566440c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_709a91e98b4440c3",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_709a91e98b4440c3.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e9f8ba8b46364fb2",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e9f8ba8b46364fb2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c2bfdf7edc9941ca",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c2bfdf7edc9941ca.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8047741fbe4a4d4a",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8047741fbe4a4d4a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_4acd5868a16347d9",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_4acd5868a16347d9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_36dd2702b09e4a4c",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_36dd2702b09e4a4c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1dda2804bb584db0",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1dda2804bb584db0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_53b87cf7aa4d4a6a",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_53b87cf7aa4d4a6a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_768b07340c214aa0",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_768b07340c214aa0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1db0f6f60fde4c1a",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1db0f6f60fde4c1a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_6c818f10a47046f8",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_6c818f10a47046f8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0aed316993fe4a83",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0aed316993fe4a83.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8474c0e378ce4fb2",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8474c0e378ce4fb2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a24c6fbed2324d3e",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a24c6fbed2324d3e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_73e00cd6266d439c",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_73e00cd6266d439c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f444e99d84144839",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f444e99d84144839.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_20480eba44024282",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_20480eba44024282.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_990be811829a4a91",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_990be811829a4a91.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_4262fcd99a7e4182",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "haiku",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_4262fcd99a7e4182.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b2882dc0c9804f7a",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b2882dc0c9804f7a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d8a67b413cc4446c",
+  "error_code": "ERR_AUTH",
+  "model": "grok-3",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d8a67b413cc4446c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5614203ab7d64a7c",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5614203ab7d64a7c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5c490b3d91a64255",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5c490b3d91a64255.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_6aa95055205d4a6b",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_6aa95055205d4a6b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7c3334208db14946",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7c3334208db14946.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_75c82f47c2a44415",
+  "error_code": "ERR_AUTH",
+  "model": "grok-3",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_75c82f47c2a44415.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_77138c6959a648fe",
+  "error_code": "ERR_AUTH",
+  "model": "grok-3",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_77138c6959a648fe.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0c9c0353c1b64745",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0c9c0353c1b64745.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_fcbdbd65355f4b35",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_fcbdbd65355f4b35.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_29f02ae766604026",
+  "error_code": "ERR_PROVIDER",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_29f02ae766604026.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e4ff38551c914791",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e4ff38551c914791.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_948cbf91effd491a",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_948cbf91effd491a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7080722b782642c9",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7080722b782642c9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0745d9eebf44435a",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0745d9eebf44435a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_12569d702f4a4758",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_12569d702f4a4758.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1dd3d328abf84afc",
+  "error_code": "ERR_PROVIDER",
+  "model": "nonexistent-model-xyz",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1dd3d328abf84afc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_44f4ccb09fd24d43",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_44f4ccb09fd24d43.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_90c7dda6353e4b99",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_90c7dda6353e4b99.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f052a6ecd8b74477",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f052a6ecd8b74477.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1aff8a92fb064702",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1aff8a92fb064702.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ee7f798f49454ab6",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ee7f798f49454ab6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c120f03c070d4505",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c120f03c070d4505.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_25f629082ec54c39",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_25f629082ec54c39.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_85a4c8cad1574e90",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_85a4c8cad1574e90.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e10a80d2bab54a84",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e10a80d2bab54a84.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_166f1cd0f5354a7d",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_166f1cd0f5354a7d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b4ef5476de764239",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b4ef5476de764239.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1f21fffe8db44e3e",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1f21fffe8db44e3e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f175d949e2374411",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f175d949e2374411.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0485f58620584684",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0485f58620584684.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d8fcc2f5518941e1",
+  "error_code": "ERR_PROVIDER",
+  "model": "haiku",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d8fcc2f5518941e1.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e771149f2bde4dea",
+  "error_code": "ERR_PROVIDER",
+  "model": "low",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e771149f2bde4dea.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_17f68ad091454902",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_17f68ad091454902.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7232b8e8671d4eb8",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7232b8e8671d4eb8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7751d39b7dc9487e",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7751d39b7dc9487e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8fdb4f7a958c4f6e",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8fdb4f7a958c4f6e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f113cce609794eec",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f113cce609794eec.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_92db2c1626584b8c",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_92db2c1626584b8c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_2152c87471c04a0c",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_2152c87471c04a0c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_585e3a619844424f",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_585e3a619844424f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_774c22e4bfe14289",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_774c22e4bfe14289.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_729c60307d9241d2",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_729c60307d9241d2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7618752e64b3475c",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7618752e64b3475c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f0685b32028a4158",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f0685b32028a4158.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8c4a40b05c824cb5",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8c4a40b05c824cb5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f393ba1dbb724db0",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f393ba1dbb724db0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c6a626f1fa774175",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c6a626f1fa774175.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7b2ae85145ea478f",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7b2ae85145ea478f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_56d24cd0825b4f8d",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_56d24cd0825b4f8d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_fd8b3c0258bc4468",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_fd8b3c0258bc4468.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a5884adaeb6a4064",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a5884adaeb6a4064.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_9553197c80834b6b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_9553197c80834b6b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7f79e107813a48fb",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7f79e107813a48fb.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b42237f2fd6e42d2",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b42237f2fd6e42d2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b08883d6e9544738",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b08883d6e9544738.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_293c564e3eeb41e2",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_293c564e3eeb41e2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c19eb093095f4a66",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c19eb093095f4a66.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_3e75a2be31dd48ac",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_3e75a2be31dd48ac.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ece7ae8c87a24a1a",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ece7ae8c87a24a1a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1b85de63ea934ac7",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1b85de63ea934ac7.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a0120af3d3c64e97",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a0120af3d3c64e97.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a0283c679cd24086",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a0283c679cd24086.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ce19b14ad08c45bb",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ce19b14ad08c45bb.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1068c07935cd4cf2",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1068c07935cd4cf2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f71c760c11d74568",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f71c760c11d74568.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0e0ac41df6a84ed5",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0e0ac41df6a84ed5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_66c13bcf4ca845a2",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_66c13bcf4ca845a2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ad9da6f6dd0746b5",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ad9da6f6dd0746b5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_dbc32a7ab6d04107",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_dbc32a7ab6d04107.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e7b9eddbb4d34b6d",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e7b9eddbb4d34b6d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ea218848bed14233",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ea218848bed14233.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c485c2a5c53c45da",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c485c2a5c53c45da.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5ac095215885455e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5ac095215885455e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_6699bb7f0f2442dc",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_6699bb7f0f2442dc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_cebc79a424c04cf9",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_cebc79a424c04cf9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_427b380ce3344b4b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_427b380ce3344b4b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0b98a73a09894c01",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0b98a73a09894c01.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_eee698c93908495e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_eee698c93908495e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5cd9c7fde2a14e9b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5cd9c7fde2a14e9b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_25b412af36d64703",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_25b412af36d64703.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_faea94d60ba249fe",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_faea94d60ba249fe.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_deda9af08bf547cc",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_deda9af08bf547cc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a298a81605a94626",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a298a81605a94626.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_4703f1265a18427b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_4703f1265a18427b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_179db711021248f0",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_179db711021248f0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_780f3fb039f74de3",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_780f3fb039f74de3.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1b39441ead9a4544",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1b39441ead9a4544.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_3b329be007cd4d51",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_3b329be007cd4d51.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_3a831b1711cc424b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_3a831b1711cc424b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ceb409b1d2084acd",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ceb409b1d2084acd.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_59673d9dd0124a7c",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_59673d9dd0124a7c.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a7790ca96f0e4361",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a7790ca96f0e4361.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f9d2af77ba1a408e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f9d2af77ba1a408e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_eb732c8797e84820",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_eb732c8797e84820.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_43a76f23f6574a98",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_43a76f23f6574a98.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_55c531209de744bc",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_55c531209de744bc.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_2b562a14e4b84ebe",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_2b562a14e4b84ebe.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_daaffb4e6c194adb",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_daaffb4e6c194adb.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_bf82e248602b402f",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_bf82e248602b402f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_621fbde2ecbb4f87",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_621fbde2ecbb4f87.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8aa7b61253aa49d8",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8aa7b61253aa49d8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a3dc09631f364301",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a3dc09631f364301.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_559603059c1c40c0",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_559603059c1c40c0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ae8f791488544fa9",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ae8f791488544fa9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a91d157ecf584a9e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a91d157ecf584a9e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c43336efd85641fd",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c43336efd85641fd.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_64ccae6970474db8",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_64ccae6970474db8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_288b3f1a1bdd4722",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_288b3f1a1bdd4722.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f512d94692144a7b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f512d94692144a7b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_b4ebec4e7c9c42a9",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_b4ebec4e7c9c42a9.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a3db1fcafba8456d",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a3db1fcafba8456d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c214b0fc6def4084",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c214b0fc6def4084.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e6774a3ae7d646e6",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e6774a3ae7d646e6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0cda142692cd4159",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0cda142692cd4159.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_094c111cd38e4a06",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_094c111cd38e4a06.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_4da1beda2a4b4661",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_4da1beda2a4b4661.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_44349e235450463e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_44349e235450463e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ce150fa398ba44ff",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ce150fa398ba44ff.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d8d338b6cbd94f7e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d8d338b6cbd94f7e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_4feb222d643d4bc0",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_4feb222d643d4bc0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_66fa6ee7e2284eda",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_66fa6ee7e2284eda.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7d971a1318e1446f",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7d971a1318e1446f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_092e0546660f4089",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_092e0546660f4089.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_316e387154bc4474",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_316e387154bc4474.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_90b62fd415b445bf",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_90b62fd415b445bf.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d197ab61eda44a2e",
+  "error_code": "ERR_PROVIDER",
+  "model": "mistral",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d197ab61eda44a2e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_41668b5173494b18",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_41668b5173494b18.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_a09030019ef44043",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_a09030019ef44043.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_d6ad3cd84d3f4002",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_d6ad3cd84d3f4002.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0eac0cb70bab428d",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0eac0cb70bab428d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_111653d739e24b4a",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_111653d739e24b4a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5918580e145140bf",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5918580e145140bf.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_919a51d490e84533",
+  "error_code": "ERR_PROVIDER",
+  "model": "nonexistent-model",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_919a51d490e84533.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8d16069a412145c3",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8d16069a412145c3.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_09323a58eebc4bd8",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_09323a58eebc4bd8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_6b9a244331414e52",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_6b9a244331414e52.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_1cbf659095eb48b8",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_1cbf659095eb48b8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e15e48b89d904a13",
+  "error_code": "ERR_PROVIDER",
+  "model": "nonexistent-model",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e15e48b89d904a13.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_76a32ef2d2254a77",
+  "error_code": "ERR_TIMEOUT",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_76a32ef2d2254a77.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_80e61cc1eba14973",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_80e61cc1eba14973.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_07a5c8a057cd4404",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_07a5c8a057cd4404.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_72705128d5e74598",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_72705128d5e74598.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c9d4c339646a480d",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c9d4c339646a480d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_3dad5d07d75341c8",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_3dad5d07d75341c8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_4b6de9aaf13e4d20",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_4b6de9aaf13e4d20.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5f6d14aea9854909",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5f6d14aea9854909.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7ced7b714b384656",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7ced7b714b384656.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_08fada176f2b44ed",
+  "error_code": "ERR_SUBPROCESS",
+  "model": "haiku",
+  "task_name": "find-issues",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_08fada176f2b44ed.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_fc09603fc7cc422d",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_fc09603fc7cc422d.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_848de907746f4221",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_848de907746f4221.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_ebbaaf9cc60847ed",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_ebbaaf9cc60847ed.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8d9e444067d34de0",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "t1",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8d9e444067d34de0.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_7ed2c85b54974bc5",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "a",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_7ed2c85b54974bc5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_65b59172fded4749",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_65b59172fded4749.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f802e89d58eb4685",
+  "error_code": "ERR_PROVIDER",
+  "model": "flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f802e89d58eb4685.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c6e8ea03a52e4bdd",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "verify-fix",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c6e8ea03a52e4bdd.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_da40d1db73164ef6",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "propose-fix",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_da40d1db73164ef6.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_40e1cb3d3266410e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "find-issues",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_40e1cb3d3266410e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_68f82f2e7f8d4c2a",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_68f82f2e7f8d4c2a.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_8f4bb8601abf486e",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_8f4bb8601abf486e.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_31f2c66a7c6e473b",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_31f2c66a7c6e473b.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_da184826ecd74ed8",
+  "error_code": "ERR_PROVIDER",
+  "model": "flash",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_da184826ecd74ed8.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5abde6afa9834f17",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "verify-fix",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5abde6afa9834f17.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_0f354c9dae1b4f07",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "propose-fix",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_0f354c9dae1b4f07.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_c101d7cf72344538",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "find-issues",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_c101d7cf72344538.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f184fa02296a4556",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f184fa02296a4556.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_f4ca8af0d8194656",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_f4ca8af0d8194656.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_02e2cfe0d5bc44f2",
+  "error_code": "ERR_MALFORMED_JSON",
+  "model": "sonnet",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_02e2cfe0d5bc44f2.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_fd79831e9b654566",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_fd79831e9b654566.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_644dbc84900d4741",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_644dbc84900d4741.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_cc915458661d4bba",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_cc915458661d4bba.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_18da2dc95bd848ec",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_18da2dc95bd848ec.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_9905452215fc49fa",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_9905452215fc49fa.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_5d9e98b3ff1048ba",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_5d9e98b3ff1048ba.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_56b8ed01ec034a43",
+  "error_code": "ERR_PROVIDER",
+  "model": "mistral-large-latest",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_56b8ed01ec034a43.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_fe7fab4ae3bd4753",
+  "error_code": "ERR_PROVIDER",
+  "model": "grok",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_fe7fab4ae3bd4753.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_39a737a1d8fd456f",
+  "error_code": "ERR_PROVIDER",
+  "model": "gemini",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_39a737a1d8fd456f.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_e2b8a3499cd44302",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_e2b8a3499cd44302.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_41d4a90956e84624",
+  "error_code": "ERR_PROVIDER",
+  "model": "mistral-large-latest",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_41d4a90956e84624.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_09d6433192c542d5",
+  "error_code": "ERR_PROVIDER_DOWN",
+  "model": "gemini-2.5-pro",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_09d6433192c542d5.prompt.txt"
+ },
+ {
+  "dispatch_id": "dsp_eb053a7905154292",
+  "error_code": "ERR_PROVIDER",
+  "model": "claude-opus-4-8",
+  "task_name": "inline-task",
+  "prompt_file": "/Users/markhubers/.rondo/audit/dsp_eb053a7905154292.prompt.txt"
+ }
+]

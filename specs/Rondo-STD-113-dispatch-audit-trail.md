@@ -6,7 +6,7 @@
 **Category:** STD
 **Created:** 2026-03-20 | **Updated:** 2026-03-20 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.0
+**Version:** 1.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -72,6 +72,20 @@ Overnight runs produce results but no explanation. A task failed — was the pro
 | 018 | `reconcile_stuck_intents(stuck_after_sec)` MUST respect an age threshold to avoid false-positives on peer workers' in-flight INTENTs in multi-process deployments. INTENTs whose `dispatched_at` is younger than the threshold are assumed live on another process and skipped. Default pulled from `AuditConfig.stuck_after_sec` (production default 300s). Callers override with `stuck_after_sec=0` to disable the threshold. Fixed RONDO-211 finding #257 (multi-process false-positive race). | MUST | Multi-process stress test |
 | 019 | `AuditConfig.stuck_after_sec: int = 300` — age threshold (seconds) used by auto-reconcile on AuditTrail init. Must be longer than any normal dispatch (0.5-60s typical, 2-3 min for multi-step) and short enough to catch true crashes within an SLA window. | MUST | Config default test |
 | 020 | `rondo_run_status` MCP tool MUST truncate `raw_output` in each task to 2000 chars per U-32 (REQ-100 Usability section) at the response boundary. Truncation MUST NOT happen in `_execute_dispatch` (the producer) because `rondo_multi_review` needs full output. RONDO-211 finding #258 + RONDO-212 regression fix. | MUST | U-32 regression test |
+
+### Failure Forensics Pack (Session 104 — every historic failure was "(no message)")
+
+*All 467 historic failure records carry an `error_code` but NO `error_message` and NO `stderr` — the diagnostic text exists in TaskResult and is dropped at the audit boundary (Finding #291). 103 ERR_SUBPROCESS and 44 null-context blocked records are permanently undiagnosable. Rule: a failure that cannot be explained from the audit trail alone did not get audited. Evidence: `rondo/research/2026-06-05-failure-taxonomy/`.*
+
+| ID | Requirement | Priority | Verified By |
+|----|-------------|----------|-------------|
+| 021 | OUTCOME records for any non-`done` status MUST persist `error_message` (sanitized per STD-114, capped 500 chars). This includes provider error bodies captured per STD-108 reqs 011-014. | MUST | Forensics test |
+| 022 | OUTCOME records for `error` status MUST persist a `stderr` snippet (sanitized, capped 500 chars) when the subprocess produced any. An ERR_SUBPROCESS record with empty diagnostics is a defect, not a record. | MUST | Stderr capture test |
+| 023 | `blocked` OUTCOME records MUST carry a `blocked_reason` (which gate/check blocked: cost cap, footgun guard, circuit breaker, etc.). A blocked record with null context is forbidden. | MUST | Blocked-reason test |
+| 024 | OUTCOME records SHOULD persist usage (`cost_usd`, `input_tokens`, `output_tokens`) on FAILURE paths whenever the provider returned them before failing. Zero-on-error is only valid when the provider truly returned nothing. | SHOULD | Cost-on-error test |
+| 025 | OUTCOME records SHOULD include phase timing (`t_subprocess_ms` / `t_api_ms` / `t_parse_ms`) where measurable, so timeout and latency failures are attributable to a phase. | SHOULD | Phase-timing test |
+| 026 | INTENT and OUTCOME records MUST include a `project` field (caller-supplied or cwd-derived) so per-project health (USH vs GHE vs ace2) is separable. Complements tenant isolation (Finding #217). | MUST | Project-field test |
+| 027 | Schema additions are append-only: new fields default to empty/null for historic records; readers MUST tolerate their absence. No migration of old records. | MUST | Back-compat test |
 
 
 ---
@@ -364,6 +378,8 @@ CORE-STD-012 (Requirement Readiness) uses audit completeness as a quality signal
 
 
 ## 35. Change History
+
+| 1.1 | 2026-06-05 | **Failure Forensics Pack (Session 104, Finding #291).** Reqs 021-027: persist error_message+stderr on failures, blocked_reason mandatory, usage on failure paths, phase timing, project field, append-only schema. Driver: all 467 historic failures undiagnosable — '(no message)'. |
 
 | Version | Date | What Changed |
 |---------|------|-------------|

@@ -2286,4 +2286,94 @@ class TestContextDataSizeCap:
         assert any("bytes" in e.lower() for e in errors)
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-298 (Finding #290): parser robustness — REQ-100 reqs 123-126
+# --  80 historic dispatches succeeded but were misfiled "partial":
+# --  (a) status-key gate rejected smart-return schema ('passed' key)
+# --  (b) flat regex \{[^{}]*\} could not match nested JSON
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestSmartReturnParsing:
+    """REQ-100 reqs 123-125: dual-schema acceptance + real JSON scanner."""
+
+    def test_smart_return_schema_accepted(self) -> None:
+        """REQ-100 req 123: smart-return shape ('passed' key) is a parsed result."""
+        text = '{"passed": true, "confidence": 1.0, "result": "Hello", "issues": [], "suggestions": []}'
+        parsed = parse_task_json(text)
+        assert parsed is not None
+        assert parsed["passed"] is True
+
+    def test_contract_schema_still_accepted(self) -> None:
+        """REQ-100 req 123: three-field contract ('status' key) unchanged."""
+        parsed = parse_task_json('{"status": "done", "confidence": 0.9, "result": "ok"}')
+        assert parsed is not None
+        assert parsed["status"] == "done"
+
+    def test_nested_json_parses(self) -> None:
+        """REQ-100 req 124: nested objects/arrays must parse (flat regex could not)."""
+        text = 'preamble\n{"status": "done", "result": {"nested": {"deep": [1, 2]}}, "confidence": 0.9}'
+        parsed = parse_task_json(text)
+        assert parsed is not None
+        assert parsed["result"]["nested"]["deep"] == [1, 2]
+
+    def test_escaped_braces_inside_strings(self) -> None:
+        """REQ-100 req 124: escaped JSON-in-string must not break the scanner."""
+        text = '{"passed": true, "confidence": 1.0, "result": "{\\"mode\\": \\"subprocess\\"}"}'
+        parsed = parse_task_json(text)
+        assert parsed is not None
+        assert "mode" in parsed["result"]
+
+    def test_last_matching_block_wins(self) -> None:
+        """REQ-100 req 125: last recognized block wins (unchanged precedence)."""
+        text = '{"status": "done", "result": "first"}\nnoise\n{"passed": true, "result": "second"}'
+        parsed = parse_task_json(text)
+        assert parsed is not None
+        assert parsed["result"] == "second"
+
+    def test_non_result_dicts_ignored(self) -> None:
+        """REQ-100 req 123: dicts matching neither schema are not results."""
+        text = '{"random": 1, "other": 2} then {"status": "done", "result": "real"}'
+        parsed = parse_task_json(text)
+        assert parsed is not None
+        assert parsed["result"] == "real"
+
+    def test_no_json_returns_none(self) -> None:
+        """No recognizable result anywhere → None (partial path preserved)."""
+        assert parse_task_json("just prose, no JSON at all") is None
+
+
+class TestHistoricCorpusParsing:
+    """REQ-100 req 126: the 80 misfiled production outputs are the regression suite."""
+
+    def test_historic_partials_parse(self) -> None:
+        """Re-parse every preserved partial raw_output (excluding auth-loss)."""
+        audit = Path.home() / ".rondo" / "audit"
+        log = audit / "rondo_audit.jsonl"
+        if not log.exists():
+            pytest.skip("no local audit corpus on this machine")
+        failures = 0
+        candidates = 0
+        for line in log.read_text().splitlines():
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if rec.get("status") != "partial":
+                continue
+            p = audit / (rec.get("result_file") or "_none_")
+            if not p.exists():
+                continue
+            raw = json.loads(p.read_text()).get("raw_output") or ""
+            if "Not logged in" in raw or "Please run /login" in raw:
+                continue  # -- auth-loss bucket — IFS-100 reqs 011-014, not a parse problem
+            candidates += 1
+            if parse_task_json(raw) is None:
+                failures += 1
+        if candidates == 0:
+            pytest.skip("no partial records in local corpus")
+        # -- ≥95%: allow a handful of genuinely-malformed outputs in old data
+        assert failures <= candidates * 0.05, f"{failures}/{candidates} historic outputs still unparseable"
+
+
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

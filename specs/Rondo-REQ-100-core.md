@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Status:** DRAFT
 **Classification:** open
-**Version:** 1.3
+**Version:** 1.4
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -188,6 +188,17 @@ AI work can be decomposed into tasks with clear inputs, instructions, and comple
 |----|-------------|----------|
 | 082 | Dispatch MAY pass `--allowed-tools` and/or `--disallowed-tools` for per-tool control when `tool_mode` is `default`. These provide finer granularity than `tool_mode` (which is all-or-nothing). Example: `--allowed-tools "Read,Grep"` for review-only tasks. | MAY |
 | 083 | `--allowed-tools`/`--disallowed-tools` MUST NOT be combined with `tool_mode: none` (redundant — no tools to filter). If `tool_mode` is `none`, these flags are ignored. | MUST |
+
+### Result Parsing Robustness (Session 104 — Finding #290, the 80 misfiled dispatches)
+
+*Replay of all 113 historic "partial" records proved 80 contained PERFECTLY VALID smart-return JSON (`{"passed":..., "confidence":..., "result":...}`) that `parse_task_json` rejected: (a) it requires a `status` key — Rondo's own smart-return schema (REQ-111) uses `passed`; (b) its bare-object regex `\{[^{}]*\}` cannot match nested JSON. Successful AI work was misfiled as failure. Evidence: `rondo/research/2026-06-05-failure-taxonomy/`.*
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| 123 | The result parser MUST accept BOTH recognized result schemas: the three-field contract (`status` key, req 079 shape) AND the smart-return schema (`passed` key, REQ-111 shape). A dict matching either schema is a parsed result, never "partial". | MUST |
+| 124 | Bare-JSON extraction MUST use a real JSON scanner (e.g. `json.JSONDecoder.raw_decode` walking candidate `{` positions), NOT a regex that cannot match nested objects. Nested objects, arrays, and escaped braces inside strings MUST all parse. | MUST |
+| 125 | When multiple JSON blocks are present, the LAST block matching a recognized schema wins (unchanged precedence). Fenced blocks keep precedence over bare blocks. | MUST |
+| 126 | The parser MUST be validated against the historic corpus: the 80 misfiled raw outputs preserved in `~/.rondo/audit/` (replay list: `rondo/research/2026-06-05-failure-taxonomy/replay-candidates.json`) MUST all parse. Real production data is the regression suite. | MUST |
 
 ### Package Layout
 ```
@@ -1612,6 +1623,7 @@ two extension points in the existing `_dispatch_with_safety_net` path.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 1.4 | 2026-06-05 | **Result parsing robustness (Session 104, Finding #290).** Added reqs 123-126: dual-schema acceptance (status OR passed), real JSON scanner not flat regex, last-match precedence, historic-corpus regression gate (80 misfiled outputs MUST parse). Driver: replay proved 80 successful dispatches were misfiled partial. |
 | 0.1 | 2026-03-13 | Initial draft from spike learnings (Session 75) |
 | 0.2 | 2026-03-13 | Split from monolithic spec. Rondo-REQ-100=core, Rondo-REQ-101=automation. Removed OB/ACE references. Own foundations. |
 | 0.3 | 2026-03-14 | Added Data Boundary section: RoundResult, DispatchUsage, result file structure. Answered Q1 (no DB), Q2 (rate_limit_event), Q3 (configurable binary). |

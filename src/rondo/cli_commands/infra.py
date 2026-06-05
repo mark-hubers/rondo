@@ -390,4 +390,64 @@ def _cmd_matrix(args: argparse.Namespace) -> int:
         return EXIT_FAILURE
 
 
+def _resolve_retry_dir() -> str:
+    """Retry dir — honors RONDO_TEST_DIR (hermeticity, #292)."""
+    import os  # pylint: disable=import-outside-toplevel
+
+    test_dir = os.environ.get("RONDO_TEST_DIR")
+    return os.path.join(test_dir, "retry") if test_dir else "~/.rondo/retry"
+
+
+def _cmd_retryq(args: argparse.Namespace) -> int:
+    """Execute 'rondo retryq list|sweep|drain|purge-dead' — STD-108 req 018 (#296)."""
+    from rondo.retry_queue import (  # pylint: disable=import-outside-toplevel
+        DEAD_LETTER_DIRNAME,
+        list_queue,
+        sweep_retry_queue,
+    )
+
+    retry_dir = _resolve_retry_dir()
+    if args.action == "list":
+        entries = list_queue(retry_dir)
+        if not entries:
+            print("  retry queue empty")
+            return EXIT_SUCCESS
+        print(f"  {'Dispatch':<22} {'Class':<10} {'Age(d)':>7} Reason")
+        for e in entries:
+            print(f"  {e['dispatch_id']:<22} {e['error_class']:<10} {e['age_days']:>7.1f} {e['reason']}")
+        return EXIT_SUCCESS
+    if args.action == "sweep":
+        report = sweep_retry_queue(retry_dir)
+        print(
+            f"  -PASS- sweep: {report.dead_lettered_permanent} permanent + "
+            f"{report.dead_lettered_expired} expired dead-lettered, {report.remaining} remaining"
+        )
+        if report.alert:
+            print(f"  -WARNING- {report.alert}", file=sys.stderr)
+        return EXIT_SUCCESS
+    if args.action == "drain":
+        from rondo.mcp_dispatch import rondo_retry  # pylint: disable=import-outside-toplevel
+
+        entries = [e for e in list_queue(retry_dir) if e["error_class"] == "transient"]
+        if not entries:
+            print("  nothing transient to drain")
+            return EXIT_SUCCESS
+        for e in entries:
+            print(f"  draining {e['dispatch_id']} ({e['reason']})")
+            rondo_retry(dispatch_id=e["dispatch_id"])
+        print(f"  -PASS- drained {len(entries)} transient entr(ies)")
+        return EXIT_SUCCESS
+    if args.action == "purge-dead":
+        dead = Path(retry_dir).expanduser() / DEAD_LETTER_DIRNAME
+        count = 0
+        if dead.is_dir():
+            for f in dead.glob("*.json"):
+                f.unlink()
+                count += 1
+        print(f"  -PASS- purged {count} dead-letter file(s)")
+        return EXIT_SUCCESS
+    print(f"Unknown retryq action: {args.action}", file=sys.stderr)
+    return EXIT_FAILURE
+
+
 # -- sig: mgh-6201.cd.bd955f.a4e5.32ef29

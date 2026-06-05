@@ -198,6 +198,12 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     matrix_parser.add_argument("target", help="run: matrix YAML path; others: matrix name")
     matrix_parser.add_argument("--dry-run", action="store_true", help="Show grid + estimate without dispatching")
 
+    # -- retryq subcommand (STD-108 req 018, Finding #296)
+    retryq_parser = subparsers.add_parser(
+        "retryq", help="Retry queue lifecycle: list, sweep, drain, purge-dead (STD-108)"
+    )
+    retryq_parser.add_argument("action", choices=["list", "sweep", "drain", "purge-dead"], help="Queue action")
+
     # -- version subcommand (RONDO-290 Finding #266)
     ver_parser = subparsers.add_parser("version", help="Show version or bump build counter")
     ver_parser.add_argument(

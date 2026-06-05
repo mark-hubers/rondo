@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.5
+**Version:** 0.6
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -421,6 +421,14 @@ REQUIRED — fill before build.
 
 ### Cross-Process State Safety (Session 102 — auto_reconcile race, Finding #257)
 
+> ✅ **VERIFY-FIRST CONCLUDED (Session 104, RONDO-310):** req 020's stress test
+> was built and run — 25 concurrent processes × 8 dispatches each, every worker
+> reconciling mid-flight (the exact #257 attack). Result: ZERO false-stuck, ZERO
+> torn JSONL lines, ZERO duplicate outcomes. The STD-113 017-019 age-threshold
+> mitigation is SUFFICIENT. **The flock layer (reqs 016-019) is NOT built** —
+> `tests/unit/test_audit_stress.py` stands as the permanent guard; if it ever
+> fails, reqs 016-019 become a build order.
+
 *Finding #257 (flagged HIGH independently by Gemini and Grok during RONDO-210 Phase D review): the audit trail's INTENT→IN-FLIGHT→DONE state machine is filesystem-backed (JSONL) with no distributed lock. Concurrent workers see a stale mid-transition view; a worker's `reconcile_stuck_intents()` marks another worker's VALID in-flight dispatch as "stuck" and re-dispatches it → duplicate cost + confusing results. STD-110 owns locks; the audit record schema is STD-113. Evidence: `rondo/research/2026-06-03-rondo-audit/`.*
 
 | ID | Requirement | Priority |
@@ -645,4 +653,5 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.2 | 2026-03-14 | Beefed up: code patterns for every rule, attack prevention table, thread safety matrix, conflict detection pattern |
 | 0.3 | 2026-03-14 | Deep review fix: sanitize_result() uses dc_replace() instead of setattr (frozen dataclass safe) |
 | 0.4 | 2026-03-14 | Deep review v2: R1 subprocess timeout rewritten from subprocess.run(timeout=) to Popen + SIGTERM-first kill sequence (matches CORE-IFS-001 reqs 53-54 (status vocabulary)) |
+| 0.6 | 2026-06-05 | Verify-first concluded: 25-worker stress test PASSED (zero false-stuck/torn/dup) — flock layer not built; stress test = permanent guard. |
 | 0.5 | 2026-06-03 | **Cross-process state safety (Session 102 — auto_reconcile race).** Added reqs 016-020: flock-guarded atomic state transitions (016), age-gated stuck reconciliation (017), idempotent reconcile (018), graceful flock degradation w/ alert (019), ≥20-concurrent stress test (020). Driver: Finding #257 (RONDO-210 Phase D) — Gemini+Grok both flagged HIGH; INTENT/IN-FLIGHT/DONE not atomic across workers → valid in-flight marked stuck → duplicate re-dispatch. Pairs with STD-113 (audit record schema). Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

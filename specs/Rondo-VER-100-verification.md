@@ -5,7 +5,7 @@
 **Product name:** Rondo — AI Task Orchestration Engine
 **Created:** 2026-03-13 | **Updated:** 2026-03-16 | **Status:** ACTIVE
 **Classification:** open
-**Version:** 1.1
+**Version:** 1.2
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -703,6 +703,7 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.7 | 2026-03-14 | Deep review v2: added Rondo-REQ-100 reqs 45-46 (run_round, RoundResult.status). Added CORE-IFS-001 reqs 53-54 / Rondo-STD-108 / Rondo-STD-111 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
 | 0.8 | 2026-03-14 | Added Rondo-REQ-100 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
 | 0.9 | 2026-03-14 | Added Rondo-STD-111 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
+| 1.2 | 2026-06-05 | Matrix (REQ-113) + thinking-era reqs (REQ-109 210-214) mapped; streaming verified live. |
 | 1.1 | 2026-06-05 | **Reliability Campaign Addendum (§11, RONDO-307).** ~80 new reqs (RONDO-296→306) mapped to existing tests; 2 production-data corpora (80 parser + 33 auth) registered as permanent regression gates; pending items (REQ-111 604-610, STD-110 016-020) explicitly marked. |
 | 1.0 | 2026-03-16 | Full rebuild to Rondo-VER-100 standard. Added: 6 verification methods, test index (418 tests across 10 files), coverage summary with grand total, 10 key findings, convergence test baseline, Rondo+Caliber buggy.py integration evidence, production targets. All 153 items verified 100%. |
 
@@ -732,6 +733,12 @@ two production-data corpora serve as permanent regression suites.
 | REQ-111 600-603 (registry refresh/drift) | ✓ | `test_model_registry.py` (10) + live 5/5-provider drift run |
 | REQ-111 604-610 (auto-tiers, collapse ladder, verify canary) | ✗ pending | next-wave build — tests TBD with build |
 | STD-110 016-020 (cross-process flock + ≥20-concurrent stress) | ✗ verify-first | stress test FIRST decides whether the flock layer is built at all |
+| REQ-113 001-061 (experiment matrix) | ✓ | `test_matrix.py` (18) + LIVE: 6-cell blind proof run + real 4.6v4.8 essay run |
+| REQ-113 005 (inputs interpolation) | ✓ | `TestInputsInterpolation` (2) — born from the first real run dispatching a template |
+| REQ-109 210 (thinking output headroom) | ✓ | headroom test + real empty-body incident |
+| REQ-109 211 (non-streaming thinking timeout, superseded for streams) | ✓ | timeout test |
+| REQ-109 212-213 (config timeout matrix; never-auto-retry thinking) | ✗ specced | build with [timeouts] config sprint |
+| REQ-109 214 (STREAMING dispatch + per-event watchdog) | ✓ | `TestStreamingDispatch` (5) + live max-effort canary 0.8s + trial-by-fire matrix run |
 
 ### Production-Data Regression Corpora (new verification method)
 

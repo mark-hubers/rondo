@@ -18,10 +18,14 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# -- STD-101 req 242 (RONDO-302): the reliability campaign target line
+SUCCESS_TARGET = 0.95
 
 
 # -- ──────────────────────────────────────────────────────────────
@@ -63,6 +67,14 @@ class MetricsReport:  # pylint: disable=too-many-instance-attributes
     # -- spool
     spool_pending: int = 0
 
+    # -- STD-101 reqs 240-242 (RONDO-302): windowed scoreboard.
+    # -- None = no dispatches in window (never report a fake 100%).
+    success_rate_7d: float | None = None
+    success_rate_30d: float | None = None
+    dispatches_7d: int = 0
+    dispatches_30d: int = 0
+    trend_7d: str = "n/a"  # -- up | down | flat | n/a (vs prior 7 days)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to JSON-safe dict for OB/ACE/MCP consumption."""
         return {
@@ -82,6 +94,12 @@ class MetricsReport:  # pylint: disable=too-many-instance-attributes
             "total_output_tokens": self.total_output_tokens,
             "dispatches_by_model": self.dispatches_by_model,
             "spool_pending": self.spool_pending,
+            # -- STD-101 reqs 240-242 (RONDO-302)
+            "success_rate_7d": self.success_rate_7d,
+            "success_rate_30d": self.success_rate_30d,
+            "dispatches_7d": self.dispatches_7d,
+            "dispatches_30d": self.dispatches_30d,
+            "trend_7d": self.trend_7d,
         }
 
 
@@ -135,15 +153,65 @@ def _determine_health(success_rate: float, total: int) -> str:
     return "RED"
 
 
+def _windowed_rate(
+    outcomes: list[dict[str, Any]],
+    now: datetime,
+    newest_days: float,
+    oldest_days: float,
+) -> tuple[float | None, int]:
+    """Success rate for outcomes completed within (now-oldest, now-newest].
+
+    STD-101 reqs 240-241 (RONDO-302): windowed, `skipped` excluded entirely,
+    success = done|partial (recovered misfiled partials count corrected).
+    Returns (rate | None, count) — None when the window is empty, so an
+    idle week never reports a fake 100%.
+    """
+    lo = now - timedelta(days=oldest_days)
+    hi = now - timedelta(days=newest_days)
+    ok = 0
+    total = 0
+    for r in outcomes:
+        if r.get("status") == "skipped":
+            continue
+        ts_raw = r.get("completed_at") or ""
+        try:
+            ts = datetime.fromisoformat(ts_raw)
+        except (ValueError, TypeError):
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        if not lo < ts <= hi:
+            continue
+        total += 1
+        if r.get("status") in ("done", "partial"):
+            ok += 1
+    if total == 0:
+        return None, 0
+    return ok / total, total
+
+
+def _compute_trend(current: float | None, prior: float | None) -> str:
+    """Trend arrow for the morning report — STD-101 req 242."""
+    if current is None or prior is None:
+        return "n/a"
+    if current > prior + 0.005:
+        return "up"
+    if current < prior - 0.005:
+        return "down"
+    return "flat"
+
+
 def compute_metrics(
     *,
     audit_dir: str = "~/.rondo/audit",
     spool_dir: str = "~/.rondo/spool",
+    now: datetime | None = None,
 ) -> MetricsReport:
     """Compute all metrics from existing ALWAYS-ON data.
 
     One function call, one JSON blob — everything OB needs for dashboards.
     Reads audit JSONL + spool directory. No new data capture needed.
+    `now` is injectable for tests (STD-101 windowed scoreboard).
     """
     outcomes = _load_outcomes(audit_dir)
     report = MetricsReport()
@@ -189,6 +257,13 @@ def compute_metrics(
 
     # -- Health
     report.health = _determine_health(report.success_rate, report.total_dispatches)
+
+    # -- STD-101 reqs 240-242 (RONDO-302): windowed scoreboard
+    now = now or datetime.now(UTC)
+    report.success_rate_7d, report.dispatches_7d = _windowed_rate(outcomes, now, 0, 7)
+    report.success_rate_30d, report.dispatches_30d = _windowed_rate(outcomes, now, 0, 30)
+    prior_rate, _prior_count = _windowed_rate(outcomes, now, 7, 14)
+    report.trend_7d = _compute_trend(report.success_rate_7d, prior_rate)
 
     # -- Spool
     report.spool_pending = _count_spool(spool_dir)

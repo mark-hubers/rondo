@@ -14,11 +14,14 @@ Import direction:
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
 from rondo.config import RondoConfig
 from rondo.overnight import OvernightResult
+
+logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────
 #  Health indicator — Rondo-REQ-101 req 32
@@ -64,7 +67,7 @@ def _format_duration(seconds: float) -> str:
 # ──────────────────────────────────────────────────────────────────
 
 
-def generate_report(result: OvernightResult) -> str:
+def generate_report(result: OvernightResult, metrics_report: object | None = None) -> str:
     """Generate morning report markdown from OvernightResult.
 
     Rondo-REQ-101 req 29: aggregate results from all phases.
@@ -74,14 +77,44 @@ def generate_report(result: OvernightResult) -> str:
     Rondo-REQ-101 req 33: action items (failed/blocked tasks).
     Rondo-REQ-101 req 35: totals (duration, tasks, errors, timestamp).
     Rondo-REQ-101 req 36: usage summary (cost, tokens, watchdog).
+    STD-101 req 242 (RONDO-302): 7-day success scoreboard vs the 95% target.
+    `metrics_report` is injectable for tests; defaults to live compute.
     """
     lines: list[str] = []
     _emit_header(result, lines)
     _emit_summary(result, lines)
+    _emit_scoreboard(lines, metrics_report)
     _emit_usage(result, lines)
     _emit_phases(result, lines)
     _emit_action_items(result, lines)
     return "\n".join(lines)
+
+
+def _emit_scoreboard(lines: list[str], metrics_report: object | None = None) -> None:
+    """Emit the 7-day reliability scoreboard — STD-101 req 242 (RONDO-302).
+
+    Best-effort: the morning report MUST always generate (STD-108 rule 10),
+    so any metrics failure is swallowed and the section simply omitted.
+    """
+    try:
+        if metrics_report is None:
+            from rondo.metrics import compute_metrics  # pylint: disable=import-outside-toplevel
+
+            metrics_report = compute_metrics()
+        rate = getattr(metrics_report, "success_rate_7d", None)
+        if rate is None:
+            return
+        from rondo.metrics import SUCCESS_TARGET  # pylint: disable=import-outside-toplevel
+
+        arrow = {"up": "↑", "down": "↓", "flat": "→"}.get(getattr(metrics_report, "trend_7d", "n/a"), "")
+        count = getattr(metrics_report, "dispatches_7d", 0)
+        verdict = "✓ above" if rate >= SUCCESS_TARGET else "✗ BELOW"
+        lines.append(
+            f"**7-day success:** {rate:.0%} {arrow} ({count} dispatches — target {SUCCESS_TARGET:.0%} {verdict})"
+        )
+        lines.append("")
+    except (OSError, TypeError, ValueError, ImportError) as exc:
+        logger.debug("Scoreboard emit skipped (non-fatal): %s", exc)
 
 
 # ──────────────────────────────────────────────────────────────────

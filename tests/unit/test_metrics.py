@@ -347,4 +347,110 @@ class TestMetricsInTaskResult:
         assert "health" in result.metrics
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-302: windowed stability scoreboard — STD-101 reqs 240-242
+# --  Lifetime averages buried the truth (64% lifetime vs 97% recent).
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestWindowedScoreboard:
+    """STD-101 reqs 240-242: 7d/30d windows lead; lifetime is context."""
+
+    def setup_method(self) -> None:
+        from datetime import UTC, datetime
+
+        self.now = datetime(2026, 6, 5, 12, 0, tzinfo=UTC)
+
+    def _rec(self, days_ago: float, status: str = "done") -> dict:
+        from datetime import timedelta
+
+        return {
+            "status": status,
+            "completed_at": (self.now - timedelta(days=days_ago)).isoformat(),
+            "cost_usd": 0.0,
+            "duration_sec": 1.0,
+            "model": "m",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+
+    def test_7d_window_excludes_older(self, tmp_path: Path) -> None:
+        """STD-101 req 240: 7-day rate ignores the build-era past."""
+        records = [self._rec(1), self._rec(2), self._rec(20, "error"), self._rec(40, "error")]
+        audit = _write_audit(tmp_path, records)
+        report = compute_metrics(audit_dir=audit, now=self.now)
+        assert report.success_rate_7d == 1.0
+        assert report.dispatches_7d == 2
+
+    def test_30d_window(self, tmp_path: Path) -> None:
+        """STD-101 req 240: 30-day rate covers the month, not the lifetime."""
+        records = [self._rec(1), self._rec(20, "error"), self._rec(40, "error")]
+        audit = _write_audit(tmp_path, records)
+        report = compute_metrics(audit_dir=audit, now=self.now)
+        assert report.dispatches_30d == 2
+        assert report.success_rate_30d == 0.5
+
+    def test_skipped_excluded_from_rates(self, tmp_path: Path) -> None:
+        """STD-101 req 241: skipped is neither success nor failure."""
+        records = [self._rec(1), self._rec(1, "skipped"), self._rec(1, "skipped")]
+        audit = _write_audit(tmp_path, records)
+        report = compute_metrics(audit_dir=audit, now=self.now)
+        assert report.success_rate_7d == 1.0
+        assert report.dispatches_7d == 1
+
+    def test_trend_up(self, tmp_path: Path) -> None:
+        """STD-101 req 242: trend compares this 7d vs the prior 7d."""
+        records = [self._rec(1), self._rec(2), self._rec(9, "error"), self._rec(10, "error")]
+        audit = _write_audit(tmp_path, records)
+        report = compute_metrics(audit_dir=audit, now=self.now)
+        assert report.trend_7d == "up"
+
+    def test_trend_flat_when_equal(self, tmp_path: Path) -> None:
+        records = [self._rec(1), self._rec(9)]
+        audit = _write_audit(tmp_path, records)
+        report = compute_metrics(audit_dir=audit, now=self.now)
+        assert report.trend_7d == "flat"
+
+    def test_empty_window_is_none(self, tmp_path: Path) -> None:
+        """No dispatches in window → None, never a fake 100%."""
+        records = [self._rec(40)]
+        audit = _write_audit(tmp_path, records)
+        report = compute_metrics(audit_dir=audit, now=self.now)
+        assert report.success_rate_7d is None
+        assert report.trend_7d == "n/a"
+
+    def test_to_dict_includes_windows(self, tmp_path: Path) -> None:
+        audit = _write_audit(tmp_path, [self._rec(1)])
+        data = compute_metrics(audit_dir=audit, now=self.now).to_dict()
+        for key in ("success_rate_7d", "success_rate_30d", "dispatches_7d", "dispatches_30d", "trend_7d"):
+            assert key in data
+
+
+class TestScoreboardInMorningReport:
+    """STD-101 req 242: morning report carries the 7-day line vs the 95% target."""
+
+    def test_report_contains_scoreboard_line(self) -> None:
+        from rondo.metrics import MetricsReport
+        from rondo.overnight import OvernightResult
+        from rondo.report import generate_report
+
+        metrics = MetricsReport()
+        metrics.success_rate_7d = 0.97
+        metrics.dispatches_7d = 30
+        metrics.trend_7d = "up"
+        result = OvernightResult(status="done")
+        text = generate_report(result, metrics_report=metrics)
+        assert "7-day success" in text
+        assert "97%" in text
+        assert "95%" in text
+
+    def test_report_survives_missing_metrics(self) -> None:
+        """Scoreboard is best-effort — report MUST always generate (STD-108 rule 10)."""
+        from rondo.overnight import OvernightResult
+        from rondo.report import generate_report
+
+        text = generate_report(OvernightResult(status="done"))
+        assert text  # -- no crash, report still generated
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a6.97a6b7

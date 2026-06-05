@@ -50,6 +50,49 @@ logger = logging.getLogger(__name__)
 # -- Config-overridable via constructor; these are the built-in defaults.
 DEFAULT_THINKING_MODEL_PATTERNS: tuple[str, ...] = ("claude-opus-4-8", "claude-*-4-8")
 
+# -- REQ-109 req 214 (RONDO-310): with streaming, the watchdog is per-EVENT
+# -- silence, not total duration — a model may think 30 minutes safely as
+# -- long as SSE events keep flowing. 120s of true silence = dead connection.
+STREAM_EVENT_WATCHDOG_SEC = 120
+
+
+def consume_sse_stream(lines: Any) -> dict[str, Any]:
+    """Consume an Anthropic SSE stream into the non-streaming result shape.
+
+    REQ-109 req 214 (RONDO-310). Accumulates text deltas (thinking deltas are
+    metadata, not output), captures usage tokens and stop_reason. Returning
+    the SAME shape as the non-streaming API means zero downstream changes.
+    """
+    text_parts: list[str] = []
+    usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
+    stop_reason: str | None = None
+    for raw in lines:
+        line = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        try:
+            event = json.loads(line[5:].strip())
+        except json.JSONDecodeError:
+            continue
+        etype = event.get("type", "")
+        if etype == "message_start":
+            usage["input_tokens"] = event.get("message", {}).get("usage", {}).get("input_tokens", 0)
+        elif etype == "content_block_delta":
+            delta = event.get("delta", {})
+            if delta.get("type") == "text_delta":
+                text_parts.append(delta.get("text", ""))
+        elif etype == "message_delta":
+            stop_reason = event.get("delta", {}).get("stop_reason") or stop_reason
+            out = event.get("usage", {}).get("output_tokens")
+            if out:
+                usage["output_tokens"] = out
+    return {
+        "content": [{"type": "text", "text": "".join(text_parts)}],
+        "usage": usage,
+        "stop_reason": stop_reason,
+    }
+
 
 class AnthropicAPIAdapter(ProviderAdapter):
     """Anthropic API adapter — Claude dispatch via Messages API."""
@@ -119,7 +162,10 @@ class AnthropicAPIAdapter(ProviderAdapter):
 
         # -- REQ-109 req 211 (learn-by-use #3): max-effort thinking exceeds the
         # -- classic 120s read timeout. Thinking models get 600s.
-        http_timeout = 600 if self.is_thinking_model(use_model) else 120
+        http_timeout = 120
+        if self.is_thinking_model(use_model):
+            # -- req 211 amended: max/xhigh effort can think past 600s on long tasks
+            http_timeout = 900 if (kwargs.get("effort") or self.effort) in ("xhigh", "max") else 600
         url = f"{self.base_url}/messages"
         payload: dict[str, Any] = {
             "model": use_model,
@@ -140,7 +186,14 @@ class AnthropicAPIAdapter(ProviderAdapter):
             # -- tokens COUNT AGAINST max_tokens. At max effort on a long task an
             # -- 8K cap can be consumed entirely by thinking → empty body
             # -- (ERR_EMPTY_RESPONSE, real incident 2026-06-05). Floor 32K.
-            payload["max_tokens"] = max(self.max_tokens, 32000)
+            effort_val = str(payload["output_config"]["effort"])
+            floor = 64000 if effort_val in ("xhigh", "max") else 32000
+            payload["max_tokens"] = max(self.max_tokens, floor)
+            # -- REQ-109 req 214 (RONDO-310): thinking models STREAM. With SSE
+            # -- the timeout becomes per-EVENT silence (the STD-108 watchdog
+            # -- idiom) — arbitrary thinking time is safe; 3 real max-effort
+            # -- failures proved non-streaming cannot tell thinking from hung.
+            payload["stream"] = True
         else:
             # -- REQ-109 req 202: classic (4.6-era) models keep the proven payload
             payload["temperature"] = self.temperature
@@ -152,13 +205,21 @@ class AnthropicAPIAdapter(ProviderAdapter):
         }
 
         def _do_request() -> dict:
-            """Inner HTTP call — wrapped by retry_http."""
+            """Inner HTTP call — wrapped by retry_http.
+
+            Streaming (req 214): urllib's timeout applies per socket READ, so
+            iterating SSE lines gives a per-event watchdog for free — the
+            connection may live for 30+ minutes as long as events keep flowing.
+            """
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
                 headers=headers,
                 method="POST",
             )
+            if payload.get("stream"):
+                with urllib.request.urlopen(req, timeout=STREAM_EVENT_WATCHDOG_SEC) as resp:  # nosec B310
+                    return consume_sse_stream(resp)
             with urllib.request.urlopen(req, timeout=http_timeout) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
@@ -179,7 +240,11 @@ class AnthropicAPIAdapter(ProviderAdapter):
                     task_name=task_name,
                     status="error",
                     error_code=ERR_EMPTY_RESPONSE,
-                    error_message="Anthropic returned empty response body",
+                    error_message=(
+                        f"Anthropic returned empty response body "
+                        f"(stop_reason={result.get('stop_reason')!r} — if 'max_tokens', "
+                        f"thinking consumed the output budget; consider streaming, REQ-109 Q1)"
+                    ),
                     model=use_model,
                     duration_sec=duration,
                 )

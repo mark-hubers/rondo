@@ -1082,12 +1082,27 @@ def _anthropic_http_error(code: int, reason: str, body: bytes | None):
 
 
 class _FakeHTTPResponse:
-    """Minimal context-manager response for payload-capture tests."""
+    """Minimal context-manager response for payload-capture tests.
+
+    Iterable as SSE lines (RONDO-310): streaming dispatches iterate the
+    response — yield the payload as one terminal SSE event so both the
+    streaming and non-streaming paths produce a usable result.
+    """
 
     def __init__(self, payload: dict) -> None:
         import json
 
         self._data = json.dumps(payload).encode("utf-8")
+        text = "".join(b.get("text", "") for b in payload.get("content", []) if b.get("type") == "text")
+        self._sse = [
+            b'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":'
+            + json.dumps(text).encode("utf-8")
+            + b"}}\n",
+            b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}\n',
+        ]
+
+    def __iter__(self):
+        return iter(self._sse)
 
     def read(self) -> bytes:
         return self._data
@@ -1229,10 +1244,14 @@ class TestAnthropicThinkingModels:
                 {"content": [{"type": "text", "text": "OK"}], "usage": {"input_tokens": 1, "output_tokens": 1}}
             )
 
+        from rondo.adapters.anthropic_api import STREAM_EVENT_WATCHDOG_SEC
+
         adapter = AnthropicAPIAdapter(api_key="test")
         with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            # -- req 214 superseded req 211's long total timeout for thinking:
+            # -- streaming uses a PER-EVENT watchdog (think 30 min safely)
             adapter.dispatch(prompt="p", model="claude-opus-4-8")
-            assert seen["timeout"] >= 600
+            assert seen["timeout"] == STREAM_EVENT_WATCHDOG_SEC
             adapter.dispatch(prompt="p", model="claude-sonnet-4-6")
             assert seen["timeout"] == 120
 
@@ -1251,6 +1270,66 @@ class TestAnthropicThinkingModels:
         from rondo.adapters.anthropic_api import AnthropicAPIAdapter
 
         assert "claude-opus-4-8" in AnthropicAPIAdapter(api_key="test").models()
+
+
+class TestStreamingDispatch:
+    """REQ-109 req 214 (RONDO-310): SSE streaming for thinking models.
+
+    Non-streaming made 'thinking hard' and 'hung' indistinguishable —
+    3 real max-effort failures. Streaming = watchdog-on-event-silence.
+    """
+
+    SSE = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"usage":{"input_tokens":42}}}\n'
+        b"\n"
+        b"event: content_block_delta\n"
+        b'data: {"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"hmm"}}\n'
+        b"\n"
+        b"event: content_block_delta\n"
+        b'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello "}}\n'
+        b"\n"
+        b"event: content_block_delta\n"
+        b'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"world"}}\n'
+        b"\n"
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":7}}\n'
+        b"\n"
+        b"event: message_stop\n"
+        b'data: {"type":"message_stop"}\n'
+        b"\n"
+    )
+
+    def test_sse_parser_accumulates_text(self) -> None:
+        from rondo.adapters.anthropic_api import consume_sse_stream
+
+        result = consume_sse_stream(iter(self.SSE.splitlines(keepends=True)))
+        text = "".join(b.get("text", "") for b in result["content"] if b.get("type") == "text")
+        assert text == "Hello world"
+
+    def test_sse_parser_excludes_thinking_from_text(self) -> None:
+        from rondo.adapters.anthropic_api import consume_sse_stream
+
+        result = consume_sse_stream(iter(self.SSE.splitlines(keepends=True)))
+        text = "".join(b.get("text", "") for b in result["content"] if b.get("type") == "text")
+        assert "hmm" not in text
+
+    def test_sse_parser_captures_usage_and_stop_reason(self) -> None:
+        from rondo.adapters.anthropic_api import consume_sse_stream
+
+        result = consume_sse_stream(iter(self.SSE.splitlines(keepends=True)))
+        assert result["usage"]["input_tokens"] == 42
+        assert result["usage"]["output_tokens"] == 7
+        assert result["stop_reason"] == "end_turn"
+
+    def test_thinking_dispatch_requests_stream(self) -> None:
+        """REQ-109 req 214: thinking models dispatch with stream:true."""
+        payload = TestAnthropicThinkingModels()._capture_payload("claude-opus-4-8")
+        assert payload.get("stream") is True
+
+    def test_classic_dispatch_stays_non_streaming(self) -> None:
+        payload = TestAnthropicThinkingModels()._capture_payload("claude-sonnet-4-6")
+        assert "stream" not in payload
 
 
 class TestChatCompletionsReasoningModels:

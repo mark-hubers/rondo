@@ -17,6 +17,29 @@ from typing import Any
 
 from rondo.engine import DispatchUsage
 
+# -- IFS-100 req 011 (RONDO-299): auth-loss signals from the claude CLI.
+# -- Checked BEFORE the JSON-parse fallback — an auth-loss body is an AUTH
+# -- failure, never "partial". 33 historic outputs were misfiled.
+AUTH_LOSS_PATTERNS: tuple[str, ...] = (
+    "Not logged in",
+    "Please run /login",
+    "Invalid API key",
+    "Credit balance is too low",
+)
+
+
+def detect_auth_loss(text: str, stderr: str = "") -> str | None:
+    """Detect session auth-loss signals in subprocess output — IFS-100 req 011.
+
+    Returns the matched signal (for the actionable error message, req 014)
+    or None when output looks authenticated. Structured check, not part of
+    JSON-parse failure handling.
+    """
+    for pattern in AUTH_LOSS_PATTERNS:
+        if pattern in text or pattern in stderr:
+            return pattern
+    return None
+
 
 def _is_result_dict(parsed: Any) -> bool:
     """A dict matching either recognized result schema — REQ-100 req 123.

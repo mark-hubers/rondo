@@ -33,6 +33,7 @@ from rondo.config import RondoConfig
 from rondo.dispatch_parse import (
     _collect_assistant_text,
     classify_error,
+    detect_auth_loss,
     extract_modified_files,
     extract_structured_output,
     parse_stream_json_events,
@@ -768,6 +769,11 @@ def _finalize_dispatch(
                 files_modified=result.files_modified,
                 json_valid=_json_valid,
                 fields_complete=_fields_complete,
+                # -- STD-113 reqs 021-026 (RONDO-301): forensics — failures
+                # -- carry their own explanation into the audit trail.
+                error_message=result.error_message or "",
+                stderr=result.stderr or "",
+                blocked_reason=((result.parsed_result or {}).get("question", "") if result.status == "blocked" else ""),
             )
         except (OSError, TypeError) as exc:
             logger.debug("Audit outcome failed (non-fatal): %s", exc)
@@ -827,6 +833,17 @@ def _build_subprocess_cmd(
     use_bare = config.bare
     if task and task.bare is not None:
         use_bare = task.bare
+    if use_bare and config.auth == "max":
+        # -- IFS-100 req 015 (RONDO-301, Finding #293): --bare disables OAuth/
+        # -- keychain auth, and auth=max strips ANTHROPIC_API_KEY from the child
+        # -- env — the combination is a deterministic "Not logged in" (the TRUE
+        # -- root cause of the historic 13.3% auth-failure bucket, 33 records).
+        # -- Dual-Path-With-Alerting: run NON-bare on Max (works, free) + warn.
+        logger.warning(
+            "-WARNING- --bare requires ANTHROPIC_API_KEY but auth=max strips it. "
+            "Running NON-bare on Max auth (hooks active). Use auth=api for --bare."
+        )
+        use_bare = False
     if use_bare:
         cc_ver = _cc_version_cache or detect_cc_version(config.claude_binary)
         if cc_ver and cc_ver >= _BARE_MIN_VERSION:
@@ -1023,21 +1040,36 @@ def _parse_and_build_result(
 
     # -- Rondo-REQ-100 req 079: prefer StructuredOutput over text JSON parsing
     assistant_text = _collect_assistant_text(events)
-    parsed = extract_structured_output(events)
-    if parsed is None:
-        parsed = parse_task_json(assistant_text)
 
-    if parsed is not None:
-        task_status = parsed.get("status", "done")
-        if task_status not in ("done", "blocked"):
-            task_status = "done"
+    # -- IFS-100 reqs 011/014 (RONDO-299): auth-loss is an AUTH failure, never
+    # -- "partial". Structured check BEFORE the JSON fallback — 33 historic
+    # -- "Not logged in" outputs were misfiled ERR_MALFORMED_JSON, and runs
+    # -- kept dispatching on dead sessions.
+    auth_signal = detect_auth_loss(assistant_text, stderr)
+    if auth_signal:
+        task_status = "error"
+        error_code: str | None = "ERR_AUTH"
+        error_message: str | None = f"session auth lost: detected {auth_signal!r} in subprocess output"
+        parsed = None
     else:
-        task_status = "partial"
+        error_message = None
+        parsed = extract_structured_output(events)
+        if parsed is None:
+            parsed = parse_task_json(assistant_text)
+        if parsed is not None:
+            task_status = parsed.get("status", "done")
+            if task_status not in ("done", "blocked"):
+                task_status = "done"
+            error_code = None
+        else:
+            task_status = "partial"
+            error_code = "ERR_MALFORMED_JSON"
 
     result = TaskResult(
         task_name=task.name,
         status=task_status,
-        error_code="ERR_MALFORMED_JSON" if parsed is None else None,
+        error_code=error_code,
+        error_message=error_message,
         prompt_sent=prompt,
         raw_output=assistant_text,
         parsed_result=parsed,

@@ -542,4 +542,104 @@ class TestAuditRoundName:
         assert outcome["round_name"] == "my-round"
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-301: failure forensics pack — STD-113 reqs 021-027
+# --  All 467 historic failure records were "(no message)" (Finding #291).
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestFailureForensics:
+    """STD-113 reqs 021-026: failures carry their own explanation."""
+
+    def _outcome_from_jsonl(self, tmp_path) -> dict:
+        lines = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8").strip().split("\n")
+        return json.loads(lines[-1])
+
+    def test_error_message_persisted(self, tmp_path) -> None:
+        """STD-113 req 021: non-done OUTCOME persists error_message."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=rec.dispatch_id,
+            status="error",
+            error_code="ERR_AUTH",
+            error_message="session auth lost: detected 'Not logged in' in subprocess output",
+        )
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert "Not logged in" in outcome["error_message"]
+
+    def test_error_message_capped_500(self, tmp_path) -> None:
+        """STD-113 req 021: error_message capped at 500 chars."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(dispatch_id=rec.dispatch_id, status="error", error_message="x" * 2000)
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert len(outcome["error_message"]) <= 500
+
+    def test_stderr_snippet_persisted_on_error(self, tmp_path) -> None:
+        """STD-113 req 022: error OUTCOME persists a stderr snippet."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=rec.dispatch_id,
+            status="error",
+            error_code="ERR_SUBPROCESS",
+            stderr="Traceback: claude binary exploded at line 7",
+        )
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert "exploded" in outcome["stderr_snippet"]
+
+    def test_blocked_reason_persisted(self, tmp_path) -> None:
+        """STD-113 req 023: blocked OUTCOME carries the blocking reason."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=rec.dispatch_id,
+            status="blocked",
+            blocked_reason="cost cap: estimate $2.10 exceeds max_cost_per_dispatch $0.50",
+        )
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert "cost cap" in outcome["blocked_reason"]
+
+    def test_project_field_from_env(self, tmp_path, monkeypatch) -> None:
+        """STD-113 req 026: project field — env wins over cwd-derived."""
+        monkeypatch.setenv("RONDO_PROJECT", "ush-research")
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(dispatch_id=rec.dispatch_id, status="done")
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert outcome["project"] == "ush-research"
+
+    def test_project_field_defaults_to_cwd_name(self, tmp_path, monkeypatch) -> None:
+        """STD-113 req 026: without env, project derives from cwd name."""
+        monkeypatch.delenv("RONDO_PROJECT", raising=False)
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(dispatch_id=rec.dispatch_id, status="done")
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert outcome["project"]  # -- non-empty: cwd-derived
+
+    def test_credentials_scrubbed_from_error_message(self, tmp_path) -> None:
+        """STD-113 req 021 + req 009: forensic fields pass sanitization."""
+        trail = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)))
+        rec = trail.record_intent(task_name="t", round_name="r", model="m", prompt="p")
+        trail.record_outcome(
+            dispatch_id=rec.dispatch_id,
+            status="error",
+            error_message="api_key = 'sk-ant-api03-FAKEFAKEFAKEFAKEFAKE1234567890abcdef' rejected",
+        )
+        outcome = self._outcome_from_jsonl(tmp_path)
+        assert "sk-ant-api03-FAKEFAKEFAKEFAKEFAKE1234567890abcdef" not in outcome["error_message"]
+
+    def test_old_records_without_new_fields_still_load(self, tmp_path) -> None:
+        """STD-113 req 027: readers tolerate absent fields (append-only schema)."""
+        from rondo.audit import AuditRecord
+
+        rec = AuditRecord(dispatch_id="dsp_old", status="error", error_code="ERR_SUBPROCESS")
+        assert rec.error_message == ""
+        assert rec.stderr_snippet == ""
+        assert rec.blocked_reason == ""
+        assert rec.project == ""
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a2.93a2b3

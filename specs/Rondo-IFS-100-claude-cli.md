@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.6
+**Version:** 0.8
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -315,8 +315,9 @@ Numbered requirements for Rondo-VER-100 traceability:
 |----|-------------|----------|
 | 011 | Rondo MUST scan subprocess output AND stderr for auth-loss signals — `"Not logged in"`, `"Please run /login"`, `"Invalid API key"`, `"Credit balance is too low"` — as a STRUCTURED check that runs BEFORE JSON-parse fallback. A response whose body is an auth-loss message MUST be classified `status="error"`, `error_code="ERR_AUTH"`, never `status="partial"`/`ERR_MALFORMED_JSON`. | MUST |
 | 012 | On detected `ERR_AUTH`, Rondo MUST NOT continue subsequent tasks/turns on the known-bad session. Auth failure halts the affected phase (consistent with Rondo-STD-108 ERR_AUTH "stop phase") — every following dispatch on that session would fail identically. | MUST |
-| 013 | For multi-turn dispatch (`max_turns > 1`), Rondo MUST verify session auth is intact before each turn after the first. If auth was lost mid-run, remaining turns MUST NOT be attempted on the dead session: record what completed, mark the remainder `ERR_AUTH`. (`max_turns=5` previously wasted turns 2-5 on dead sessions.) | MUST |
+| 013 | For multi-turn dispatch (`max_turns > 1`), Rondo MUST NOT continue work on a session after auth loss. **Implementation note (RONDO-299):** turns are CC-internal (`--max-turns` flag) — Rondo cannot intercept between them. Protection is therefore: detection on subprocess return (req 011) + halting subsequent TASKS/PHASES (req 012, `_has_auth_error` in overnight.py). If Rondo ever drives its own turn loop, a per-turn auth check becomes mandatory. | MUST |
 | 014 | The auth-loss `error_message` persisted to the audit record MUST state the detected signal (e.g. "session not logged in") so the failure is actionable without reproduction (pairs with Rondo-STD-108 req 013). | MUST |
+| 015 | `--bare` MUST NOT be sent when `auth=max`: bare mode disables OAuth/keychain auth (s27) while max-auth strips `ANTHROPIC_API_KEY` from the child env — the combination is a DETERMINISTIC "Not logged in" (Finding #293: true root cause of the historic 13.3% auth bucket, 33 records). Rondo SHALL drop `--bare` under max auth and emit a WARNING (Dual-Path-With-Alerting). `--bare` remains valid with `auth=api`. | MUST |
 
 ---
 ## Stream-JSON to Dataclass Mapping
@@ -617,4 +618,6 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.3 | 2026-03-14 | Deep review fixes: added 10 numbered requirements, stream-json-to-dataclass mapping tables (rate_limit_event→DispatchUsage, result→DispatchUsage, assistant→TaskResult) |
 | 0.4 | 2026-03-14 | Added `--permission-mode` to invocation table — controls tool access prompts in non-interactive dispatch |
 | 0.5 | 2026-03-28 | Added `dontAsk` to permission modes (CC v2.1.86+). Clarified `--allow-dangerously-skip-permissions` as safer sandbox variant. Session 91 spike verified all flags exist. |
+| 0.8 | 2026-06-05 | **Req 015: bare+max contradiction (Finding #293).** --bare disables OAuth; auth=max strips the API key — every bare+max dispatch deterministically failed auth. THE root cause of the 33-record bucket. Fix: drop --bare under max + WARN. |
+| 0.7 | 2026-06-05 | **RONDO-299 build + req 013 reality note.** Reqs 011-014 BUILT: detect_auth_loss before JSON fallback, ERR_AUTH classification + actionable message, overnight auth halt. Req 013 amended: turns are CC-internal — protection = detection-on-return + task/phase halt. All 33 historic auth-loss outputs detected (corpus test). |
 | 0.6 | 2026-06-03 | **Subprocess auth-loss detection & recovery (Session 102 — runtime audit).** Added reqs 011-014: structured auth-loss detection before JSON fallback (011), halt phase on ERR_AUTH (012), per-turn auth check for multi-turn (013), actionable auth error_message (014). Driver: 13.3% of real dispatches returned "Not logged in" misclassified as ERR_MALFORMED_JSON/partial; max_turns=5 continued on dead sessions. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

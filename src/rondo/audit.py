@@ -118,6 +118,36 @@ def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
 
 
 # -- ──────────────────────────────────────────────────────────────
+# --  Failure forensics helpers — STD-113 reqs 021-026 (RONDO-301)
+# -- ──────────────────────────────────────────────────────────────
+
+
+def _forensic_snippet(text: str, cap: int = 500) -> str:
+    """Sanitize + cap a forensic field — STD-113 reqs 021-022 (RONDO-301).
+
+    Credential-scrub first (req 009 applies to forensics too), then cap.
+    Best-effort: sanitization failure falls back to the capped raw text
+    rather than dropping the diagnostic (failure forensics must survive).
+    """
+    if not text:
+        return ""
+    try:
+        scrubbed = _sanitize_module.sanitize_text(text)
+        return scrubbed.sanitized_text[:cap]
+    except (TypeError, AttributeError, ValueError):
+        return text[:cap]
+
+
+def _resolve_project(project: str = "") -> str:
+    """Resolve the project field — STD-113 req 026 (RONDO-301).
+
+    COALESCE: caller-supplied → env RONDO_PROJECT → cwd directory name.
+    Lets per-project health (USH vs GHE vs ace2) be separated in metrics.
+    """
+    return project or os.environ.get("RONDO_PROJECT", "") or Path.cwd().name
+
+
+# -- ──────────────────────────────────────────────────────────────
 # --  Audit record — STD-113 req 003
 # -- ──────────────────────────────────────────────────────────────
 
@@ -162,6 +192,14 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
     # -- RONDO-211 (Finding #259): correlation ID for cross-retry tracing.
     request_id: str = ""
 
+    # -- STD-113 reqs 021-027 (RONDO-301, Finding #291): failure forensics.
+    # -- All 467 historic failures were "(no message)" — never again.
+    # -- Append-only schema: defaults empty, readers tolerate absence (req 027).
+    error_message: str = ""  # -- req 021: sanitized, capped 500
+    stderr_snippet: str = ""  # -- req 022: sanitized, capped 500
+    blocked_reason: str = ""  # -- req 023: which gate blocked
+    project: str = ""  # -- req 026: env RONDO_PROJECT → cwd name
+
     # -- REQ-111 reqs 440-441: auto-rating of structured JSON returns
     json_valid: bool | None = None  # -- None = not checked
     fields_complete: bool | None = None  # -- None = not checked
@@ -189,6 +227,11 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
             "completed_at": self.completed_at,
             "json_valid": self.json_valid,
             "fields_complete": self.fields_complete,
+            # -- STD-113 reqs 021-026 (RONDO-301): forensic fields
+            "error_message": self.error_message,
+            "stderr_snippet": self.stderr_snippet,
+            "blocked_reason": self.blocked_reason,
+            "project": self.project,
         }
 
 
@@ -310,10 +353,17 @@ class AuditTrail:
         model: str = "",
         json_valid: bool | None = None,
         fields_complete: bool | None = None,
+        error_message: str = "",
+        stderr: str = "",
+        blocked_reason: str = "",
+        project: str = "",
     ) -> None:
         """Phase 2: record dispatch outcome AFTER subprocess — STD-113 req 002.
 
         Appends outcome record to JSONL, saves result file.
+        STD-113 reqs 021-026 (RONDO-301): forensic fields — error_message and
+        stderr are sanitized + capped at 500 chars; project resolves
+        env RONDO_PROJECT → cwd name when not supplied.
         """
         result_file = f"{dispatch_id}.result.json"
 
@@ -340,6 +390,13 @@ class AuditTrail:
             completed_at=datetime.now(UTC).isoformat(),
             json_valid=json_valid,
             fields_complete=fields_complete,
+            # -- STD-113 reqs 021-026 (RONDO-301): forensics — sanitize + cap.
+            # -- A failure that can't be explained from the audit trail alone
+            # -- did not get audited (the historic "(no message)" lesson).
+            error_message=_forensic_snippet(error_message),
+            stderr_snippet=_forensic_snippet(stderr),
+            blocked_reason=_forensic_snippet(blocked_reason),
+            project=_resolve_project(project),
         )
 
         # -- STD-113 req 005: save result to file

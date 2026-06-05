@@ -276,6 +276,22 @@ def run_overnight(  # pylint: disable=too-many-branches
             )
             time.sleep(config.rate_limit_backoff_sec)
 
+        # -- IFS-100 req 012 (RONDO-299): auth loss is NOT transient — every
+        # -- later dispatch on this session fails identically. Halt the run;
+        # -- the morning report shows what completed and why we stopped.
+        if _has_auth_error(phase_result):
+            event_log.append(
+                {
+                    "type": "auth_halt",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "phase": phase.name,
+                    "reason": "session auth lost — remaining phases skipped (IFS-100 req 012)",
+                }
+            )
+            logger.error("-ERROR- auth loss in phase %s — halting overnight run", phase.name)
+            stopped = True
+            break
+
         # -- Capture last usage for pre-phase gate
         if phase_result.usage:
             last_usage = phase_result.usage[-1]
@@ -379,6 +395,15 @@ def _calculate_overnight_status(phase_results: list[RoundResult]) -> str:
 def _has_rate_limit_error(phase_result: RoundResult) -> bool:
     """Check if any task in phase had a rate limit error."""
     return any(tr.error_code == "ERR_RATE_LIMIT" for tr in phase_result.task_results)
+
+
+def _has_auth_error(phase_result: RoundResult) -> bool:
+    """Check if any task in phase had an auth failure — IFS-100 req 012 (RONDO-299).
+
+    Auth loss is NOT transient: every subsequent dispatch on the session
+    fails identically, burning the night for nothing. The run halts.
+    """
+    return any(tr.error_code == "ERR_AUTH" for tr in phase_result.task_results)
 
 
 def _log_watchdog_events(phase_result: RoundResult, event_log: EventLog) -> None:

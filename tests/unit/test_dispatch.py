@@ -1082,10 +1082,21 @@ class TestBuildSubprocessCmd:
         assert "--output-format" in cmd
 
     def test_bare_flag_added_when_enabled(self):
-        """REQ-100 req 071: --bare added when config.bare=True."""
-        config = RondoConfig(bare=True)
+        """REQ-100 req 071 + IFS-100 req 015: --bare added when bare=True AND auth=api."""
+        config = RondoConfig(bare=True, auth="api")
         cmd = _build_subprocess_cmd(config, "test", "sonnet")
         assert "--bare" in cmd
+
+    def test_bare_dropped_under_max_auth(self):
+        """IFS-100 req 015 (RONDO-301, Finding #293): bare+max is a contradiction.
+
+        --bare disables OAuth/keychain; auth=max strips ANTHROPIC_API_KEY from
+        the child env → deterministic "Not logged in" (the historic 13.3% bucket).
+        Rondo MUST drop --bare under max auth and warn.
+        """
+        config = RondoConfig(bare=True, auth="max")
+        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        assert "--bare" not in cmd
 
     def test_bare_flag_present_by_default(self):
         """RONDO-110: --bare added by default (skip hooks/CLAUDE.md startup overhead)."""
@@ -1206,8 +1217,8 @@ class TestCCVersionDetection:
         assert "--bare" not in cmd
 
     def test_bare_added_when_version_sufficient(self):
-        """--bare added when CC >= 2.1.81."""
-        config = RondoConfig(bare=True)
+        """--bare added when CC >= 2.1.81 AND auth=api (IFS-100 req 015)."""
+        config = RondoConfig(bare=True, auth="api")
         with patch("rondo.dispatch._cc_version_cache", (2, 1, 86)):
             cmd = _build_subprocess_cmd(config, "test", "sonnet")
         assert "--bare" in cmd
@@ -2374,6 +2385,81 @@ class TestHistoricCorpusParsing:
             pytest.skip("no partial records in local corpus")
         # -- ≥95%: allow a handful of genuinely-malformed outputs in old data
         assert failures <= candidates * 0.05, f"{failures}/{candidates} historic outputs still unparseable"
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-299: auth-loss detection — IFS-100 reqs 011-014
+# --  33 historic "Not logged in" outputs misclassified as
+# --  ERR_MALFORMED_JSON/partial; multi-task runs continued on dead sessions.
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestAuthLossDetection:
+    """IFS-100 reqs 011 + 014: structured auth-loss check before JSON fallback."""
+
+    def test_detects_not_logged_in_output(self) -> None:
+        from rondo.dispatch_parse import detect_auth_loss
+
+        assert detect_auth_loss("Not logged in · Please run /login") is not None
+
+    def test_detects_invalid_key_in_stderr(self) -> None:
+        from rondo.dispatch_parse import detect_auth_loss
+
+        assert detect_auth_loss("", stderr="Error: Invalid API key provided") is not None
+
+    def test_clean_output_returns_none(self) -> None:
+        from rondo.dispatch_parse import detect_auth_loss
+
+        assert detect_auth_loss('{"status": "done", "result": "ok"}') is None
+
+    def test_returns_matched_signal_for_message(self) -> None:
+        """IFS-100 req 014: the error message must name the detected signal."""
+        from rondo.dispatch_parse import detect_auth_loss
+
+        signal = detect_auth_loss("blah Credit balance is too low blah")
+        assert signal == "Credit balance is too low"
+
+    def test_historic_auth_corpus_detected(self) -> None:
+        """All 33 historic auth-loss outputs must be detected (production corpus)."""
+        from rondo.dispatch_parse import detect_auth_loss
+
+        audit = Path.home() / ".rondo" / "audit"
+        log = audit / "rondo_audit.jsonl"
+        if not log.exists():
+            pytest.skip("no local audit corpus on this machine")
+        missed = 0
+        found = 0
+        for line in log.read_text().splitlines():
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if rec.get("status") != "partial":
+                continue
+            p = audit / (rec.get("result_file") or "_none_")
+            if not p.exists():
+                continue
+            raw = json.loads(p.read_text()).get("raw_output") or ""
+            if "Not logged in" in raw or "Please run /login" in raw:
+                found += 1
+                if detect_auth_loss(raw) is None:
+                    missed += 1
+        if found == 0:
+            pytest.skip("no auth-loss records in local corpus")
+        assert missed == 0, f"{missed}/{found} historic auth-loss outputs not detected"
+
+
+class TestAuthHaltsPhase:
+    """IFS-100 req 012: auth failure halts the run — it is never transient."""
+
+    def test_has_auth_error_predicate(self) -> None:
+        from rondo.engine import RoundResult
+        from rondo.overnight import _has_auth_error
+
+        ok = TaskResult(task_name="a", status="done")
+        bad = TaskResult(task_name="b", status="error", error_code="ERR_AUTH")
+        assert _has_auth_error(RoundResult(round_name="r", status="partial", task_results=[ok, bad])) is True
+        assert _has_auth_error(RoundResult(round_name="r", status="done", task_results=[ok])) is False
 
 
 # -- sig: mgh-6201.cd.bd955f.eae2.2c7525

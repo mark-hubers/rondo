@@ -1292,4 +1292,57 @@ class TestChatCompletionsReasoningModels:
         assert adapter.is_reasoning_model("gpt-5.5") is False
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-306: auto-tune last mile — REQ-109 reqs 310-313, 320, 323
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestLearnedRoutingFallback:
+    """REQ-109 reqs 310/320/323: learned best replaces the BLIND fallback only."""
+
+    def _with_scores(self, monkeypatch, scores: dict) -> None:
+        import rondo.providers as p
+
+        monkeypatch.setattr("rondo.scoring.compute_provider_scores", lambda audit_dir="": scores)
+        p._task_model_overrides.clear()
+
+    def test_manual_override_always_wins(self, monkeypatch) -> None:
+        """REQ-109 req 320: manual config beats learned, always."""
+        import rondo.providers as p
+        from rondo.providers import recommend_model
+
+        self._with_scores(monkeypatch, {"gemini:flash": {"score": 0.99}})
+        p._task_model_overrides["mytask"] = "opus"
+        assert recommend_model("mytask") == "opus"
+
+    def test_default_map_beats_learned(self, monkeypatch) -> None:
+        """Curated defaults stay authoritative — learning only fills the blind spot."""
+        from rondo.providers import _DEFAULT_TASK_MODELS, recommend_model
+
+        self._with_scores(monkeypatch, {"gemini:flash": {"score": 0.99}})
+        known_task = next(iter(_DEFAULT_TASK_MODELS))
+        assert recommend_model(known_task) == _DEFAULT_TASK_MODELS[known_task]
+
+    def test_unknown_task_uses_learned_best(self, monkeypatch) -> None:
+        """REQ-109 reqs 310-311: blind 'sonnet' fallback replaced by evidence."""
+        from rondo.providers import recommend_model
+
+        self._with_scores(monkeypatch, {"gemini:flash": {"score": 0.91}, "grok-4.3": {"score": 0.55}})
+        assert recommend_model("never-seen-task-xyz") == "gemini:flash"
+
+    def test_unknown_task_no_scores_falls_back_sonnet(self, monkeypatch) -> None:
+        from rondo.providers import recommend_model
+
+        self._with_scores(monkeypatch, {})
+        assert recommend_model("never-seen-task-xyz") == "sonnet"
+
+    def test_scoring_disabled_skips_learned(self, monkeypatch) -> None:
+        """REQ-109 req 323: [scoring] enabled=false disables learned routing."""
+        from rondo.providers import recommend_model
+
+        self._with_scores(monkeypatch, {"gemini:flash": {"score": 0.99}})
+        monkeypatch.setattr("rondo.providers._scoring_enabled", lambda: False)
+        assert recommend_model("never-seen-task-xyz") == "sonnet"
+
+
 # -- sig: mgh-6201.cd.bd955f.a109.c10901

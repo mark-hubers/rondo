@@ -334,17 +334,61 @@ def load_task_models(config_path: str = "") -> dict[str, str]:
     return merged
 
 
-def recommend_model(task_type: str) -> str:
-    """Recommend the best model for a task type — REQ-109 req 028.
+def _scoring_enabled() -> bool:
+    """REQ-109 req 323 (RONDO-306): `[scoring] enabled` config gate (default true)."""
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
 
-    COALESCE: config override → default map → 'sonnet' fallback.
-    Config is loaded from ~/.rondo/config.toml [routing.task_models].
+    try:
+        return bool(get_rondo_config().get("scoring", {}).get("enabled", True))
+    except (OSError, TypeError, ValueError):
+        return True
+
+
+def _learned_best_model() -> str:
+    """Best-scoring model from 7-day dispatch history — REQ-109 reqs 310-311.
+
+    RONDO-306: scores are per-MODEL (audit records lack task_type — Finding
+    #297 tracks the per-task upgrade), so the learned term only replaces the
+    BLIND fallback, never a curated default. Empty string = no learned data.
+    """
+    try:
+        import os  # pylint: disable=import-outside-toplevel
+
+        from rondo.scoring import compute_provider_scores  # pylint: disable=import-outside-toplevel
+
+        # -- hermeticity (#292 lesson): tests redirect via RONDO_TEST_DIR —
+        # -- learned routing must NEVER read the live audit dir under test
+        test_dir = os.environ.get("RONDO_TEST_DIR")
+        audit_dir = os.path.join(test_dir, "audit") if test_dir else ""
+        scores = compute_provider_scores(audit_dir)
+        if not scores:
+            return ""
+        best = max(scores.items(), key=lambda kv: kv[1].get("score", 0.0))
+        return best[0]
+    except (OSError, TypeError, ValueError, KeyError):
+        return ""
+
+
+def recommend_model(task_type: str) -> str:
+    """Recommend the best model for a task type — REQ-109 reqs 028, 310, 320.
+
+    COALESCE: config override → curated default map → LEARNED best (7-day
+    scores, RONDO-306) → 'sonnet' blind fallback. Manual ALWAYS wins
+    (req 320); learning only fills the blind spot, never overrides curation.
     """
     key = task_type.lower()
-    # -- Check overrides first, then defaults, then Claude fallback
+    # -- Check overrides first, then defaults, then learned, then fallback
     if key in _task_model_overrides:
         return _task_model_overrides[key]
-    return _DEFAULT_TASK_MODELS.get(key, "sonnet")
+    if key in _DEFAULT_TASK_MODELS:
+        return _DEFAULT_TASK_MODELS[key]
+    if _scoring_enabled():
+        learned = _learned_best_model()
+        if learned:
+            # -- REQ-109 req 312: adaptive pick is visible, never silent
+            logger.info("adaptive routing: unknown task %r → learned best %r (7-day scores)", task_type, learned)
+            return learned
+    return "sonnet"
 
 
 def recommend_review_providers(task_type: str, count: int = 2) -> list[str]:

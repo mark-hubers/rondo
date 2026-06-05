@@ -285,6 +285,28 @@ def _cmd_providers(args: argparse.Namespace) -> int:
             print(format_drift_table(drift_report(cache, providers_cfg)))
         return EXIT_SUCCESS
 
+    # -- RONDO-306 (REQ-109 req 313): --scores was a DEAD FLAG — parsed, never
+    # -- handled. Now shows the learned 7-day per-model score breakdown.
+    if getattr(args, "scores", False):
+        from rondo.scoring import compute_provider_scores  # pylint: disable=import-outside-toplevel
+
+        scores = compute_provider_scores()
+        if getattr(args, "json", False):
+            print(json.dumps({"scores": scores}, indent=2))
+            return EXIT_SUCCESS
+        if not scores:
+            print("  No learned scores yet — needs 10+ dispatches per model in the last 7 days.")
+            return EXIT_SUCCESS
+        print(f"\n  {'Model':<30} {'Success':>8} {'AvgCost':>9} {'AvgLat':>8} {'Score':>6} {'Sample':>7}")
+        print(f"  {'─' * 30} {'─' * 8} {'─' * 9} {'─' * 8} {'─' * 6} {'─' * 7}")
+        for model, s in sorted(scores.items(), key=lambda kv: -kv[1].get("score", 0.0)):
+            print(
+                f"  {model:<30} {s.get('success_rate', 0):>7.0%} ${s.get('avg_cost_usd', 0):>8.4f}"
+                f" {s.get('avg_latency_sec', 0):>7.1f}s {s.get('score', 0):>6.2f} {s.get('sample_count', 0):>7}"
+            )
+        print()
+        return EXIT_SUCCESS
+
     from rondo.adapters.health import get_all_providers_health  # pylint: disable=import-outside-toplevel
 
     health_map = get_all_providers_health()

@@ -13,6 +13,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | When | What | Cost | Running |
 |------|------|------|---------|
 | 23:5x | Cold Witness panel (3 providers, tier high) | ~$0.10 | $0.10 |
+| 00:4x | models --verify canary 15 tiers (RONDO-316) | $0.0007 | $0.1007 |
 
 ## TASK QUEUE (work top-down; update status as you go)
 | # | Task | Status | Sprint |
@@ -20,10 +21,10 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 0 | Recover Cold Witness outputs | DONE (audit recovery; finding #302 on return shape) | — |
 | 1 | Cursor roadmap retry | DONE (reports/cursor-productization-roadmap-2026-06-06.md; empty-output cause: --mode plan suppressed print) | — |
 | 2 | SOP-105 public-release roadmap | DONE v0.2 (4-AI synthesis, committed) | RONDO-312 ✓ |
-| 3 | **CI-able corpora** (answers Cursor's "local-only gates" indictment): sanitize a sample of the 80-parser + 33-auth corpus records into repo fixtures (tests/fixtures/corpus/), corpus tests run BOTH repo fixtures (always) and full local corpus (when present) | TODO | RONDO-313 |
-| 4 | **Nightly alert wiring** (#285 residual — top weakness "nobody's watching"): `rondo schedule` daily job → providers --refresh --drift + retryq sweep + metrics 7d; FAILURE/STALE → macOS notification (notify support exists). Real working example of `rondo schedule` while at it | TODO | RONDO-314 |
-| 5 | **#297 per-task affinity:** add task_type to AuditRecord (+dispatch pass-through), scoring groups by (model, task_type), recommend_model uses task-level learned BEFORE global learned | TODO | RONDO-315 |
-| 6 | **REQ-111 604-610 auto-tiers + `rondo models --verify`** canary CLI (cheap live canary per tier ≈ $0.05/run; do one real run as the example) | TODO | RONDO-316 |
+| 3 | CI-able corpora | DONE (17 fixtures, dual-source gates, fake-HOME proven, finding #301 fixed) | RONDO-313 ✓ |
+| 4 | Nightly watchdog | DONE (committed, wheel deployed, live ALERT verified, finding #285 fixed) | RONDO-314 ✓ |
+| 5 | Per-task affinity | DONE (full chain live-verified, finding #297 fixed, example 07-task-affinity, INDEX 87) | RONDO-315 ✓ |
+| 6 | Auto-tiers + canary | DONE (15/15 PASS $0.0007; 606 auto-apply -> work request; non-chat filter from live run) | RONDO-316 ✓ |
 | 7 | **REQ-113 req 051 judge scoring** for matrix (judge: provider:model + rubric; budget-counted) + extend matrix example; real run ≈ $0.30 | TODO | RONDO-317 |
 | 8 | **REQ-109 req 212 config [timeouts] matrix** (per model-class × effort, COALESCE) | TODO | RONDO-318 |
 | 9 | **#298 STD-102→109 merge pass** (fold unique reqs, repoint 8 refs, archive 102) | TODO | RONDO-319 |
@@ -45,4 +46,8 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
+- RONDO-316 ✓ auto-tiers+canary: derive_auto_tiers/resolve_model/verify_models/registry_mode + rondo models CLI. Live lessons: 'geMINI' substring trap -> token matching; catalogs mix non-chat models -> exclusion list. Canary 15/15 PASS $0.0007. req 606 auto-apply = work request, honestly NOT claimed.
+- RONDO-315 ✓ per-task affinity: task_type Task→AuditRecord→scoring→recommend_model. Live round proof in audit. Note: `rondo run` inside CC needs env -u CLAUDECODE (preflight RED otherwise). Subprocess dispatches = Max plan tokens, NOT API ledger.
+- RONDO-314 ✓ nightly watchdog: live runs caught 2 mock-blind bugs (get_rondo_config returns DICT; drift entries carry 'state' NOT 'status') → 2 unmocked contract tests added. First real sweep: ALERT, 7d 94% < 95% (47 dispatches — tonight's torture tests count). Plist NOT installed — Mark's call: `rondo schedule --cmd nightly --interval daily --name nightly-watchdog --install`. uv lock: don't run two installs.
+- RONDO-313 ✓ CI corpus fixtures: build_corpus_fixtures.py (redact+verify+leak-abort), 12 parser + 5 auth (1 prod + 4 synthetic labeled), gates pass with AND without local corpus. Gotcha: 33 auth records = 1 distinct variant; auth fixture syntax: finding-update ID fix --sprint X.
 - RONDO-312 ✓ SOP-105 v0.1→v0.2 (4-AI synthesis). Panel recovered from audit (~$0.10). Findings #302. Cursor lesson: --mode plan suppresses -p output; omit it for printable runs.

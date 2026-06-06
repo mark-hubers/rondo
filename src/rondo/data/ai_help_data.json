@@ -560,6 +560,14 @@
         "rondo providers --scores  # watch the affinity table build"
       ],
       "notes": "RONDO-315, finding #297. COALESCE: override -> curated -> task-learned -> global-learned -> sonnet. Needs 10+ typed dispatches per pair in 7d."
+    },
+    "auto_tiers_canary": {
+      "summary": "Auto-tiers derive auto_low/mid/high per provider from live catalogs (suggest mode, config never written); rondo models --verify canaries every configured tier with one tiny live dispatch.",
+      "commands": [
+        "rondo models --tiers   # free, from registry cache",
+        "rondo models --verify  # live canary, ~cents, exit 1 on any FAIL"
+      ],
+      "notes": "RONDO-316, REQ-111 604-610. Manual pins always win. Non-chat models (embeddings/audio/video) excluded by token. First real canary: 15/15 PASS at $0.0007."
     }
   },
   "config_options": [

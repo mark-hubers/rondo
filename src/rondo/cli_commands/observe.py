@@ -76,7 +76,9 @@ def _run_replay_dispatch(prompt: str, model: str, execution: str) -> dict:
     return json.loads(replay_raw)
 
 
-def _build_replay_result(run_id: str, source_path: Path, loaded: dict, replay: dict, model: str, execution: str) -> dict:
+def _build_replay_result(
+    run_id: str, source_path: Path, loaded: dict, replay: dict, model: str, execution: str
+) -> dict:
     """Build normalized replay summary payload."""
     tasks = replay.get("tasks", []) or []
     first = tasks[0] if tasks else {}

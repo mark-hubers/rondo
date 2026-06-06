@@ -269,6 +269,51 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_models(args: argparse.Namespace) -> int:
+    """Execute 'rondo models' — RONDO-316 (REQ-111 reqs 604-610).
+
+    --tiers  : derived auto_low/mid/high per provider (free, registry cache)
+    --verify : live canary per configured tier model (~cents; req 604)
+    """
+    import json as _json  # pylint: disable=import-outside-toplevel
+
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+    from rondo.model_registry import (  # pylint: disable=import-outside-toplevel
+        derive_auto_tiers,
+        format_verify_table,
+        load_cache,
+        verify_models,
+    )
+
+    providers_cfg = get_rondo_config().get("providers", {})
+
+    if getattr(args, "verify", False):
+        rows = verify_models(providers_cfg)
+        if getattr(args, "json", False):
+            print(_json.dumps(rows, indent=2))
+        else:
+            print("Model canary — every configured tier, one tiny live dispatch each (req 604):")
+            print(format_verify_table(rows))
+        return EXIT_FAILURE if any(r["result"] == "FAIL" for r in rows) else EXIT_SUCCESS
+
+    if getattr(args, "tiers", False):
+        cache = load_cache()
+        if cache is None:
+            print("-WARNING- no registry cache yet — run: rondo providers --refresh", file=sys.stderr)
+            return EXIT_FAILURE
+        tiers = derive_auto_tiers(cache, providers_cfg)
+        if getattr(args, "json", False):
+            print(_json.dumps(tiers, indent=2))
+        else:
+            print("Derived auto-tiers (suggest mode — NEVER written to config; reqs 605/607-609):")
+            for provider, t in sorted(tiers.items()):
+                print(f"  {provider:<11} low={t['auto_low']}  mid={t['auto_mid']}  high={t['auto_high']}")
+        return EXIT_SUCCESS
+
+    print("Usage: rondo models --tiers (free) | --verify (live canary, ~cents) [--json]")
+    return EXIT_SUCCESS
+
+
 def _cmd_nightly(args: argparse.Namespace) -> int:
     """Execute 'rondo nightly' — RONDO-314 watchdog sweep (finding #285).
 

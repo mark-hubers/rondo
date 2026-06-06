@@ -179,6 +179,18 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     sched_parser.add_argument("--model", default=None, help="Model override")
     sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
 
+    ## -- models subcommand (RONDO-316: auto-tiers + canary — REQ-111 604-610)
+    models_parser = subparsers.add_parser(
+        "models", help="Model registry tools: --verify canary, --tiers derived auto-tiers"
+    )
+    models_parser.add_argument(
+        "--verify", action="store_true", help="Canary-dispatch every configured tier model (req 604, costs ~cents)"
+    )
+    models_parser.add_argument(
+        "--tiers", action="store_true", help="Show derived auto_low/mid/high per provider (reqs 607-608, free)"
+    )
+    models_parser.add_argument("--json", action="store_true", help="JSON output")
+
     ## -- nightly subcommand (RONDO-314: the watchdog — finding #285)
     nightly_parser = subparsers.add_parser(
         "nightly", help="Watchdog sweep: registry drift + retryq sweep + 7d reliability; alerts on failure"
@@ -408,6 +420,7 @@ def main(argv: list[str] | None = None) -> int:
             "init",
             "schedule",
             "nightly",
+            "models",
             "providers",
             "review",
             "learn",

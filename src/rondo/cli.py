@@ -47,7 +47,13 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
             "  inline      -> host plan JSON (host executes)\n"
             "  subprocess  -> completed task results\n"
             "  agent       -> host agent plan JSON\n"
-            "  provider:model -> HTTP adapter results (execution bypass)"
+            "  provider:model -> HTTP adapter results (execution bypass)\n"
+            "\n"
+            "Exit codes (stable contract — RONDO-335):\n"
+            "  0    success\n"
+            "  1    task/dispatch failure or unexpected error\n"
+            "  2    bad arguments or unknown subcommand\n"
+            "  130  interrupted (Ctrl+C)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -66,6 +72,9 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     parser.add_argument(
         "--dry-run", action="store_true", default=False, help="Inline prompt preview without live dispatch"
     )
+    # -- RONDO-335: global debug escape hatch — the safety net hides
+    # -- tracebacks from users; --verbose opens the hood anywhere
+    parser.add_argument("--verbose", "-v", action="store_true", default=False, help="Show full tracebacks on errors")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -477,8 +486,13 @@ def main(argv: list[str] | None = None) -> int:
             args.command = None
             return _handle_inline_prompt(args)
 
+        # -- RONDO-335: --verbose/-v work in ANY position (users type flags
+        # -- after the subcommand; argparse globals only parse before it).
+        # -- Pre-stripped here; the safety net reads the original argv.
+        parse_argv = [a for a in (argv if argv is not None else sys.argv[1:]) if a not in ("--verbose", "-v")]
         parser = build_parser()
-        args = parser.parse_args(argv)
+        args = parser.parse_args(parse_argv)
+        args.verbose = len(parse_argv) != len(argv if argv is not None else sys.argv[1:])
 
         # -- REQ-109: load provider + routing config for tier resolution
         from rondo.providers import load_providers_config, load_task_models  # pylint: disable=import-outside-toplevel
@@ -509,9 +523,28 @@ def main(argv: list[str] | None = None) -> int:
         return exc.code if isinstance(exc.code, int) else EXIT_FAILURE
 
     except Exception as exc:  # pylint: disable=broad-except
-        # -- Top-level safety net: no raw tracebacks for users
-        print(f"Unexpected error: {exc}", file=sys.stderr)
-        return EXIT_FAILURE
+        return _print_unexpected_error(exc, argv)
+
+
+def _print_unexpected_error(exc: Exception, argv: list[str] | None) -> int:
+    """RONDO-335 (SOP-106 dim 4): the safety net GUIDES, never dumps.
+
+    Live driver: "Unexpected error: 'dict' object has no attribute
+    'providers'" — message-only, no next step, no debug path. Now every
+    unexpected failure names a way forward; --verbose opens the hood.
+    """
+    effective = argv if argv is not None else sys.argv[1:]
+    if "--verbose" in effective or "-v" in effective:
+        import traceback  # pylint: disable=import-outside-toplevel
+
+        traceback.print_exc(file=sys.stderr)
+    print(
+        f"Unexpected error: {exc}\n"
+        f"  → Try: rondo doctor   (install diagnosis, free)\n"
+        f"  → Re-run with --verbose for the full traceback",
+        file=sys.stderr,
+    )
+    return EXIT_FAILURE
 
 
 def _inject_return_template(prompt: str, model: str) -> str:

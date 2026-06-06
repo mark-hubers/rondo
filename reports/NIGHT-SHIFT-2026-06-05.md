@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 14 sprints closed (RONDO-313 → 326), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
+**TL;DR: 15 sprints closed (RONDO-313 → 327), every feature live-tested, honest gate now runs ALL 15,776 tests GREEN, $0.10 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -14,6 +14,7 @@
 | 6 | **Config `[timeouts]`** — per model-class × effort, COALESCE, in config-template | Live resolve: 120 / 600 / 900 |
 | 7 | **STD-102→109 merge** — finding #298 closed, 20 refs repointed, 102 archived | Residual grep clean |
 | 8 | **`rondo doctor`** — install diagnosis + redacted support bundle (the first command support asks a stranger to run) | Live: 6/6 PASS on your machine; bundle leak-scan clean |
+| 14 | **GATE TRUST RESTORED** (morning, after you woke me up) — ace-build had silently skipped the whole test suite for 20+ builds; fixed + proven 3 ways; the honest gate then exposed 2-month-old hidden reds (16 swapped sprints, 29 missed closes) — all paid honestly | 15,776 tests green under the honest gate |
 | 13 | **Docs-drift scanner** — `rondo models --docs-drift`: stale model IDs in examples/docs (req 611, was spec-only). First run's 5 hits were alias false-positives — a $0.000026 canary proved it, tolerance built on evidence | examples+docs verified clean |
 | 12 | **MCP surface** — `rondo_doctor` + `rondo_fleet` tools: tonight's diagnostics reach your MAIN interface (appears after Claude Code restarts the rondo MCP server) | 141 mcp+ai-help tests green |
 | 11 | **Streaming disconnect fix** — the ~1802s incident's real lesson: a dropped SSE connection used to EVAPORATE all accumulated thinking. Now: partial content preserved, ERR_STREAM_DISCONNECT transient, retryable | 4 new tests; req 215 in REQ-109 v2.1 |
@@ -92,6 +93,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 16 | BONUS: MCP surface (doctor+fleet) | DONE (IFS-104 rev-0004; never-notify rule for MCP; wheel redeployed) | RONDO-324 ✓ |
 | 17 | BONUS: docs-drift (req 611) | DONE (detection-only; date-suffix alias tolerance; live clean) | RONDO-325 ✓ |
 | 18 | BONUS: standing detector + conventions catch-up | DONE (suite re-scans docs every run; 144 green; per-sprint conventions rule adopted) | RONDO-326 ✓ |
+| 19 | MORNING: gate trust + hidden-red debt + req 606 design + dead doc refs | DONE (3 proofs; 29 closes backfilled from git; design proposal awaiting your 3 answers) | RONDO-327 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -109,6 +111,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - RUN tests/conventions/ in EVERY sprint verify — ace-build full does NOT catch them (open finding).
 
 ## SPRINT LOG (append after each)
+- RONDO-327 ✓ gate trust: zsh word-split in step 6 (bare $PRODUCT_TESTS); ${=} fix + zero-collected HARD FAIL; 3 proofs. Honest gate exposed: 16 layer/type swaps (incl. April block), 29 missed sprint-closes (backfilled from git), CALIBER layer vocab. Era-scoped results test AFTER paying debt. gemini:flash 404 canary -> 6 doc fixes.
 - RONDO-326 ✓ standing detector: tests/conventions/test_docs_drift.py; conventions catch-up for 324/325 (locks fired again — the per-sprint conventions rule is now in CONSTANTS).
 - RONDO-325 ✓ docs-drift (req 611): evidence-based alias rule (canary beat assumption). models --docs-drift exit-1 contract.
 - RONDO-324 ✓ MCP surface: rondo_doctor + rondo_fleet. fleet NEVER notifies over MCP (caller is the watcher).

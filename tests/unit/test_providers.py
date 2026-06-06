@@ -1322,6 +1322,51 @@ class TestStreamingDispatch:
         assert result["usage"]["output_tokens"] == 7
         assert result["stop_reason"] == "end_turn"
 
+    def _dying_stream(self, exc: Exception) -> "iter":
+        """Yield the first SSE lines (through 'Hello '), then die.
+
+        Mimics a dropped connection — the 2026-06-05 ~1802s incident shape.
+        """
+        lines = self.SSE.splitlines(keepends=True)
+
+        def gen():  # noqa: ANN202
+            yield from lines[:8]  # -- message_start + thinking + first text delta
+            raise exc
+
+        return gen()
+
+    def test_disconnect_preserves_accumulated_text(self) -> None:
+        """REQ-109 req 215: 30 min of content must never evaporate."""
+        from rondo.adapters.anthropic_api import consume_sse_stream
+
+        result = consume_sse_stream(self._dying_stream(OSError("connection reset by peer")))
+        text = "".join(b.get("text", "") for b in result["content"] if b.get("type") == "text")
+        assert text == "Hello "  # -- everything received before the drop
+        assert result["stop_reason"] == "disconnected"
+        assert "connection reset" in result["disconnect_error"]
+
+    def test_disconnect_covers_http_exceptions(self) -> None:
+        """IncompleteRead is HTTPException, NOT OSError — both must be caught."""
+        import http.client
+
+        from rondo.adapters.anthropic_api import consume_sse_stream
+
+        result = consume_sse_stream(self._dying_stream(http.client.IncompleteRead(b"partial")))
+        assert result["stop_reason"] == "disconnected"
+
+    def test_clean_stream_has_no_disconnect_error(self) -> None:
+        from rondo.adapters.anthropic_api import consume_sse_stream
+
+        result = consume_sse_stream(iter(self.SSE.splitlines(keepends=True)))
+        assert result["disconnect_error"] == ""
+        assert result["stop_reason"] == "end_turn"
+
+    def test_err_stream_disconnect_is_transient(self) -> None:
+        """Req 215: a disconnect is retryable — never dead-lettered unseen."""
+        from rondo.retry_queue import classify_retryability
+
+        assert classify_retryability("ERR_STREAM_DISCONNECT") == "transient"
+
     def test_thinking_dispatch_requests_stream(self) -> None:
         """REQ-109 req 214: thinking models dispatch with stream:true."""
         payload = TestAnthropicThinkingModels()._capture_payload("claude-opus-4-8")

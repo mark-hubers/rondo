@@ -6,7 +6,7 @@
 **Category:** REQ
 **Created:** 2026-03-20 | **Updated:** 2026-06-03 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 2.0
+**Version:** 2.1
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Depends on:** Rondo-REQ-100 (Core), Rondo-REQ-103 (Preflight), CORE-ADR-001 (Service Architecture), CORE-IFS-001 (Integration Contract), Rondo-REQ-110, Rondo-IFS-101, Rondo-IFS-102, CORE-STD-008
@@ -258,6 +258,7 @@ Multi-AI spec review (`ai-review --tier best|standard|fast`) uses the **same** t
 | 212 | Read-timeouts SHALL be config-driven via `[timeouts]` with COALESCE: per-dispatch → config per (model-class, effort) → built-in defaults (classic 120s; thinking low/medium/high 600s; thinking xhigh/max 900s). Rationale: 5-10 min is NORMAL for max-effort thinking on long tasks — a fixed timeout is always wrong for someone. | MUST | Config-timeout test |
 | 213 | Expensive thinking dispatches MUST NOT be auto-retried on timeout (doubles real spend, likely fails identically). Classify ERR_TIMEOUT with duration+effort in forensics; deliberate retry belongs to the RESUME layer (matrix re-run, rondo retry). One visible retry by choice, never silent spend. | MUST | No-auto-retry test |
 | 214 | **Streaming is the TRUE fix** (elevates Q1): non-streaming requests make 'thinking hard' and 'hung' INDISTINGUISHABLE (zero bytes until completion). Adapters SHOULD move long/thinking dispatches to streaming, where hang detection = 'no event for watchdog_sec' (the STD-108 watchdog idiom) and arbitrary thinking time is safe. Until then reqs 210-213 are the mitigation, not the solution. | SHOULD | Streaming spike |
+| 215 | Mid-stream DISCONNECT must never lose accumulated content: when the SSE connection dies after partial deltas (real incident 2026-06-05: max-effort stream died at ~1802s — a ~30-min connection ceiling is suspected), the consumer SHALL return everything accumulated with `stop_reason="disconnected"` + the disconnect error, and dispatch SHALL classify ERR_STREAM_DISCONNECT (transient, retryable) with the PARTIAL output preserved in raw_output for forensics/recovery. 30 minutes of generated thinking must never evaporate into a bare exception. | MUST | Disconnect test |
 
 
 ### Affinity Tracking (learn which model is best)

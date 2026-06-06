@@ -32,6 +32,7 @@ anthropic-version (REQ-109 req 206): "2023-06-01" verified current as of
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import time
@@ -40,7 +41,15 @@ import urllib.request
 from fnmatch import fnmatch
 from typing import Any
 
-from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
+from rondo.engine import (
+    ERR_AUTH,
+    ERR_EMPTY_RESPONSE,
+    ERR_PROVIDER,
+    ERR_PROVIDER_DOWN,
+    ERR_RATE_LIMIT,
+    ERR_STREAM_DISCONNECT,
+    TaskResult,
+)
 from rondo.provider_base import ProviderAdapter
 from rondo.retry import get_circuit_breaker, retry_http
 
@@ -66,31 +75,43 @@ def consume_sse_stream(lines: Any) -> dict[str, Any]:
     text_parts: list[str] = []
     usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
     stop_reason: str | None = None
-    for raw in lines:
-        line = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
-        line = line.strip()
-        if not line.startswith("data:"):
-            continue
-        try:
-            event = json.loads(line[5:].strip())
-        except json.JSONDecodeError:
-            continue
-        etype = event.get("type", "")
-        if etype == "message_start":
-            usage["input_tokens"] = event.get("message", {}).get("usage", {}).get("input_tokens", 0)
-        elif etype == "content_block_delta":
-            delta = event.get("delta", {})
-            if delta.get("type") == "text_delta":
-                text_parts.append(delta.get("text", ""))
-        elif etype == "message_delta":
-            stop_reason = event.get("delta", {}).get("stop_reason") or stop_reason
-            out = event.get("usage", {}).get("output_tokens")
-            if out:
-                usage["output_tokens"] = out
+    disconnect_error = ""
+    try:
+        for raw in lines:
+            line = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+            line = line.strip()
+            if not line.startswith("data:"):
+                continue
+            try:
+                event = json.loads(line[5:].strip())
+            except json.JSONDecodeError:
+                continue
+            etype = event.get("type", "")
+            if etype == "message_start":
+                usage["input_tokens"] = event.get("message", {}).get("usage", {}).get("input_tokens", 0)
+            elif etype == "content_block_delta":
+                delta = event.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    text_parts.append(delta.get("text", ""))
+            elif etype == "message_delta":
+                stop_reason = event.get("delta", {}).get("stop_reason") or stop_reason
+                out = event.get("usage", {}).get("output_tokens")
+                if out:
+                    usage["output_tokens"] = out
+    except (OSError, TimeoutError, http.client.HTTPException) as exc:
+        # -- REQ-109 req 215 (RONDO-323): a dropped connection must never
+        # -- evaporate accumulated content. Real incident 2026-06-05: a
+        # -- max-effort stream died at ~1802s (~30-min ceiling suspected)
+        # -- and lost everything. Return the partials; dispatch classifies
+        # -- ERR_STREAM_DISCONNECT (transient) with raw_output preserved.
+        disconnect_error = f"{type(exc).__name__}: {exc}"
+        stop_reason = "disconnected"
+        logger.warning("-WARNING- SSE stream disconnected after %d delta(s): %s", len(text_parts), disconnect_error)
     return {
         "content": [{"type": "text", "text": "".join(text_parts)}],
         "usage": usage,
         "stop_reason": stop_reason,
+        "disconnect_error": disconnect_error,
     }
 
 
@@ -250,6 +271,27 @@ class AnthropicAPIAdapter(ProviderAdapter):
             for block in result.get("content", []):
                 if block.get("type") == "text":
                     text += block.get("text", "")
+
+            # -- REQ-109 req 215 (RONDO-323): mid-stream disconnect — partial
+            # -- content PRESERVED in raw_output, classified transient so the
+            # -- retry path can re-dispatch. Checked BEFORE the empty-response
+            # -- gate: a zero-text disconnect is a disconnect, not "empty".
+            if result.get("disconnect_error"):
+                return TaskResult(
+                    task_name=task_name,
+                    status="error",
+                    error_code=ERR_STREAM_DISCONNECT,
+                    error_message=(
+                        f"SSE stream disconnected after {duration:.0f}s with "
+                        f"{len(text)} chars accumulated ({result['disconnect_error']}) — "
+                        f"partial output preserved; ~30-min connection ceiling suspected "
+                        f"for very long thinking runs (REQ-109 req 215)"
+                    ),
+                    raw_output=text,
+                    model=use_model,
+                    duration_sec=duration,
+                    auth_mode="api",
+                )
 
             # -- REQ-109 req 070: empty response = error
             if not text:

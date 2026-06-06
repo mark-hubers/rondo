@@ -41,14 +41,14 @@ class TestDeriveAutoTiers:
         assert tiers["anthropic"]["auto_high"] == "claude-opus-4-8"
 
     def test_alias_first_rule(self) -> None:
-        """req 603: prefer -latest aliases over dated IDs within a class."""
+        """Req 603: prefer -latest aliases over dated IDs within a class."""
         cache = _cache("gemini", ["gemini-flash-2026-01-15", "gemini-flash-latest", "gemini-pro-latest"])
         tiers = derive_auto_tiers(cache, {"gemini": dict(ENABLED)})
         assert tiers["gemini"]["auto_mid"] == "gemini-flash-latest"
         assert tiers["gemini"]["auto_high"] == "gemini-pro-latest"
 
     def test_collapse_ladder_missing_low(self) -> None:
-        """req 608: a provider missing a distinct low inherits mid."""
+        """Req 608: a provider missing a distinct low inherits mid."""
         cache = _cache("grok", ["grok-4.3"])
         tiers = derive_auto_tiers(cache, {"grok": dict(ENABLED)})
         assert tiers["grok"]["auto_low"] == "grok-4.3"
@@ -56,7 +56,7 @@ class TestDeriveAutoTiers:
         assert tiers["grok"]["auto_high"] == "grok-4.3"
 
     def test_within_provider_boundary(self) -> None:
-        """req 609: derivation NEVER borrows another provider's models."""
+        """Req 609: derivation NEVER borrows another provider's models."""
         cache = {
             "providers": {
                 "grok": {"models": ["grok-4.3"], "error": ""},
@@ -70,7 +70,9 @@ class TestDeriveAutoTiers:
 
     def test_non_chat_models_excluded(self) -> None:
         """Live run 2026-06-06: openai auto_high derived to text-embedding-3-large.
-        Embeddings/moderation/audio/image models never enter text tiers."""
+
+        Embeddings/moderation/audio/image models never enter text tiers.
+        """
         cache = _cache(
             "openai",
             ["text-embedding-3-large", "omni-moderation-latest", "whisper-1", "gpt-5.4-nano", "gpt-5.5"],
@@ -158,7 +160,7 @@ class TestRegistryMode:
         assert registry_mode({}) == "suggest"
 
     def test_auto_downgrades_to_suggest_until_implemented(self) -> None:
-        """req 606 auto-APPLY isn't built — 'auto' must NOT silently pretend."""
+        """Req 606 auto-APPLY isn't built — 'auto' must NOT silently pretend."""
         from rondo.model_registry import registry_mode
 
         assert registry_mode({"registry": {"mode": "auto"}}) == "suggest"

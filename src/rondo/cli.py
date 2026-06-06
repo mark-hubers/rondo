@@ -532,8 +532,10 @@ def _provider_task_result(task: Any, round_def: Round, provider: Any, config: Ro
 
 
 def _provider_down_result(round_name: str, provider_name: str, model: str) -> Any:
-    """REQ-109 req 016 error result — extracted from _dispatch_with_provider
-    (RONDO-322 complexity lock)."""
+    """REQ-109 req 016 error result.
+
+    Extracted from _dispatch_with_provider (RONDO-322 complexity lock).
+    """
     from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
 
     message = f"Provider '{provider_name}' is down and no healthy fallback configured"
@@ -571,8 +573,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
 
     if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
-        from rondo.dispatch import _finalize_dispatch  # pylint: disable=import-outside-toplevel
-        from rondo.engine import DispatchUsage, RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+        from rondo.engine import RoundResult  # pylint: disable=import-outside-toplevel
 
         # -- REQ-109 req 026: shared finalization for ALL providers
         audit_trail = None

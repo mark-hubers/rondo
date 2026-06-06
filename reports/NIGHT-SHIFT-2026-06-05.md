@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 16 sprints closed (RONDO-313 → 328), every feature live-tested, honest gate runs ALL 15,778 tests GREEN, $0.10 of your $6.00 spent.**
+**TL;DR: 17 sprints closed (RONDO-313 → 329), every feature live-tested, honest gate runs ALL 15,778 tests GREEN, $0.22 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -72,6 +72,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 01:3x | judge-demo matrix: 4 cells + 4 judge dispatches, 3 providers (RONDO-317) | $0.0025 | $0.1032 |
 | 01:4x | alias-tolerance canary claude-haiku-4-5 (RONDO-325) | $0.000026 | $0.1032 |
 | 09:0x | morning canaries: gemini:flash 404 proof, stranger cmds ×3, models --verify ×2 | ~$0.002 | $0.105 |
+| 09:08 | ceiling probe: opus-4.8 max, 60KB essay, COMPLETED 408s (RONDO-329) | $0.114 | $0.219 |
 
 ## TASK QUEUE (work top-down; update status as you go)
 | # | Task | Status | Sprint |
@@ -97,6 +98,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 18 | BONUS: standing detector + conventions catch-up | DONE (suite re-scans docs every run; 144 green; per-sprint conventions rule adopted) | RONDO-326 ✓ |
 | 19 | MORNING: gate trust + hidden-red debt + req 606 design + dead doc refs | DONE (3 proofs; 29 closes backfilled from git; design proposal awaiting your 3 answers) | RONDO-327 ✓ |
 | 20 | MORNING: golden five + 3 stranger-path bugs (live-found) + WOW API path | DONE (ERROR-ENVELOPE-CONTRACT now honored in inline JSON; 15,778 green) | RONDO-328 ✓ |
+| 21 | MORNING: ceiling probe | DONE — completed 408s/$0.114, no disconnect; 1802s incident reads as server variance; RONDO-323 protections stand | RONDO-329 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -114,6 +116,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - RUN tests/conventions/ in EVERY sprint verify — ace-build full does NOT catch them (open finding).
 
 ## SPRINT LOG (append after each)
+- RONDO-329 ✓ ceiling probe: identical workload to the 1802s incident COMPLETED at 408s — one data point against a hard ceiling; chunked streaming deferred unless forensics capture a second ~1800s death.
 - RONDO-328 ✓ golden five: live verification of the first hour found provider-prefix 404 (bare-model parse fix), silent JSON errors (contract envelope), validator warning. Mock-drift self-caught same-session. WOW + README + ai-help wired.
 - RONDO-327 ✓ gate trust: zsh word-split in step 6 (bare $PRODUCT_TESTS); ${=} fix + zero-collected HARD FAIL; 3 proofs. Honest gate exposed: 16 layer/type swaps (incl. April block), 29 missed sprint-closes (backfilled from git), CALIBER layer vocab. Era-scoped results test AFTER paying debt. gemini:flash 404 canary -> 6 doc fixes.
 - RONDO-326 ✓ standing detector: tests/conventions/test_docs_drift.py; conventions catch-up for 324/325 (locks fired again — the per-sprint conventions rule is now in CONSTANTS).

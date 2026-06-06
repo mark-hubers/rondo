@@ -89,7 +89,7 @@ Use tool calls like:
 
 Start here:
 - `examples/mcp/README.md` (13 MCP examples)
-- **Full example index:** `examples/INDEX.md` (all 76 examples mapped by mode/provider/use case)
+- **Full example index:** `examples/INDEX.md` (all 85 examples mapped by mode/provider/use case)
 
 ### 2) CLI (scripts, CI, terminal workflows)
 

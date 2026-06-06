@@ -179,6 +179,15 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     sched_parser.add_argument("--model", default=None, help="Model override")
     sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
 
+    ## -- doctor subcommand (RONDO-320: install diagnosis — REQ-103 030-036)
+    doctor_parser = subparsers.add_parser(
+        "doctor", help="Diagnose this Rondo install: config, keys (redacted), registry, dirs — zero dispatches"
+    )
+    doctor_parser.add_argument("--json", action="store_true", help="JSON output")
+    doctor_parser.add_argument(
+        "--bundle", action="store_true", help="Write a redacted support bundle file for issue reports"
+    )
+
     ## -- models subcommand (RONDO-316: auto-tiers + canary — REQ-111 604-610)
     models_parser = subparsers.add_parser(
         "models", help="Model registry tools: --verify canary, --tiers derived auto-tiers"
@@ -421,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
             "schedule",
             "nightly",
             "models",
+            "doctor",
             "providers",
             "review",
             "learn",

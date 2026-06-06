@@ -117,7 +117,8 @@
       "task": "rondo providers --scores",
       "run": "7-day learned scores per model (success/cost/latency). Feeds recommend_model's learned tier: manual override -> curated default -> learned best -> sonnet."
     },
-    "rondo nightly --json   # watchdog sweep: drift + retryq + reliability, machine-readable"
+    "rondo nightly --json   # watchdog sweep: drift + retryq + reliability, machine-readable",
+    "rondo doctor   # is this install healthy + exactly what to fix (free)"
   ],
   "mcp_tools": [
     {
@@ -572,6 +573,15 @@
         "rondo models --verify  # live canary, ~cents, exit 1 on any FAIL"
       ],
       "notes": "RONDO-316, REQ-111 604-610. Manual pins always win. Non-chat models (embeddings/audio/video) excluded by token. First real canary: 15/15 PASS at $0.0007."
+    },
+    "doctor": {
+      "summary": "rondo doctor: install diagnosis (config, keys last-4, registry drift, dirs, claude binary, versions) with PASS/WARN/FAIL + fix hints. --bundle writes a redacted support file; a leak aborts the write.",
+      "commands": [
+        "rondo doctor",
+        "rondo doctor --json",
+        "rondo doctor --bundle"
+      ],
+      "notes": "RONDO-320, REQ-103 reqs 030-036. Zero dispatches, zero cost. Exit 0 healthy / 1 any FAIL (CI-able). Crashing checks become FAIL rows, never tracebacks."
     }
   },
   "config_options": [

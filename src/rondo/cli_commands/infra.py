@@ -269,6 +269,43 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    """Execute 'rondo doctor' — RONDO-320 (REQ-103 reqs 030-036).
+
+    Install diagnosis, zero dispatches. Exit 0 = healthy, 1 = any FAIL.
+    --bundle writes ONE redacted support file for issue reports.
+    """
+    import json as _json  # pylint: disable=import-outside-toplevel
+
+    from rondo.doctor import (  # pylint: disable=import-outside-toplevel
+        build_support_bundle,
+        doctor_exit_code,
+        format_doctor_table,
+        run_doctor,
+    )
+
+    rows = run_doctor()
+    if getattr(args, "json", False):
+        print(_json.dumps([r.to_dict() for r in rows], indent=2))
+    else:
+        print("Rondo doctor — install diagnosis (no dispatches, no cost):")
+        print(format_doctor_table(rows))
+
+    if getattr(args, "bundle", False):
+        try:
+            bundle = build_support_bundle(rows)
+        except ValueError as exc:
+            print(f"-ERROR- {exc}", file=sys.stderr)
+            return EXIT_FAILURE
+        out_path = Path.home() / ".rondo" / "support-bundle.txt"
+        out_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        out_path.write_text(bundle, encoding="utf-8")
+        out_path.chmod(0o600)
+        print(f"-PASS- redacted support bundle written: {out_path}")
+
+    return doctor_exit_code(rows)
+
+
 def _cmd_models(args: argparse.Namespace) -> int:
     """Execute 'rondo models' — RONDO-316 (REQ-111 reqs 604-610).
 

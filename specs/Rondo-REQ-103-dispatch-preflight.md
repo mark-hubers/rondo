@@ -6,7 +6,7 @@
 **Category:** REQ
 **Created:** 2026-03-20 | **Updated:** 2026-03-22 | **Status:** DESIGNED
 **Classification:** open
-**Version:** 1.3
+**Version:** 1.4
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -87,6 +87,23 @@ notices. Preflight catches these failures before the first dollar is spent.
 | 023 | `CLAUDECODE` env var stripping (req 010) MUST be verified by smoke test — not just checked for presence but confirmed that the stripped subprocess does not trigger ERR_NESTED_SESSION | MUST | Nesting verify test |
 | 024 | Preflight MUST log the Claude Code version, tested flags, and smoke test result to enable debugging when overnight runs fail silently | MUST | Debug log test |
 | 026 | System SHALL re-validate preflight cache if Claude Code version changed since last preflight run. Cache MUST store `{version: str, timestamp: float, result: PreflightResult}`. On cache hit, compare stored version against current `claude --version` output — mismatch = cache miss, re-run full preflight. This prevents stale cache from masking breaking CLI changes between versions. Violation ID: `REQ103-CACHE-VERSION-KEY` | MUST | Cache version test |
+
+### Doctor — onboarding + support diagnostics (RONDO-320; SOP-105 P2-0, Cursor productization pass)
+
+*Preflight answers "can I dispatch RIGHT NOW". Doctor answers "is this
+INSTALL healthy, and if not, what exactly do I tell a stranger to fix" —
+the first command support asks anyone to run.*
+
+| ID | Requirement | Priority | Test |
+|----|-------------|----------|------|
+| 030 | `rondo doctor` SHALL diagnose the install WITHOUT dispatching (zero cost): config parse+validate, per-enabled-provider key presence, registry cache age + drift summary, audit/spool/retry dir writability, claude binary, version + Python version | MUST | Doctor checks test |
+| 031 | Every check row SHALL report PASS/WARN/FAIL plus a one-line actionable FIX hint — never a raw traceback | MUST | Row format test |
+| 032 | Exit code contract: 0 = no FAIL rows, 1 = at least one FAIL (WARN never fails) — scriptable/CI-able | MUST | Exit code test |
+| 033 | `--json` SHALL emit the full check list machine-readable | MUST | JSON test |
+| 034 | `--bundle` SHALL write ONE redacted support-bundle file (doctor output + versions + drift table + last 5 failure forensics WITHOUT prompts/outputs) for pasting into an issue report | MUST | Bundle test |
+| 035 | Secrets SHALL NEVER appear in doctor output or bundle: keys shown as present/absent + last-4 only; bundle passes a forbidden-token scan BEFORE write (abort on hit) | MUST | Redaction test |
+| 036 | Doctor SHALL be offline-tolerant: network checks carry short timeouts and degrade to WARN — a disconnected machine still gets its config/paths diagnosis | SHOULD | Offline test |
+
 
 
 ---
@@ -479,4 +496,5 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 | 1.0 | 2026-03-20 | Initial. Cross-pollinated from OB-REQ-113. 16 requirements. |
 | 1.1 | 2026-03-22 | Filled to 35 sections. Added CORE-STD-012, CORE-STD-013, CORE-STD-021 refs. Approval (Mark, Session 84). |
 | 1.2 | 2026-03-25 | 4-AI cross-review fixes: Added CORE-STD-001 dependency (status vocabulary, naming). Consolidated Rondo-STD-102 → Rondo-STD-109 (same standard, one canonical name). Added req 025 (rate limit cache bridging — breaks preflight↔dispatch dependency loop). Updated §21 dependencies (added CORE-STD-001, Python 3.12+, Rondo-STD-109). Updated §14 standards applied. Added Rondo-STD-109 to standards. |
+| 1.4 | 2026-06-06 | RONDO-320: doctor block (reqs 030-036) — onboarding/support diagnostics per SOP-105 P2-0 + Cursor productization pass (doctor + redacted support bundle, exit-code contract, offline tolerance). |
 | 1.3 | 2026-03-25 | Grok cross-review fixes: (M3) Strengthened req 020 with explicit cache invalidation on version change — cache key MUST include version string, stale version triggers automatic re-run. Added req 026: version-keyed cache structure with mismatch detection. 26 requirements total. |

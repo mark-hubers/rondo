@@ -28,6 +28,7 @@ def register_commands(commands: dict) -> None:
         _cmd_run,
     )
     from rondo.cli_commands.infra import (  # pylint: disable=import-outside-toplevel
+        _cmd_doctor,
         _cmd_init,
         _cmd_matrix,
         _cmd_mcp,
@@ -71,6 +72,7 @@ def register_commands(commands: dict) -> None:
             "schedule": _cmd_schedule,
             "nightly": _cmd_nightly,
             "models": _cmd_models,
+            "doctor": _cmd_doctor,
             "providers": _cmd_providers,
             "matrix": _cmd_matrix,
             "retryq": _cmd_retryq,

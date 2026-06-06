@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 12 sprints closed (RONDO-313 → 324), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
+**TL;DR: 13 sprints closed (RONDO-313 → 325), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -14,6 +14,7 @@
 | 6 | **Config `[timeouts]`** — per model-class × effort, COALESCE, in config-template | Live resolve: 120 / 600 / 900 |
 | 7 | **STD-102→109 merge** — finding #298 closed, 20 refs repointed, 102 archived | Residual grep clean |
 | 8 | **`rondo doctor`** — install diagnosis + redacted support bundle (the first command support asks a stranger to run) | Live: 6/6 PASS on your machine; bundle leak-scan clean |
+| 13 | **Docs-drift scanner** — `rondo models --docs-drift`: stale model IDs in examples/docs (req 611, was spec-only). First run's 5 hits were alias false-positives — a $0.000026 canary proved it, tolerance built on evidence | examples+docs verified clean |
 | 12 | **MCP surface** — `rondo_doctor` + `rondo_fleet` tools: tonight's diagnostics reach your MAIN interface (appears after Claude Code restarts the rondo MCP server) | 141 mcp+ai-help tests green |
 | 11 | **Streaming disconnect fix** — the ~1802s incident's real lesson: a dropped SSE connection used to EVAPORATE all accumulated thinking. Now: partial content preserved, ERR_STREAM_DISCONNECT transient, retryable | 4 new tests; req 215 in REQ-109 v2.1 |
 | 10 | **Convention sweep** — full 25-min suite caught 8 reds the build gate missed (signatures, layering, complexity, doc sync, corpus). All fixed; gate-coverage finding filed | 298 tests green across all 8 areas |
@@ -50,6 +51,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 00:4x | models --verify canary 15 tiers (RONDO-316) | $0.0007 | $0.1007 |
 | 00:5x | (wheel redeployed; installed rondo models verified live) | $0 | $0.1007 |
 | 01:3x | judge-demo matrix: 4 cells + 4 judge dispatches, 3 providers (RONDO-317) | $0.0025 | $0.1032 |
+| 01:4x | alias-tolerance canary claude-haiku-4-5 (RONDO-325) | $0.000026 | $0.1032 |
 
 ## TASK QUEUE (work top-down; update status as you go)
 | # | Task | Status | Sprint |
@@ -71,6 +73,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 14 | BONUS: convention sweep (8 suite reds) | DONE (signed, VER refs, layering, comments, 5 complexity extractions, doc sync, corpus refinement; gate-coverage finding) | RONDO-322 ✓ |
 | 15 | BONUS: streaming disconnect handling | DONE (req 215; partial content preserved; ERR_STREAM_DISCONNECT transient; live ceiling repro deferred deliberately) | RONDO-323 ✓ |
 | 16 | BONUS: MCP surface (doctor+fleet) | DONE (IFS-104 rev-0004; never-notify rule for MCP; wheel redeployed) | RONDO-324 ✓ |
+| 17 | BONUS: docs-drift (req 611) | DONE (detection-only; date-suffix alias tolerance; live clean) | RONDO-325 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -87,6 +90,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
+- RONDO-325 ✓ docs-drift (req 611): evidence-based alias rule (canary beat assumption). models --docs-drift exit-1 contract.
 - RONDO-324 ✓ MCP surface: rondo_doctor + rondo_fleet. fleet NEVER notifies over MCP (caller is the watcher).
 - RONDO-323 ✓ streaming disconnect (req 215): consume_sse_stream returns accumulated partials on drop; IncompleteRead is HTTPException not OSError — both caught. 30 min of thinking never evaporates again.
 - RONDO-322 ✓ convention sweep: full suite (25min) found 8 reds ace-build had passed — gate selection investigation filed. Complexity surgery on 5 hot functions verified by 298 tests. Corpus gate now distinguishes misfiled-success from true-partial.

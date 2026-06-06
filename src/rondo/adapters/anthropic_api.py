@@ -128,6 +128,23 @@ class AnthropicAPIAdapter(ProviderAdapter):
         """
         return any(fnmatch(model, pattern) for pattern in self.thinking_models)
 
+    def read_timeout_for(
+        self, model: str, effort: str, *, per_dispatch: Any = None, timeouts_cfg: dict[str, Any] | None = None
+    ) -> int:
+        """Resolve this dispatch's HTTP read-timeout — REQ-109 req 212.
+
+        COALESCE: per-dispatch → config [timeouts] → built-in defaults.
+        `timeouts_cfg` is injectable for hermetic tests.
+        """
+        from rondo.adapters.timeouts import resolve_read_timeout  # pylint: disable=import-outside-toplevel
+
+        return resolve_read_timeout(
+            thinking=self.is_thinking_model(model),
+            effort=effort,
+            per_dispatch=per_dispatch,
+            timeouts_cfg=timeouts_cfg,
+        )
+
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Anthropic Messages API, return TaskResult.
 
@@ -160,12 +177,12 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 duration_sec=0.0,
             )
 
-        # -- REQ-109 req 211 (learn-by-use #3): max-effort thinking exceeds the
-        # -- classic 120s read timeout. Thinking models get 600s.
-        http_timeout = 120
-        if self.is_thinking_model(use_model):
-            # -- req 211 amended: max/xhigh effort can think past 600s on long tasks
-            http_timeout = 900 if (kwargs.get("effort") or self.effort) in ("xhigh", "max") else 600
+        # -- REQ-109 req 212 (RONDO-318): read-timeout is config-driven.
+        # -- COALESCE: per-dispatch timeout_sec → [timeouts] config → defaults
+        # -- (classic 120s; thinking ≤high 600s; xhigh/max 900s — req 211).
+        http_timeout = self.read_timeout_for(
+            use_model, str(kwargs.get("effort") or self.effort or ""), per_dispatch=kwargs.get("timeout_sec")
+        )
         url = f"{self.base_url}/messages"
         payload: dict[str, Any] = {
             "model": use_model,

@@ -151,3 +151,13 @@ security = "mistral:mistral-large-latest"
 [routing.multi_review]
 ## code-review = ["gemini:gemini-flash-latest", "grok:grok-4.3"]
 ## security = ["gemini:gemini-flash-latest", "grok:grok-4.3", "mistral:mistral-large-latest"]
+
+## -- HTTP read-timeouts in seconds (REQ-109 req 212). COALESCE: a
+## -- per-dispatch timeout_sec wins, then these, then built-in defaults
+## -- (classic 120; thinking low/medium/high 600; thinking xhigh/max 900).
+## -- 5-10 min is NORMAL for max-effort thinking on long tasks.
+## -- Streaming dispatches ignore these (per-event watchdog instead).
+[timeouts]
+## classic = 120
+## thinking_high = 600
+## thinking_max = 900

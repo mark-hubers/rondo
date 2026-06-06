@@ -49,6 +49,10 @@ launchctl load ~/Library/LaunchAgents/com.rondo.nightly-watchdog.plist
 ```
 I did NOT install it — a recurring background job on your Mac is your call.
 
+**THE 8.5 PLAN (your bar, specced):** `rondo/specs/Rondo-SOP-106-road-to-8.5.md` —
+10-dimension rubric (8.5 mean + 7.5 per-dimension floor), ~4 self-serve sprints
+remaining, then the B-gated packaging items behind your decisions.
+
 **YOUR DECISION #2:** registry auto-apply design (req 606) is written up with 3 questions for you:
 `rondo/specs/Rondo-DESIGN-registry-auto-apply.md` — recommendation: separate Rondo-owned
 auto-tiers file so your config.toml stays structurally untouchable.

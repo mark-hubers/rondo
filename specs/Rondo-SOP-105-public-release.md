@@ -90,6 +90,12 @@ Verified by independent hostile re-review before any announcement.
 | P4-2 | Signed/curated "recipe packs" if round-sharing becomes a thing (gpt-5.5) | L |
 | P4-3 | Per-task affinity, judge scoring, and the rest of the internal queue — features keep landing through the same spec/TDD pipeline | ongoing |
 
+## 3b. Execution plan
+
+The concrete sprint-level path to Mark's 8.5 bar — including the
+10-dimension scoring rubric that makes the score falsifiable — lives in
+**`Rondo-SOP-106-road-to-8.5.md`**.
+
 ## 4. Sequencing rule
 
 P1 before any announcement. P2 before any stranger is invited. P3 before the repo

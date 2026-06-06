@@ -185,6 +185,30 @@ class TestNightlyAlerts:
         assert any("drift check failed" in a for a in report.alerts)
 
 
+class TestCliFlagWiring:
+    """RONDO-333 dead-flag lock: CLI flags must actually reach run_nightly_check."""
+
+    def test_no_refresh_flag_passes_refresh_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import argparse
+
+        from rondo.cli_commands.infra import _cmd_nightly
+        from rondo.nightly import NightlyReport
+
+        seen = {}
+
+        def fake_check(*, refresh, notify_alerts):  # noqa: ANN001, ANN202
+            seen["refresh"] = refresh
+            seen["notify"] = notify_alerts
+            return NightlyReport()
+
+        monkeypatch.setattr("rondo.nightly.run_nightly_check", fake_check)
+        args = argparse.Namespace(json=False, no_notify=True, no_refresh=True)
+        code = _cmd_nightly(args)
+        assert code == 0
+        assert seen["refresh"] is False  # -- --no-refresh actually skips the refresh
+        assert seen["notify"] is False
+
+
 class TestNightlyConstants:
     """The 95% target is the campaign's stated goal — lock it."""
 

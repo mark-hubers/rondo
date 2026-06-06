@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 10 sprints closed (RONDO-313 → 322), every feature live-tested, $0.10 of your $6.00 spent.**
+**TL;DR: 10 sprints closed (RONDO-313 → 322), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -63,7 +63,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 8 | Config [timeouts] matrix | DONE (resolve_read_timeout COALESCE, adapter wired, template documented, live-verified 120/600/900) | RONDO-318 ✓ |
 | 9 | STD-102→109 merge | DONE (6 reqs folded w/ Origin column, 20 refs repointed in 7 specs, 102 ARCHIVED, #298 fixed) | RONDO-319 ✓ |
 | 10 | More real examples: matrix-with-judge, schedule/alerting, per-task affinity demo; INDEX regen --write + count bump each time | TODO | with each |
-| 11 | Final wrap | morning report ✓, CONTEXT-SNAPSHOT ✓, VER-100 v1.3 ✓; full suite running long (zombie cleanup mid-run) | — |
+| 11 | Final wrap | DONE — full suite **2165 passed, 0 failed** (24:11) after RONDO-322 sweep; morning report ✓, CONTEXT-SNAPSHOT ✓, VER-100 v1.3 ✓ | — |
 | 12 | BONUS: `rondo doctor` (SOP-105 P2-0) | DONE (REQ-103 v1.4 reqs 030-036; live 6/6 PASS; bundle leak-scan clean) | RONDO-320 ✓ |
 | 13 | BONUS: P1-7 redaction guarantee | DONE (2 real holes fixed: AIza pattern missing, notify verbatim; artifact-level permanent gate) | RONDO-321 ✓ |
 | 14 | BONUS: convention sweep (8 suite reds) | DONE (signed, VER refs, layering, comments, 5 complexity extractions, doc sync, corpus refinement; gate-coverage finding) | RONDO-322 ✓ |

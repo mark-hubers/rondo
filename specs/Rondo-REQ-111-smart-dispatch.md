@@ -252,7 +252,7 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | ID | Requirement | Priority | Test |
 |----|-------------|----------|------|
 | 605 | `[registry] mode = "suggest"` (default) or `"auto"`. Suggest mode NEVER writes config — it reports, Mark flips lines. | MUST | Mode test |
-| 606 | Auto mode scope: ONLY the auto-tier profiles (req 607). It NEVER modifies user profiles (`ush_*` etc.) or any manually pinned `[providers.*]` value. Every auto change is written to the audit trail AND surfaced in the morning report. | MUST | Scope test |
+| 606 | Auto mode scope: ONLY the auto-tier profiles (req 607). It NEVER modifies user profiles (`ush_*` etc.) or any manually pinned `[providers.*]` value. Every auto change is written to the audit trail AND surfaced in the morning report. **Design proposal awaiting Mark: `Rondo-DESIGN-registry-auto-apply.md`** | MUST | Scope test |
 | 607 | Auto-tier profiles `auto_low` / `auto_mid` / `auto_high`: per provider, tier models are DERIVED from registry metadata (capability class + pricing): `high`=flagship, `low`=cheapest viable, `mid`=middle. Re-derived on each refresh. | MUST | Derivation test |
 | 608 | Tier collapse ladder ("next best"): a provider missing a distinct `low` inherits `mid`; missing `mid` inherits `high`. Same-model tiers are valid per REQ-109 req 045 (e.g. Grok: best=default). | MUST | Collapse test |
 | 609 | Trust boundary: auto substitution stays WITHIN the same provider. The registry NEVER reroutes across providers — cross-provider changes are human decisions. REQ-109 trust/sensitivity rules (reqs 061-063) always apply. | MUST | Boundary test |

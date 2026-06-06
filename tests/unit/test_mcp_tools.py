@@ -450,7 +450,7 @@ class TestDoctorTool:
             assert check["result"] in ("PASS", "WARN", "FAIL")
 
     def test_no_full_keys_in_output(self, tmp_path, monkeypatch) -> None:
-        """req 035 holds over MCP too: keys appear as last-4 only."""
+        """Req 035 holds over MCP too: keys appear as last-4 only."""
         import re
 
         from rondo.mcp_tools import rondo_doctor

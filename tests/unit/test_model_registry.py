@@ -180,7 +180,8 @@ class TestDocsDrift:
         assert not any("history.md" in h["file"] for h in hits)
 
     def test_undated_alias_of_dated_snapshot_not_flagged(self, tmp_path: Path) -> None:
-        """Live canary 2026-06-06: claude-haiku-4-5 dispatches fine but
+        """Live canary 2026-06-06: undated alias serves though catalog omits it.
+
         /v1/models lists only claude-haiku-4-5-20251001. DATE-suffix-only
         tolerance — gpt-4 must never hide behind gpt-4-turbo siblings.
         """

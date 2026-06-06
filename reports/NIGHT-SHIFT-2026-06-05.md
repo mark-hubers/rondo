@@ -20,6 +20,19 @@
 | 10 | **Convention sweep** — full 25-min suite caught 8 reds the build gate missed (signatures, layering, complexity, doc sync, corpus). All fixed; gate-coverage finding filed | 298 tests green across all 8 areas |
 | 9 | **Redaction GUARANTEE** — plant realistic secrets, sweep every written file. Found+fixed 2 REAL holes: Google AIza keys had NO scrub pattern; notify wrote errors verbatim to log + macOS banner | 50/50 green; security finding filed |
 
+
+**⚠ MORNING CORRECTION (07:45, RONDO-327 — the biggest find of the night):**
+`ace-build full` had been SILENTLY SKIPPING the entire test suite in 20+ of the
+last 30 builds — a zsh word-split bug fed pytest one bogus path, collected 0
+tests, and a bootstrap-era "No tests found yet" warn made it look fine. My
+"gate green" lines above were hollow on the TEST step (lint/security/types ran).
+Code verification was still real: every sprint also ran targeted pytest directly,
+plus two full 25-min suites (2165/2165 green). FIXED + proven with a planted
+violation (gate now fails it in 593s of real tests) — zero-collected is now a
+HARD FAIL so a no-op gate is impossible. Critical finding filed.
+
+---
+
 **Also:** SOP-105 v0.2 (public-release roadmap, 4 AIs synthesized) · 4 new live examples (INDEX = 89) · findings #285 #297 #298 #301 fixed · ~8 commits, all through ace-build gates.
 
 **Two real bugs the mocks missed, caught by live runs** (and now pinned by unmocked contract tests): config returns a dict not an object; drift entries carry `state` not `status`. Plus: "geMINI" substring classified every Gemini model as low-tier — token matching fixed it.
@@ -30,6 +43,10 @@ rondo schedule --cmd nightly --interval daily --name nightly-watchdog --install
 launchctl load ~/Library/LaunchAgents/com.rondo.nightly-watchdog.plist
 ```
 I did NOT install it — a recurring background job on your Mac is your call.
+
+**YOUR DECISION #2:** registry auto-apply design (req 606) is written up with 3 questions for you:
+`rondo/specs/Rondo-DESIGN-registry-auto-apply.md` — recommendation: separate Rondo-owned
+auto-tiers file so your config.toml stays structurally untouchable.
 
 **Note on the 94% reliability alert:** tonight's own torture tests count against the 7d window. Not a regression — the watchdog telling the truth.
 

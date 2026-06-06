@@ -26,7 +26,7 @@ Rondo excels at: **local-first, multi-provider, audited AI orchestration for pow
 | Dimension | Shell scripts | Rondo |
 |-----------|--------------|-------|
 | Setup | Zero | Install + configure providers |
-| Provider switching | Rewrite per API | `--model gemini:flash` |
+| Provider switching | Rewrite per API | `--model gemini:gemini-flash-latest` |
 | Error handling | DIY (usually none) | ErrorPayload + recovery guidance |
 | Cost tracking | DIY | Built-in per-task cost tracking |
 | Audit trail | DIY | Always-on JSONL |

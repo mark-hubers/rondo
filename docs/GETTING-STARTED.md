@@ -5,7 +5,7 @@ Rondo runs **scripted AI work**: you describe tasks (in the CLI, YAML, JSON, or 
 This guide goes from a 30-second first run to the full CLI. For architecture and contracts, see `specs/VISION-rondo-v1.md` and `specs/Rondo-REQ-111-smart-dispatch.md`.
 For a guided first-run flow, see `docs/GETTING-STARTED-WOW.md`.
 
-Full cross-directory example map: `examples/INDEX.md` (76 examples by dispatch mode, providers, and use case).
+Full cross-directory example map: `examples/INDEX.md` (90 examples by dispatch mode, providers, and use case).
 Dispatch envelope contract (status + error_code semantics): `docs/ERROR-ENVELOPE-CONTRACT.md`.
 
 ---
@@ -33,7 +33,7 @@ rondo "review this code for obvious bugs"
 Stdout is **validated JSON** by default (smart return + `validate_return_json`). Default model comes from config (`[routing]` / provider defaults). Override:
 
 ```bash
-rondo "summarize this diff" --model gemini:flash
+rondo "summarize this diff" --model gemini:gemini-flash-latest
 ```
 
 Plain text (no smart-return JSON instructions):
@@ -182,7 +182,7 @@ Task(
 
 ### Same work, different models
 
-`examples/02-multi-provider.yaml` runs the **same instruction** with three tasks and different `model:` lines (e.g. `gemini:flash`, `grok:grok-4.3`, `local:…`). Adjust models to what you have enabled.
+`examples/02-multi-provider.yaml` runs the **same instruction** with three tasks and different `model:` lines (e.g. `gemini:gemini-flash-latest`, `grok:grok-4.3`, `local:…`). Adjust models to what you have enabled.
 
 ### Budget caps
 
@@ -217,7 +217,7 @@ Rondo exposes **16 subcommands** plus optional **inline prompt** mode (first arg
 
 | Example | Notes |
 |---------|--------|
-| `rondo "your prompt here" --model gemini:flash --field bugs` | JSON to stdout by default; `--text` for raw. |
+| `rondo "your prompt here" --model gemini:gemini-flash-latest --field bugs` | JSON to stdout by default; `--text` for raw. |
 | `git diff \| rondo "will this break tests?"` | Stdin appended as context (up to 1 MB). |
 
 ### Subcommands
@@ -246,7 +246,7 @@ Rondo exposes **16 subcommands** plus optional **inline prompt** mode (first arg
 | Flag | Meaning |
 |------|---------|
 | `--dry-run` | Show prompts; no model call |
-| `--model` | Model override (e.g. `sonnet`, `gemini:flash`) |
+| `--model` | Model override (e.g. `sonnet`, `gemini:gemini-flash-latest`) |
 | `--auth max\|api` | Subscription vs API-key billing for Claude |
 | `--max-budget` | Max cost (USD) for a run |
 | `--project DIR` | Working directory for tasks |
@@ -291,6 +291,17 @@ rondo matrix run exp.yaml --dry-run   # grid + cost estimate, zero spend
 rondo matrix run exp.yaml             # execute (resumable — re-run skips done cells)
 rondo matrix report my-comparison     # replicate mean±stdev, noisy flags
 rondo matrix reveal my-comparison     # de-anonymize (seal SHA-256 verified)
+```
+
+### Fleet operations (June 2026)
+
+```bash
+rondo doctor                # is this install healthy + exactly what to fix (free)
+rondo nightly               # watchdog sweep: drift + retryq + 7d reliability (free)
+rondo models --tiers        # derived auto-tiers from live catalogs (free)
+rondo models --verify       # canary every configured model (~cents)
+rondo models --docs-drift   # stale model IDs in examples/docs (free)
+rondo retryq list           # self-classifying retry queue
 ```
 
 Honesty rules baked in: self-ratings are labeled *uncalibrated* and never

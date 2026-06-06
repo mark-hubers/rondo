@@ -24,7 +24,7 @@ YOU SAY                          MODEL PARAM              ENGINE         HOW IT 
     no (CLI) ────────────────────────────────────────── SUBPROCESS     claude -p --bare
 
 "ask Gemini"                     model="gemini:high"      HTTP           GeminiAdapter API call
-"ask Gemini flash"               model="gemini:flash"     HTTP           GeminiAdapter API call
+"ask Gemini flash"               model="gemini:gemini-flash-latest"     HTTP           GeminiAdapter API call
 "ask Grok"                       model="grok:grok-4.3"      HTTP           ChatCompletionsAdapter
 "ask OpenAI"                     model="openai:gpt-5.5"   HTTP           ChatCompletionsAdapter
 "ask Mistral"                    model="mistral:large"     HTTP           ChatCompletionsAdapter

@@ -167,7 +167,7 @@ class TestImportLayering:
     # -- What each module is ALLOWED to import from rondo
     ALLOWED_IMPORTS: dict[str, set[str]] = {
         "engine.py": {"round_loader"},  # -- REQ-111: YAML/JSON loading via lazy import
-        "config.py": set(),
+        "config.py": {"_build"},  # -- RONDO-332: P1-6 gate; _build is a stdlib-only leaf below L0
         "sanitize.py": set(),
         "audit.py": {"sanitize", "config"},  # -- RONDO-216: shared tenant from config
         "flaky.py": set(),
@@ -236,6 +236,7 @@ class TestImportLayering:
             "chat_completions",  # -- RONDO-295 (Finding #278): lazy import of compute_cost_usd in _estimate_dispatch_cost
         },  # mcp_server: lazy import in rondo_cloud() only; health: lazy import in rondo_health() only
         "dispatch.py": {
+            "_build",  # -- RONDO-332: P1-6 defense-in-depth gate (stdlib-only leaf)
             "engine",
             "config",
             "history",

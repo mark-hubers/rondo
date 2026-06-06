@@ -28,6 +28,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+from rondo._build import is_public_build as _is_public_build  # -- RONDO-332 P1-6 seam
 from rondo.audit import AuditConfig, AuditTrail
 from rondo.config import RondoConfig
 from rondo.dispatch_parse import (
@@ -151,7 +152,15 @@ def prepare_env(config: RondoConfig) -> dict[str, str]:
     Always strips CLAUDECODE (req 13).
     Strips ANTHROPIC_API_KEY when auth=max (req 17).
     Keeps ANTHROPIC_API_KEY when auth=api (req 18).
+
+    RONDO-332 (P1-6): defense in depth — even if config validation was
+    bypassed, a public build refuses the Max-subscription pattern here.
     """
+    if config.auth == "max" and _is_public_build():
+        raise ValueError(
+            "auth=max is not available in this distribution — use auth=api "
+            "with an API key (e.g. ANTHROPIC_API_KEY env var)."
+        )
     env = dict(os.environ)
 
     # -- Always strip CLAUDECODE (nested session guard)

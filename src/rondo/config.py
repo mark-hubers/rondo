@@ -23,6 +23,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# -- RONDO-332 (P1-6): public-build gate seam — module-level name so tests
+# -- monkeypatch it; _build.py is a stdlib-only leaf, no cycle risk.
+from rondo._build import is_public_build as _is_public_build  # noqa: E402
+
 # -- RONDO-202 (Finding #225): reload lock prevents mid-flight races.
 _config_lock = threading.RLock()
 
@@ -215,6 +219,15 @@ def validate_config(config: RondoConfig) -> list[str]:
 
 def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
     """Validate enum-style fields against allowed values."""
+    # -- RONDO-332 (P1-6): public builds exclude the Max-subscription
+    # -- subprocess pattern. Refused HERE (before any dispatch) with the
+    # -- alternative named — never a bare refusal.
+    if config.auth == "max" and _is_public_build():
+        errors.append(
+            "auth=max is not available in this distribution — use auth=api with an "
+            "API key (env var, e.g. ANTHROPIC_API_KEY). See docs/GETTING-STARTED.md."
+        )
+
     if config.auth not in ("max", "api"):
         errors.append(f"auth must be 'max' or 'api', got '{config.auth}'")
 

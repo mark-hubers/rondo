@@ -6,7 +6,7 @@
 **Category:** SOP
 **Created:** 2026-06-06 (night shift, Mark's directive: "usable for everyone")
 **Status:** DESIGNED
-**Version:** 0.3
+**Version:** 0.4
 **Owner:** Mark G. Hubers
 **Sources synthesized:** Cursor hostile review (reports/cursor-review-2026-06-05.md, scored 7/10 owner · 4.5/10 public) + Cold Witness panel of 3 independent AIs (reports/cold-witness-public-release-2026-06-06.md: gemini-pro, gpt-5.5, mistral-large) + campaign findings #284-#301.
 
@@ -31,7 +31,11 @@ A person who has never met Mark, on Linux or Windows, with only PyPI and the REA
 5. Knows what version they have, what's stable, and where to report a bug
 6. CI (not Mark's laptop) proves the suite green on 3 OSes before every release
 
-Score target: independent hostile re-review ≥ 8/10 public.
+**Score bar (Mark, 2026-06-06): NOTHING releases under 7.5/10; the target is 8.5.**
+Verified by independent hostile re-review before any announcement.
+
+**PyPI naming fact (checked live 2026-06-06):** `rondo` is TAKEN on PyPI;
+`rondo-ai` and `rondo-dispatch` are free — Mark's naming decision at P1-5.
 
 ## 3. THE PHASED WORK LIST
 
@@ -44,7 +48,7 @@ Score target: independent hostile re-review ≥ 8/10 public.
 | P1-3 | **Round-file trust model** — ✅ DONE (RONDO-330, 2026-06-06): `.py` rounds + phases files gated at the EXECUTOR; `--allow-python-rounds` or `[security] allow_python_rounds`; loud 3-option refusal; template ships deny-by-default; proven live on a config-less machine | M | 4/4 |
 | P1-4 | **CI**: GitHub Actions matrix (Linux/macOS/Windows × Py 3.12+), repo-fixture corpus gates (NOT local-only — Cursor's indictment), release automation | M | 4/4 |
 | P1-5 | **Packaging**: PyPI + pipx; console entry point already exists; name collision check ("rondo" on PyPI?) | M | 4/4 |
-| P1-6 | **Public cut excludes**: the Max-plan `--auth max` subprocess pattern (Mark's standing concern) ships disabled/undocumented in public builds | S | brief |
+| P1-6 | **Public cut excludes** — ✅ MECHANISM DONE (RONDO-332): `rondo._build.PUBLIC_BUILD` (one constant, flipped ONLY by release packaging, no runtime override); auth=max refused at config validation AND dispatch env-prep with the api alternative named. Release-time flip proven when the first public wheel is cut | S | brief |
 
 ### P1 additions (Cursor roadmap pass, 2026-06-06)
 
@@ -103,6 +107,7 @@ goes public. P4 after real outside users exist. **The standalone-repo move
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.4 | 2026-06-06 | Mark's release bar recorded: floor 7.5, target 8.5. PyPI name 'rondo' taken; rondo-ai/rondo-dispatch free. Gap-to-8.5 execution begins: P1-6 mechanism first. |
 | 0.3 | 2026-06-06 | P1 scoreboard truth: P1-1 verified already built; P1-3 DONE (RONDO-330); P1-7 core done (RONDO-321); P2-0 doctor DONE (RONDO-320); P2-2 golden five DONE (RONDO-328). Honest public score movement: ~4.5 → ~6. |
 | 0.2 | 2026-06-06 | Folded Cursor productization pass: doctor+support-bundle, redaction guarantee+tests, dependency-extras policy, CLI exit-code/stream contract, cost-UX, split-brain documentation. |
 | 0.1 | 2026-06-06 | Initial synthesis: Cursor hostile review + 3-AI Cold Witness panel + findings #284-#301. The first written "usable by a stranger" definition of done. |

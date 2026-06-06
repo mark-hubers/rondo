@@ -195,6 +195,24 @@ See:
 
 ---
 
+
+## Two Dispatch Paths — Honest Differences
+
+Rondo has two ways to reach a model, and some features only exist on one
+(documented here on purpose — SOP-105 P1-10):
+
+| Capability | API path (`provider:model`) | Subprocess path (claude CLI) |
+|---|---|---|
+| Multi-provider (Gemini/OpenAI/Grok/Mistral/local) | ✓ | — (Claude only) |
+| Experiment matrix cells + judge scoring | ✓ | not yet (v2 follow-up) |
+| Streaming + thinking effort control + disconnect recovery | ✓ | n/a (CLI manages its own session) |
+| Model canary (`models --verify`) | ✓ | — |
+| Model can use tools / read files itself | — (text in, text out) | ✓ |
+| Claude subscription auth (`auth=max`) | — | ✓ (excluded from public builds) |
+| Audit trail, retry queue, smart return, budgets, task affinity | ✓ | ✓ |
+
+---
+
 ## Realness Promise
 
 Rondo examples are intended as living usage patterns, not fake snippets.

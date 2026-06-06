@@ -95,5 +95,13 @@ def _clean_test_env(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPa
     if not is_live_config_test:
         _p.load_providers_config(_STABLE_PROVIDERS)
 
+    # -- RONDO-330: tests are trusted authors of their own .py round
+    # -- fixtures — allow them by default so CI (no user config) matches
+    # -- Mark's machine. Trust-gate tests opt OUT explicitly by patching
+    # -- _config_allows_python_rounds back to False (test_round_trust.py).
+    import rondo.round_loader as _rl
+
+    monkeypatch.setattr(_rl, "_config_allows_python_rounds", lambda: True)
+
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.conf01

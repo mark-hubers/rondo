@@ -26,8 +26,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     from rondo.engine import load_round_file  # pylint: disable=import-outside-toplevel
 
     try:
-        round_def = load_round_file(args.file)
-    except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
+        round_def = load_round_file(args.file, allow_python=getattr(args, "allow_python_rounds", False))
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
 
@@ -82,8 +82,8 @@ def _cmd_live(args: argparse.Namespace) -> int:
     from rondo.live import run_live  # pylint: disable=import-outside-toplevel
 
     try:
-        round_def = load_round_file(args.file)
-    except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
+        round_def = load_round_file(args.file, allow_python=getattr(args, "allow_python_rounds", False))
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
 
@@ -109,8 +109,8 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
     from rondo.report import save_report  # pylint: disable=import-outside-toplevel
 
     try:
-        phases = load_phases_file(args.file)
-    except (FileNotFoundError, AttributeError, TypeError, ImportError) as exc:
+        phases = load_phases_file(args.file, allow_python=getattr(args, "allow_python_rounds", False))
+    except (FileNotFoundError, AttributeError, TypeError, ImportError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
 

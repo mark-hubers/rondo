@@ -6,7 +6,7 @@
 **Category:** SOP
 **Created:** 2026-06-06 (night shift, Mark's directive: "usable for everyone")
 **Status:** DESIGNED
-**Version:** 0.2
+**Version:** 0.3
 **Owner:** Mark G. Hubers
 **Sources synthesized:** Cursor hostile review (reports/cursor-review-2026-06-05.md, scored 7/10 owner · 4.5/10 public) + Cold Witness panel of 3 independent AIs (reports/cold-witness-public-release-2026-06-06.md: gemini-pro, gpt-5.5, mistral-large) + campaign findings #284-#301.
 
@@ -39,9 +39,9 @@ Score target: independent hostile re-review ≥ 8/10 public.
 
 | ID | Item | Effort | Consensus |
 |----|------|--------|-----------|
-| P1-1 | **Cross-platform credentials**: env vars first-class (`OPENAI_API_KEY` etc.), `keyring` library fallback, Keychain becomes the macOS backend not the assumption | M | 4/4 |
+| P1-1 | **Cross-platform credentials** — ✅ VERIFIED ALREADY BUILT (2026-06-06): env-first chain with all 5 standard names → Keychain → 1Password. Remaining: optional `keyring` lib for Win/Linux secure storage | M | 4/4 |
 | P1-2 | **Cross-platform config**: XDG base dirs (`~/.config/rondo`), project-local `rondo.toml`, env overrides; `~/.rondo` honored as legacy | M | 3/4 |
-| P1-3 | **Round-file trust model** (deepest item — gpt-5.5): declarative YAML/JSON rounds are the SAFE shareable format (already exist!); `.py` rounds require explicit `--allow-python-rounds` + loud warning; document "a downloaded round = running code" | M | 4/4 |
+| P1-3 | **Round-file trust model** — ✅ DONE (RONDO-330, 2026-06-06): `.py` rounds + phases files gated at the EXECUTOR; `--allow-python-rounds` or `[security] allow_python_rounds`; loud 3-option refusal; template ships deny-by-default; proven live on a config-less machine | M | 4/4 |
 | P1-4 | **CI**: GitHub Actions matrix (Linux/macOS/Windows × Py 3.12+), repo-fixture corpus gates (NOT local-only — Cursor's indictment), release automation | M | 4/4 |
 | P1-5 | **Packaging**: PyPI + pipx; console entry point already exists; name collision check ("rondo" on PyPI?) | M | 4/4 |
 | P1-6 | **Public cut excludes**: the Max-plan `--auth max` subprocess pattern (Mark's standing concern) ships disabled/undocumented in public builds | S | brief |
@@ -50,7 +50,7 @@ Score target: independent hostile re-review ≥ 8/10 public.
 
 | ID | Item | Effort |
 |----|------|--------|
-| P1-7 | Secrets redaction GUARANTEE: automated redaction tests over logs/audit/exceptions + `rondo config --show` (redacted) | M |
+| P1-7 | Secrets redaction GUARANTEE — ✅ CORE DONE (RONDO-321): artifact-level tests over audit+notify; 2 real holes fixed. Remaining: `rondo config --show` (doctor shows last-4 today) | M |
 | P1-8 | Dependency policy: zero-dep core + optional extras (`rondo[openai]`…), documented | S |
 | P1-9 | CLI contract: actionable errors (no raw tracebacks), stable exit codes, strict stdout/stderr split, `--json` never mixes logs | M |
 | P1-10 | Split-brain documented honestly: what's API-only vs subprocess-only and why (matrix/streaming/effort) | S |
@@ -103,5 +103,6 @@ goes public. P4 after real outside users exist. **The standalone-repo move
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.3 | 2026-06-06 | P1 scoreboard truth: P1-1 verified already built; P1-3 DONE (RONDO-330); P1-7 core done (RONDO-321); P2-0 doctor DONE (RONDO-320); P2-2 golden five DONE (RONDO-328). Honest public score movement: ~4.5 → ~6. |
 | 0.2 | 2026-06-06 | Folded Cursor productization pass: doctor+support-bundle, redaction guarantee+tests, dependency-extras policy, CLI exit-code/stream contract, cost-UX, split-brain documentation. |
 | 0.1 | 2026-06-06 | Initial synthesis: Cursor hostile review + 3-AI Cold Witness panel + findings #284-#301. The first written "usable by a stranger" definition of done. |

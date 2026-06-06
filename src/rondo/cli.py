@@ -267,6 +267,12 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
 def _add_common_flags(parser: argparse.ArgumentParser) -> None:
     """Add flags shared between run and overnight subcommands."""
+    parser.add_argument(
+        "--allow-python-rounds",
+        action="store_true",
+        dest="allow_python_rounds",
+        help="Permit loading .py round files (they EXECUTE — RONDO-330 trust gate)",
+    )
     parser.add_argument("--workers", type=int, default=None, help="Number of parallel workers")
     parser.add_argument("--model", default=None, help="Model override (sonnet/opus/haiku)")
     parser.add_argument("--auth", default=None, help="Auth mode (max/api)")

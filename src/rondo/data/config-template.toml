@@ -161,3 +161,9 @@ security = "mistral:mistral-large-latest"
 ## classic = 120
 ## thinking_high = 600
 ## thinking_max = 900
+
+## -- Round-file trust (RONDO-330): .py round files EXECUTE on import —
+## -- a downloaded round is a program. YAML/JSON rounds are the safe
+## -- shareable format. Flip only if you author your own .py rounds.
+[security]
+## allow_python_rounds = false

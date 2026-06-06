@@ -565,11 +565,16 @@ def round_state_from_dict(tasks: list[Task], state: dict[str, Any]) -> None:
 # -- the correct home — same pattern as config.py for shared constants.
 
 
-def load_round_file(filepath: str) -> Round:
+def load_round_file(filepath: str, *, allow_python: bool = False) -> Round:
     """Load a round definition from .py, .yaml, .yml, or .json file.
 
     REQ-100 req 39 (Python), REQ-111 reqs 410-414 (YAML/JSON).
     Detects format by extension. YAML/JSON delegates to round_loader.
+
+    RONDO-330 (SOP-105 P1-3): THIS is the .py executor, so THIS is where
+    the trust gate lives — importing a .py round runs it. Requires
+    allow_python=True (CLI: --allow-python-rounds) or config
+    `[security] allow_python_rounds = true`.
     """
     path = Path(filepath)
     if not path.exists():
@@ -580,6 +585,23 @@ def load_round_file(filepath: str) -> Round:
         from rondo.round_loader import load_round  # pylint: disable=import-outside-toplevel
 
         return load_round(filepath)
+
+    # -- RONDO-330 trust gate (lazy import — round_loader imports engine)
+    from rondo.round_loader import (  # pylint: disable=import-outside-toplevel
+        PythonRoundBlockedError,
+        _config_allows_python_rounds,
+    )
+
+    if not (allow_python or _config_allows_python_rounds()):
+        raise PythonRoundBlockedError(
+            f"Refusing to load Python round '{path.name}': importing a .py round "
+            f"file means running code you may not have read — a downloaded round "
+            f"IS a program. Options:\n"
+            f"  1. Re-run with --allow-python-rounds (one-time, explicit)\n"
+            f"  2. Add to ~/.rondo/config.toml:  [security]\\n  allow_python_rounds = true\n"
+            f"  3. Prefer the safe declarative formats: .yaml / .json rounds\n"
+            f"     (same tasks/gates, no code execution — see docs/GOLDEN-FIVE.md)"
+        )
 
     # -- Python round files (existing path)
     import importlib.util  # pylint: disable=import-outside-toplevel
@@ -601,16 +623,29 @@ def load_round_file(filepath: str) -> Round:
     return result
 
 
-def load_phases_file(filepath: str) -> list[Round]:
+def load_phases_file(filepath: str, *, allow_python: bool = False) -> list[Round]:
     """Dynamically import a phases file and call build_phases().
 
     Same pattern as load_round_file() but expects build_phases() → list[Round].
+    RONDO-330: same trust gate — a phases file EXECUTES on import.
     """
     import importlib.util  # pylint: disable=import-outside-toplevel
 
     path = Path(filepath)
     if not path.exists():
         raise FileNotFoundError(f"Phases file not found: {filepath}")
+
+    from rondo.round_loader import (  # pylint: disable=import-outside-toplevel
+        PythonRoundBlockedError,
+        _config_allows_python_rounds,
+    )
+
+    if not (allow_python or _config_allows_python_rounds()):
+        raise PythonRoundBlockedError(
+            f"Refusing to load Python phases file '{path.name}': importing it runs "
+            f"code you may not have read. Re-run with --allow-python-rounds, or set "
+            f"[security] allow_python_rounds = true in ~/.rondo/config.toml."
+        )
 
     spec = importlib.util.spec_from_file_location("phases_def", path)
     if spec is None or spec.loader is None:

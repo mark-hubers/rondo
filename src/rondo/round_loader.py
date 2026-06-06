@@ -46,13 +46,30 @@ _VALID_TASK_FIELDS = {
 _VALID_ROUND_FIELDS = {"name", "tasks", "pre_gates", "post_gates", "description"}
 
 
-def load_round(filepath: str) -> Round:
+class PythonRoundBlockedError(ValueError):
+    """A .py round was refused — RONDO-330 trust model (SOP-105 P1-3)."""
+
+
+def _config_allows_python_rounds() -> bool:
+    """One-line permanent allow: [security] allow_python_rounds = true."""
+    try:
+        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+
+        return bool(get_rondo_config().get("security", {}).get("allow_python_rounds", False))
+    except (OSError, TypeError, ValueError, KeyError):
+        return False
+
+
+def load_round(filepath: str, *, allow_python: bool = False) -> Round:
     """Load a round definition from any supported format.
 
     REQ-111 reqs 410-414: detects format by extension.
-    - .yaml / .yml → YAML
-    - .json → JSON
-    - .py → Python (delegates to existing load_round_file)
+    - .yaml / .yml → YAML (safe, declarative — the shareable format)
+    - .json → JSON (safe, declarative)
+    - .py → Python — GATED (RONDO-330, SOP-105 P1-3): importing a .py
+      round EXECUTES it. A downloaded round file = running code. Requires
+      `allow_python=True` (CLI: --allow-python-rounds) or config
+      `[security] allow_python_rounds = true`.
 
     Returns a Round object ready for dispatch.
     """
@@ -67,9 +84,11 @@ def load_round(filepath: str) -> Round:
     if ext == ".json":
         return _load_json(path)
     if ext == ".py":
+        # -- RONDO-330: the trust gate lives at the EXECUTOR
+        # -- (engine.load_round_file) — single gate, no message drift
         from rondo.engine import load_round_file  # pylint: disable=import-outside-toplevel
 
-        return load_round_file(filepath)
+        return load_round_file(filepath, allow_python=allow_python)
 
     raise ValueError(f"Unsupported round file format: '{ext}'. Use .yaml, .json, or .py")
 

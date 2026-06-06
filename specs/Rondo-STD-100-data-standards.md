@@ -11,7 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-001, Rondo-STD-100 (Caliber)
-**Depends on:** CORE-STD-012, CORE-STD-021, Rondo-STD-102
+**Depends on:** CORE-STD-012, CORE-STD-021, Rondo-STD-109
 
 ---
 
@@ -113,7 +113,7 @@ Not applicable. Data standards are static conventions, not stateful. Status valu
 
 ## 9. Configuration
 
-Data standards are not configurable. Timestamp format, naming conventions, status vocabularies, and null semantics are fixed. This is intentional — configurability in data formats creates integration fragility. The only configurable aspect is `results_dir` path (Rondo-STD-102).
+Data standards are not configurable. Timestamp format, naming conventions, status vocabularies, and null semantics are fixed. This is intentional — configurability in data formats creates integration fragility. The only configurable aspect is `results_dir` path (Rondo-STD-109).
 
 ---
 
@@ -177,7 +177,7 @@ These Rondo fields MUST match NAMING-MAP.md exactly for cross-product compatibil
 
 ## 12. Shared Patterns
 
-- **COALESCE null handling:** `COALESCE(override, learned, default)` — same idiom used in Rondo-STD-102 config resolution.
+- **COALESCE null handling:** `COALESCE(override, learned, default)` — same idiom used in Rondo-STD-109 config resolution.
 - **Snake_case everywhere:** Python fields, JSON keys, CLI output. One convention, zero translation.
 - **Duration split:** `duration_sec` for wall-clock summaries, `duration_ms` for API-level precision. Shared with Rondo-STD-101, Rondo-STD-105.
 

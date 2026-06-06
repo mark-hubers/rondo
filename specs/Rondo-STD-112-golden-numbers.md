@@ -9,7 +9,7 @@
 **Version:** 1.0
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
-**Depends on:** Rondo-REQ-100 (Core), Rondo-STD-102 (Configuration), OB-REQ-108, CORE-STD-012, Rondo-STD-103, CORE-STD-021 | **Used by:** Rondo-REQ-103 (Preflight)
+**Depends on:** Rondo-REQ-100 (Core), Rondo-STD-109 (Configuration), OB-REQ-108, CORE-STD-012, Rondo-STD-103, CORE-STD-021 | **Used by:** Rondo-REQ-103 (Preflight)
 **Cross-pollinated from:** OB-REQ-108 (Golden Numbers) — adapted from methodology counts to dispatch counts
 
 ---
@@ -115,7 +115,7 @@ Golden number registry location: `rondo/golden-numbers.toml` or inline in `confi
 ## 12. Shared Patterns
 
 - **Golden number pattern:** Cross-pollinated from OB-REQ-108, adapted for dispatch counts.
-- **Authority hierarchy:** Code > Config > Docs. Same priority as COALESCE (Rondo-STD-102).
+- **Authority hierarchy:** Code > Config > Docs. Same priority as COALESCE (Rondo-STD-109).
 - **Preflight check:** Same integration point as Rondo-STD-103 test results and Rondo-STD-106 spec quality.
 
 ---
@@ -201,7 +201,7 @@ Registry definition: 1 hour. Scanner (file walk + regex): 2 hours. CLI (`rondo g
 | Direction | Spec | Relationship |
 |-----------|------|-------------|
 | Depends on | Rondo-REQ-100 | Core defines task types, models, exit codes being counted |
-| Depends on | Rondo-STD-102 | Config defines model list and worker limits |
+| Depends on | Rondo-STD-109 | Config defines model list and worker limits |
 | Depends on | CORE-STD-012 | Readiness tracking — drift blocks READY |
 | Used by | Rondo-REQ-103 | Preflight displays golden number drift |
 

@@ -3,12 +3,14 @@
 > ⚠ **SUPERSEDED by Rondo-STD-109 (Session 104, RONDO-307).** Two 'Configuration'
 > STDs existed with CONTRADICTING rules (102: rondo.toml at project root;
 > 109: zero-config + ~/.rondo/config.toml). The CODE follows STD-109 — it governs.
-> Unique requirements here are being folded into STD-109 (Finding #298); do not
-> add new requirements to this file.
+> Fold COMPLETE (RONDO-319, 2026-06-06): unique config reqs are now STD-109
+> reqs 011-016; round-definition reqs (016-019 here) are REQ-100 territory
+> (reqs 043-044, 052); contradictory reqs (001, 008) dropped with the old
+> project-root-only model. This file is ARCHIVED — historical reference only.
 
 *How Rondo handles configuration, paths, and round definitions. Config-driven dispatch, code-driven rounds.*
 
-**Created:** 2026-03-18 | **Status:** DESIGNED
+**Created:** 2026-03-18 | **Status:** ARCHIVED
 **Classification:** open
 **Version:** 0.1
 **Owner:** Mark G. Hubers

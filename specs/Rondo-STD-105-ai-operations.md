@@ -11,7 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-006, Rondo-STD-105 (Caliber)
-**Depends on:** CORE-STD-006, CORE-STD-012, Rondo-STD-101, ACE-STD-020, Rondo-IFS-104, CORE-STD-021, Rondo-STD-102, CORE-STD-013, Rondo-STD-107
+**Depends on:** CORE-STD-006, CORE-STD-012, Rondo-STD-101, ACE-STD-020, Rondo-IFS-104, CORE-STD-021, Rondo-STD-109, CORE-STD-013, Rondo-STD-107
 
 ---
 
@@ -155,7 +155,7 @@ Two auth modes affect AI operations: `max` (subscription, $0 marginal cost, rate
 
 ## 9. Configuration
 
-AI operations config in `rondo.toml [dispatch]`: `default_model`, `auth`, `task_timeout_sec`, `output_format`, `permission_mode`. Per-task model hints in round definitions. Model allowlist in `config.py`. See Rondo-STD-102 for full config resolution.
+AI operations config in `rondo.toml [dispatch]`: `default_model`, `auth`, `task_timeout_sec`, `output_format`, `permission_mode`. Per-task model hints in round definitions. Model allowlist in `config.py`. See Rondo-STD-109 for full config resolution.
 
 ---
 
@@ -217,7 +217,7 @@ Round authors pick the right model per task. Operators override with `--model` w
 
 ## 12. Shared Patterns
 
-- **COALESCE model selection:** CLI > task hint > config > default. Same idiom as config resolution (Rondo-STD-102).
+- **COALESCE model selection:** CLI > task hint > config > default. Same idiom as config resolution (Rondo-STD-109).
 - **DispatchUsage as transfer object:** Same fields consumed by OB, Caliber, and ACE — zero translation.
 - **Stream-json extraction:** Shared parsing logic across all Claude-based dispatches.
 
@@ -304,7 +304,7 @@ Dispatch module: 6 hours (subprocess construction, stream-json parsing, Dispatch
 | Direction | Spec | Relationship |
 |-----------|------|-------------|
 | Depends on | CORE-STD-006 | Parent AI operations standard |
-| Depends on | Rondo-STD-102 | Config provides model, auth, timeout |
+| Depends on | Rondo-STD-109 | Config provides model, auth, timeout |
 | Depends on | CORE-STD-012 | Model availability prerequisites |
 | Used by | Rondo-STD-101 | Observability captures DispatchUsage metrics |
 | Used by | Rondo-STD-113 | Audit trail records dispatch details |

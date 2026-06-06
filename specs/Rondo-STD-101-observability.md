@@ -11,7 +11,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-002, Rondo-STD-101 (Caliber)
-**Depends on:** Rondo-STD-104, Rondo-STD-100, Rondo-STD-102, CORE-STD-012, ACE-STD-020, CORE-STD-021, CORE-STD-013
+**Depends on:** Rondo-STD-104, Rondo-STD-100, Rondo-STD-109, CORE-STD-012, ACE-STD-020, CORE-STD-021, CORE-STD-013
 
 ---
 
@@ -28,7 +28,7 @@ Defines how every Rondo component logs its activity, handles errors, and tracks 
 
 **OUT of scope:**
 - Data format conventions (Rondo-STD-100: Data Standards)
-- Configuration loading (Rondo-STD-102: Configuration)
+- Configuration loading (Rondo-STD-109: Configuration)
 - Consumer-side storage of results (OB's concern, not Rondo's)
 
 **Users:** Mark (primary). Claude AI agents dispatching to other models. Future: teams needing multi-model AI orchestration, batch processing, cost optimization across AI providers.
@@ -144,7 +144,7 @@ Logging verbosity is mode-dependent: `--verbose` enables DEBUG-level logging to 
 
 ## 9. Configuration
 
-Logging configuration follows COALESCE: `RONDO_LOG_LEVEL` env var > `rondo.toml [logging] level` > default `INFO`. Spool directory is configured via Rondo-STD-102 `paths.results_dir`. Log format is not configurable — structured format is mandatory for machine parsing.
+Logging configuration follows COALESCE: `RONDO_LOG_LEVEL` env var > `rondo.toml [logging] level` > default `INFO`. Spool directory is configured via Rondo-STD-109 `paths.results_dir`. Log format is not configurable — structured format is mandatory for machine parsing.
 
 ---
 

@@ -102,7 +102,7 @@ Every product has these 6 standards with the same number and topic:
 |--------|-------|----------------|
 | Rondo-STD-100 | Data Standards | Naming, types, boundaries, validation |
 | Rondo-STD-101 | Observability | Logging, metrics, alerting |
-| Rondo-STD-102 | Configuration | Config resolution, COALESCE pattern |
+| Rondo-STD-109 | Configuration | Config resolution, COALESCE pattern |
 | Rondo-STD-103 | Quality | Coverage floors, complexity caps |
 | Rondo-STD-104 | Infrastructure | Containers, deployment, CI/CD |
 | Rondo-STD-105 | AI Operations | AI-specific patterns, prompt discipline |

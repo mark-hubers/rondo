@@ -79,7 +79,7 @@ Rondo orchestrates subprocesses that can modify files, consume API resources, an
 |----|-------------|----------|
 | 017 | System SHALL every `claude -p` dispatch runs as a subprocess with a controlled environment. The runner constructs the environment explicitly — no inheriting the full parent environment blindly | MUST |
 | 018 | `CLAUDECODE` MUST be stripped from the child environment. This prevents the nested-session guard from blocking dispatch. Non-negotiable | MUST |
-| 019 | System SHALL `ANTHROPIC_API_KEY` handling depends on auth mode: stripped for `max` (use subscription), preserved for `api` (pay-per-token). See Rondo-STD-102 rules 22-23 | MUST |
+| 019 | System SHALL `ANTHROPIC_API_KEY` handling depends on auth mode: stripped for `max` (use subscription), preserved for `api` (pay-per-token). See Rondo-STD-109 (auth mode setting; was STD-102 rules 22-23 pre-merge) | MUST |
 | 020 | System SHALL each subprocess gets its own working directory: the project root for sequential tasks, the worktree path for parallel tasks | MUST |
 | 021 | Subprocess arguments MUST be constructed as a list, never a string. No `shell=True` anywhere in Rondo. This prevents shell injection and ensures consistent argument parsing | MUST |
 

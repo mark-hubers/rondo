@@ -12,7 +12,7 @@
 **Universal standard** — same topic number across all products (DEC-017)
 **Product:** Rondo
 **Matches:** CORE-STD-008, Rondo-STD-107 (Caliber), Rondo-STD-107 (Rondo)
-**Depends on:** Rondo-STD-102, Rondo-STD-113, Rondo-STD-104, CORE-STD-012, Rondo-STD-101, CORE-STD-021, CORE-STD-013
+**Depends on:** Rondo-STD-109, Rondo-STD-113, Rondo-STD-104, CORE-STD-012, Rondo-STD-101, CORE-STD-021, CORE-STD-013
 
 ---
 
@@ -80,7 +80,7 @@ Rondo is the last gate before content leaves the local machine. Every rule here 
 | 008 | System SHALL **Spool file signing** — HMAC-SHA256 on all spool files using `RONDO_SIGNING_KEY`. Same pattern as OB's OAPayload signing. Unsigned spool files rejected before dispatch. Tampered spool files (HMAC mismatch) rejected and logged | MUST |
 | 009 | System SHALL **Spool schema validation** — every spool file validated against the task definition JSON schema before processing. Unknown fields rejected. Missing required fields rejected. No arbitrary content passes through to the subprocess | MUST |
 | 010 | System SHALL **Subprocess worktree isolation** — dispatched tasks execute in git worktrees, not the main repo. Worktrees are created fresh per task and destroyed after completion. No persistent state between tasks. Subprocess cannot modify files outside its worktree | MUST |
-| 011 | System SHALL **Subprocess resource limits** — each dispatch has a maximum runtime (configurable, default from Rondo-STD-102). Watchdog kills processes that exceed the limit. Prevents infinite loops and runaway AI conversations from consuming resources indefinitely | MUST |
+| 011 | System SHALL **Subprocess resource limits** — each dispatch has a maximum runtime (configurable, default from Rondo-STD-109). Watchdog kills processes that exceed the limit. Prevents infinite loops and runaway AI conversations from consuming resources indefinitely | MUST |
 | 012 | System SHALL **Subprocess output sanitization** — output from dispatched tasks is validated before being packaged as DispatchUsage. No raw subprocess output passes through to OB without schema validation. Prevents injection of malformed data into OB's audit trail | MUST |
 | 013 | System SHALL **Task allowlist** — only recognized task types are dispatched. Unknown task types in spool files are rejected with an error, not silently dropped. The set of valid task types is defined in Rondo's configuration, not in the spool file itself | MUST |
 | 014 | System SHALL **Worktree cleanup guarantee** — if a dispatch fails or is killed, the worktree is cleaned up. No orphaned worktrees accumulate. A startup scan removes any worktrees left from previous crashed dispatches | MUST |
@@ -90,7 +90,7 @@ Rondo is the last gate before content leaves the local machine. Every rule here 
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | 016 | System SHALL **API key environment isolation** — Rondo uses its own env vars: `RONDO_SIGNING_KEY` for HMAC, `ANTHROPIC_API_KEY` and `GEMINI_API_KEY` for AI dispatch. Keys never shared between products at the env var level. If products share the same underlying API key, they still reference it through separate env vars for auditability | MUST |
-| 017 | System SHALL **Rate limiting** — maximum dispatches per hour configurable (default from Rondo-STD-102). Prevents cost attacks via spool flooding. When rate limit is hit, new tasks are queued with a backoff, not silently dropped | MUST |
+| 017 | System SHALL **Rate limiting** — maximum dispatches per hour configurable (default from Rondo-STD-109). Prevents cost attacks via spool flooding. When rate limit is hit, new tasks are queued with a backoff, not silently dropped | MUST |
 | 018 | System SHALL **Cost tracking per dispatch** — every dispatch records `cost_usd`, `input_tokens`, `output_tokens` in DispatchUsage. If a single dispatch exceeds the cost threshold (configurable), log a WARNING. If cumulative hourly cost exceeds the hourly budget, pause dispatching and alert | MUST |
 | 019 | System SHALL **Model allowlist** — only approved models can be dispatched to. The COALESCE chain (`--model` > `task.model` > `config.default_model` > `"sonnet"`) is validated at each level. An unrecognized model name is rejected, not passed through to the API | MUST |
 
@@ -196,7 +196,7 @@ Security config in `rondo.toml` is limited to thresholds: `max_dispatches_per_ho
 |----------|-------------|
 | Rondo-STD-100 (Data) | Field naming for DispatchUsage and security event logs |
 | Rondo-STD-101 (Observability) | Where dispatch events and security alerts are logged |
-| Rondo-STD-102 (Configuration) | Where API keys, signing keys, rate limits, and model allowlists are configured |
+| Rondo-STD-109 (Configuration) | Where API keys, signing keys, rate limits, and model allowlists are configured |
 | Rondo-STD-104 (Infrastructure) | File permissions for spool directory and worktree management |
 | Rondo-STD-106 (Spec Quality) | Ensures Rondo's own specs pass quality checks before build |
 
@@ -299,7 +299,7 @@ HMAC signing: 3 hours (sign on write, verify on read, key management). Rate limi
 | Direction | Spec | Relationship |
 |-----------|------|-------------|
 | Depends on | CORE-STD-008 | Parent security standard |
-| Depends on | Rondo-STD-102 | Config provides thresholds and key references |
+| Depends on | Rondo-STD-109 | Config provides thresholds and key references |
 | Depends on | CORE-STD-012 | Security prerequisites for dispatch readiness |
 | Used by | Rondo-STD-104 | Infrastructure enforces file permissions |
 | Used by | Rondo-STD-114 | Output sanitization extends security to AI output |

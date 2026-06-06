@@ -4,7 +4,7 @@
 
 **Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
 **Classification:** open
-**Version:** 0.6
+**Version:** 0.7
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** Rondo-STD-102 (duplicate 'Configuration' STD — contradicted code reality; Session 104)
@@ -350,6 +350,22 @@ REQUIRED — fill before build.
 | 009 | Config SHALL be representable as a single Python dataclass for type safety | MUST |
 | 010 | Config validation SHALL check cross-field relationships, not just per-field ranges | MUST |
 
+### Folded from STD-102 (Finding #298, RONDO-319)
+
+*STD-102's unique CONFIG requirements, renumbered here. Its round-definition
+reqs (102: 016-019) live in REQ-100 (reqs 043-044, 052) — rounds are not
+config. Its `rondo.toml`-at-root-only rule (102: 001) and fixed TOML section
+layout (102: 008) are DROPPED — they contradict this spec's zero-config model.*
+
+| ID | Requirement | Priority | Origin |
+|----|-------------|----------|--------|
+| 011 | Every config key SHOULD be overridable via env var `RONDO_<SECTION>_<KEY>` (uppercase, dots become underscores); env sits between CLI flag and config file in the COALESCE | SHOULD | 102: 029-031 (env tier — verify code support before relying on it) |
+| 012 | `rondo config show` SHALL print the fully resolved config with per-key source annotation (cli/env/file/default) and secrets REDACTED | MUST | 102: 006 + SOP-105 P1-7 (not yet implemented) |
+| 013 | `rondo config validate` SHALL check the config without dispatching; exit 0 valid / 1 invalid | MUST | 102: 028 (not yet implemented) |
+| 014 | All path construction SHALL go through the config module — no scattered ad-hoc path building | MUST | 102: 013 |
+| 015 | Missing directories SHALL be created on first use — Rondo never fails because a results dir doesn't exist | MUST | 102: 014 |
+| 016 | Path resolution SHALL be deterministic: same config = same paths on any machine; paths in a project `rondo.toml` resolve relative to that file's directory | MUST | 102: 012, 015 |
+
 ---
 
 ## 4. Architecture / Design
@@ -560,4 +576,5 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.3 | 2026-03-14 | Deep review fixes: added 4 missing fields to RondoConfig (watchdog_timeout_sec, rate_limit_backoff_sec, on_overage, worktree_isolation), completed validate_config(), added dry_run note, updated TOML example |
 | 0.4 | 2026-03-14 | Deep review v2: added 4 missing validations to validate_config() (default_model, claude_binary, results_dir, report_dir) |
 | 0.5 | 2026-03-14 | Added permission_mode setting — controls Claude Code's `--permission-mode` flag for tool access in non-interactive dispatch |
+| 0.7 | 2026-06-06 | Finding #298 (RONDO-319): folded STD-102's unique config reqs as 011-016 (env-var tier, config show/validate, canonical paths, auto-create, determinism); 102's round-definition reqs noted as REQ-100 territory; contradictory reqs dropped. STD-102 archived. |
 | 0.6 | 2026-03-14 | Added cross-field relationship validation: watchdog_timeout_sec must be < task_timeout_sec |

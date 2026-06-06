@@ -5,7 +5,7 @@
 **Product name:** Rondo — AI Task Orchestration Engine
 **Created:** 2026-03-13 | **Updated:** 2026-03-16 | **Status:** ACTIVE
 **Classification:** open
-**Version:** 1.2
+**Version:** 1.3
 **Owner:** Mark G. Hubers
 **Reviewed:** not-yet
 **Supersedes:** none
@@ -703,6 +703,7 @@ Spec reviewed via Cold Witness AI panel. See reports/ai-reviews/ for results.
 | 0.7 | 2026-03-14 | Deep review v2: added Rondo-REQ-100 reqs 45-46 (run_round, RoundResult.status). Added CORE-IFS-001 reqs 53-54 / Rondo-STD-108 / Rondo-STD-111 verification matrices (35 rules traced). Total: 97 reqs + 35 STD rules = 132 verified items |
 | 0.8 | 2026-03-14 | Added Rondo-REQ-100 reqs 47-49: permission mode dispatch (3 tests). Total: 100 reqs + 35 STD rules = 135 verified items |
 | 0.9 | 2026-03-14 | Added Rondo-STD-111 verification matrix (18 code quality gate rules, all automated). Total: 100 reqs + 53 STD rules = 153 verified items |
+| 1.3 | 2026-06-06 | Night-shift wave 6 (RONDO-313→319): corpus fixture gates, nightly watchdog, task affinity, auto-tiers+canary, matrix judge, config timeouts mapped below. |
 | 1.2 | 2026-06-05 | Matrix (REQ-113) + thinking-era reqs (REQ-109 210-214) mapped; streaming verified live. |
 | 1.1 | 2026-06-05 | **Reliability Campaign Addendum (§11, RONDO-307).** ~80 new reqs (RONDO-296→306) mapped to existing tests; 2 production-data corpora (80 parser + 33 auth) registered as permanent regression gates; pending items (REQ-111 604-610, STD-110 016-020) explicitly marked. |
 | 1.0 | 2026-03-16 | Full rebuild to Rondo-VER-100 standard. Added: 6 verification methods, test index (418 tests across 10 files), coverage summary with grand total, 10 key findings, convergence test baseline, Rondo+Caliber buggy.py integration evidence, production targets. All 153 items verified 100%. |
@@ -744,9 +745,27 @@ two production-data corpora serve as permanent regression suites.
 
 | Corpus | Records | Gate |
 |--------|---------|------|
-| Misfiled-JSON outputs (`~/.rondo/audit/` partials) | 80 | `TestHistoricCorpusParsing` — ≥95% must parse |
+| Misfiled-JSON outputs (`~/.rondo/audit/` partials) | 80 | `TestHistoricCorpusParsing` — ZERO failures (gate matched to claim, Cursor 2026-06-05) |
 | Auth-loss outputs | 33 | `TestAuthLossDetection.test_historic_auth_corpus_detected` — 100% detected |
 
 Real failures from production ARE the regression suite — synthetic fixtures
-can drift from reality; preserved history cannot. (Data-preservation golden
+can drift from reality; preserved history cannot. RONDO-313 added sanitized
+IN-REPO fixture samples (tests/fixtures/corpus/) so the gates also run in CI. (Data-preservation golden
 rule paying out as verification.)
+
+## 12. Night-Shift Wave 6 Addendum (2026-06-06) — RONDO-313→319
+
+| Requirement | Verified by | Live proof |
+|-------------|------------|------------|
+| REQ-100 req 126 (corpus gate, CI) | tests/unit/test_dispatch.py::test_fixture_partials_parse (NEVER skips) + tests/fixtures/corpus/ | fake-HOME run: fixture gates pass, local gates skip |
+| IFS-100 011/014 (auth corpus, CI) | test_fixture_auth_corpus_detected + auth fixtures (1 production + 4 synthetic, labeled) | same fake-HOME run |
+| Finding #285 (watchdog) | tests/unit/test_nightly.py (14 tests incl. 2 UNMOCKED contract tests) | first live sweep: ALERT 7d 94% < 95% (honest) |
+| Finding #297 (task affinity) | tests/unit/test_task_affinity.py (12 tests) | live round: 3 task_types in production audit |
+| REQ-111 604-610 (auto-tiers + canary) | tests/unit/test_auto_tiers.py (15 tests) | canary 15/15 PASS $0.0007; --tiers live (non-chat filter born from live run) |
+| REQ-113 req 051 (judge) | tests/unit/test_matrix.py::TestJudgeScoring (5 tests) | judge-demo: 4 cells + 4 judges, judge column 8.0(n=2)×2 |
+| REQ-109 req 212 (config timeouts) | tests/unit/test_timeouts.py (14 tests) | live resolve 120/600/900 |
+| Finding #298 (STD-102 merge) | residual-ref grep (only historical mentions remain) | 20 refs repointed, 102 ARCHIVED |
+
+**Contract-test rule (new, from 2 live-caught bugs):** every mocked seam gets at
+least one UNMOCKED test pinning the real downstream shape (see test_nightly.py
+rationale comments — 'status' vs 'state', dict vs attr).

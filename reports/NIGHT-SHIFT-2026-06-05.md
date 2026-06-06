@@ -1,5 +1,34 @@
 # NIGHT SHIFT — 2026-06-05/06 (16h autonomous, Mark's directive)
 
+## ☀ MORNING REPORT (read this first)
+
+**TL;DR: 7 sprints closed (RONDO-313 → 319), every feature live-tested, $0.10 of your $6.00 spent.**
+
+| # | What Rondo gained tonight | Proof it works |
+|---|---------------------------|----------------|
+| 1 | **Nightly watchdog** — `rondo nightly`: drift + retryq + 7d reliability in ONE schedulable sweep, macOS alert on failure | First real run honestly flagged ALERT: 7d success 94% < 95% target |
+| 2 | **CI-able corpus gates** — 17 sanitized fixtures in the repo; parser/auth gates now run on ANY machine | Proven with fake-HOME: 2 passed where they used to skip |
+| 3 | **Per-task affinity** — tasks carry `task_type`; Rondo learns which model is best at WHICH job | Live round: classify/code-review/summarize all landed in the audit trail |
+| 4 | **Auto-tiers + canary** — `rondo models --tiers` (derived low/mid/high) + `--verify` (live canary) | 15/15 tier models answered, $0.0007 total |
+| 5 | **Matrix judge scoring** — the dead `judge:` field is real; one external model scores every cell | Live: gpt-5.4-mini judged haiku+gemini cells, judge column in report |
+| 6 | **Config `[timeouts]`** — per model-class × effort, COALESCE, in config-template | Live resolve: 120 / 600 / 900 |
+| 7 | **STD-102→109 merge** — finding #298 closed, 20 refs repointed, 102 archived | Residual grep clean |
+
+**Also:** SOP-105 v0.2 (public-release roadmap, 4 AIs synthesized) · 4 new live examples (INDEX = 89) · findings #285 #297 #298 #301 fixed · ~8 commits, all through ace-build gates.
+
+**Two real bugs the mocks missed, caught by live runs** (and now pinned by unmocked contract tests): config returns a dict not an object; drift entries carry `state` not `status`. Plus: "geMINI" substring classified every Gemini model as low-tier — token matching fixed it.
+
+**YOUR DECISION (one-liner, when you want the watchdog armed):**
+```
+rondo schedule --cmd nightly --interval daily --name nightly-watchdog --install
+launchctl load ~/Library/LaunchAgents/com.rondo.nightly-watchdog.plist
+```
+I did NOT install it — a recurring background job on your Mac is your call.
+
+**Note on the 94% reliability alert:** tonight's own torture tests count against the 7d window. Not a regression — the watchdog telling the truth.
+
+---
+
 **Mandate (Mark, verbatim intent):** spec + code the big missing features Rondo
 really needs; make real working examples of new features and more usage examples;
 run real tests/ideas up to **$6.00 AI budget**; do it right and hard; gap-check
@@ -28,8 +57,8 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 5 | Per-task affinity | DONE (full chain live-verified, finding #297 fixed, example 07-task-affinity, INDEX 87) | RONDO-315 ✓ |
 | 6 | Auto-tiers + canary | DONE (15/15 PASS $0.0007; 606 auto-apply -> work request; non-chat filter from live run) | RONDO-316 ✓ |
 | 7 | Matrix judge scoring | DONE (judge field was DEAD — now wired; live 4-cell run, judge col 8.0(n=2)×2 groups, $0.0025) | RONDO-317 ✓ |
-| 8 | **REQ-109 req 212 config [timeouts] matrix** (per model-class × effort, COALESCE) | TODO | RONDO-318 |
-| 9 | **#298 STD-102→109 merge pass** (fold unique reqs, repoint 8 refs, archive 102) | TODO | RONDO-319 |
+| 8 | Config [timeouts] matrix | DONE (resolve_read_timeout COALESCE, adapter wired, template documented, live-verified 120/600/900) | RONDO-318 ✓ |
+| 9 | STD-102→109 merge | DONE (6 reqs folded w/ Origin column, 20 refs repointed in 7 specs, 102 ARCHIVED, #298 fixed) | RONDO-319 ✓ |
 | 10 | More real examples: matrix-with-judge, schedule/alerting, per-task affinity demo; INDEX regen --write + count bump each time | TODO | with each |
 | 11 | Final: full suite + cloud_full + update CONTEXT-SNAPSHOT + VER-100 + morning report for Mark | TODO | — |
 
@@ -48,6 +77,8 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
+- RONDO-319 ✓ STD-102→109 merge: Explore agent mapped uniques/covered/refs (research-only, allowed); fold has Origin traceability; round-def reqs → REQ-100; 2 contradictions dropped openly.
+- RONDO-318 ✓ config timeouts (req 212): adapters/timeouts.py, per-dispatch→config→defaults, unknown thinking effort floors 600. Gotcha: adapter class is AnthropicAPIAdapter not AnthropicAdapter.
 - RONDO-317 ✓ matrix judge (req 051): judge_rubric required at load, _judge_cell costed into SAME budget, crash-isolated, report judge column. Dead-field made real (Cursor's dead-flag class). Live: gpt-5.4-mini judged haiku+gemini cells.
 - RONDO-316 ✓ auto-tiers+canary: derive_auto_tiers/resolve_model/verify_models/registry_mode + rondo models CLI. Live lessons: 'geMINI' substring trap -> token matching; catalogs mix non-chat models -> exclusion list. Canary 15/15 PASS $0.0007. req 606 auto-apply = work request, honestly NOT claimed.
 - RONDO-315 ✓ per-task affinity: task_type Task→AuditRecord→scoring→recommend_model. Live round proof in audit. Note: `rondo run` inside CC needs env -u CLAUDECODE (preflight RED otherwise). Subprocess dispatches = Max plan tokens, NOT API ledger.

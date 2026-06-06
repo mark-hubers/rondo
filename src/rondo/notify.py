@@ -63,6 +63,23 @@ def notify_failure(
     _send(msg, title="Rondo: dispatch failed", config=config)
 
 
+def notify_watchdog(
+    alerts: list[str],
+    title: str = "Rondo watchdog",
+    config: NotifyConfig | None = None,
+) -> None:
+    """Notify on watchdog alerts — RONDO-314 (finding #285: nobody watching).
+
+    One notification carrying every alert from the nightly sweep, on the
+    terminal + macOS channels so it surfaces even with no terminal open.
+    """
+    if not alerts:
+        return
+    config = config or NotifyConfig(channels=["terminal", "file", "macos"])
+    msg = f"{len(alerts)} alert(s): " + " | ".join(alerts)
+    _send(msg, title=title, config=config)
+
+
 def _send(msg: str, *, title: str, config: NotifyConfig) -> None:
     """Send to all configured channels. Quiet mode skips terminal."""
     for channel in config.channels:

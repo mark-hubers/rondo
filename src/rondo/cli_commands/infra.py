@@ -228,12 +228,23 @@ def build_round() -> Round:
 
 
 def _cmd_schedule(args: argparse.Namespace) -> int:
-    """Create a launchd plist for recurring Rondo dispatch."""
+    """Create a launchd plist for recurring Rondo dispatch (round file or --cmd)."""
     from rondo.schedule import generate_plist  # pylint: disable=import-outside-toplevel
 
-    file_path = str(Path(args.file).resolve())
-    name = args.name or Path(args.file).stem
-    cmd_args = ["run", file_path]
+    sub_cmd = getattr(args, "cmd", "") or ""
+    if sub_cmd:
+        ## -- RONDO-314: schedule a rondo subcommand (e.g. the nightly watchdog)
+        name = args.name or sub_cmd
+        cmd_args = [sub_cmd]
+        work_dir = str(Path.home())
+    elif args.file:
+        file_path = str(Path(args.file).resolve())
+        name = args.name or Path(args.file).stem
+        cmd_args = ["run", file_path]
+        work_dir = str(Path(file_path).parent)
+    else:
+        print("-ERROR- schedule needs a round file or --cmd <subcommand>")
+        return EXIT_FAILURE
     if args.model:
         cmd_args.extend(["--model", args.model])
 
@@ -242,7 +253,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
         command=__import__("shutil").which("rondo") or "rondo",  # -- RONDO-216 C5: was hardcoded path
         args=cmd_args,
         interval=args.interval,
-        work_dir=str(Path(file_path).parent),
+        work_dir=work_dir,
     )
 
     if getattr(args, "install", False):
@@ -255,6 +266,42 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
         print(plist)
         print(f"\n# Install with: rondo schedule {args.file} --install")
 
+    return EXIT_SUCCESS
+
+
+def _cmd_nightly(args: argparse.Namespace) -> int:
+    """Execute 'rondo nightly' — RONDO-314 watchdog sweep (finding #285).
+
+    Exit code contract: 0 = all green, 1 = at least one alert.
+    """
+    import json as _json  # pylint: disable=import-outside-toplevel
+
+    from rondo.nightly import run_nightly_check  # pylint: disable=import-outside-toplevel
+
+    report = run_nightly_check(
+        refresh=not getattr(args, "no_refresh", False),
+        notify_alerts=not getattr(args, "no_notify", False),
+    )
+
+    if getattr(args, "json", False):
+        print(_json.dumps(report.to_dict(), indent=2))
+        return EXIT_SUCCESS if report.status == "OK" else EXIT_FAILURE
+
+    print(f"Rondo nightly watchdog — {report.status}")
+    stale = [d for d in report.drift if d.get("state") in ("STALE", "NO_CACHE")]
+    print(f"  drift:       {len(report.drift)} models checked, {len(stale)} stale")
+    print(
+        f"  retryq:      {report.retry_sweep.get('dead_lettered', 0)} dead-lettered, "
+        f"{report.retry_sweep.get('remaining', 0)} remaining"
+    )
+    rate = report.success_rate_7d
+    rate_str = f"{rate:.0%}" if rate is not None else "n/a (no dispatches)"
+    print(f"  reliability: {rate_str} over 7d ({report.dispatches_7d} dispatches)")
+    if report.alerts:
+        for alert in report.alerts:
+            print(f"  -WARNING- {alert}")
+        return EXIT_FAILURE
+    print("  -PASS- fleet healthy")
     return EXIT_SUCCESS
 
 
@@ -391,11 +438,10 @@ def _cmd_matrix(args: argparse.Namespace) -> int:
 
 
 def _resolve_retry_dir() -> str:
-    """Retry dir — honors RONDO_TEST_DIR (hermeticity, #292)."""
-    import os  # pylint: disable=import-outside-toplevel
+    """Retry dir — delegates to the canonical resolver (RONDO-314)."""
+    from rondo.retry_queue import resolve_retry_dir  # pylint: disable=import-outside-toplevel
 
-    test_dir = os.environ.get("RONDO_TEST_DIR")
-    return os.path.join(test_dir, "retry") if test_dir else "~/.rondo/retry"
+    return resolve_retry_dir()
 
 
 def _cmd_retryq(args: argparse.Namespace) -> int:

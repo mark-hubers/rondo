@@ -16,7 +16,7 @@ from pathlib import Path
 
 META_RE = re.compile(r"^\s*#\s*rondo-meta:\s*(.+?)\s*$")
 MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-EXPECTED_EXAMPLE_COUNT = 85  # -- RONDO-311: +matrix yaml, +matrix cli, +fleet-health cli
+EXPECTED_EXAMPLE_COUNT = 86  # -- RONDO-314: +nightly-watchdog cli (85 was RONDO-311)
 
 
 def _collect_example_files(examples_dir: Path) -> list[Path]:

@@ -168,13 +168,26 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     init_parser.add_argument("--name", default="my-round", help="Round name (default: my-round)")
     init_parser.add_argument("--config", action="store_true", help="Create ~/.rondo/config.toml from template")
 
-    ## -- schedule subcommand (REQ-101 scheduling)
+    ## -- schedule subcommand (REQ-101 scheduling; RONDO-314 adds --cmd)
     sched_parser = subparsers.add_parser("schedule", help="Create launchd plist for recurring dispatch")
-    sched_parser.add_argument("file", help="Round file to schedule")
+    sched_parser.add_argument("file", nargs="?", default="", help="Round file to schedule")
+    sched_parser.add_argument(
+        "--cmd", default="", help="Schedule a rondo subcommand instead of a round file (e.g. nightly)"
+    )
     sched_parser.add_argument("--interval", default="weekly", choices=["hourly", "daily", "weekly", "monthly"])
-    sched_parser.add_argument("--name", default="", help="Schedule name (default: derived from file)")
+    sched_parser.add_argument("--name", default="", help="Schedule name (default: derived from file/cmd)")
     sched_parser.add_argument("--model", default=None, help="Model override")
     sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
+
+    ## -- nightly subcommand (RONDO-314: the watchdog — finding #285)
+    nightly_parser = subparsers.add_parser(
+        "nightly", help="Watchdog sweep: registry drift + retryq sweep + 7d reliability; alerts on failure"
+    )
+    nightly_parser.add_argument("--json", action="store_true", help="JSON output")
+    nightly_parser.add_argument("--no-notify", action="store_true", help="Report only, never notify")
+    nightly_parser.add_argument(
+        "--no-refresh", action="store_true", help="Skip the live registry refresh (offline mode)"
+    )
 
     # -- learn subcommand (REQ-111 req 442)
     learn_parser = subparsers.add_parser("learn", help="Compute provider scores from dispatch history")
@@ -394,6 +407,7 @@ def main(argv: list[str] | None = None) -> int:
             "mcp",
             "init",
             "schedule",
+            "nightly",
             "providers",
             "review",
             "learn",

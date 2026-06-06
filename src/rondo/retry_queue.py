@@ -30,6 +30,19 @@ logger = logging.getLogger(__name__)
 
 DEAD_LETTER_DIRNAME = "dead-letter"
 
+
+def resolve_retry_dir() -> str:
+    """Canonical retry dir — honors RONDO_TEST_DIR (hermeticity, #292).
+
+    RONDO-314: promoted from the CLI layer so the nightly watchdog and
+    any other caller share ONE resolution rule.
+    """
+    import os  # pylint: disable=import-outside-toplevel
+
+    test_dir = os.environ.get("RONDO_TEST_DIR")
+    return os.path.join(test_dir, "retry") if test_dir else "~/.rondo/retry"
+
+
 # -- STD-108 req 015: error codes that can NEVER succeed on retry.
 # -- Semantic blocks (guards, validation) and auth failures — retrying
 # -- burns time and money for a guaranteed identical outcome.

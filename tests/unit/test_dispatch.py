@@ -2383,8 +2383,10 @@ class TestHistoricCorpusParsing:
                 failures += 1
         if candidates == 0:
             pytest.skip("no partial records in local corpus")
-        # -- ≥95%: allow a handful of genuinely-malformed outputs in old data
-        assert failures <= candidates * 0.05, f"{failures}/{candidates} historic outputs still unparseable"
+        # -- Cursor review 2026-06-05: gate must match the claim. All 80 were
+        # -- measured parsing; the gate is therefore ZERO failures, not 95%.
+        # -- (Local corpus only — skips elsewhere; see finding #301 re: CI gating.)
+        assert failures == 0, f"{failures}/{candidates} historic outputs unparseable — regression vs the 80/80 baseline"
 
 
 # -- ──────────────────────────────────────────────────────────────

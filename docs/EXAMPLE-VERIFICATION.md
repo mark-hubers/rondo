@@ -49,7 +49,7 @@ Paste this in a session where the **Rondo MCP server is enabled**:
 > 3. `rondo_models()` — list configured providers/models.
 > 4. `rondo_run(prompt="Reply with the single word: pong", model="gemini:default", dry_run=True)` — must not charge; confirm JSON or plan.
 > 5. If step 4 returns an inline dispatch plan, execute the embedded prompt yourself and return structured JSON per the rondo-dispatch skill.
-> 6. `rondo_multi_review(prompt="Say hello in one sentence.", providers='[\"gemini:gemini-2.5-flash\"]', dry_run=True)` — preview only.
+> 6. `rondo_multi_review(prompt="Say hello in one sentence.", providers='[\"gemini:gemini-flash-latest\"]', dry_run=True)` — preview only.
 
 Adjust provider strings to match `~/.rondo/config.toml`. If a step fails, capture the error string and fix config or docs — don’t “assume” success.
 

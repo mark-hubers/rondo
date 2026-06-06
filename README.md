@@ -68,9 +68,9 @@ effort control, output headroom, and **streamed dispatch** with an event
 watchdog — a model may think for many minutes safely. Every failure carries
 the provider's own explanation into the audit trail.
 
-**The documentation IS the examples**: 90 real, dispatch-verified files under
-`examples/` (start at `examples/INDEX.md`), re-validated by
-`examples/verify-examples.sh` after every provider change.
+**The documentation IS the examples**: 85 real, runnable files under
+`examples/` (start at `examples/INDEX.md`); smoke-checked by
+`examples/verify-examples.sh`, with key paths exercised in the test suite.
 
 ---
 

@@ -47,14 +47,14 @@ rondo/src/rondo/
 [providers.openai]
 enabled = true
 base_url = "https://api.openai.com/v1"
-model = "gpt-4.1"
+model = "gpt-5.5"
 keychain_item = "openai_api_key"
 temperature = 0.2
 
 [providers.gemini]
 enabled = true
 base_url = "https://generativelanguage.googleapis.com/v1beta"
-model = "gemini-2.5-flash"
+model = "gemini-flash-latest"
 keychain_item = "gemini_api_key"
 
 [providers.grok]
@@ -79,7 +79,7 @@ keychain_item = "anthropic_api_key"
 ### Routing
 
 ```
-model="openai:gpt-4.1"      → ChatCompletionsAdapter(openai config)
+model="openai:gpt-5.5"      → ChatCompletionsAdapter(openai config)
 model="gemini:flash"         → GeminiAdapter(gemini config)
 model="grok:beta"            → ChatCompletionsAdapter(grok config)
 model="mistral:large"        → ChatCompletionsAdapter(mistral config)
@@ -112,7 +112,7 @@ model="sonnet"               → Claude subprocess with --bare
 ```
 rondo_multi_review(
     prompt="Review this code for bugs",
-    providers=["local:qwen2.5:32b", "gemini:flash", "openai:gpt-4.1"],
+    providers=["local:qwen2.5:32b", "gemini:flash", "openai:gpt-5.5"],
     files=["src/main.py"],
 )
 → Returns: per-provider findings, merged findings, cost/latency stats

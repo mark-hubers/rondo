@@ -182,7 +182,7 @@ Task(
 
 ### Same work, different models
 
-`examples/02-multi-provider.yaml` runs the **same instruction** with three tasks and different `model:` lines (e.g. `gemini:flash`, `grok:grok-3`, `local:…`). Adjust models to what you have enabled.
+`examples/02-multi-provider.yaml` runs the **same instruction** with three tasks and different `model:` lines (e.g. `gemini:flash`, `grok:grok-4.3`, `local:…`). Adjust models to what you have enabled.
 
 ### Budget caps
 

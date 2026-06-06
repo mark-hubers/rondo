@@ -25,8 +25,8 @@ YOU SAY                          MODEL PARAM              ENGINE         HOW IT 
 
 "ask Gemini"                     model="gemini:high"      HTTP           GeminiAdapter API call
 "ask Gemini flash"               model="gemini:flash"     HTTP           GeminiAdapter API call
-"ask Grok"                       model="grok:grok-3"      HTTP           ChatCompletionsAdapter
-"ask OpenAI"                     model="openai:gpt-4.1"   HTTP           ChatCompletionsAdapter
+"ask Grok"                       model="grok:grok-4.3"      HTTP           ChatCompletionsAdapter
+"ask OpenAI"                     model="openai:gpt-5.5"   HTTP           ChatCompletionsAdapter
 "ask Mistral"                    model="mistral:large"     HTTP           ChatCompletionsAdapter
 "use local qwen"                 model="local:qwen:32b"   HTTP           OllamaAdapter localhost
 

@@ -88,12 +88,12 @@
     {
       "name": "Dispatch to Gemini instead of Claude",
       "task": "Task(name=\"gemini-review\", instruction=\"Review this code.\", context_files=[\"src/main.py\"], done_when=\"Findings listed.\")",
-      "run": "rondo_run(file_path='review.py', model='gemini:gemini-2.5-flash')",
+      "run": "rondo_run(file_path='review.py', model='gemini:gemini-flash-latest')",
       "note": "Requires GEMINI_API_KEY or [providers.gemini] in ~/.rondo/config.toml"
     },
     {
       "name": "Multi-provider parallel review (get consensus)",
-      "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini\", \"grok\", \"mistral\"]', tier='high', dry_run=False)  # bare names resolve via tier; or pass explicit like 'gemini:gemini-2.5-pro'",
+      "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini\", \"grok\", \"mistral\"]', tier='high', dry_run=False)  # bare names resolve via tier; or pass explicit like 'gemini:gemini-pro-latest'",
       "run": "Returns list of per-provider results. Each has provider, status, raw_output.",
       "note": "Use for cross-validation \u2014 catches issues one model might miss."
     },
@@ -110,7 +110,7 @@
     {
       "name": "Catch retired models before they 404",
       "task": "rondo providers --refresh --drift",
-      "run": "Fetches every provider's live model list, reports OK/STALE per configured tier + NEW models. First run found the entire grok-3 family retired. Never auto-edits config."
+      "run": "Fetches every provider's live model list, reports OK/STALE per configured tier + NEW models. First run found the entire grok-3 family retired (now grok-4.3). Never auto-edits config."
     },
     {
       "name": "See learned model performance (auto-tune)",
@@ -230,7 +230,7 @@
     {
       "name": "rondo_multi_review",
       "category": "cloud",
-      "description": "Send same prompt to N providers in parallel \u2014 returns per-provider results + merged findings. Accepts bare provider names ([\"gemini\", \"grok\"]) resolved via tier, or explicit [\"gemini:gemini-2.5-pro\"]. Default tier=high.",
+      "description": "Send same prompt to N providers in parallel \u2014 returns per-provider results + merged findings. Accepts bare provider names ([\"gemini\", \"grok\"]) resolved via tier, or explicit [\"gemini:gemini-pro-latest\"]. Default tier=high.",
       "stability": "beta"
     },
     {
@@ -277,42 +277,42 @@
       "name": "gemini",
       "description": "Google Gemini via REST API (REQ-109)",
       "models": [
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
+        "gemini-flash-latest",
+        "gemini-pro-latest",
         "gemini-2.0-flash"
       ],
       "tiers": {
-        "high": "gemini-2.5-pro",
-        "default": "gemini-2.5-flash",
+        "high": "gemini-pro-latest",
+        "default": "gemini-flash-latest",
         "low": "gemini-2.0-flash"
       },
       "auth": "GEMINI_API_KEY env var or ~/.rondo/config.toml",
       "routing": "Use 'gemini:' prefix",
       "examples": [
-        "model='gemini:gemini-2.5-flash'",
+        "model='gemini:gemini-flash-latest'",
         "model='gemini:high'",
-        "model='gemini:gemini-2.5-pro'"
+        "model='gemini:gemini-pro-latest'"
       ]
     },
     {
       "name": "openai",
       "description": "OpenAI via Chat Completions API",
       "models": [
-        "gpt-4.1",
+        "gpt-5.5",
         "gpt-4o",
-        "gpt-4o-mini",
+        "gpt-5.4-nano",
         "o1",
         "o3-mini"
       ],
       "tiers": {
-        "high": "gpt-4.1",
+        "high": "gpt-5.5",
         "default": "gpt-4o",
-        "low": "gpt-4o-mini"
+        "low": "gpt-5.4-nano"
       },
       "auth": "OPENAI_API_KEY env var or ~/.rondo/config.toml",
       "routing": "Use 'openai:' prefix",
       "examples": [
-        "model='openai:gpt-4.1'",
+        "model='openai:gpt-5.5'",
         "model='openai:high'"
       ]
     },
@@ -320,18 +320,18 @@
       "name": "grok",
       "description": "xAI Grok via Chat Completions-compatible API",
       "models": [
-        "grok-3",
-        "grok-3-mini"
+        "grok-4.3",
+        "grok-4.3"
       ],
       "tiers": {
-        "high": "grok-3",
-        "default": "grok-3",
-        "low": "grok-3-mini"
+        "high": "grok-4.3",
+        "default": "grok-4.3",
+        "low": "grok-4.3"
       },
       "auth": "XAI_API_KEY env var or ~/.rondo/config.toml",
       "routing": "Use 'grok:' prefix",
       "examples": [
-        "model='grok:grok-3'",
+        "model='grok:grok-4.3'",
         "model='grok:high'"
       ]
     },
@@ -496,7 +496,7 @@
         "mistral",
         "anthropic"
       ],
-      "routing": "Use provider:model syntax \u2014 'gemini:gemini-2.5-flash', 'grok:grok-3', 'mistral:large'; OpenAI optional",
+      "routing": "Use provider:model syntax \u2014 'gemini:gemini-flash-latest', 'grok:grok-4.3', 'mistral:large'; OpenAI optional",
       "tiers": "provider:high \u2192 best_model, provider:default \u2192 default_model, provider:low \u2192 cheap_model (from config)",
       "fallback": "If primary provider is down, auto-routes to fallback= from config.toml",
       "multi_provider": "rondo_cloud() dispatches sequentially to N providers; default trio preference Gemini + Grok (+ Mistral for security)",
@@ -524,7 +524,7 @@
       "resume": "re-running the same YAML skips done cells; error cells retry"
     },
     "model_registry_drift": {
-      "description": "Self-updating model awareness (REQ-111 600-603): caches every provider's live model list, reports config-vs-served drift. Catches retired models BEFORE dispatches 404 (first run found the entire grok-3 family retired).",
+      "description": "Self-updating model awareness (REQ-111 600-603): caches every provider's live model list, reports config-vs-served drift. Catches retired models BEFORE dispatches 404 (first run found the entire grok-3 family retired (now grok-4.3)).",
       "cli": "rondo providers --refresh (fetch+cache) | --drift (report OK/STALE/NO_CACHE per tier + NEW unconfigured models)",
       "rule": "NEVER auto-edits config - detection automated, fix manual"
     },
@@ -813,7 +813,7 @@
     "model_parameter": "Do NOT specify model= unless you need a DIFFERENT model than your current session. Omitting model= uses your current session model with zero overhead. Specifying a different model spawns a new process (slower).",
     "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
     "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') \u2014 $0 cost, ~2 seconds.",
-    "cloud_providers": "Prefer Gemini + Grok + Mistral (core trio). Syntax: 'gemini:gemini-2.5-flash', 'grok:grok-3', 'mistral:large' or tier 'mistral:high'. OpenAI is optional, not a default. Keys: ~/.rondo/config.toml or env.",
+    "cloud_providers": "Prefer Gemini + Grok + Mistral (core trio). Syntax: 'gemini:gemini-flash-latest', 'grok:grok-4.3', 'mistral:large' or tier 'mistral:high'. OpenAI is optional, not a default. Keys: ~/.rondo/config.toml or env.",
     "multi_provider": "Default multi-review pairs: Gemini + Grok (mid); security adds Mistral; reasoning uses Gemini 2.5 Pro + Mistral Large. rondo_cloud() and rondo_multi_review() run providers sequentially. Override with [routing.multi_review] in config.",
     "health_fallback": "Providers with health checks auto-fallback when down. Configure fallback= in [providers.<name>] section of config.toml. Check status with: rondo providers"
   },

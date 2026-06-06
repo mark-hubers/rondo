@@ -23,7 +23,7 @@ rondo review src/main.py --dry-run                # preview without dispatching
 ```
 rondo_multi_review(
     prompt="Review this file for bugs and security issues.\n\n```python\n<file content>\n```",
-    providers='["gemini:gemini-2.5-flash", "grok:grok-3"]',
+    providers='["gemini:gemini-flash-latest", "grok:grok-4.3"]',
     dry_run=False
 )
 ```
@@ -142,7 +142,7 @@ cat ~/.rondo/config.toml | grep -A 2 "providers"
 
 **Step 3 — Test the provider directly:**
 ```bash
-rondo run examples/rounds/round_hello.py --model gemini:gemini-2.5-flash
+rondo run examples/rounds/round_hello.py --model gemini:gemini-flash-latest
 ```
 
 **Common causes:**
@@ -176,11 +176,11 @@ rondo history --expensive             # top 10 most expensive dispatches
 | Provider | Cheap model | Cost/1K tokens |
 |----------|------------|---------------|
 | Ollama | llama3.1:8b | $0.00 |
-| Gemini | gemini-2.5-flash | ~$0.0001 |
+| Gemini | gemini-flash-latest | ~$0.0001 |
 | Mistral | mistral-small | ~$0.0002 |
-| Grok | grok-3-mini | ~$0.0003 |
+| Grok | grok-4.3 | ~$0.0003 |
 | Claude | haiku | ~$0.0003 |
-| OpenAI | gpt-4o-mini | ~$0.0002 |
+| OpenAI | gpt-5.4-nano | ~$0.0002 |
 
 ---
 
@@ -192,7 +192,7 @@ rondo history --expensive             # top 10 most expensive dispatches
 ```
 rondo_chain(
     steps='[
-        {"prompt": "Scan this codebase for security issues", "model": "gemini:gemini-2.5-flash"},
+        {"prompt": "Scan this codebase for security issues", "model": "gemini:gemini-flash-latest"},
         {"prompt": "For each issue found, suggest a fix with code", "model": "sonnet"}
     ]',
     dry_run=False

@@ -97,7 +97,7 @@ model="sonnet"/"opus"       → Claude subprocess with --bare (caller wants THAT
 model="local:llama3.1:8b"   → Ollama HTTP direct ($0)
 model="local:qwen2.5:32b"   → Ollama HTTP direct ($0)
 model="gemini:flash"        → Future: Gemini API adapter
-model="openai:gpt-4.1"      → Future: OpenAI API adapter
+model="openai:gpt-5.5"      → Future: OpenAI API adapter
 ```
 
 **Routing rule:** Split on first `:`. No prefix → Claude. `local:` → Ollama. Other prefix → future adapter.

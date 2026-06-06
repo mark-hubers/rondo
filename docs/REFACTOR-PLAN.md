@@ -52,7 +52,7 @@ elif provider == "anthropic":
 ```python
 from rondo.providers import get_adapter_for_dispatch
 
-adapter = get_adapter_for_dispatch("gemini", "gemini-2.5-flash")
+adapter = get_adapter_for_dispatch("gemini", "gemini-flash-latest")
 # Returns configured GeminiAdapter with key loaded, or None if no key
 ```
 

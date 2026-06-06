@@ -87,7 +87,7 @@ via 4 phases of deep testing.
    import json
    r = json.loads(rondo_multi_review(
        prompt='Final stability check — find any remaining issues',
-       providers='[\"gemini:gemini-2.5-pro\", \"openai:gpt-4.1\", \"grok:grok-3\"]',
+       providers='[\"gemini:gemini-pro-latest\", \"openai:gpt-5.5\", \"grok:grok-4.3\"]',
        dry_run=False,
    ))
    for p in r['per_provider']:

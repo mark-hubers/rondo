@@ -69,7 +69,7 @@ Your first dispatch is done. The result is saved to `reports/rondo-results/`.
 ## Step 5: Dispatch to a Cloud Provider (60 seconds)
 
 ```bash
-rondo run round.py --model gemini:gemini-2.5-flash
+rondo run round.py --model gemini:gemini-flash-latest
 ```
 
 Same task, different provider. Or use the multi-provider review:
@@ -124,7 +124,7 @@ Runs all phases sequentially, generates morning report.
 In Claude Code, just ask:
 > "Use rondo to review this file with Gemini"
 
-Claude calls `rondo_run(prompt="...", model="gemini:gemini-2.5-flash")` automatically.
+Claude calls `rondo_run(prompt="...", model="gemini:gemini-flash-latest")` automatically.
 
 Execution mode note:
 - MCP defaults to `execution="" -> inline` (host plan)

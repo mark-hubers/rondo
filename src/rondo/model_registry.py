@@ -455,25 +455,31 @@ def docs_drift(cache: dict[str, Any], roots: list[str]) -> list[dict[str, Any]]:
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
-            if not path.is_file() or path.suffix.lower() not in _DOC_SUFFIXES:
+            if path.is_file() and path.suffix.lower() in _DOC_SUFFIXES:
+                hits.extend(_scan_doc_file(path, served_by_provider))
+    return hits
+
+
+def _scan_doc_file(path: Path, served_by_provider: dict[str, set[str]]) -> list[dict[str, Any]]:
+    """Scan one doc file for stale model tokens — extracted (RONDO-326 lock)."""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return []
+    hits: list[dict[str, Any]] = []
+    for lineno, line in enumerate(lines, 1):
+        lowered = line.lower()
+        if any(marker in lowered for marker in _HISTORY_MARKERS):
+            continue  # -- retirement narrative is history, not guidance
+        for token in _MODEL_TOKEN_RE.findall(line):
+            if not any(ch.isdigit() for ch in token) and "latest" not in token.lower():
+                continue  # -- bare family/provider mention, not a model ID
+            provider = _token_provider(token)
+            if provider not in served_by_provider:
                 continue
-            try:
-                lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
-            except OSError:
+            if _is_served_or_dated_alias(token, served_by_provider[provider]):
                 continue
-            for lineno, line in enumerate(lines, 1):
-                lowered = line.lower()
-                if any(marker in lowered for marker in _HISTORY_MARKERS):
-                    continue
-                for token in _MODEL_TOKEN_RE.findall(line):
-                    if not any(ch.isdigit() for ch in token) and "latest" not in token.lower():
-                        continue  # -- bare family/provider mention, not a model ID
-                    provider = _token_provider(token)
-                    if provider not in served_by_provider:
-                        continue
-                    if _is_served_or_dated_alias(token, served_by_provider[provider]):
-                        continue
-                    hits.append({"file": str(path), "line": lineno, "model": token, "provider": provider})
+            hits.append({"file": str(path), "line": lineno, "model": token, "provider": provider})
     return hits
 
 

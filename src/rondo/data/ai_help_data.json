@@ -266,6 +266,18 @@
       "category": "scheduling",
       "description": "Create recurring dispatch",
       "stability": "beta"
+    },
+    {
+      "name": "rondo_doctor",
+      "category": "monitor",
+      "description": "Install diagnosis: config, keys (redacted last-4), registry drift, dirs, versions. Zero cost; healthy flag + fix hints.",
+      "stability": "stable"
+    },
+    {
+      "name": "rondo_fleet",
+      "category": "monitor",
+      "description": "Watchdog sweep: drift + retry-queue + 7d reliability vs 95% target. refresh=true re-pulls catalogs. Never notifies.",
+      "stability": "stable"
     }
   ],
   "providers": [

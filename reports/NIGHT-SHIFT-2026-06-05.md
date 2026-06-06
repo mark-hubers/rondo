@@ -88,6 +88,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Historical text: NEVER blanket-replace model IDs over narrative ("grok-3 retired" stays!).
 - Gates: ace-build full before every commit. Full rondo suite ~23min — use targeted + background.
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
+- RUN tests/conventions/ in EVERY sprint verify — ace-build full does NOT catch them (open finding).
 
 ## SPRINT LOG (append after each)
 - RONDO-325 ✓ docs-drift (req 611): evidence-based alias rule (canary beat assumption). models --docs-drift exit-1 contract.

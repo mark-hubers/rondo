@@ -225,6 +225,8 @@ class TestImportLayering:
             "config",
             "engine",
             "spool",
+            "doctor",  # -- RONDO-324: rondo_doctor MCP tool
+            "nightly",  # -- RONDO-324: rondo_fleet MCP tool
             "history",
             "providers",
             "schedule",

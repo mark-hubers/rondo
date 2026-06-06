@@ -81,7 +81,18 @@ def notify_watchdog(
 
 
 def _send(msg: str, *, title: str, config: NotifyConfig) -> None:
-    """Send to all configured channels. Quiet mode skips terminal."""
+    """Send to all configured channels. Quiet mode skips terminal.
+
+    RONDO-321 (P1-7 guarantee): messages often carry provider error text —
+    which can carry KEY MATERIAL. Sanitize once here, the choke point for
+    every channel (terminal, file log, macOS banner).
+    """
+    try:
+        from rondo.sanitize import sanitize_text  # pylint: disable=import-outside-toplevel
+
+        msg = sanitize_text(msg).sanitized_text
+    except (ImportError, AttributeError, TypeError, ValueError):
+        pass  # -- notification must still fire even if the scrubber breaks
     for channel in config.channels:
         if channel == "terminal" and config.quiet:
             continue  # -- REQ-105 req 007

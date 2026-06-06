@@ -159,6 +159,13 @@ DEFAULT_PATTERNS: list[SecretPattern] = [
         confidence=0.95,
     ),
     SecretPattern(
+        # -- RONDO-321 (P1-7 guarantee sweep): Google API keys were a HOLE —
+        # -- no AIza pattern existed; planted key survived into prompt files.
+        name="google_api_key",
+        regex=r"""(AIza[A-Za-z0-9_\-]{30,})""",
+        confidence=0.99,
+    ),
+    SecretPattern(
         name="aws_access_key",
         regex=r"""(AKIA[0-9A-Z]{16})""",
         confidence=0.99,

@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 7 sprints closed (RONDO-313 → 319), every feature live-tested, $0.10 of your $6.00 spent.**
+**TL;DR: 10 sprints closed (RONDO-313 → 322), every feature live-tested, $0.10 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -13,6 +13,9 @@
 | 5 | **Matrix judge scoring** — the dead `judge:` field is real; one external model scores every cell | Live: gpt-5.4-mini judged haiku+gemini cells, judge column in report |
 | 6 | **Config `[timeouts]`** — per model-class × effort, COALESCE, in config-template | Live resolve: 120 / 600 / 900 |
 | 7 | **STD-102→109 merge** — finding #298 closed, 20 refs repointed, 102 archived | Residual grep clean |
+| 8 | **`rondo doctor`** — install diagnosis + redacted support bundle (the first command support asks a stranger to run) | Live: 6/6 PASS on your machine; bundle leak-scan clean |
+| 10 | **Convention sweep** — full 25-min suite caught 8 reds the build gate missed (signatures, layering, complexity, doc sync, corpus). All fixed; gate-coverage finding filed | 298 tests green across all 8 areas |
+| 9 | **Redaction GUARANTEE** — plant realistic secrets, sweep every written file. Found+fixed 2 REAL holes: Google AIza keys had NO scrub pattern; notify wrote errors verbatim to log + macOS banner | 50/50 green; security finding filed |
 
 **Also:** SOP-105 v0.2 (public-release roadmap, 4 AIs synthesized) · 4 new live examples (INDEX = 89) · findings #285 #297 #298 #301 fixed · ~8 commits, all through ace-build gates.
 
@@ -60,7 +63,10 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 8 | Config [timeouts] matrix | DONE (resolve_read_timeout COALESCE, adapter wired, template documented, live-verified 120/600/900) | RONDO-318 ✓ |
 | 9 | STD-102→109 merge | DONE (6 reqs folded w/ Origin column, 20 refs repointed in 7 specs, 102 ARCHIVED, #298 fixed) | RONDO-319 ✓ |
 | 10 | More real examples: matrix-with-judge, schedule/alerting, per-task affinity demo; INDEX regen --write + count bump each time | TODO | with each |
-| 11 | Final: full suite + cloud_full + update CONTEXT-SNAPSHOT + VER-100 + morning report for Mark | TODO | — |
+| 11 | Final wrap | morning report ✓, CONTEXT-SNAPSHOT ✓, VER-100 v1.3 ✓; full suite running long (zombie cleanup mid-run) | — |
+| 12 | BONUS: `rondo doctor` (SOP-105 P2-0) | DONE (REQ-103 v1.4 reqs 030-036; live 6/6 PASS; bundle leak-scan clean) | RONDO-320 ✓ |
+| 13 | BONUS: P1-7 redaction guarantee | DONE (2 real holes fixed: AIza pattern missing, notify verbatim; artifact-level permanent gate) | RONDO-321 ✓ |
+| 14 | BONUS: convention sweep (8 suite reds) | DONE (signed, VER refs, layering, comments, 5 complexity extractions, doc sync, corpus refinement; gate-coverage finding) | RONDO-322 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -77,6 +83,9 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
+- RONDO-322 ✓ convention sweep: full suite (25min) found 8 reds ace-build had passed — gate selection investigation filed. Complexity surgery on 5 hot functions verified by 298 tests. Corpus gate now distinguishes misfiled-success from true-partial.
+- RONDO-321 ✓ redaction guarantee: artifact-level tests caught what function-level missed for months. AIza pattern + notify choke-point sanitize. High-severity security finding filed.
+- RONDO-320 ✓ rondo doctor: 6 checks + fix hints + redacted bundle (leak = abort). Lessons: example `|| true` masked stale wheel (redeployed, reran honestly); found+killed 4.5h ZOMBIE chain from pre-compaction — its REQ-111 req 611 edit NEVER landed despite 'done' claim → truth-repaired + finding filed (verify file state, not task intent).
 - RONDO-319 ✓ STD-102→109 merge: Explore agent mapped uniques/covered/refs (research-only, allowed); fold has Origin traceability; round-def reqs → REQ-100; 2 contradictions dropped openly.
 - RONDO-318 ✓ config timeouts (req 212): adapters/timeouts.py, per-dispatch→config→defaults, unknown thinking effort floors 600. Gotcha: adapter class is AnthropicAPIAdapter not AnthropicAdapter.
 - RONDO-317 ✓ matrix judge (req 051): judge_rubric required at load, _judge_cell costed into SAME budget, crash-isolated, report judge column. Dead-field made real (Cursor's dead-flag class). Live: gpt-5.4-mini judged haiku+gemini cells.

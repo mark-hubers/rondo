@@ -217,7 +217,11 @@ The examples are used as test fixtures (`tests/integration/test_api_examples.py`
 
 ## If You Want To Feel The Power Fast
 
-Run these in order:
+**New to Rondo? Start with the CLI golden five:** `docs/GOLDEN-FIVE.md` —
+doctor → one JSON prompt → a round file → a judged experiment → the fleet view.
+Five verified commands, under 5 cents total.
+
+**Already in Claude Code (MCP)?** Run these in order:
 1. `examples/mcp/01-inline-host-plan.md`
 2. `examples/mcp/03-subprocess-fresh-session.md`
 3. `examples/mcp/05-background-polling.md`

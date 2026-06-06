@@ -398,6 +398,20 @@ def _handle_inline_prompt(args: argparse.Namespace) -> int:
 
     # -- JSON output with smart return validation + normalization (REQ-111 reqs 440-475)
     tr = result.task_results[0]
+    # -- RONDO-328 (ERROR-ENVELOPE-CONTRACT): a failed dispatch must SAY SO
+    # -- in JSON mode. Live repro: a 404 printed an EMPTY smart-return
+    # -- envelope — the stranger saw nothing wrong except exit 1.
+    if tr.status not in ("done", "skipped"):
+        envelope = {
+            "status": "error",
+            "error_code": tr.error_code or "ERR_PROVIDER",
+            "error_message": tr.error_message or tr.raw_output or "dispatch failed (no message)",
+            "error_help": "run `rondo doctor` to diagnose; `--text` shows the raw provider response",
+            "model": tr.model,
+            "task": tr.task_name,
+        }
+        print(_json.dumps(envelope, indent=2, default=str))
+        return EXIT_FAILURE
     validated = validate_return_json(tr.raw_output or "")
     normalized = normalize_response(validated)
     print(_json.dumps(normalized, indent=2, default=str))
@@ -504,20 +518,31 @@ def _inject_return_template(prompt: str, model: str) -> str:
         return prompt
 
 
-def _provider_task_result(task: Any, round_def: Round, provider: Any, config: RondoConfig, audit_trail: Any) -> Any:
+def _provider_task_result(
+    task: Any, round_def: Round, provider: Any, config: RondoConfig, audit_trail: Any, resolved_model: str = ""
+) -> Any:
     """One adapter-path task: intent → dispatch → shared finalize — REQ-109 req 026.
 
     Extracted from _dispatch_with_provider (RONDO-322 complexity lock).
+    RONDO-328: dispatch the RESOLVED bare model — adapters were getting the
+    full 'provider:model' string and forwarding it verbatim to provider
+    APIs (live 404: 'models/gemini:gemini-flash-latest is not found').
     """
     from rondo.dispatch import _finalize_dispatch  # pylint: disable=import-outside-toplevel
     from rondo.engine import DispatchUsage, TaskResult  # pylint: disable=import-outside-toplevel
+    from rondo.providers import parse_model  # pylint: disable=import-outside-toplevel
 
+    routed = resolved_model or config.default_model
+    # -- adapters take the BARE model; the routing string keeps its prefix
+    # -- (live 404: 'models/gemini:gemini-flash-latest is not found')
+    _, bare_model = parse_model(routed)
+    dispatch_model = bare_model or routed
     if config.dry_run:
         return TaskResult(
             task_name=task.name,
             status="skipped",
             prompt_sent=(task.instruction or "")[:500],
-            model=config.default_model,
+            model=dispatch_model,
         )
     # -- Audit INTENT before dispatch
     audit_record = None
@@ -525,13 +550,13 @@ def _provider_task_result(task: Any, round_def: Round, provider: Any, config: Ro
         audit_record = audit_trail.record_intent(
             task_name=task.name,
             round_name=round_def.name,
-            model=config.default_model,
+            model=dispatch_model,
             prompt=task.instruction or "",
             task_type=getattr(task, "task_type", "") or "",
         )
     dispatch_prompt = _inject_return_template(task.instruction or "", config.default_model)
-    tr = provider.dispatch(prompt=dispatch_prompt, model=config.default_model, task_name=task.name)
-    usage = DispatchUsage(task_name=task.name, model=config.default_model, cost_usd=tr.cost_usd or 0.0)
+    tr = provider.dispatch(prompt=dispatch_prompt, model=dispatch_model, task_name=task.name)
+    usage = DispatchUsage(task_name=task.name, model=dispatch_model, cost_usd=tr.cost_usd or 0.0)
     # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
     tr, _usage = _finalize_dispatch(tr, usage, config, audit_trail, audit_record, round_name=round_def.name)
     return tr
@@ -590,7 +615,8 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
                 pass
 
         task_results = [
-            _provider_task_result(task, round_def, provider, config, audit_trail) for task in round_def.tasks
+            _provider_task_result(task, round_def, provider, config, audit_trail, resolved_model)
+            for task in round_def.tasks
         ]
         ok = {"done", "skipped"}
         return RoundResult(

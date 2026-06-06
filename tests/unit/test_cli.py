@@ -1070,4 +1070,80 @@ class TestProvidersSubcommand:
         assert data == {"providers": []}
 
 
+class TestProviderPrefixedDispatch:
+    """RONDO-328: the stranger's first command — found live (gemini:… 404'd).
+
+    _dispatch_with_provider resolved the bare model but then dispatched the
+    FULL prefixed string; adapters forwarded it verbatim to provider APIs.
+    """
+
+    def test_adapter_receives_bare_model(self, monkeypatch):
+        """Adapter must get 'gemini-flash-latest', never 'gemini:gemini-flash-latest'."""
+        from unittest.mock import patch
+
+        from rondo.cli import _dispatch_with_provider
+        from rondo.config import RondoConfig
+        from rondo.engine import Round, Task, TaskResult
+
+        seen = {}
+
+        class FakeAdapter:
+            name = "gemini"
+
+            def dispatch(self, prompt, model, task_name=""):
+                seen["model"] = model
+                return TaskResult(task_name=task_name, status="done", raw_output="{}", model=model)
+
+        round_def = Round(name="r", tasks=[Task(name="t", instruction="x", done_when="d")])
+        config = RondoConfig(default_model="gemini:gemini-flash-latest", audit_dir="", spool_enabled=False)
+        ## -- REAL resolver shape: routing string KEEPS the prefix (contract-test rule)
+        with patch("rondo.providers.get_provider_with_fallback", return_value=(FakeAdapter(), "gemini:gemini-flash-latest")):
+            _dispatch_with_provider(round_def, config)
+        assert seen["model"] == "gemini-flash-latest", f"adapter got {seen['model']!r}"
+
+    def test_inline_json_error_carries_envelope_fields(self, monkeypatch, capsys):
+        """ERROR-ENVELOPE-CONTRACT: status=error JSON must carry error_code/_message.
+
+        Live repro: a 404 dispatch printed an EMPTY smart-return envelope —
+        the stranger sees nothing wrong except exit 1.
+        """
+        import json as _json
+        from unittest.mock import patch
+
+        from rondo.cli import _handle_inline_prompt
+        from rondo.engine import RoundResult, TaskResult
+
+        result = RoundResult(
+            round_name="inline",
+            status="error",
+            task_results=[
+                TaskResult(
+                    task_name="inline",
+                    status="error",
+                    error_code="ERR_PROVIDER",
+                    error_message="Gemini HTTP 404: Not Found",
+                    model="gemini-flash-latest",
+                )
+            ],
+        )
+
+        class Args:
+            prompt = "hello world test"
+            text = False
+            model = "gemini:gemini-flash-latest"
+
+        with (
+            patch("rondo.cli._dispatch_with_provider", return_value=result),
+            patch("rondo.cli._build_config"),
+            patch("sys.stdin") as fake_stdin,
+        ):
+            fake_stdin.isatty.return_value = True
+            code = _handle_inline_prompt(Args())
+        out = _json.loads(capsys.readouterr().out)
+        assert code == 1
+        assert out.get("status") == "error"
+        assert out.get("error_code") == "ERR_PROVIDER"
+        assert "404" in out.get("error_message", "")
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

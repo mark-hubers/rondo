@@ -35,7 +35,16 @@ You will see 10 real demo sections (inline, subprocess, agent, multi-provider, c
 rondo "Return JSON only: {\"message\":\"hello world from rondo\"}"
 ```
 
-You should get structured output with normalized envelope fields.
+No Claude Code CLI installed (or running inside a Claude Code session)?
+Route to a provider API directly — same JSON contract:
+
+```bash
+rondo "Return JSON only: {\"message\":\"hello world from rondo\"}" --model gemini:gemini-flash-latest
+```
+
+You should get structured output with normalized envelope fields. A failed
+dispatch returns an honest error envelope (`error_code`, `error_message`,
+`error_help`) — never a silent empty result.
 
 ## 5) Try `rondo_run` from MCP
 

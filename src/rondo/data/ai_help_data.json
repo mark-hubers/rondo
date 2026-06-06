@@ -126,6 +126,11 @@
       "task": "Install diagnosis: is this setup healthy + exactly what to fix (free)",
       "run": "rondo doctor",
       "name": "Install diagnosis"
+    },
+    {
+      "name": "Golden five (first hour)",
+      "task": "Guided five-command first hour, each verified live",
+      "run": "open docs/GOLDEN-FIVE.md"
     }
   ],
   "mcp_tools": [

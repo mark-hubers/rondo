@@ -228,8 +228,11 @@ def _validate_enums(config: RondoConfig, errors: list[str]) -> None:
         errors.append(f"on_overage must be continue/pause/stop, got '{config.on_overage}'")
 
     valid_models = ("opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]")
-    if config.default_model not in valid_models:
-        errors.append(f"default_model must be one of {valid_models}, got '{config.default_model}'")
+    # -- RONDO-328: provider-prefixed models (gemini:…, local:…) are a
+    # -- legitimate first-class path (REQ-109 routing) — the old check
+    # -- scared strangers with a warning on a perfectly valid --model.
+    if ":" not in config.default_model and config.default_model not in valid_models:
+        errors.append(f"default_model must be one of {valid_models} or 'provider:model', got '{config.default_model}'")
 
     valid_execution = ("", "inline", "subprocess", "agent")
     if config.default_execution not in valid_execution:

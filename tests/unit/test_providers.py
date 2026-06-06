@@ -1377,6 +1377,74 @@ class TestStreamingDispatch:
         assert "stream" not in payload
 
 
+class TestDisconnectAutoRetry:
+    """RONDO-334 (SOP-106): a disconnect result gets ONE automatic re-attempt.
+
+    retry_http only retries on EXCEPTIONS — RONDO-323's disconnect path
+    deliberately RETURNS (preserving partials), so it never retried. One
+    in-dispatch re-attempt; if both attempts drop, keep the LONGER partial.
+    """
+
+    def _adapter(self):  # noqa: ANN202
+        from rondo.adapters.anthropic_api import AnthropicAPIAdapter
+
+        return AnthropicAPIAdapter(api_key="sk-test-not-real")  # noqa: S106
+
+    def _patch_attempts(self, monkeypatch, results):  # noqa: ANN001, ANN202
+        """Make retry_http return queued results (each call = one attempt)."""
+        import rondo.adapters.anthropic_api as api
+
+        calls = {"n": 0}
+
+        def fake_retry_http(fn, provider_name=""):  # noqa: ANN001, ANN202
+            calls["n"] += 1
+            return results[calls["n"] - 1]
+
+        monkeypatch.setattr(api, "retry_http", fake_retry_http)
+        return calls
+
+    @staticmethod
+    def _disconnected(text: str):  # noqa: ANN205
+        return {
+            "content": [{"type": "text", "text": text}],
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "stop_reason": "disconnected",
+            "disconnect_error": "ConnectionResetError: dropped",
+        }
+
+    @staticmethod
+    def _ok(text: str):  # noqa: ANN205
+        return {
+            "content": [{"type": "text", "text": text}],
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "stop_reason": "end_turn",
+            "disconnect_error": "",
+        }
+
+    def test_disconnect_then_success_returns_done(self, monkeypatch) -> None:
+        calls = self._patch_attempts(monkeypatch, [self._disconnected("half"), self._ok("full answer")])
+        tr = self._adapter().dispatch(prompt="p", model="claude-opus-4-8")
+        assert calls["n"] == 2  # -- exactly one automatic re-attempt
+        assert tr.status == "done"
+        assert tr.raw_output == "full answer"
+
+    def test_double_disconnect_keeps_longer_partial(self, monkeypatch) -> None:
+        calls = self._patch_attempts(
+            monkeypatch, [self._disconnected("a much longer partial body"), self._disconnected("tiny")]
+        )
+        tr = self._adapter().dispatch(prompt="p", model="claude-opus-4-8")
+        assert calls["n"] == 2  # -- never a third attempt
+        assert tr.status == "error"
+        assert tr.error_code == "ERR_STREAM_DISCONNECT"
+        assert tr.raw_output == "a much longer partial body"  # -- best partial wins
+
+    def test_clean_success_never_retries(self, monkeypatch) -> None:
+        calls = self._patch_attempts(monkeypatch, [self._ok("first try")])
+        tr = self._adapter().dispatch(prompt="p", model="claude-opus-4-8")
+        assert calls["n"] == 1
+        assert tr.status == "done"
+
+
 class TestChatCompletionsReasoningModels:
     """REQ-109 req 209 (RONDO-297): gpt-5*/o*-series ChatCompletions payload.
 

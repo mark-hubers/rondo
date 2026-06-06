@@ -115,6 +115,21 @@ def consume_sse_stream(lines: Any) -> dict[str, Any]:
     }
 
 
+def _best_of_disconnects(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+    """Pick the better of two stream results — RONDO-334 (SOP-106).
+
+    A clean second attempt always wins. If BOTH disconnected, keep whichever
+    accumulated MORE text — 20 minutes of partial thinking beats 2.
+    """
+    if not second.get("disconnect_error"):
+        return second
+
+    def _text(result: dict[str, Any]) -> str:
+        return "".join(b.get("text", "") for b in result.get("content", []) if b.get("type") == "text")
+
+    return first if len(_text(first)) >= len(_text(second)) else second
+
+
 class AnthropicAPIAdapter(ProviderAdapter):
     """Anthropic API adapter — Claude dispatch via Messages API."""
 
@@ -263,6 +278,14 @@ class AnthropicAPIAdapter(ProviderAdapter):
 
         try:
             result = retry_http(_do_request, provider_name="anthropic")
+            # -- RONDO-334 (SOP-106): retry_http only retries on EXCEPTIONS;
+            # -- a mid-stream disconnect RETURNS (RONDO-323 preserves the
+            # -- partial), so it never retried. ONE automatic re-attempt;
+            # -- if both drop, keep whichever partial accumulated more.
+            if result.get("disconnect_error"):
+                logger.warning("-WARNING- stream disconnected — one automatic re-attempt (RONDO-334)")
+                second = retry_http(_do_request, provider_name="anthropic")
+                result = _best_of_disconnects(result, second)
             breaker.record_success("anthropic")
             duration = time.monotonic() - start
 

@@ -539,6 +539,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
                         round_name=round_def.name,
                         model=config.default_model,
                         prompt=task.instruction or "",
+                        task_type=getattr(task, "task_type", "") or "",
                     )
                 dispatch_prompt = _inject_return_template(task.instruction or "", config.default_model)
                 tr = provider.dispatch(prompt=dispatch_prompt, model=config.default_model, task_name=task.name)

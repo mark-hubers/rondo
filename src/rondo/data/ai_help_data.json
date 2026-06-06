@@ -552,6 +552,14 @@
         "rondo schedule --cmd nightly --interval daily --install"
       ],
       "notes": "RONDO-314, finding #285: the fleet had instruments but no night watchman. Subsystem crashes become alerts, never exceptions."
+    },
+    "task_affinity": {
+      "summary": "Per-task model affinity: tag tasks with task_type; scoring learns (task_type, model) winners; recommend_model prefers the task-proven model over the global blend.",
+      "commands": [
+        "task_type: code-review   # in round YAML tasks",
+        "rondo providers --scores  # watch the affinity table build"
+      ],
+      "notes": "RONDO-315, finding #297. COALESCE: override -> curated -> task-learned -> global-learned -> sonnet. Needs 10+ typed dispatches per pair in 7d."
     }
   },
   "config_options": [

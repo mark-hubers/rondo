@@ -204,6 +204,11 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
     json_valid: bool | None = None  # -- None = not checked
     fields_complete: bool | None = None  # -- None = not checked
 
+    # -- RONDO-315 (finding #297): per-task affinity. Append-only field —
+    # -- old records lack it, readers default "". Feeds (task_type, model)
+    # -- scoring so a model great at one task isn't blended into one score.
+    task_type: str = ""
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict — STD-113 req 007."""
         return {
@@ -227,6 +232,7 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
             "completed_at": self.completed_at,
             "json_valid": self.json_valid,
             "fields_complete": self.fields_complete,
+            "task_type": self.task_type,
             # -- STD-113 reqs 021-026 (RONDO-301): forensic fields
             "error_message": self.error_message,
             "stderr_snippet": self.stderr_snippet,
@@ -285,6 +291,7 @@ class AuditTrail:
         round_name: str,
         model: str,
         prompt: str,
+        task_type: str = "",
     ) -> AuditRecord:
         """Phase 1: record dispatch intent BEFORE subprocess — STD-113 req 001.
 
@@ -314,6 +321,7 @@ class AuditTrail:
             prompt_file=prompt_file,
             status="INTENT",
             dispatched_at=datetime.now(UTC).isoformat(),
+            task_type=task_type,
         )
 
         # -- STD-113 req 004: save prompt to file

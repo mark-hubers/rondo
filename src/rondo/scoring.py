@@ -73,6 +73,36 @@ def compute_provider_scores(audit_dir: str = "") -> dict[str, dict[str, Any]]:
     return scores
 
 
+def compute_task_scores(audit_dir: str = "") -> dict[str, dict[str, dict[str, Any]]]:
+    """Per-(task_type, model) quality scores — RONDO-315 (finding #297).
+
+    Returns {task_type: {model: score_breakdown}} from the last 7 days.
+    Only records that carry a task_type participate — legacy untyped
+    records never pollute the affinity table. Same MIN_SAMPLE_COUNT floor
+    per (task_type, model) pair as the global scores: thin data is noise.
+    """
+    if not audit_dir:
+        audit_dir = os.path.expanduser("~/.rondo/audit")
+    audit_path = Path(audit_dir)
+    if not audit_path.is_dir():
+        return {}
+
+    records = _load_recent_outcomes(audit_path)
+    by_pair: dict[tuple[str, str], list[dict]] = {}
+    for rec in records:
+        task_type = rec.get("task_type") or ""
+        model = rec.get("model") or ""
+        if task_type and model:
+            by_pair.setdefault((task_type, model), []).append(rec)
+
+    scores: dict[str, dict[str, dict[str, Any]]] = {}
+    for (task_type, model), recs in by_pair.items():
+        if len(recs) < MIN_SAMPLE_COUNT:
+            continue
+        scores.setdefault(task_type, {})[model] = _score_provider(model, recs)
+    return scores
+
+
 def _load_recent_outcomes(audit_path: Path) -> list[dict]:
     """Load OUTCOME records from JSONL within the score window.
 

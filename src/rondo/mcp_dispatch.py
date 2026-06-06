@@ -355,6 +355,7 @@ def _dispatch_one_task(
                 round_name=round_name,
                 model=model,
                 prompt=task_prompt,
+                task_type=getattr(task, "task_type", "") or "",
             )
         except (OSError, TypeError, ValueError) as exc:
             logger.warning("Audit INTENT failed for %s: %s", task.name, exc)
@@ -710,9 +711,7 @@ def _idempotency_store(key: str, result_str: str) -> None:
     log_event("INFO", "result cached for idempotency", component="mcp_dispatch", key=key[:16])
 
 
-def _resolve_option_c_execution_override(
-    execution: str, plan_only: bool, session: Any
-) -> tuple[str, list[str]]:
+def _resolve_option_c_execution_override(execution: str, plan_only: bool, session: Any) -> tuple[str, list[str]]:
     """Apply Option C fallback overrides before execution-mode routing."""
     if session is None or plan_only or (execution or "").strip().lower() != "inline":
         return execution, []

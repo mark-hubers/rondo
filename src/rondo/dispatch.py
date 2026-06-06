@@ -571,6 +571,7 @@ def _dispatch_interactive(
             round_name=round_name,
             model=model,
             prompt=prompt,
+            task_type=getattr(task, "task_type", "") or "",
         )
 
     try:

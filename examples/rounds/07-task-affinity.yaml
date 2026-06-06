@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+# rondo-meta: mode=cli provider=all category=routing value="Tag tasks with task_type so Rondo learns WHICH model is best at WHICH job — not one blended score."
+#
+# Per-task affinity (RONDO-315). Before: a model great at summarizing but
+# weak at code review got ONE blended 7-day score. Now every task may carry
+# a task_type; the audit trail records it; scoring builds a
+# (task_type, model) table; and recommend_model() prefers the task-level
+# proven winner over the global one.
+#
+# The COALESCE chain (manual always wins):
+#   config override -> curated default -> TASK-learned -> global-learned -> sonnet
+#
+# Learning needs volume: 10+ dispatches of a (task_type, model) pair within
+# 7 days before that pair gets a score. Until then, routing is unchanged.
+#
+# Try it:
+#   rondo run examples/rounds/07-task-affinity.yaml --dry-run   # free preview
+#   rondo run examples/rounds/07-task-affinity.yaml             # live (~$0.01)
+#   rondo providers --scores                                    # watch scores build
+
+name: task-affinity-demo
+description: Three tasks, three task_types — each dispatch feeds the affinity table.
+
+tasks:
+  - name: summarize-readme
+    task_type: summarize
+    instruction: "Summarize the purpose of this project in exactly 2 sentences: Rondo is a scripted AI prompting engine for operational work."
+    done_when: A 2-sentence summary is returned.
+    model: haiku
+
+  - name: classify-error
+    task_type: classify
+    instruction: "Classify this error as TRANSIENT or PERMANENT, one word only: 'Error: Invalid API key'"
+    done_when: One-word classification returned.
+    model: haiku
+
+  - name: review-snippet
+    task_type: code-review
+    instruction: "Review for bugs, max 2 findings: def div(a, b): return a / b"
+    done_when: Findings listed or none found.
+    model: sonnet

@@ -30,6 +30,7 @@ _VALID_TASK_FIELDS = {
     "context_data",
     "model",
     "mode",
+    "task_type",
     "tool_mode",
     "bare",
     "safe_parallel",

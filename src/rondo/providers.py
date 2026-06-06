@@ -344,22 +344,36 @@ def _scoring_enabled() -> bool:
         return True
 
 
-def _learned_best_model() -> str:
+def _learned_best_model(task_type: str = "") -> str:
     """Best-scoring model from 7-day dispatch history — REQ-109 reqs 310-311.
 
-    RONDO-306: scores are per-MODEL (audit records lack task_type — Finding
-    #297 tracks the per-task upgrade), so the learned term only replaces the
-    BLIND fallback, never a curated default. Empty string = no learned data.
+    RONDO-315 (finding #297 closed): when task_type is given and the audit
+    trail has enough typed records, the (task_type, model) affinity table
+    wins; otherwise fall back to the global per-model score. Either way the
+    learned term only replaces the BLIND fallback, never a curated default.
+    Empty string = no learned data.
     """
     try:
         import os  # pylint: disable=import-outside-toplevel
 
-        from rondo.scoring import compute_provider_scores  # pylint: disable=import-outside-toplevel
+        from rondo.scoring import (  # pylint: disable=import-outside-toplevel
+            compute_provider_scores,
+            compute_task_scores,
+        )
 
         # -- hermeticity (#292 lesson): tests redirect via RONDO_TEST_DIR —
         # -- learned routing must NEVER read the live audit dir under test
         test_dir = os.environ.get("RONDO_TEST_DIR")
         audit_dir = os.path.join(test_dir, "audit") if test_dir else ""
+
+        # -- task-level affinity first: a model proven AT THIS TASK beats
+        # -- a model that merely looks good on the blended global score
+        if task_type:
+            task_table = compute_task_scores(audit_dir).get(task_type.lower(), {})
+            if task_table:
+                best = max(task_table.items(), key=lambda kv: kv[1].get("score", 0.0))
+                return best[0]
+
         scores = compute_provider_scores(audit_dir)
         if not scores:
             return ""
@@ -383,7 +397,7 @@ def recommend_model(task_type: str) -> str:
     if key in _DEFAULT_TASK_MODELS:
         return _DEFAULT_TASK_MODELS[key]
     if _scoring_enabled():
-        learned = _learned_best_model()
+        learned = _learned_best_model(key)
         if learned:
             # -- REQ-109 req 312: adaptive pick is visible, never silent
             logger.info("adaptive routing: unknown task %r → learned best %r (7-day scores)", task_type, learned)

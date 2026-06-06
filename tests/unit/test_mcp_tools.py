@@ -436,4 +436,56 @@ class TestSpoolConsumeMCP:
         assert result["consumed"] == []
 
 
+class TestDoctorTool:
+    """RONDO-324 (REQ-103 reqs 030-035 over MCP): rondo_doctor tool."""
+
+    def test_returns_checks_and_healthy_flag(self, tmp_path, monkeypatch) -> None:
+        from rondo.mcp_tools import rondo_doctor
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        data = json.loads(rondo_doctor())
+        assert isinstance(data["healthy"], bool)
+        assert len(data["checks"]) >= 5
+        for check in data["checks"]:
+            assert check["result"] in ("PASS", "WARN", "FAIL")
+
+    def test_no_full_keys_in_output(self, tmp_path, monkeypatch) -> None:
+        """req 035 holds over MCP too: keys appear as last-4 only."""
+        import re
+
+        from rondo.mcp_tools import rondo_doctor
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        out = rondo_doctor()
+        assert not re.search(r"sk-(?:ant-)?[A-Za-z0-9_-]{8,}", out)
+
+
+class TestFleetTool:
+    """RONDO-324: rondo_fleet — the watchdog sweep over MCP, never notifying."""
+
+    def test_returns_watchdog_report(self, tmp_path, monkeypatch) -> None:
+        from rondo.mcp_tools import rondo_fleet
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        data = json.loads(rondo_fleet())
+        assert data["status"] in ("OK", "ALERT")
+        assert "alerts" in data
+        assert "retry_sweep" in data
+
+    def test_never_fires_notifications(self, tmp_path, monkeypatch) -> None:
+        """MCP caller IS the watcher — a macOS banner would be noise."""
+        from rondo import nightly
+        from rondo.mcp_tools import rondo_fleet
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        sent: list = []
+        monkeypatch.setattr(nightly, "notify_watchdog", lambda alerts, title="": sent.append(alerts))
+        monkeypatch.setattr(
+            nightly, "_gather_drift", lambda refresh: [{"provider": "x", "model": "dead", "state": "STALE"}]
+        )
+        data = json.loads(rondo_fleet())
+        assert data["status"] == "ALERT"
+        assert sent == []
+
+
 # -- sig: mgh-6c6d.cb.407ae3.6835.6478a2

@@ -562,7 +562,8 @@
       "summary": "Schedulable watchdog sweep: registry drift + retry-queue sweep + 7d reliability vs the 95% target. Exit 0=green 1=alerts; macOS notification on alert.",
       "commands": [
         "rondo nightly [--json] [--no-notify] [--no-refresh]",
-        "rondo schedule --cmd nightly --interval daily --install"
+        "rondo schedule --cmd nightly --interval daily --install",
+        "MCP tool: rondo_fleet"
       ],
       "notes": "RONDO-314, finding #285: the fleet had instruments but no night watchman. Subsystem crashes become alerts, never exceptions."
     },
@@ -587,7 +588,8 @@
       "commands": [
         "rondo doctor",
         "rondo doctor --json",
-        "rondo doctor --bundle"
+        "rondo doctor --bundle",
+        "MCP tool: rondo_doctor"
       ],
       "notes": "RONDO-320, REQ-103 reqs 030-036. Zero dispatches, zero cost. Exit 0 healthy / 1 any FAIL (CI-able). Crashing checks become FAIL rows, never tracebacks."
     }

@@ -664,4 +664,34 @@ def rondo_cloud(
     return json.dumps(result, indent=2)
 
 
+def rondo_doctor() -> str:
+    """Install diagnosis over MCP — RONDO-324 (REQ-103 reqs 030-035).
+
+    Zero dispatches, zero cost. Same checks as `rondo doctor`: config,
+    provider keys (last-4 ONLY — req 035 holds over MCP too), registry
+    drift, data dirs, claude binary, versions. JSON with a healthy flag.
+    """
+    from rondo.doctor import doctor_exit_code, run_doctor  # pylint: disable=import-outside-toplevel
+
+    rows = run_doctor()
+    return json.dumps(
+        {"healthy": doctor_exit_code(rows) == 0, "checks": [r.to_dict() for r in rows]},
+        indent=2,
+    )
+
+
+def rondo_fleet(refresh: bool = False) -> str:
+    """Watchdog sweep over MCP — RONDO-324 (the `rondo nightly` engine).
+
+    Drift + retry-queue sweep + 7d reliability vs the 95% target, as JSON.
+    NEVER fires notifications: the MCP caller IS the watcher — a macOS
+    banner would be noise. `refresh=True` re-pulls provider catalogs first
+    (free HTTP); default reads the cache.
+    """
+    from rondo.nightly import run_nightly_check  # pylint: disable=import-outside-toplevel
+
+    report = run_nightly_check(refresh=refresh, notify_alerts=False)
+    return json.dumps(report.to_dict(), indent=2)
+
+
 # -- sig: mgh-6201.cd.bd955f.a104.d19501

@@ -49,6 +49,8 @@ from rondo.mcp_tools import (
     rondo_cost,
     rondo_diff,
     rondo_dispatch_info,
+    rondo_doctor,
+    rondo_fleet,
     rondo_health,
     rondo_history,
     rondo_metrics,
@@ -91,6 +93,20 @@ def create_mcp_server() -> Any:
     )
     def _metrics() -> str:
         return rondo_metrics()
+
+    @mcp.tool(
+        name="rondo_doctor",
+        description="Install diagnosis: config, provider keys (redacted), registry drift, data dirs, versions. Zero dispatches, zero cost. Returns JSON with healthy flag + per-check fix hints.",
+    )
+    def _doctor() -> str:
+        return rondo_doctor()
+
+    @mcp.tool(
+        name="rondo_fleet",
+        description="Fleet watchdog sweep: model drift + retry-queue sweep + 7d reliability vs 95% target. refresh=true re-pulls provider catalogs (free). Never fires notifications. Returns JSON.",
+    )
+    def _fleet(refresh: bool = False) -> str:
+        return rondo_fleet(refresh=refresh)
 
     @mcp.tool(
         name="rondo_health",

@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 21 sprints closed (RONDO-313 → 333), $0.22 of your $6.00 spent. COUNT CORRECTION (Mark's catch): Rondo's true suite = 2,242 tests — earlier 15.8K claims were the COMBINED ace+rondo gate. Rondo gates now product-scoped. Release bar 7.5/8.5 in spec; full ace2 backup ×3 verified.**
+**TL;DR: 25 sprints closed (RONDO-313 → 337) — the SOP-106 C-now ladder is COMPLETE (auto-retry, error-UX contract, stranger glossary 9/10, SECURITY/CONTRIBUTING/split-brain honesty). ~$0.23 of $6.00 spent. COUNT CORRECTION (Mark's catch): Rondo's true suite = 2,242 tests — earlier 15.8K claims were the COMBINED ace+rondo gate. Rondo gates now product-scoped. Release bar 7.5/8.5 in spec; full ace2 backup ×3 verified.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -128,6 +128,10 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - RUN tests/conventions/ in EVERY sprint verify — ace-build full does NOT catch them (open finding).
 
 ## SPRINT LOG (append after each)
+- RONDO-337 ✓ SECURITY/CONTRIBUTING/split-brain table — C-now ladder complete
+- RONDO-336 ✓ stranger glossary (dogfooded fresh-eyes 9/10)
+- RONDO-335 ✓ error-UX contract (guided net, --verbose anywhere, exit codes in --help)
+- RONDO-334 ✓ auto-retry on disconnect (best partial wins; first honest 2,245 gate)
 - RONDO-333 ✓ dead-flag lock (first catch: --no-refresh) + SOP-106 rubric + COUNT CORRECTION (Rondo=2,242, gates now --product rondo) + full-history bundle on internal + BKUP_DATA_A + BKUP_DATA_B, verified.
 - RONDO-332 ✓ public cut (P1-6): _build.py leaf constant; auth=max refused twice in public builds with api alternative named; Mark's bar 7.5/8.5 recorded.
 - RONDO-331 ✓ XDG config + #295: RONDO_CONFIG→XDG→legacy chain; flake was DeadlineExceeded 284ms>200ms under 16-worker load — deadline=None per hypothesis guidance.

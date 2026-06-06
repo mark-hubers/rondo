@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 10 sprints closed (RONDO-313 → 322), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
+**TL;DR: 11 sprints closed (RONDO-313 → 323), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -14,6 +14,7 @@
 | 6 | **Config `[timeouts]`** — per model-class × effort, COALESCE, in config-template | Live resolve: 120 / 600 / 900 |
 | 7 | **STD-102→109 merge** — finding #298 closed, 20 refs repointed, 102 archived | Residual grep clean |
 | 8 | **`rondo doctor`** — install diagnosis + redacted support bundle (the first command support asks a stranger to run) | Live: 6/6 PASS on your machine; bundle leak-scan clean |
+| 11 | **Streaming disconnect fix** — the ~1802s incident's real lesson: a dropped SSE connection used to EVAPORATE all accumulated thinking. Now: partial content preserved, ERR_STREAM_DISCONNECT transient, retryable | 4 new tests; req 215 in REQ-109 v2.1 |
 | 10 | **Convention sweep** — full 25-min suite caught 8 reds the build gate missed (signatures, layering, complexity, doc sync, corpus). All fixed; gate-coverage finding filed | 298 tests green across all 8 areas |
 | 9 | **Redaction GUARANTEE** — plant realistic secrets, sweep every written file. Found+fixed 2 REAL holes: Google AIza keys had NO scrub pattern; notify wrote errors verbatim to log + macOS banner | 50/50 green; security finding filed |
 
@@ -67,6 +68,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 12 | BONUS: `rondo doctor` (SOP-105 P2-0) | DONE (REQ-103 v1.4 reqs 030-036; live 6/6 PASS; bundle leak-scan clean) | RONDO-320 ✓ |
 | 13 | BONUS: P1-7 redaction guarantee | DONE (2 real holes fixed: AIza pattern missing, notify verbatim; artifact-level permanent gate) | RONDO-321 ✓ |
 | 14 | BONUS: convention sweep (8 suite reds) | DONE (signed, VER refs, layering, comments, 5 complexity extractions, doc sync, corpus refinement; gate-coverage finding) | RONDO-322 ✓ |
+| 15 | BONUS: streaming disconnect handling | DONE (req 215; partial content preserved; ERR_STREAM_DISCONNECT transient; live ceiling repro deferred deliberately) | RONDO-323 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -83,6 +85,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
+- RONDO-323 ✓ streaming disconnect (req 215): consume_sse_stream returns accumulated partials on drop; IncompleteRead is HTTPException not OSError — both caught. 30 min of thinking never evaporates again.
 - RONDO-322 ✓ convention sweep: full suite (25min) found 8 reds ace-build had passed — gate selection investigation filed. Complexity surgery on 5 hot functions verified by 298 tests. Corpus gate now distinguishes misfiled-success from true-partial.
 - RONDO-321 ✓ redaction guarantee: artifact-level tests caught what function-level missed for months. AIza pattern + notify choke-point sanitize. High-severity security finding filed.
 - RONDO-320 ✓ rondo doctor: 6 checks + fix hints + redacted bundle (leak = abort). Lessons: example `|| true` masked stale wheel (redeployed, reran honestly); found+killed 4.5h ZOMBIE chain from pre-compaction — its REQ-111 req 611 edit NEVER landed despite 'done' claim → truth-repaired + finding filed (verify file state, not task intent).

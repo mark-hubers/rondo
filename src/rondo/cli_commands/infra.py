@@ -309,14 +309,16 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 def _cmd_models(args: argparse.Namespace) -> int:
     """Execute 'rondo models' — RONDO-316 (REQ-111 reqs 604-610).
 
-    --tiers  : derived auto_low/mid/high per provider (free, registry cache)
-    --verify : live canary per configured tier model (~cents; req 604)
+    --tiers      : derived auto_low/mid/high per provider (free, registry cache)
+    --verify     : live canary per configured tier model (~cents; req 604)
+    --docs-drift : stale model IDs in examples/ + docs/ (free; req 611, RONDO-325)
     """
     import json as _json  # pylint: disable=import-outside-toplevel
 
     from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
     from rondo.model_registry import (  # pylint: disable=import-outside-toplevel
         derive_auto_tiers,
+        docs_drift,
         format_verify_table,
         load_cache,
         verify_models,
@@ -347,7 +349,26 @@ def _cmd_models(args: argparse.Namespace) -> int:
                 print(f"  {provider:<11} low={t['auto_low']}  mid={t['auto_mid']}  high={t['auto_high']}")
         return EXIT_SUCCESS
 
-    print("Usage: rondo models --tiers (free) | --verify (live canary, ~cents) [--json]")
+    if getattr(args, "docs_drift", False):
+        cache = load_cache()
+        if cache is None:
+            print("-WARNING- no registry cache yet — run: rondo providers --refresh", file=sys.stderr)
+            return EXIT_FAILURE
+        # -- req 611: examples ARE the docs — scan both trees when present
+        roots = [d for d in ("examples", "docs") if Path(d).is_dir()]
+        hits = docs_drift(cache, roots)
+        if getattr(args, "json", False):
+            print(_json.dumps(hits, indent=2))
+        elif not hits:
+            print("  -PASS- docs drift: no stale model IDs in examples/ or docs/ (req 611)")
+        else:
+            print(f"  -WARNING- {len(hits)} stale model reference(s) — stale docs teach dead dispatches:")
+            for h in hits:
+                print(f"    {h['file']}:{h['line']}  {h['model']} ({h['provider']}) no longer served")
+            print("  Fix by hand (detection-only — Rondo never edits docs); history lines are skipped.")
+        return EXIT_FAILURE if hits else EXIT_SUCCESS
+
+    print("Usage: rondo models --tiers (free) | --verify (live canary, ~cents) | --docs-drift (free) [--json]")
     return EXIT_SUCCESS
 
 

@@ -198,6 +198,12 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     models_parser.add_argument(
         "--tiers", action="store_true", help="Show derived auto_low/mid/high per provider (reqs 607-608, free)"
     )
+    models_parser.add_argument(
+        "--docs-drift",
+        action="store_true",
+        dest="docs_drift",
+        help="Scan examples/ + docs/ for model IDs no longer served (req 611, free)",
+    )
     models_parser.add_argument("--json", action="store_true", help="JSON output")
 
     # -- nightly subcommand (RONDO-314: the watchdog — finding #285)

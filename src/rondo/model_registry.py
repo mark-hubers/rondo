@@ -378,6 +378,105 @@ def format_verify_table(rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-325: docs drift — REQ-111 req 611
+# -- ──────────────────────────────────────────────────────────────
+
+# -- model-ish tokens by family; bare family names (no digit, no -latest)
+# -- are provider references, not model IDs, and never flagged
+_MODEL_TOKEN_RE = re.compile(
+    r"\b((?:claude|gpt|gemini|grok|mistral|codestral|voxtral|o[134])[A-Za-z0-9.\-]*[A-Za-z0-9])\b"
+)
+_FAMILY_TO_PROVIDER = {
+    "claude": "anthropic",
+    "gpt": "openai",
+    "o1": "openai",
+    "o3": "openai",
+    "o4": "openai",
+    "gemini": "gemini",
+    "grok": "grok",
+    "mistral": "mistral",
+    "codestral": "mistral",
+    "voxtral": "mistral",
+}
+# -- historical narrative survives model sweeps (night-shift gotcha):
+# -- lines telling the story of a retirement are history, not guidance
+_HISTORY_MARKERS = ("retired", "formerly", "(was", "historical", "superseded", "deprecated")
+_DOC_SUFFIXES = {".md", ".sh", ".yaml", ".yml", ".py", ".toml", ".json", ".txt"}
+
+
+_DATE_SUFFIX_RE = re.compile(r"^\d{8}$")
+
+
+def _is_served_or_dated_alias(token: str, served: set[str]) -> bool:
+    """Served exactly, OR an undated alias of a served dated snapshot.
+
+    Live evidence (RONDO-325 canary, 2026-06-06): `claude-haiku-4-5`
+    dispatches fine ($0.000026 PASS) yet /v1/models lists only
+    `claude-haiku-4-5-20251001` — catalogs omit some live aliases.
+    Tolerance is DATE-SUFFIX ONLY: `gpt-4` never hides behind
+    `gpt-4-turbo`-style siblings.
+    """
+    if token in served:
+        return True
+    prefix = token + "-"
+    return any(m.startswith(prefix) and _DATE_SUFFIX_RE.match(m[len(prefix) :]) for m in served)
+
+
+def _token_provider(token: str) -> str:
+    """Map a model-ish token to its provider family, '' if unknown."""
+    lowered = token.lower()
+    for family, provider in _FAMILY_TO_PROVIDER.items():
+        if lowered.startswith(family):
+            return provider
+    return ""
+
+
+def docs_drift(cache: dict[str, Any], roots: list[str]) -> list[dict[str, Any]]:
+    """Find model IDs in docs/examples no longer served — req 611 (RONDO-325).
+
+    Driver: 78 stale IDs across 24 example files after a model refresh.
+    Stale docs teach users dead dispatches. DETECTION ONLY — never edits
+    (the Session 81 rule), and lines carrying history markers ("retired",
+    "superseded"...) are narrative, not guidance — skipped.
+
+    Only providers with a healthy cache entry participate: a failed fetch
+    proves nothing about anyone's docs.
+    """
+    served_by_provider: dict[str, set[str]] = {}
+    for name, entry in (cache.get("providers") or {}).items():
+        models = entry.get("models") or []
+        if models and not entry.get("error"):
+            served_by_provider[name] = set(models)
+
+    hits: list[dict[str, Any]] = []
+    for root in roots:
+        base = Path(root).expanduser()
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in _DOC_SUFFIXES:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                lowered = line.lower()
+                if any(marker in lowered for marker in _HISTORY_MARKERS):
+                    continue
+                for token in _MODEL_TOKEN_RE.findall(line):
+                    if not any(ch.isdigit() for ch in token) and "latest" not in token.lower():
+                        continue  # -- bare family/provider mention, not a model ID
+                    provider = _token_provider(token)
+                    if provider not in served_by_provider:
+                        continue
+                    if _is_served_or_dated_alias(token, served_by_provider[provider]):
+                        continue
+                    hits.append({"file": str(path), "line": lineno, "model": token, "provider": provider})
+    return hits
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a8.mr305b
 
 

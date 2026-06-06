@@ -134,4 +134,79 @@ class TestDrift:
 # -- sig: mgh-6201.cd.bd955f.f1a8.mr305a
 
 
+class TestDocsDrift:
+    """REQ-111 req 611 (RONDO-325): stale model IDs in examples/docs.
+
+    Driver: 78 stale IDs across 24 example files after a model refresh —
+    stale docs teach users dead dispatches. Detection-only; never edits.
+    """
+
+    CACHE = {
+        "providers": {
+            "grok": {"models": ["grok-4.3"], "error": ""},
+            "gemini": {"models": ["gemini-flash-latest", "gemini-pro-latest"], "error": ""},
+        }
+    }
+
+    def _tree(self, tmp_path: Path) -> Path:
+        root = tmp_path / "examples"
+        root.mkdir()
+        (root / "stale.sh").write_text("rondo review f.py --providers grok\n# uses grok:grok-3 here\n")
+        (root / "fresh.yaml").write_text("model: grok:grok-4.3\nother: gemini:gemini-flash-latest\n")
+        (root / "history.md").write_text("grok-3 family RETIRED (now grok-4.3) — historical note\n")
+        return root
+
+    def test_stale_id_flagged_with_location(self, tmp_path: Path) -> None:
+        from rondo.model_registry import docs_drift
+
+        hits = docs_drift(self.CACHE, [str(self._tree(tmp_path))])
+        assert any(h["model"] == "grok-3" and "stale.sh" in h["file"] for h in hits)
+        assert all(h["line"] > 0 for h in hits)
+
+    def test_served_ids_not_flagged(self, tmp_path: Path) -> None:
+        from rondo.model_registry import docs_drift
+
+        hits = docs_drift(self.CACHE, [str(self._tree(tmp_path))])
+        assert not any(h["model"] in ("grok-4.3", "gemini-flash-latest") for h in hits)
+
+    def test_historical_narrative_skipped(self, tmp_path: Path) -> None:
+        """The grok-3-RETIRED note is history, not guidance — never flagged.
+
+        (Night-shift gotcha: historical narrative must survive model sweeps.)
+        """
+        from rondo.model_registry import docs_drift
+
+        hits = docs_drift(self.CACHE, [str(self._tree(tmp_path))])
+        assert not any("history.md" in h["file"] for h in hits)
+
+    def test_undated_alias_of_dated_snapshot_not_flagged(self, tmp_path: Path) -> None:
+        """Live canary 2026-06-06: claude-haiku-4-5 dispatches fine but
+        /v1/models lists only claude-haiku-4-5-20251001. DATE-suffix-only
+        tolerance — gpt-4 must never hide behind gpt-4-turbo siblings.
+        """
+        from rondo.model_registry import docs_drift
+
+        cache = {"providers": {"anthropic": {"models": ["claude-haiku-4-5-20251001"], "error": ""}}}
+        root = tmp_path / "docs"
+        root.mkdir()
+        (root / "ok.md").write_text("use anthropic:claude-haiku-4-5 for cheap tasks\n")
+        (root / "bad.md").write_text("use anthropic:claude-haiku-3-5 maybe\n")
+        hits = docs_drift(cache, [str(root)])
+        assert not any(h["model"] == "claude-haiku-4-5" for h in hits)  # -- dated alias OK
+        assert any(h["model"] == "claude-haiku-3-5" for h in hits)  # -- truly gone
+
+    def test_no_cache_provider_not_scanned(self, tmp_path: Path) -> None:
+        """A provider with a failed fetch proves nothing about its docs."""
+        from rondo.model_registry import docs_drift
+
+        cache = {"providers": {"grok": {"models": [], "error": "HTTP 500"}}}
+        hits = docs_drift(cache, [str(self._tree(tmp_path))])
+        assert hits == []
+
+    def test_missing_dir_is_empty_not_crash(self, tmp_path: Path) -> None:
+        from rondo.model_registry import docs_drift
+
+        assert docs_drift(self.CACHE, [str(tmp_path / "nope")]) == []
+
+
 # -- sig: mgh-6201.cd.bd955f.d5e0.1c1548

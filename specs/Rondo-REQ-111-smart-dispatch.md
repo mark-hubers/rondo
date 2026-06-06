@@ -5,7 +5,7 @@
 **Created:** 2026-04-09 (Session 100) | **Updated:** 2026-06-05
 **Status:** DRAFT
 **Classification:** open
-**Version:** 0.3
+**Version:** 0.4
 **Owner:** Mark G. Hubers
 **Depends on:** REQ-100 (Core — three-field contract, dispatch, extract_json), REQ-114 (Structured Input — context_data), REQ-109 (Provider Adapters — routing, health, scoring), STD-113 (Audit Trail)
 **Author:** Mark Hubers — HubersTech
@@ -257,6 +257,7 @@ All dispatch settings MUST be overridable per-call on all 3 interfaces:
 | 608 | Tier collapse ladder ("next best"): a provider missing a distinct `low` inherits `mid`; missing `mid` inherits `high`. Same-model tiers are valid per REQ-109 req 045 (e.g. Grok: best=default). | MUST | Collapse test |
 | 609 | Trust boundary: auto substitution stays WITHIN the same provider. The registry NEVER reroutes across providers — cross-provider changes are human decisions. REQ-109 trust/sensitivity rules (reqs 061-063) always apply. | MUST | Boundary test |
 | 610 | Resolution COALESCE: manual pin → auto-tier → collapse ladder. Manual ALWAYS wins (same idiom as REQ-109 req 024 / req 320). | MUST | Precedence test |
+| 611 | **Examples are the canonical documentation** (89 verified, real-dispatch files in `examples/` + 19 docs). The drift report SHOULD also scan `examples/` and `docs/` for model IDs no longer served — stale docs teach users dead dispatches (2026-06-05: 78 stale IDs found across 24 example files, including the packaged init template). Examples re-verify via `examples/verify-examples.sh` + the TEST-ALL fast tier after any provider/config change. | SHOULD | Docs-drift test |
 
 ---
 
@@ -323,4 +324,5 @@ Envelope semantics (`partial`, stable `error_code`, canonical top-level keys) ar
 |-----|------|---------|
 | 0.1 | 2026-04-09 | Initial draft from Session 100 conversation. |
 | 0.2 | 2026-04-09 | Removed 3 duplicate req blocks (JSON return, file context, extract_json). Added cross-reference map. Fixed security: only_if restricted to comparisons (no eval), template whitelist, stdin size cap, YAML safe_load. Reduced from 63 to 46 reqs. |
+| 0.4 | 2026-06-06 | Req 611: examples-as-canonical-docs + docs-drift scanning. (Original apply attempt hung for 4.5h in a zombie chain — recovered and applied 06-06.) |
 | 0.3 | 2026-06-05 | **Model Registry & Auto-Tiers (Session 102/104).** Added reqs 600-610: registry refresh from provider model endpoints (600), free secondary feeds LiteLLM/OpenRouter catalogs read-only (601), drift report OK/STALE/NEW (602), alias-first rule (603), `--verify` canary (604), suggest/auto modes (605-606), auto_low/mid/high derived profiles (607), tier collapse ladder (608), within-provider trust boundary (609), manual-wins COALESCE (610). Driver: recurring breakage from pinned/retired model IDs (gpt-4.1 retired 2026-02); design rule = detection automated, fix manual, auto opt-in confined to auto-tier profiles. Evidence: `rondo/research/2026-06-03-rondo-audit/`. |

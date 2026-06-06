@@ -20,7 +20,7 @@ def _run_json(**kwargs):
 
 
 def _unique_prompt(label: str) -> str:
-    return f"Return JSON only: {{\"label\":\"{label}\",\"id\":\"{uuid.uuid4().hex[:12]}\"}}"
+    return f'Return JSON only: {{"label":"{label}","id":"{uuid.uuid4().hex[:12]}"}}'
 
 
 def test_mcp_claude_model_returns_inline_plan_for_host_auto_exec() -> None:
@@ -102,4 +102,3 @@ def test_precedence_plan_only_beats_execution() -> None:
 
 
 # -- sig: mgh-bc0c.f2.fecb75.22ca.0d763a
-

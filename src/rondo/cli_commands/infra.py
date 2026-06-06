@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from rondo.cli_commands import EXIT_FAILURE, EXIT_SUCCESS
 from rondo.spool import SpoolConfig, SpoolManager
@@ -423,6 +424,7 @@ def _providers_registry_action(args: argparse.Namespace) -> int:
     )
 
     providers_cfg = get_rondo_config().get("providers", {})
+    cache: dict[str, Any] | None  # -- RONDO-338: load_cache() may return None; narrowed below
     if getattr(args, "refresh", False):
         cache = refresh_registry(providers_cfg, key_loader=load_api_key)
         ok = sum(1 for v in cache["providers"].values() if not v["error"])

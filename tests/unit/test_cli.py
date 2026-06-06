@@ -668,7 +668,7 @@ class TestReplayCompareSubcommands:
         payload = {
             "task_name": run_id,
             "status": "done",
-            "prompt_sent": "Return JSON only: {\"ok\": true}",
+            "prompt_sent": 'Return JSON only: {"ok": true}',
             "raw_output": "baseline-output",
             "duration_sec": 1.23,
             "model": "sonnet",
@@ -705,8 +705,12 @@ class TestReplayCompareSubcommands:
 
     def test_compare_prints_side_by_side(self, tmp_path, capsys):
         """Compare prints status, duration, cost, and output snippets."""
-        self._write_task_result(tmp_path, "left", status="partial", raw_output="left output line", duration_sec=3.0, cost_usd=0.02)
-        self._write_task_result(tmp_path, "right", status="done", raw_output="right output line", duration_sec=1.0, cost_usd=0.01)
+        self._write_task_result(
+            tmp_path, "left", status="partial", raw_output="left output line", duration_sec=3.0, cost_usd=0.02
+        )
+        self._write_task_result(
+            tmp_path, "right", status="done", raw_output="right output line", duration_sec=1.0, cost_usd=0.01
+        )
         exit_code = main(["compare", "left", "right", "--results-dir", str(tmp_path)])
         captured = capsys.readouterr()
         assert exit_code == EXIT_SUCCESS
@@ -1097,7 +1101,9 @@ class TestProviderPrefixedDispatch:
         round_def = Round(name="r", tasks=[Task(name="t", instruction="x", done_when="d")])
         config = RondoConfig(default_model="gemini:gemini-flash-latest", audit_dir="", spool_enabled=False)
         ## -- REAL resolver shape: routing string KEEPS the prefix (contract-test rule)
-        with patch("rondo.providers.get_provider_with_fallback", return_value=(FakeAdapter(), "gemini:gemini-flash-latest")):
+        with patch(
+            "rondo.providers.get_provider_with_fallback", return_value=(FakeAdapter(), "gemini:gemini-flash-latest")
+        ):
             _dispatch_with_provider(round_def, config)
         assert seen["model"] == "gemini-flash-latest", f"adapter got {seen['model']!r}"
 

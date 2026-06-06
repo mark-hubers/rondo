@@ -1,5 +1,27 @@
 # NIGHT SHIFT — 2026-06-05/06 (16h autonomous, Mark's directive)
 
+## 🎯 SPLIT DAY ADDENDUM (2026-06-06 afternoon — RONDO-338)
+
+**Rondo is now a standalone repo at `~/git/mhubers/rondo/`** — 611+ commits of
+history preserved, own venv, own 6-gate `bin/build`, own CLAUDE.md +
+START-HERE.md onboarding, seeded Claude Code memory. The ace2 copy is FROZEN
+(POINTER.md). Installed `rondo` tool now builds from here; doctor 6/6 PASS.
+
+**The split's first honest gate exposed a 25-sprint blind spot (Finding #309):**
+ace-build hardcoded `src/ace2/` for bandit AND mypy — Rondo's 60 source files
+were NEVER type-checked or security-scanned despite green "full" builds. Gate
+configs (ruff line-length, lint rules, mypy, bandit skips) lived only in ace2's
+root pyproject and didn't travel. RONDO-338 paid it all honestly:
+
+| Found | Fixed |
+|-------|-------|
+| 18 mypy errors in 9 files | All fixed at the type level — no blanket ignores |
+| Latent AttributeError: live.py printed `gate.description`, a field Gate never had | Manual-gate design completed: Optional check_fn + description field + fail-closed run_gate, 3 new tests |
+| `_HEALTH_LOCK` assigned twice (dup line) | Deduped |
+| 3 bandit B607 (PATH-resolved `security`/`op` CLIs) | Skipped WITH rationale in pyproject (argv hardcoded, no shell, timeouts) |
+| 124-file format "drift" | Root cause: missing [tool.ruff] config + version drift; config ported, ruff pinned 0.15.5, only 10 genuinely drifted test files reformatted |
+| bin/build script bugs: pylint multi-match parse, bandit lenient fallback, "all N passed" overclaim | head -1 parse, no-fallback, honest deselected-marker wording, ruff version pin check |
+
 ## ☀ MORNING REPORT (read this first)
 
 **TL;DR: 25 sprints closed (RONDO-313 → 337) — the SOP-106 C-now ladder is COMPLETE (auto-retry, error-UX contract, stranger glossary 9/10, SECURITY/CONTRIBUTING/split-brain honesty). ~$0.23 of $6.00 spent. COUNT CORRECTION (Mark's catch): Rondo's true suite = 2,242 tests — earlier 15.8K claims were the COMBINED ace+rondo gate. Rondo gates now product-scoped. Release bar 7.5/8.5 in spec; full ace2 backup ×3 verified.**

@@ -16,6 +16,10 @@ import logging
 import threading as _threading  # -- RONDO-217: health cache thread safety
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rondo.provider_base import ProviderAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +28,7 @@ _HEALTH_TTL_SECONDS: float = 300.0
 
 # -- In-process cache: provider name → HealthStatus
 _HEALTH_CACHE: dict[str, HealthStatus] = {}
-_HEALTH_LOCK = _threading.Lock()
-_HEALTH_LOCK = _threading.Lock()
+_HEALTH_LOCK = _threading.Lock()  # -- RONDO-338: was assigned twice (dup line)
 
 
 @dataclass
@@ -47,7 +50,7 @@ class HealthStatus:
     error: str = ""
 
 
-def _get_adapter_for_provider(provider_name: str) -> object | None:
+def _get_adapter_for_provider(provider_name: str) -> ProviderAdapter | None:
     """Return an adapter instance for the given provider name.
 
     Uses shared adapter factory (DRY — single construction point).

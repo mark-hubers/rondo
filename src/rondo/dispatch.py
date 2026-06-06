@@ -24,12 +24,13 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 from rondo._build import is_public_build as _is_public_build  # -- RONDO-332 P1-6 seam
-from rondo.audit import AuditConfig, AuditTrail
+from rondo.audit import AuditConfig, AuditRecord, AuditTrail
 from rondo.config import RondoConfig
 from rondo.dispatch_parse import (
     _collect_assistant_text,
@@ -709,7 +710,7 @@ def finalize_dispatch(
     usage: DispatchUsage,
     config: RondoConfig,
     audit_trail: AuditTrail | None,
-    audit_record: object | None,
+    audit_record: AuditRecord | None,
     round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Public accessor for shared ALWAYS-ON pipeline (RONDO-139).
@@ -740,7 +741,7 @@ def _write_audit_outcome(
     result: TaskResult,
     usage: DispatchUsage,
     audit_trail: AuditTrail,
-    audit_record: object,
+    audit_record: AuditRecord,
     round_name: str,
 ) -> None:
     """STD-113 OUTCOME write with forensics — extracted from _finalize_dispatch.
@@ -780,7 +781,7 @@ def _finalize_dispatch(
     usage: DispatchUsage,
     config: RondoConfig,
     audit_trail: AuditTrail | None,
-    audit_record: object | None,
+    audit_record: AuditRecord | None,
     round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Shared ALWAYS-ON pipeline for ALL dispatch paths (success + error).
@@ -934,18 +935,27 @@ def _run_with_watchdog(
     proc: subprocess.Popen,
     watchdog_sec: int,
     timed_out: threading.Event,
-    kill_fn: object,
+    kill_fn: Callable[[str], None],
     timer: threading.Timer,
 ) -> tuple[str, str, int, bool]:
-    """Watchdog path: monitor stdout for silence, kill if idle."""
+    """Watchdog path: monitor stdout for silence, kill if idle.
+
+    Caller (_run_subprocess) always opens stdout=PIPE; the None-guard is
+    defensive (RONDO-338 mypy honesty pass) and mirrors a dead pipe.
+    """
     stdout_parts: list[str] = []
     stderr_parts: list[str] = []
+    stdout_pipe = proc.stdout
+    if stdout_pipe is None:
+        timer.cancel()
+        proc.wait()
+        return "", "", proc.returncode if proc.returncode is not None else -1, timed_out.is_set()
 
     try:
         while proc.poll() is None and not timed_out.is_set():
-            ready, _, _ = select.select([proc.stdout], [], [], watchdog_sec)
+            ready, _, _ = select.select([stdout_pipe], [], [], watchdog_sec)
             if ready:
-                chunk = proc.stdout.readline()
+                chunk = stdout_pipe.readline()
                 if chunk:
                     stdout_parts.append(chunk)
                 else:
@@ -953,7 +963,7 @@ def _run_with_watchdog(
             else:
                 kill_fn("watchdog_silence")
                 break
-        remaining = proc.stdout.read()
+        remaining = stdout_pipe.read()
         if remaining:
             stdout_parts.append(remaining)
         stderr_out = proc.stderr.read() if proc.stderr else ""
@@ -1040,7 +1050,7 @@ def _parse_and_build_result(
     duration: float,
     *,
     audit_trail: AuditTrail | None = None,
-    audit_record: object | None = None,
+    audit_record: AuditRecord | None = None,
     round_name: str = "",
 ) -> tuple[TaskResult, DispatchUsage]:
     """Parse stream-json output and build success/partial TaskResult.
@@ -1132,7 +1142,7 @@ def _log_to_history(
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
             confidence=0.0,  # -- set from parsed JSON if available
-            error_code=result.error_code,
+            error_code=result.error_code or "",  # -- DispatchRecord wants str, TaskResult allows None
             budget_exceeded=usage.budget_exceeded,
         )
         history_dir = str(Path(config.results_dir).parent / "history")

@@ -95,9 +95,7 @@ class TestBumpBuild:
 class TestVersionCLICommand:
     """`rondo version` CLI — end-to-end with subprocess-free invocation."""
 
-    def test_version_without_bump_prints_current(
-        self, tmp_path: Path, capsys: object
-    ) -> None:
+    def test_version_without_bump_prints_current(self, tmp_path: Path, capsys: object) -> None:
         from rondo.cli_commands.infra import _cmd_version  # noqa: PLC0415
 
         counter_file = tmp_path / "counter.json"
@@ -113,9 +111,7 @@ class TestVersionCLICommand:
         out = capsys.readouterr().out  # type: ignore[attr-defined]
         assert "+20260101.7" in out
 
-    def test_version_with_bump_increments_and_prints(
-        self, tmp_path: Path, capsys: object
-    ) -> None:
+    def test_version_with_bump_increments_and_prints(self, tmp_path: Path, capsys: object) -> None:
         from rondo.cli_commands.infra import _cmd_version  # noqa: PLC0415
 
         counter_file = tmp_path / "counter.json"

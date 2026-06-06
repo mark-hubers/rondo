@@ -137,7 +137,9 @@ def run_live(
                 print("\n  -ERROR- Pre-gate failed. Cannot proceed.")
                 return presentations
         else:
-            print(f"    Manual check: {gate.description}")
+            # -- RONDO-338: description existed in this print before it existed on
+            # -- Gate (latent AttributeError); fall back to name when empty
+            print(f"    Manual check: {gate.description or gate.name}")
     print()
 
     if single_task >= 0:

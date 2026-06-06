@@ -424,8 +424,8 @@ def _notify_failure(task_result: TaskResult) -> None:
             recovery = task_result.error_payload.recovery
         notify_failure(
             task_name=task_result.task_name,
-            error_code=task_result.error_code,
-            error_message=task_result.error_message,
+            error_code=task_result.error_code or "",
+            error_message=task_result.error_message or "",
             recovery=recovery,
         )
     except (ImportError, OSError, TypeError) as exc:

@@ -97,11 +97,14 @@ class Gate:
 
     Calling convention: runner calls check_fn() with NO arguments.
     Gates needing external context MUST capture it via closure.
+    check_fn=None marks a MANUAL gate: live.py prints its description for
+    a human to verify; run_gate() fails it closed (RONDO-338).
     """
 
     name: str
-    check_fn: Callable[..., tuple[bool, str]]
+    check_fn: Callable[..., tuple[bool, str]] | None = None
     blocking: bool = True
+    description: str = ""  # -- what a human should verify on a manual gate (RONDO-338)
 
 
 @dataclass
@@ -305,7 +308,19 @@ class Round:
 
 
 def run_gate(gate: Gate) -> GateResult:
-    """Execute a single gate check. Returns GateResult with blocking flag."""
+    """Execute a single gate check. Returns GateResult with blocking flag.
+
+    Manual gates (check_fn=None) fail closed — a human must verify and
+    re-run, matching the pre-RONDO-338 behavior (None crashed into the
+    except and failed) but with an actionable message.
+    """
+    if gate.check_fn is None:
+        return GateResult(
+            gate_name=gate.name,
+            passed=False,
+            detail="Manual gate — no check_fn; verify by hand and re-run",
+            blocking=gate.blocking,
+        )
     try:
         passed, detail = gate.check_fn()
     except (TypeError, ValueError, RuntimeError, OSError, KeyError, AttributeError) as exc:

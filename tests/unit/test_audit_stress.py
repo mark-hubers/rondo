@@ -66,7 +66,9 @@ class TestCrossProcessAuditStress:
         stuck = [r for r in outcomes if r.get("error_code") == "ERR_RECONCILED_STUCK"]
         done = [r for r in outcomes if r.get("status") == "done"]
 
-        assert len(stuck) == 0, f"{len(stuck)} FALSE-STUCK records under concurrency — Finding #257 reproduced, flock layer IS needed"
+        assert len(stuck) == 0, (
+            f"{len(stuck)} FALSE-STUCK records under concurrency — Finding #257 reproduced, flock layer IS needed"
+        )
         assert len(intents) == expected, f"intents {len(intents)} != {expected}"
         assert len(done) == expected, f"done {len(done)} != {expected}"
 

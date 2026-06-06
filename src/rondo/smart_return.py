@@ -222,7 +222,7 @@ def normalize_response(data: dict[str, Any]) -> dict[str, Any]:
         data["_meta"] = metadata.pop("_meta")
 
     # -- REQ-111 req 472: ensure all standard fields present with defaults
-    defaults = {
+    defaults: dict[str, Any] = {
         "passed": None,
         "confidence": 0.0,
         "result": "",

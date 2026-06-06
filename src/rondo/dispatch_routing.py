@@ -149,7 +149,7 @@ def _should_bypass_execution_override(
     provider: str, background: bool, force_subprocess_suffix: bool, engine: dict
 ) -> bool:
     """Return True when execution mode should not override base routing."""
-    return provider or background or force_subprocess_suffix or engine["engine"] == "http"
+    return bool(provider or background or force_subprocess_suffix or engine["engine"] == "http")
 
 
 def _normalize_subprocess_model(model: str) -> str:

@@ -34,9 +34,7 @@ class TestHomoglyphDefense:
         ## Cyrillic 'а' (U+0430) replacing Latin 'a' (U+0061)
         text = "\u0430pi_key = 'sk-FAKE-TEST-VALUE-NOT-REAL'"  # gitleaks:allow
         result = sanitize_text(text)
-        assert result.secrets_found >= 1, (
-            f"Homoglyph API key NOT caught: detections={result.detections}"
-        )
+        assert result.secrets_found >= 1, f"Homoglyph API key NOT caught: detections={result.detections}"
         assert "sk-FAKE-TEST" not in result.sanitized_text
         assert "[REDACTED" in result.sanitized_text
 
@@ -44,17 +42,13 @@ class TestHomoglyphDefense:
         ## Cyrillic 'а' replacing Latin 'a' in "password"
         text = "p\u0430ssword = 'FAKE-TEST-PW-NOT-REAL'"  # gitleaks:allow
         result = sanitize_text(text)
-        assert result.secrets_found >= 1, (
-            f"Homoglyph password NOT caught: detections={result.detections}"
-        )
+        assert result.secrets_found >= 1, f"Homoglyph password NOT caught: detections={result.detections}"
 
     def test_fullwidth_chars_normalized_and_caught(self) -> None:
         ## Full-width ASCII 'ａｐｉ_ｋｅｙ' (U+FF41 etc.) instead of 'api_key'
         text = "\uff41\uff50\uff49_\uff4b\uff45\uff59 = 'FAKE-TEST-VALUE-1234'"  # gitleaks:allow
         result = sanitize_text(text)
-        assert result.secrets_found >= 1, (
-            f"Full-width homoglyph NOT caught: detections={result.detections}"
-        )
+        assert result.secrets_found >= 1, f"Full-width homoglyph NOT caught: detections={result.detections}"
 
     def test_clean_latin_text_still_caught(self) -> None:
         ## Baseline — regular Latin still works

@@ -102,9 +102,7 @@ class TestMultiReviewBareNamesLive:
         p = result["per_provider"][0]
         ## If provider was down, error_code should be ERR_PROVIDER_DOWN not a 404 crash
         error_msg = p.get("error_message", "") or ""
-        assert "HTTP 404" not in error_msg, (
-            f"RONDO-287 regression: bare 'gemini' produced 404: {error_msg[:200]}"
-        )
+        assert "HTTP 404" not in error_msg, f"RONDO-287 regression: bare 'gemini' produced 404: {error_msg[:200]}"
 
     def test_no_400_on_bare_grok(self) -> None:
         """RONDO-287 specific regression: bare 'grok' must NOT return HTTP 400."""
@@ -119,9 +117,7 @@ class TestMultiReviewBareNamesLive:
         )
         p = result["per_provider"][0]
         error_msg = p.get("error_message", "") or ""
-        assert "HTTP 400" not in error_msg, (
-            f"RONDO-287 regression: bare 'grok' produced 400: {error_msg[:200]}"
-        )
+        assert "HTTP 400" not in error_msg, f"RONDO-287 regression: bare 'grok' produced 400: {error_msg[:200]}"
 
 
 # -- sig: mgh-6201.cd.bd955f.36eb.a5f136

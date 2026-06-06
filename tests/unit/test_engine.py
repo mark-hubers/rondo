@@ -999,6 +999,35 @@ class TestGateExecution:
         assert result.passed is False
         assert "crashed" in result.detail
 
+    def test_manual_gate_no_check_fn_fails_closed(self):
+        """VER-001 G-MANUAL: Gate without check_fn fails closed with a manual-verify message.
+
+        RONDO-338: check_fn became Optional (live.py's manual-gate branch was
+        unreachable under the old required type). run_gate must stay fail-closed.
+        """
+        gate = Gate(name="manual-step")
+        result = run_gate(gate)
+        assert result.passed is False
+        assert "manual" in result.detail.lower()
+        assert result.blocking is True
+
+    def test_manual_gate_preserves_blocking_flag(self):
+        """VER-001 G-MANUAL: manual gate keeps its non-blocking flag."""
+        gate = Gate(name="manual-step", blocking=False)
+        result = run_gate(gate)
+        assert result.passed is False
+        assert result.blocking is False
+
+    def test_manual_gate_carries_description(self):
+        """VER-001 G-MANUAL: description tells the human WHAT to verify.
+
+        RONDO-338: live.py's manual branch printed gate.description — a field
+        Gate never had (latent AttributeError, proven dead by mypy).
+        """
+        gate = Gate(name="manual-step", description="Confirm staging deploy looks right")
+        assert gate.description == "Confirm staging deploy looks right"
+        assert Gate(name="bare").description == ""
+
     def test_blocking_gate_stops_round(self):
         """Blocking gate failure prevents should_proceed."""
         results = [GateResult(gate_name="blocker", passed=False, detail="fail", blocking=True)]

@@ -176,10 +176,13 @@ def rondo_dispatch_info() -> str:
     # -- U-55: derive command list from CLI parser (single source of truth)
     commands: list[str] = []
     parser = build_parser()
-    for action in parser._subparsers._actions:  # pylint: disable=protected-access
-        if hasattr(action, "choices") and action.choices:
-            commands = sorted(action.choices.keys())
-            break
+    subparsers = parser._subparsers  # pylint: disable=protected-access
+    if subparsers is not None:  # -- RONDO-338: argparse types this Optional; build_parser always adds it
+        for action in subparsers._actions:  # pylint: disable=protected-access
+            choices = getattr(action, "choices", None)
+            if isinstance(choices, dict) and choices:
+                commands = sorted(choices.keys())
+                break
 
     return json.dumps(
         {
@@ -210,10 +213,11 @@ def rondo_history(model: str = "", status: str = "", limit: int = 20) -> str:
     try:
         records = load_history(history_dir=resolve_rondo_dir("~/.rondo/history", "history"))
         if model or status:
+            # -- RONDO-338: query_history treats "" as no-filter; None was a type error
             records = query_history(
                 records,
-                model=model or None,
-                status=status or None,
+                model=model or "",
+                status=status or "",
             )
         recent = records[-limit:] if len(records) > limit else records
         agg = aggregate_by_model(records)

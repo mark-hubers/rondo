@@ -72,9 +72,13 @@ def _get_commands() -> list[dict[str, str]]:
 
     commands: list[dict[str, str]] = []
     parser = build_parser()
-    for action in parser._subparsers._actions:  # pylint: disable=protected-access
-        if hasattr(action, "choices") and action.choices:
-            for name, sub in action.choices.items():
+    subparsers = parser._subparsers  # pylint: disable=protected-access
+    if subparsers is None:  # -- RONDO-338: argparse types this Optional; build_parser always adds it
+        return commands
+    for action in subparsers._actions:  # pylint: disable=protected-access
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and choices:
+            for name, sub in choices.items():
                 commands.append({"name": name, "description": sub.description or sub.format_usage().strip()})
             break
     return commands

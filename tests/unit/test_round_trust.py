@@ -15,12 +15,12 @@ from pathlib import Path
 
 import pytest
 
-PY_ROUND = '''
+PY_ROUND = """
 from rondo.engine import Round, Task
 
 def build_round():
     return Round(name="r", tasks=[Task(name="t", instruction="x", done_when="d")])
-'''
+"""
 
 
 @pytest.fixture

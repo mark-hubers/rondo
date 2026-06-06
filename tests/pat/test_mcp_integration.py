@@ -27,7 +27,6 @@ import pytest
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "src"))
 
 
-
 class TestMCPIntegration:
     """rondo_run_file returns correct response shape for each engine."""
 

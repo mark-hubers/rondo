@@ -1,0 +1,79 @@
+#!/bin/zsh
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+## -- Rondo build gate — the same 6 gates the product grew up under
+## -- (ace-build heritage), self-contained for the standalone repo.
+## -- Hard lesson baked in: zero-collected tests = HARD FAIL, never a warn.
+
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+REPO="${0:a:h:h}"
+cd "$REPO"
+PY="$REPO/.venv/bin"
+ERRORS=0
+
+step() { print -- "\n═══ $1 ═══" }
+pass() { print -- "  ✓ $1" }
+fail() { print -- "  ✗ $1"; ERRORS=$((ERRORS + 1)) }
+
+## -- RONDO-338: format baseline is ruff 0.15.5 — a different version silently
+## -- reformats the world (124 false "would reformat" files on first honest run)
+RUFF_PIN="0.15.5"
+RUFF_VER=$("$PY/ruff" --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+if [[ "$RUFF_VER" != "$RUFF_PIN" ]]; then
+   print -- "  ✗ ruff $RUFF_VER != pinned $RUFF_PIN — run: uv pip install ruff==$RUFF_PIN"
+   exit 1
+fi
+
+step "1/6 Ruff lint"
+if "$PY/ruff" check src/rondo/ tests/; then pass "lint clean"; else fail "ruff found issues"; fi
+
+step "2/6 Ruff format"
+if "$PY/ruff" format --check src/rondo/ tests/ >/dev/null 2>&1; then pass "formatting OK"; else fail "needs formatting"; fi
+
+step "3/6 Bandit security"
+## -- RONDO-338: no lenient fallback — if the config can't load, that IS a failure
+if "$PY/bandit" -r src/rondo/ -q -c pyproject.toml 2>/dev/null; then
+   pass "no security issues"
+else
+   fail "bandit findings (or config failed to load)"
+fi
+
+step "4/6 Mypy types"
+if "$PY/mypy" src/rondo/ --ignore-missing-imports >/dev/null 2>&1; then pass "types clean"; else fail "mypy errors"; fi
+
+step "5/6 Full test suite"
+COUNT=$("$PY/pytest" tests/ --collect-only -q 2>/dev/null | grep -oE '[0-9]+ tests collected' | grep -oE '^[0-9]+' || echo 0)
+## -- RONDO-327 lesson: a repo with tests that collects zero = broken gate
+if (( COUNT == 0 )); then
+   fail "collected 0 tests — gate would be a NO-OP"
+elif "$PY/pytest" tests/ -n auto -q --tb=short 2>/dev/null; then
+   ## -- "collected" includes deselected markers (cloud/ollama/perf) — don't
+   ## -- claim "all N passed" when some were deselected by design
+   pass "suite green ($COUNT collected incl. deselected markers)"
+else
+   fail "tests failed"
+fi
+
+step "6/6 Pylint score"
+## -- RONDO-338: head -1 — multi-line grep output fed bc a broken expression
+## -- ("9.34\n0"), failing the gate on a passing 9.34 score.
+## -- The `|| true` is NOT gate-weakening: pylint's exit code is a bitmask of
+## -- message TYPES (non-zero even at 9.34/10) — under ERR_EXIT+PIPE_FAIL it
+## -- silently killed the script at this line (b8tnu6eu1: no banner, no verdict).
+## -- The gate's truth is the SCORE; an empty score fails hard below.
+SCORE=$("$PY/pylint" src/rondo/ --score=y 2>/dev/null | grep -oE 'rated at [0-9.]+' | grep -oE '[0-9.]+' | head -1) || true
+if [[ -z "$SCORE" ]]; then
+   fail "pylint produced no score — tool error, not a pass"
+elif (( $(print -- "$SCORE >= 9.0" | bc -l) )); then
+   pass "pylint $SCORE"
+else
+   fail "pylint $SCORE < 9.0"
+fi
+
+print -- "\n══════════════════════════════"
+if (( ERRORS == 0 )); then
+   print -- "  ✓ BUILD PASSED"
+else
+   print -- "  ✗ BUILD FAILED — $ERRORS gate(s)"
+fi
+exit $ERRORS

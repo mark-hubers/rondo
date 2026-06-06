@@ -50,9 +50,7 @@ class TestInlinePlanHostContract:
     def test_host_instruction_says_execute_not_dump(self) -> None:
         plan = _build_inline_plan(prompt="p", done_when="d", project="")
         instruction = plan["_host_instruction"].lower()
-        assert "execute" in instruction, (
-            f"host instruction missing 'execute': {plan['_host_instruction']!r}"
-        )
+        assert "execute" in instruction, f"host instruction missing 'execute': {plan['_host_instruction']!r}"
         ## Must tell AI NOT to show JSON
         assert "not" in instruction and "json" in instruction
 
@@ -69,9 +67,7 @@ class TestInlinePlanHostContract:
         plan = _build_inline_plan(prompt="p", done_when="d", project="")
         token = plan["execution_token"]
         ## Format: [RONDO-EXEC:<8-hex>]
-        assert re.match(r"^\[RONDO-EXEC:[0-9a-f]{8}\]$", token), (
-            f"bad token format: {token!r}"
-        )
+        assert re.match(r"^\[RONDO-EXEC:[0-9a-f]{8}\]$", token), f"bad token format: {token!r}"
 
     def test_execution_token_is_unique_per_plan(self) -> None:
         p1 = _build_inline_plan(prompt="p", done_when="d", project="")

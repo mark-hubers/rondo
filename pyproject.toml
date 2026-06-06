@@ -28,10 +28,40 @@ where = ["src"]
 # -- Same defect class as Finding #289 (init template not packaged).
 rondo = ["data/*.json", "data/*.toml"]
 
+# -- RONDO-338: gate tool configs lived in ace2's ROOT pyproject and did NOT
+# -- travel with the split — ruff fell back to line-length 88 (124 false
+# -- "would reformat" files) and mypy/bandit had no profile. Ported here.
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "D"]
+# -- Same ignore set the code was written under (ace2 heritage):
+# -- E501 line length (formatter owns it), D101/D102/D103/D105/D107 docstring
+# -- granularity, D203/D213 conflicting pydocstyle pairs.
+ignore = ["E501", "D203", "D213", "D101", "D102", "D103", "D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["rondo"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+mypy_path = ["src"]
+ignore_missing_imports = true
+
 [tool.bandit]
 # -- B404: subprocess import is required — Rondo's core function is invoking Claude via subprocess
 # -- B603: Popen without shell=True is the SAFE pattern (we never use shell=True)
-skips = ["B404", "B603"]
+# -- B607: `security` (macOS keychain) and `op` (1Password) are system CLIs
+# --       resolved from PATH by design; argv is a hardcoded list, never shell,
+# --       always with timeout (RONDO-338 — first honest bandit scan post-split)
+skips = ["B404", "B603", "B607"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2363,10 +2363,7 @@ CORPUS_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
 def load_corpus_fixtures(kind: str) -> list[str]:
     """Return raw_output strings from repo fixtures: kind is 'parser' or 'auth'."""
     folder = CORPUS_FIXTURES / kind
-    return [
-        json.loads(p.read_text())["raw_output"]
-        for p in sorted(folder.glob("*.json"))
-    ]
+    return [json.loads(p.read_text())["raw_output"] for p in sorted(folder.glob("*.json"))]
 
 
 class TestHistoricCorpusParsing:

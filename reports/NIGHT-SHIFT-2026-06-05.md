@@ -14,6 +14,8 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 |------|------|------|---------|
 | 23:5x | Cold Witness panel (3 providers, tier high) | ~$0.10 | $0.10 |
 | 00:4x | models --verify canary 15 tiers (RONDO-316) | $0.0007 | $0.1007 |
+| 00:5x | (wheel redeployed; installed rondo models verified live) | $0 | $0.1007 |
+| 01:3x | judge-demo matrix: 4 cells + 4 judge dispatches, 3 providers (RONDO-317) | $0.0025 | $0.1032 |
 
 ## TASK QUEUE (work top-down; update status as you go)
 | # | Task | Status | Sprint |
@@ -25,7 +27,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 4 | Nightly watchdog | DONE (committed, wheel deployed, live ALERT verified, finding #285 fixed) | RONDO-314 ✓ |
 | 5 | Per-task affinity | DONE (full chain live-verified, finding #297 fixed, example 07-task-affinity, INDEX 87) | RONDO-315 ✓ |
 | 6 | Auto-tiers + canary | DONE (15/15 PASS $0.0007; 606 auto-apply -> work request; non-chat filter from live run) | RONDO-316 ✓ |
-| 7 | **REQ-113 req 051 judge scoring** for matrix (judge: provider:model + rubric; budget-counted) + extend matrix example; real run ≈ $0.30 | TODO | RONDO-317 |
+| 7 | Matrix judge scoring | DONE (judge field was DEAD — now wired; live 4-cell run, judge col 8.0(n=2)×2 groups, $0.0025) | RONDO-317 ✓ |
 | 8 | **REQ-109 req 212 config [timeouts] matrix** (per model-class × effort, COALESCE) | TODO | RONDO-318 |
 | 9 | **#298 STD-102→109 merge pass** (fold unique reqs, repoint 8 refs, archive 102) | TODO | RONDO-319 |
 | 10 | More real examples: matrix-with-judge, schedule/alerting, per-task affinity demo; INDEX regen --write + count bump each time | TODO | with each |
@@ -46,6 +48,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
+- RONDO-317 ✓ matrix judge (req 051): judge_rubric required at load, _judge_cell costed into SAME budget, crash-isolated, report judge column. Dead-field made real (Cursor's dead-flag class). Live: gpt-5.4-mini judged haiku+gemini cells.
 - RONDO-316 ✓ auto-tiers+canary: derive_auto_tiers/resolve_model/verify_models/registry_mode + rondo models CLI. Live lessons: 'geMINI' substring trap -> token matching; catalogs mix non-chat models -> exclusion list. Canary 15/15 PASS $0.0007. req 606 auto-apply = work request, honestly NOT claimed.
 - RONDO-315 ✓ per-task affinity: task_type Task→AuditRecord→scoring→recommend_model. Live round proof in audit. Note: `rondo run` inside CC needs env -u CLAUDECODE (preflight RED otherwise). Subprocess dispatches = Max plan tokens, NOT API ledger.
 - RONDO-314 ✓ nightly watchdog: live runs caught 2 mock-blind bugs (get_rondo_config returns DICT; drift entries carry 'state' NOT 'status') → 2 unmocked contract tests added. First real sweep: ALERT, 7d 94% < 95% (47 dispatches — tonight's torture tests count). Plist NOT installed — Mark's call: `rondo schedule --cmd nightly --interval daily --name nightly-watchdog --install`. uv lock: don't run two installs.

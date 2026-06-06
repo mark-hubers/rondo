@@ -263,8 +263,6 @@ class TestBaseline:
         assert "len×" in text or "len x" in text
 
 
-
-
 # -- ──────────────────────────────────────────────────────────────
 # --  Req 005: inputs interpolation (first real-use lesson)
 # -- ──────────────────────────────────────────────────────────────
@@ -287,6 +285,94 @@ class TestInputsInterpolation:
         yaml_text = GOOD_YAML.replace('prompt: "Reply with exactly: OK"', 'prompt: "Split this: {{essay}}"')
         with pytest.raises(MatrixError, match="unresolved"):
             load_matrix(_write_yaml(tmp_path, yaml_text))
+
+
+# -- ──────────────────────────────────────────────────────────────
+# --  Req 051: judge scoring (RONDO-317 — the field was parsed but DEAD)
+# -- ──────────────────────────────────────────────────────────────
+
+
+class TestJudgeScoring:
+    """REQ-113 req 051: judge dispatches score each cell, costed into budget."""
+
+    JUDGE_YAML = GOOD_YAML + 'judge: "gemini:gemini-flash-latest"\njudge_rubric: "Score clarity 0-10."\n'
+
+    def _judge_aware_dispatch(self, calls: list) -> object:
+        """Dispatcher that distinguishes judge cells from grid cells."""
+
+        def dispatch(cell: dict, prompt: str) -> dict:
+            calls.append((cell["model"], cell.get("replicate")))
+            if cell.get("is_judge"):
+                return {
+                    "status": "done",
+                    "cost_usd": 0.002,
+                    "latency_sec": 0.5,
+                    "output": '{"score": 7.5, "reason": "clear but verbose"}',
+                }
+            return _ok_dispatch(cell, prompt)
+
+        return dispatch
+
+    def test_judge_requires_rubric(self, tmp_path: Path) -> None:
+        bad = GOOD_YAML + 'judge: "gemini:gemini-flash-latest"\n'
+        with pytest.raises(MatrixError, match="judge_rubric"):
+            load_matrix(_write_yaml(tmp_path, bad))
+
+    def test_judge_scores_recorded_and_costed(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        spec = load_matrix(_write_yaml(tmp_path, self.JUDGE_YAML))
+        calls: list = []
+        manifest = run_matrix(
+            spec, dispatch=self._judge_aware_dispatch(calls), effort_capable=_always_effort_capable, estimate_ok=True
+        )
+        done = [r for r in manifest["cells"].values() if r.get("status") == "done"]
+        assert done, "no cells completed"
+        for rec in done:
+            assert rec["judge"]["score"] == 7.5
+            assert "verbose" in rec["judge"]["reason"]
+        ## -- req 051: judge cost counts against the SAME budget
+        judge_cost = sum(r["judge"]["cost_usd"] for r in done)
+        assert judge_cost > 0
+        assert manifest["spent_usd"] == pytest.approx(sum(r["cost_usd"] for r in done) + judge_cost)
+        ## -- judge dispatches actually targeted the judge model
+        assert any(model == "gemini:gemini-flash-latest" for model, _ in calls)
+
+    def test_judge_skipped_when_budget_exhausted(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The ceiling is never optional — judging stops with the cells."""
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        ## -- budget == one cell's cost: the cell completes, then the judge
+        ## -- check sees the ceiling already reached → judge skipped
+        tight = self.JUDGE_YAML.replace("budget_usd: 1.00", "budget_usd: 0.010")
+        spec = load_matrix(_write_yaml(tmp_path, tight))
+        manifest = run_matrix(
+            spec, dispatch=self._judge_aware_dispatch([]), effort_capable=_always_effort_capable, estimate_ok=True
+        )
+        skipped = [r for r in manifest["cells"].values() if r.get("judge", {}).get("skipped")]
+        assert skipped, "expected judge skips once budget ran out"
+
+    def test_judge_crash_never_kills_cell(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        spec = load_matrix(_write_yaml(tmp_path, self.JUDGE_YAML))
+
+        def dispatch(cell: dict, prompt: str) -> dict:
+            if cell.get("is_judge"):
+                raise RuntimeError("judge provider down")
+            return _ok_dispatch(cell, prompt)
+
+        manifest = run_matrix(spec, dispatch=dispatch, effort_capable=_always_effort_capable, estimate_ok=True)
+        done = [r for r in manifest["cells"].values() if r.get("status") == "done"]
+        assert done, "cells must still complete when the judge dies"
+        assert all("judge provider down" in r["judge"]["error"] for r in done)
+
+    def test_report_shows_judge_column(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        spec = load_matrix(_write_yaml(tmp_path, self.JUDGE_YAML))
+        run_matrix(
+            spec, dispatch=self._judge_aware_dispatch([]), effort_capable=_always_effort_capable, estimate_ok=True
+        )
+        report = matrix_report("demo")
+        assert "judge" in report
+        assert "7.5" in report
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a9.mx308a

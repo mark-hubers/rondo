@@ -50,6 +50,7 @@ ALLOWED_FIELDS = {
     "baseline",
     "budget_usd",
     "judge",
+    "judge_rubric",  # -- req 051: rubric prompt, required with judge
     "inputs",  # -- req 005: {{name}} placeholder files
 }
 REQUIRED_FIELDS = {"name", "models", "budget_usd"}
@@ -76,6 +77,7 @@ class MatrixSpec:
     blind: bool = False
     baseline: str = ""
     judge: str = ""
+    judge_rubric: str = ""  # -- req 051: caller-supplied rubric, required with judge
 
 
 def load_matrix(path: str) -> MatrixSpec:
@@ -109,6 +111,10 @@ def load_matrix(path: str) -> MatrixSpec:
     leftover = re.findall(r"\{\{\w+\}\}", prompt)
     if leftover:
         raise MatrixError(f"unresolved prompt placeholder(s): {sorted(set(leftover))} — add them under `inputs:`")
+    # -- req 051 (RONDO-317): a judge without a rubric scores against
+    # -- nothing — refuse at load, not at dispatch time
+    if raw.get("judge") and not raw.get("judge_rubric"):
+        raise MatrixError("judge set but judge_rubric missing — req 051 requires a caller-supplied rubric")
     contexts = raw.get("contexts") or {"default": "none"}
     return MatrixSpec(
         name=str(raw["name"]),
@@ -121,6 +127,7 @@ def load_matrix(path: str) -> MatrixSpec:
         blind=bool(raw.get("blind", False)),
         baseline=str(raw.get("baseline", "")),
         judge=str(raw.get("judge", "")),
+        judge_rubric=str(raw.get("judge_rubric", "")),
     )
 
 
@@ -278,10 +285,66 @@ def run_matrix(
             logger.warning("-WARNING- matrix cell %s failed: %s", cell["key"], exc)
 
         manifest["spent_usd"] = round(manifest["spent_usd"] + record["cost_usd"], 6)
+
+        # -- req 051 (RONDO-317): judge each completed cell. The judge is an
+        # -- ordinary dispatch through the SAME injected dispatcher (audited
+        # -- in production), costed against the SAME budget, and its crash
+        # -- never kills the cell it was scoring.
+        if spec.judge and record.get("status") == "done":
+            if manifest["spent_usd"] >= spec.budget_usd:
+                record["judge"] = {"skipped": "budget_exhausted"}
+            else:
+                record["judge"] = _judge_cell(spec, record, out_dir, dispatch)
+                manifest["spent_usd"] = round(manifest["spent_usd"] + record["judge"].get("cost_usd", 0.0), 6)
+
         manifest["cells"][cell["key"]] = record
         _save_manifest(out_dir, manifest)  # -- crash-safe resume after every cell
 
     return manifest
+
+
+def _judge_cell(
+    spec: MatrixSpec,
+    record: dict[str, Any],
+    out_dir: Path,
+    dispatch: Callable[[dict[str, Any], str], dict[str, Any]],
+) -> dict[str, Any]:
+    """Score one completed cell with the judge model — req 051."""
+    try:
+        output_text = (out_dir / record["file"]).read_text(encoding="utf-8")
+    except (OSError, KeyError) as exc:
+        return {"score": None, "reason": "", "cost_usd": 0.0, "error": f"no cell output to judge: {exc}"}
+
+    baseline_block = ""
+    if spec.baseline:
+        try:
+            baseline_text = Path(spec.baseline).expanduser().read_text(encoding="utf-8")
+            baseline_block = f"\n\n## Baseline (reference)\n\n{baseline_text}"
+        except OSError:
+            baseline_block = ""
+
+    judge_prompt = (
+        f"{spec.judge_rubric}{baseline_block}\n\n## Candidate output\n\n{output_text}\n\n"
+        'Return ONLY JSON: {"score": <0-10 number>, "reason": "<one sentence>"}'
+    )
+    judge_cell = {"model": spec.judge, "effort": "n/a", "context": "judge", "replicate": 0, "is_judge": True}
+    try:
+        result = dispatch(judge_cell, judge_prompt)
+    except (OSError, ValueError, TypeError, RuntimeError) as exc:
+        return {"score": None, "reason": "", "cost_usd": 0.0, "error": f"{exc}"}
+
+    score: float | None = None
+    reason = ""
+    raw = str(result.get("output", ""))
+    try:
+        start, end = raw.find("{"), raw.rfind("}")
+        parsed = json.loads(raw[start : end + 1]) if start >= 0 <= end else {}
+        if isinstance(parsed.get("score"), (int, float)):
+            score = float(parsed["score"])
+        reason = str(parsed.get("reason", ""))[:200]
+    except (json.JSONDecodeError, ValueError, TypeError):
+        reason = "unparseable judge output"
+    return {"score": score, "reason": reason, "cost_usd": float(result.get("cost_usd", 0.0)), "error": ""}
 
 
 def _live_dispatch(cell: dict[str, Any], full_prompt: str) -> dict[str, Any]:
@@ -374,8 +437,10 @@ def matrix_report(name: str, *, base_dir: str | None = None) -> str:
         groups.setdefault(f"{model}|{effort}|{ctx}", []).append((key, rec))
 
     lines = [f"  Matrix: {name}   spent ${manifest['spent_usd']:.4f}   cells {len(manifest['cells'])}"]
-    lines.append(f"  {'Group':<44} {'done':>4} {'cost$':>8} {'lat s':>7} {'self (uncalibrated)':>22} flags")
-    lines.append(f"  {'─' * 44} {'─' * 4} {'─' * 8} {'─' * 7} {'─' * 22} {'─' * 10}")
+    lines.append(
+        f"  {'Group':<44} {'done':>4} {'cost$':>8} {'lat s':>7} {'self (uncalibrated)':>22} {'judge':>11} flags"
+    )
+    lines.append(f"  {'─' * 44} {'─' * 4} {'─' * 8} {'─' * 7} {'─' * 22} {'─' * 11} {'─' * 10}")
     for group, members in sorted(groups.items()):
         label = code_by_group.get(group, group) if blind_hidden else group
         done = [r for _, r in members if r.get("status") == "done"]
@@ -404,7 +469,17 @@ def matrix_report(name: str, *, base_dir: str | None = None) -> str:
             flags.append("budget_exhausted")
         if "error" in statuses:
             flags.append("errors")
-        lines.append(f"  {label:<44} {len(done):>4} {cost:>8.4f} {lat:>7} {self_col:>22} {','.join(flags)}")
+        # -- req 051: external judge scores — unlike self-ratings these come
+        # -- from one consistent scorer, so cross-group comparison is fair
+        judge_scores = [
+            r["judge"]["score"]
+            for r in done
+            if isinstance(r.get("judge"), dict) and isinstance(r["judge"].get("score"), (int, float))
+        ]
+        judge_col = f"{statistics.mean(judge_scores):.1f} (n={len(judge_scores)})" if judge_scores else "-"
+        lines.append(
+            f"  {label:<44} {len(done):>4} {cost:>8.4f} {lat:>7} {self_col:>22} {judge_col:>11} {','.join(flags)}"
+        )
     if blind_hidden:
         lines.append(f"  (blind run — groups coded; `rondo matrix reveal {name}` to de-anonymize)")
     return "\n".join(lines)

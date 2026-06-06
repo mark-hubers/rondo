@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+# rondo-meta: mode=cli provider=multi category=experiment value="Experiment matrix WITH a judge: an external model scores every cell against your rubric — fair cross-model comparison, costed into the same budget."
+#
+# REQ-113 req 051 (RONDO-317). Self-ratings are uncalibrated — a model
+# grading its own homework. A JUDGE is one consistent external scorer
+# applied to every cell, so cross-group comparison is finally fair.
+# Judge dispatches are ordinary audited dispatches and count against
+# THIS SAME budget_usd (the ceiling is never optional).
+#
+# Run it:
+#   rondo matrix run examples/rounds/08-matrix-with-judge.yaml --dry-run  # free preview
+#   rondo matrix run examples/rounds/08-matrix-with-judge.yaml           # live (~$0.02)
+#   rondo matrix report judge-demo                                       # judge column appears
+#
+# Rules:
+#   - judge_rubric is REQUIRED with judge (refused at load otherwise)
+#   - a judge crash never kills the cell it was scoring
+#   - budget reached -> remaining judges skip with "budget_exhausted"
+
+name: judge-demo
+prompt: "Explain in one short paragraph why retrying a permanently-failed API call wastes money."
+models: [anthropic:claude-haiku-4-5-20251001, gemini:gemini-flash-latest]
+replicates: 2
+budget_usd: 0.50
+judge: "openai:gpt-5.4-mini"
+judge_rubric: "Score this explanation 0-10 for technical accuracy and brevity. Penalize filler phrases and anything over 5 sentences."

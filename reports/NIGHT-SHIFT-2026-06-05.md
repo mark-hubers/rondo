@@ -71,6 +71,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 00:5x | (wheel redeployed; installed rondo models verified live) | $0 | $0.1007 |
 | 01:3x | judge-demo matrix: 4 cells + 4 judge dispatches, 3 providers (RONDO-317) | $0.0025 | $0.1032 |
 | 01:4x | alias-tolerance canary claude-haiku-4-5 (RONDO-325) | $0.000026 | $0.1032 |
+| 09:0x | morning canaries: gemini:flash 404 proof, stranger cmds ×3, models --verify ×2 | ~$0.002 | $0.105 |
 
 ## TASK QUEUE (work top-down; update status as you go)
 | # | Task | Status | Sprint |

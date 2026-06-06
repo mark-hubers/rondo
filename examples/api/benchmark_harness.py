@@ -18,7 +18,7 @@ def main() -> int:
     result = json.loads(
         rondo_benchmark(
             prompt="List three realistic failure modes for a Python deployment pipeline.",
-            models=json.dumps(["gemini:gemini-2.5-flash", "grok:grok-3", "openai:gpt-4o-mini"]),
+            models=json.dumps(["gemini:gemini-flash-latest", "grok:grok-4.3", "openai:gpt-5.4-nano"]),
             dry_run=False,
         )
     )

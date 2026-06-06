@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+# rondo-meta: mode=matrix provider=anthropic,openai category=experiment value="Complete experiment-matrix definition: model x effort x replicates, blind, budgeted (REQ-113)."
+#
+# Experiment Matrix (REQ-113) — compare models like a scientist.
+# Run:    rondo matrix run examples/rounds/06-experiment-matrix.yaml --dry-run
+#         (shows the full grid + cost estimate, spends NOTHING)
+# Then:   drop --dry-run to execute · rondo matrix report demo-matrix
+#         rondo matrix reveal demo-matrix   (blind runs only)
+#
+# Every knob below is annotated. The grid = models × efforts × contexts ×
+# replicates. Effort applies only to thinking models (Opus 4.8-era) — other
+# models collapse to ONE cell per context/replicate, never duplicating spend.
+
+name: demo-matrix                    # results land in ~/.rondo/matrix/demo-matrix/
+
+# -- The task. Use prompt_file + inputs for big content:
+# --   prompt_file: prompts/task.md          (may contain {{essay}} placeholders)
+# --   inputs: {essay: drafts/essay.md}      (substituted before dispatch;
+# --                                          unresolved {{...}} ABORTS the run)
+prompt: "In exactly two sentences: what makes an API error message excellent?"
+
+models:                              # provider:model or provider:tier
+  - anthropic:claude-opus-4-8        # thinking model — sweeps the efforts axis
+  - openai:gpt-5.4-nano              # classic — efforts collapse to n/a
+
+efforts: [low, max]                  # thinking depth sweep (thinking models only)
+
+replicates: 2                        # n>1 → report shows mean ± stdev + noisy flag
+                                     # (n=1 is noisy — the lesson that built this)
+
+blind: true                          # outputs coded cell-A/cell-B... until reveal;
+                                     # mapping sealed with SHA-256 (tamper-evident)
+
+budget_usd: 0.25                     # HARD ceiling: estimate-abort BEFORE any
+                                     # dispatch + running-stop mid-run. Never optional.
+
+# -- Optional extras (uncomment to use):
+# contexts:                          # context-variant axis (BLIND vs INFORMED runs)
+#   bare: none
+#   informed: style-guide.md
+# baseline: previous-best-answer.md  # report adds length/structure deltas per cell

@@ -18,7 +18,7 @@ def main() -> int:
     first = json.loads(
         rondo_multi_review(
             prompt="Return 3 security checks for a Python API service.",
-            providers=json.dumps(["gemini:gemini-2.5-flash", "grok:grok-3"]),
+            providers=json.dumps(["gemini:gemini-flash-latest", "grok:grok-4.3"]),
             dry_run=False,
         )
     )

@@ -18,7 +18,7 @@ def main() -> int:
     result = json.loads(
         rondo_multi_review(
             prompt="Give two maintainability risks for a monolithic Python service.",
-            providers=json.dumps(["sonnet", "gemini:gemini-2.5-flash", "grok:grok-3"]),
+            providers=json.dumps(["sonnet", "gemini:gemini-flash-latest", "grok:grok-4.3"]),
             dry_run=False,
         )
     )

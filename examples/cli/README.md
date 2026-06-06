@@ -16,7 +16,7 @@ rondo "What is Docker and when should I use it?" --model gemini:default
 
 # Provider tiers (recommended shorthand — resolves via ~/.rondo/config.toml):
 #   gemini:high | gemini:default | gemini:low
-# Or full model ids: gemini:gemini-2.5-flash
+# Or full model ids: gemini:gemini-flash-latest
 
 # Pipe extra context on stdin
 echo "def foo(): pass" | rondo "Review this code for bugs" --model gemini:default
@@ -67,7 +67,7 @@ rondo history
 
 ## Scripted prompting (if/else on JSON)
 
-See **`examples/cli/scripted-prompting.sh`** — patterns for retry, confidence escalation, and pipelines using `jq`. Use **`gemini:default`** or **`gemini:gemini-2.5-flash`** in scripts; avoid bare `gemini:flash` (that passes model name `flash` to the API, which is not a valid Gemini model id).
+See **`examples/cli/scripted-prompting.sh`** — patterns for retry, confidence escalation, and pipelines using `jq`. Use **`gemini:default`** or **`gemini:gemini-flash-latest`** in scripts; avoid bare `gemini:flash` (that passes model name `flash` to the API, which is not a valid Gemini model id).
 
 ## New runnable CLI examples
 

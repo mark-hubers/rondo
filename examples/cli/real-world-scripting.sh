@@ -41,7 +41,7 @@ echo "--- Pattern 1: Multi-AI Code Review → Sprint Findings ---"
 ## for file in rondo/src/rondo/*.py; do
 ##     ## Ask 3 providers to review the same file
 ##     review_a=$(rondo "Review for security issues" --model gemini:flash --field issues < "$file")
-##     review_b=$(rondo "Review for security issues" --model grok:grok-3 --field issues < "$file")
+##     review_b=$(rondo "Review for security issues" --model grok:grok-4.3 --field issues < "$file")
 ##     review_c=$(rondo "Review for security issues" --model mistral:large --field issues < "$file")
 ##
 ##     ## Count how many providers found each issue type

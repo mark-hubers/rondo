@@ -33,7 +33,7 @@ def main() -> int:
     payload = _call_multi_review(
         {
             "prompt": "Vote yes/no: should we add Redis caching to this workflow? Give one reason.",
-            "providers": json.dumps(["gemini:flash", "openai:gpt-4.1-mini", "grok:grok-3-mini"]),
+            "providers": json.dumps(["gemini:flash", "openai:gpt-5.4-mini", "grok:grok-4.3"]),
             "dry_run": not args.live,
         }
     )

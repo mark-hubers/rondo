@@ -17,7 +17,7 @@ def main() -> None:
     """Demonstrate smart return validation and normalization."""
     # -- 1. Build a return prompt for a specific provider
     gemini_prompt = build_return_prompt(provider="gemini:flash")
-    grok_prompt = build_return_prompt(provider="grok:grok-3")
+    grok_prompt = build_return_prompt(provider="grok:grok-4.3")
     print(f"Gemini template: {len(gemini_prompt)} chars")
     print(f"Grok template: {len(grok_prompt)} chars")
 

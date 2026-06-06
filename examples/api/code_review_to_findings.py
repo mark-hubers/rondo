@@ -138,7 +138,7 @@ def multi_ai_review(code: str, *, timeout_sec: int, include_cloud: bool) -> dict
 
     if include_cloud:
         print("  Step 2: cross-check with cloud providers (HTTP adapters)…")
-        for provider in ("gemini:gemini-2.5-flash", "grok:grok-3"):
+        for provider in ("gemini:gemini-flash-latest", "grok:grok-4.3"):
             label = provider.split(":", 1)[0]
             got = one_review(
                 prompt=prompt,

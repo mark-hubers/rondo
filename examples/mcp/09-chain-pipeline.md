@@ -7,9 +7,9 @@ Use for find -> fix -> verify or similar multi-step prompt workflows.
 ```text
 rondo_chain(
     steps_json='[
-      {"prompt":"Find top 5 risks in this code block.", "model":"gemini:gemini-2.5-flash"},
+      {"prompt":"Find top 5 risks in this code block.", "model":"gemini:gemini-flash-latest"},
       {"prompt":"For each risk, propose a concrete fix.", "model":"sonnet"},
-      {"prompt":"Verify the proposed fixes and flag weak ones.", "model":"grok:grok-3"}
+      {"prompt":"Verify the proposed fixes and flag weak ones.", "model":"grok:grok-4.3"}
     ]',
     dry_run=False
 )

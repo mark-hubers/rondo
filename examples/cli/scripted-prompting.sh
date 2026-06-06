@@ -83,7 +83,7 @@ echo "  Would: find bugs → fix each → verify each → flag failures"
 echo ""
 echo "--- Pattern 4: Multi-AI Tiebreaker ---"
 ## review_a=$(rondo "Is this code safe?" --model gemini:default)
-## review_b=$(rondo "Is this code safe?" --model grok:grok-3)
+## review_b=$(rondo "Is this code safe?" --model grok:grok-4.3)
 ##
 ## passed_a=$(echo "$review_a" | jq -r '.passed')
 ## passed_b=$(echo "$review_b" | jq -r '.passed')

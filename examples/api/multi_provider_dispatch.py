@@ -21,7 +21,7 @@ from rondo.mcp_dispatch import rondo_run_file
 
 def main() -> None:
     """Dispatch to multiple providers (live HTTP/local adapters)."""
-    providers = ["gemini:gemini-2.5-flash", "grok:grok-3", "local:qwen2.5:32b"]
+    providers = ["gemini:gemini-flash-latest", "grok:grok-4.3", "local:qwen2.5:32b"]
     prompt = "Name 2 benefits of microservices."
 
     for provider in providers:

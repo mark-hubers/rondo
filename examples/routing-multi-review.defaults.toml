@@ -8,8 +8,8 @@
 # Core trio: Gemini + Grok; Mistral for security third opinion; OpenAI not required.
 
 [routing.multi_review]
-code-review = ["gemini:flash", "grok:grok-3"]
-analysis = ["gemini:flash", "grok:grok-3"]
-research = ["gemini:flash", "grok:grok-3"]
-security = ["gemini:flash", "grok:grok-3", "mistral:mistral-large-latest"]
-reasoning = ["gemini:gemini-2.5-pro", "mistral:mistral-large-latest"]
+code-review = ["gemini:flash", "grok:grok-4.3"]
+analysis = ["gemini:flash", "grok:grok-4.3"]
+research = ["gemini:flash", "grok:grok-4.3"]
+security = ["gemini:flash", "grok:grok-4.3", "mistral:mistral-large-latest"]
+reasoning = ["gemini:gemini-pro-latest", "mistral:mistral-large-latest"]

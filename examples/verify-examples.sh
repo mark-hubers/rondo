@@ -25,10 +25,14 @@ if [[ "$dr" -ne 0 && "$dr" -ne 1 ]]; then
   exit "$dr"
 fi
 
+echo "== matrix dry-run (REQ-113, no network) =="
+$RONDO matrix run examples/rounds/06-experiment-matrix.yaml --dry-run | head -3
+
 echo "== paths used in docs =="
 test -f examples/rounds/phases_overnight.py
 test -f examples/rounds/01-simple-review.yaml
 test -f examples/rounds/round_hello.py
+test -f examples/rounds/06-experiment-matrix.yaml
 echo "OK: example files exist"
 
 echo "== inline + --dry-run must fail (documents CLI limitation) =="

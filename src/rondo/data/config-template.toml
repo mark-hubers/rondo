@@ -25,7 +25,7 @@
 ##   best_model    = highest quality (architecture, deep analysis)
 ##
 ## Use tiers: rondo run round.py --model gemini:high
-## Use exact: rondo run round.py --model gemini:gemini-2.5-pro
+## Use exact: rondo run round.py --model gemini:gemini-pro-latest
 ##
 ## trust = "trusted" | "untrusted"  (RESERVED — not enforced yet)
 ##   Future: trusted receives any prompt, untrusted skipped for internal tasks.
@@ -33,25 +33,25 @@
 
 [providers.gemini]
 enabled = true
-cheap_model = "gemini-2.5-flash-lite"   ## low — cheapest Google model
-default_model = "gemini-2.5-flash"      ## mid — fast balanced review
-best_model = "gemini-2.5-pro"           ## high — deepest code review
+cheap_model = "gemini-flash-lite-latest"   ## low — cheapest Google model
+default_model = "gemini-flash-latest"      ## mid — fast balanced review
+best_model = "gemini-pro-latest"           ## high — deepest code review
 trust = "trusted"
 ## Key: GEMINI_API_KEY env var, or macOS Keychain ace.ai-key.gemini
 
 [providers.openai]
 enabled = true
-cheap_model = "gpt-4o-mini"            ## low — cheapest OpenAI
-default_model = "gpt-4.1-mini"         ## mid — balanced code + cost
-best_model = "gpt-4.1"                 ## high — best for deep code review
+cheap_model = "gpt-5.4-nano"            ## low — cheapest OpenAI
+default_model = "gpt-5.4-mini"         ## mid — balanced code + cost
+best_model = "gpt-5.5"                 ## high — best for deep code review
 trust = "trusted"
 ## Key: OPENAI_API_KEY env var, or macOS Keychain ace.ai-key.openai
 
 [providers.grok]
 enabled = true
-cheap_model = "grok-3-mini"
-default_model = "grok-3"
-best_model = "grok-3"
+cheap_model = "grok-4.3"
+default_model = "grok-4.3"
+best_model = "grok-4.3"
 trust = "untrusted"
 ## Key: XAI_API_KEY env var, or macOS Keychain ace.ai-key.grok
 
@@ -67,7 +67,7 @@ trust = "trusted"
 enabled = true
 cheap_model = "claude-haiku-4-5"
 default_model = "claude-sonnet-4-6"
-best_model = "claude-opus-4-6"
+best_model = "claude-opus-4-8"
 trust = "trusted"
 ## Key: ANTHROPIC_API_KEY env var, or macOS Keychain ace.ai-key.anthropic
 
@@ -131,23 +131,23 @@ description = "Security audit — 3 independent perspectives"
 ## Format: task_type = "provider:model"
 
 [routing.task_models]
-code-review = "gemini:gemini-2.5-flash"
-code-fix = "gemini:gemini-2.5-flash"
-code-generate = "gemini:gemini-2.5-flash"
-reasoning = "gemini:gemini-2.5-flash"
-math = "gemini:gemini-2.5-flash"
-logic = "gemini:gemini-2.5-flash"
+code-review = "gemini:gemini-flash-latest"
+code-fix = "gemini:gemini-flash-latest"
+code-generate = "gemini:gemini-flash-latest"
+reasoning = "gemini:gemini-flash-latest"
+math = "gemini:gemini-flash-latest"
+logic = "gemini:gemini-flash-latest"
 classify = "local:llama3.1:8b"
 scan = "local:llama3.1:8b"
 filter = "local:llama3.1:8b"
-structured-json = "gemini:gemini-2.5-flash"
-extract = "gemini:gemini-2.5-flash"
-summarize = "gemini:gemini-2.5-flash"
-general = "gemini:gemini-2.5-flash"
-research = "gemini:gemini-2.5-flash"
-analysis = "gemini:gemini-2.5-flash"
+structured-json = "gemini:gemini-flash-latest"
+extract = "gemini:gemini-flash-latest"
+summarize = "gemini:gemini-flash-latest"
+general = "gemini:gemini-flash-latest"
+research = "gemini:gemini-flash-latest"
+analysis = "gemini:gemini-flash-latest"
 security = "mistral:mistral-large-latest"
 
 [routing.multi_review]
-## code-review = ["gemini:gemini-2.5-flash", "grok:grok-3"]
-## security = ["gemini:gemini-2.5-flash", "grok:grok-3", "mistral:mistral-large-latest"]
+## code-review = ["gemini:gemini-flash-latest", "grok:grok-4.3"]
+## security = ["gemini:gemini-flash-latest", "grok:grok-4.3", "mistral:mistral-large-latest"]

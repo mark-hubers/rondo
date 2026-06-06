@@ -21,7 +21,7 @@ tasks:
 
   - name: api-review
     instruction: "Review all public API endpoints for consistency and documentation"
-    model: grok:grok-3
+    model: grok:grok-4.3
     done_when: "List endpoints with their HTTP methods, params, and doc status"
 
   - name: test-gaps

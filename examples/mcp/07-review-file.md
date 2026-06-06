@@ -17,7 +17,7 @@ Variation:
 ```text
 rondo_review_file(
     path="/absolute/path/to/src/module.py",
-    providers='["gemini:gemini-2.5-flash","grok:grok-3"]',
+    providers='["gemini:gemini-flash-latest","grok:grok-4.3"]',
     dry_run=False
 )
 ```

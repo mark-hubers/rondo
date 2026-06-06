@@ -7,7 +7,7 @@ Provider-prefixed models bypass execution mode and route HTTP adapters.
 ```text
 rondo_run(
     prompt="Summarize this architecture in 6 bullets with tradeoffs.",
-    model="gemini:gemini-2.5-flash",
+    model="gemini:gemini-flash-latest",
     execution="inline",
     dry_run=False
 )

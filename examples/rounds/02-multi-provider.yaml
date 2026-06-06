@@ -15,7 +15,7 @@ tasks:
 
   - name: grok-review
     instruction: "Review this code for security vulnerabilities"
-    model: grok:grok-3
+    model: grok:grok-4.3
     done_when: "List vulnerabilities with severity ratings"
 
   - name: local-review

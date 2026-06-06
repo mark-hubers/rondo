@@ -7,7 +7,7 @@ Send one prompt to multiple providers and merge findings.
 ```text
 rondo_multi_review(
     prompt="Review this design for security and reliability issues.",
-    providers='["gemini:gemini-2.5-flash", "grok:grok-3", "mistral:mistral-large-latest"]',
+    providers='["gemini:gemini-flash-latest", "grok:grok-4.3", "mistral:mistral-large-latest"]',
     dry_run=False
 )
 ```

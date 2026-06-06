@@ -12,7 +12,7 @@ They are designed as:
 
 -PASS- These are MCP tool calls, not shell commands.
 -PASS- Most examples are live by default (`dry_run=False` where supported).
--WARNING- Provider-prefixed model strings should be full IDs (for example `gemini:gemini-2.5-flash`), not shorthand like `gemini:flash`.
+-WARNING- Provider-prefixed model strings should be full IDs (for example `gemini:gemini-flash-latest`), not shorthand like `gemini:flash`.
 
 ## 13 MCP Examples
 

@@ -19,7 +19,7 @@ echo ""
 
 # -- Provider-prefix dispatch (HTTP adapter path)
 echo "[2/2] Provider-prefixed model dispatch (HTTP path):"
-rondo "Give 2 architecture risks in bullet form." --model gemini:gemini-2.5-flash
+rondo "Give 2 architecture risks in bullet form." --model gemini:gemini-flash-latest
 echo ""
 
 echo "-PASS- CLI example completed"

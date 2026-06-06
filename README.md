@@ -52,6 +52,26 @@ rondo "review this design for top 3 risks"
 More setup and modes: `docs/GETTING-STARTED.md`.
 Fastest onboarding path: `docs/GETTING-STARTED-WOW.md`.
 
+## Signature Capabilities (June 2026)
+
+```bash
+rondo matrix run exp.yaml --dry-run     # model × effort × context experiment grids:
+                                        # budgeted, blind-scorable, resumable (REQ-113)
+rondo providers --refresh --drift       # catch retired models BEFORE dispatches 404
+rondo providers --scores                # 7-day learned model performance (auto-tune)
+rondo retryq list                       # self-classifying retry queue (dead-letter, aging)
+rondo metrics                           # 7d/30d reliability scoreboard vs 95% target
+```
+
+Thinking models (Opus 4.8-era) are handled automatically: adaptive thinking,
+effort control, output headroom, and **streamed dispatch** with an event
+watchdog — a model may think for many minutes safely. Every failure carries
+the provider's own explanation into the audit trail.
+
+**The documentation IS the examples**: 90 real, dispatch-verified files under
+`examples/` (start at `examples/INDEX.md`), re-validated by
+`examples/verify-examples.sh` after every provider change.
+
 ---
 
 ## Three Ways To Use Rondo

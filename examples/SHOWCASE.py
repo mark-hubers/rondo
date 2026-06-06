@@ -189,10 +189,10 @@ def section_multi_provider_fanout() -> str:
     """Section 4: five-cloud fan-out; degrade gracefully on dead providers."""
     prompt = 'Return JSON only: {"provider":"<name>","benefit":"one-line"}'
     models = [
-        "gemini:gemini-2.5-flash",
-        "grok:grok-3",
+        "gemini:gemini-flash-latest",
+        "grok:grok-4.3",
         "mistral:mistral-large-latest",
-        "openai:gpt-4o-mini",
+        "openai:gpt-5.4-nano",
         "anthropic:claude-sonnet-4-6",
     ]
     passed = 0
@@ -238,8 +238,8 @@ def section_consensus_tiebreaker() -> str:
     )
     voters = [
         "anthropic:claude-haiku-4-5",
-        "gemini:gemini-2.5-flash",
-        "openai:gpt-4o-mini",
+        "gemini:gemini-flash-latest",
+        "openai:gpt-5.4-nano",
     ]
     votes: list[str] = []
     for model in voters:

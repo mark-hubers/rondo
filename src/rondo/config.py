@@ -490,6 +490,31 @@ def _validate_config(data: dict[str, Any]) -> dict[str, Any]:
 _raw_config: dict[str, Any] | None = None
 
 
+def discover_config_path() -> Path:
+    """Resolve the config file path — RONDO-331 (SOP-105 P1-2).
+
+    First EXISTING file wins:
+        1. $RONDO_CONFIG               (explicit override — power users, CI)
+        2. $XDG_CONFIG_HOME/rondo/config.toml
+        3. ~/.config/rondo/config.toml (XDG default)
+        4. ~/.rondo/config.toml        (legacy — honored forever)
+
+    A pointer to a missing file falls through to the next tier — a broken
+    env var never strands the user. When NOTHING exists, returns the
+    legacy path (callers already handle absence as zero-config defaults).
+    """
+    explicit = os.environ.get("RONDO_CONFIG", "")
+    if explicit and Path(explicit).is_file():
+        return Path(explicit)
+
+    xdg_base = os.environ.get("XDG_CONFIG_HOME", "") or str(Path.home() / ".config")
+    xdg_path = Path(xdg_base) / "rondo" / "config.toml"
+    if xdg_path.is_file():
+        return xdg_path
+
+    return Path.home() / ".rondo" / "config.toml"
+
+
 def get_rondo_config(config_path: str = "") -> dict[str, Any]:
     """Load and cache raw ~/.rondo/config.toml as dict.
 
@@ -518,7 +543,8 @@ def get_rondo_config(config_path: str = "") -> dict[str, Any]:
         if _raw_config is not None and not config_path:
             return _raw_config
 
-    path = Path(config_path) if config_path else Path.home() / ".rondo" / "config.toml"
+    # -- RONDO-331 (P1-2): XDG-aware discovery; ~/.rondo honored as legacy
+    path = Path(config_path) if config_path else discover_config_path()
     if path.is_file():
         # -- REQ-109 req 090: permission check (POSIX only)
         try:

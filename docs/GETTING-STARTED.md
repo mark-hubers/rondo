@@ -21,7 +21,7 @@ From the repo (editable install):
 cd rondo && pip install -e .
 ```
 
-Requires **Python 3.12+**. Configure providers and keys in `~/.rondo/config.toml` (template: `rondo init --config`, or copy `examples/config.toml`).
+Requires **Python 3.12+**. Configure providers and keys in `~/.config/rondo/config.toml` (XDG) or `~/.rondo/config.toml` — both honored; `$RONDO_CONFIG` overrides (template: `rondo init --config`, or copy `examples/config.toml`). Keys come from env vars first (`OPENAI_API_KEY`, `GEMINI_API_KEY`, ...).
 
 ### One command, JSON back
 

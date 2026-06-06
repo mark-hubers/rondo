@@ -3,7 +3,9 @@
 ## ═══════════════════════════════════════════════════════════════
 ##
 ## This file configures AI providers, tiers, and cloud dispatch.
-## Copy to ~/.rondo/config.toml and edit for your setup.
+## Copy to ~/.config/rondo/config.toml (XDG) or ~/.rondo/config.toml
+## (legacy — honored forever). Discovery order (first existing wins):
+##   $RONDO_CONFIG → $XDG_CONFIG_HOME/rondo/ → ~/.config/rondo/ → ~/.rondo/
 ##
 ## Create automatically: rondo init --config
 ## Validate all models:  pytest -m cloud_full -v -s

@@ -40,7 +40,7 @@ Score target: independent hostile re-review ≥ 8/10 public.
 | ID | Item | Effort | Consensus |
 |----|------|--------|-----------|
 | P1-1 | **Cross-platform credentials** — ✅ VERIFIED ALREADY BUILT (2026-06-06): env-first chain with all 5 standard names → Keychain → 1Password. Remaining: optional `keyring` lib for Win/Linux secure storage | M | 4/4 |
-| P1-2 | **Cross-platform config**: XDG base dirs (`~/.config/rondo`), project-local `rondo.toml`, env overrides; `~/.rondo` honored as legacy | M | 3/4 |
+| P1-2 | **Cross-platform config** — ✅ CORE DONE (RONDO-331): $RONDO_CONFIG → XDG → ~/.config/rondo → ~/.rondo legacy chain; broken env var falls through. Remaining: project-local rondo.toml merge | M | 3/4 |
 | P1-3 | **Round-file trust model** — ✅ DONE (RONDO-330, 2026-06-06): `.py` rounds + phases files gated at the EXECUTOR; `--allow-python-rounds` or `[security] allow_python_rounds`; loud 3-option refusal; template ships deny-by-default; proven live on a config-less machine | M | 4/4 |
 | P1-4 | **CI**: GitHub Actions matrix (Linux/macOS/Windows × Py 3.12+), repo-fixture corpus gates (NOT local-only — Cursor's indictment), release automation | M | 4/4 |
 | P1-5 | **Packaging**: PyPI + pipx; console entry point already exists; name collision check ("rondo" on PyPI?) | M | 4/4 |

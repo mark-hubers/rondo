@@ -261,7 +261,7 @@ def derive_auto_tiers(cache: dict[str, Any], providers_cfg: dict[str, dict[str, 
                 continue  # -- embeddings/moderation/audio/image never enter text tiers
             buckets[_capability_class(model)].append(model)
         picks = {cls: _pick_from_bucket(bucket) for cls, bucket in buckets.items() if bucket}
-        ## -- req 608 collapse ladder: "next best" fills the gaps
+        # -- req 608 collapse ladder: "next best" fills the gaps
         high = picks.get("high") or picks.get("mid") or picks.get("low") or ""
         mid = picks.get("mid") or high
         low = picks.get("low") or mid
@@ -379,3 +379,6 @@ def format_verify_table(rows: list[dict[str, Any]]) -> str:
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a8.mr305b
+
+
+# -- sig: mgh-6201.cd.bd955f.016c.f2b27b

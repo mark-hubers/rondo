@@ -168,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     init_parser.add_argument("--name", default="my-round", help="Round name (default: my-round)")
     init_parser.add_argument("--config", action="store_true", help="Create ~/.rondo/config.toml from template")
 
-    ## -- schedule subcommand (REQ-101 scheduling; RONDO-314 adds --cmd)
+    # -- schedule subcommand (REQ-101 scheduling; RONDO-314 adds --cmd)
     sched_parser = subparsers.add_parser("schedule", help="Create launchd plist for recurring dispatch")
     sched_parser.add_argument("file", nargs="?", default="", help="Round file to schedule")
     sched_parser.add_argument(
@@ -179,7 +179,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     sched_parser.add_argument("--model", default=None, help="Model override")
     sched_parser.add_argument("--install", action="store_true", help="Install plist to ~/Library/LaunchAgents/")
 
-    ## -- doctor subcommand (RONDO-320: install diagnosis — REQ-103 030-036)
+    # -- doctor subcommand (RONDO-320: install diagnosis — REQ-103 030-036)
     doctor_parser = subparsers.add_parser(
         "doctor", help="Diagnose this Rondo install: config, keys (redacted), registry, dirs — zero dispatches"
     )
@@ -188,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
         "--bundle", action="store_true", help="Write a redacted support bundle file for issue reports"
     )
 
-    ## -- models subcommand (RONDO-316: auto-tiers + canary — REQ-111 604-610)
+    # -- models subcommand (RONDO-316: auto-tiers + canary — REQ-111 604-610)
     models_parser = subparsers.add_parser(
         "models", help="Model registry tools: --verify canary, --tiers derived auto-tiers"
     )
@@ -200,7 +200,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     )
     models_parser.add_argument("--json", action="store_true", help="JSON output")
 
-    ## -- nightly subcommand (RONDO-314: the watchdog — finding #285)
+    # -- nightly subcommand (RONDO-314: the watchdog — finding #285)
     nightly_parser = subparsers.add_parser(
         "nightly", help="Watchdog sweep: registry drift + retryq sweep + 7d reliability; alerts on failure"
     )
@@ -298,7 +298,7 @@ def _add_common_flags(parser: argparse.ArgumentParser) -> None:
 #  Config construction — COALESCE: CLI → TOML → defaults
 # ──────────────────────────────────────────────────────────────────
 
-## -- CLI arg name → RondoConfig field name (for non-None override)
+# -- CLI arg name → RondoConfig field name (for non-None override)
 _ARG_TO_CONFIG = {
     "workers": "workers",
     "model": "default_model",
@@ -312,7 +312,7 @@ _ARG_TO_CONFIG = {
     "project": "project",
 }
 
-## -- CLI boolean flags (store_true) → RondoConfig field name
+# -- CLI boolean flags (store_true) → RondoConfig field name
 _BOOL_FLAGS = {
     "dry_run": "dry_run",
     "verbose": "verbose",
@@ -498,6 +498,61 @@ def _inject_return_template(prompt: str, model: str) -> str:
         return prompt
 
 
+def _provider_task_result(task: Any, round_def: Round, provider: Any, config: RondoConfig, audit_trail: Any) -> Any:
+    """One adapter-path task: intent → dispatch → shared finalize — REQ-109 req 026.
+
+    Extracted from _dispatch_with_provider (RONDO-322 complexity lock).
+    """
+    from rondo.dispatch import _finalize_dispatch  # pylint: disable=import-outside-toplevel
+    from rondo.engine import DispatchUsage, TaskResult  # pylint: disable=import-outside-toplevel
+
+    if config.dry_run:
+        return TaskResult(
+            task_name=task.name,
+            status="skipped",
+            prompt_sent=(task.instruction or "")[:500],
+            model=config.default_model,
+        )
+    # -- Audit INTENT before dispatch
+    audit_record = None
+    if audit_trail:
+        audit_record = audit_trail.record_intent(
+            task_name=task.name,
+            round_name=round_def.name,
+            model=config.default_model,
+            prompt=task.instruction or "",
+            task_type=getattr(task, "task_type", "") or "",
+        )
+    dispatch_prompt = _inject_return_template(task.instruction or "", config.default_model)
+    tr = provider.dispatch(prompt=dispatch_prompt, model=config.default_model, task_name=task.name)
+    usage = DispatchUsage(task_name=task.name, model=config.default_model, cost_usd=tr.cost_usd or 0.0)
+    # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
+    tr, _usage = _finalize_dispatch(tr, usage, config, audit_trail, audit_record, round_name=round_def.name)
+    return tr
+
+
+def _provider_down_result(round_name: str, provider_name: str, model: str) -> Any:
+    """REQ-109 req 016 error result — extracted from _dispatch_with_provider
+    (RONDO-322 complexity lock)."""
+    from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+
+    message = f"Provider '{provider_name}' is down and no healthy fallback configured"
+    print(f"  -ERROR- {message}", file=sys.stderr)
+    return RoundResult(
+        round_name=round_name,
+        status="error",
+        task_results=[
+            TaskResult(
+                task_name="dispatch",
+                status="error",
+                error_code="ERR_PROVIDER_DOWN",
+                error_message=message,
+                model=model,
+            )
+        ],
+    )
+
+
 def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     """REQ-109 req 026-027: route to provider adapter or Claude run_round.
 
@@ -512,22 +567,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     # -- REQ-109 req 016: all providers down + no fallback → error, NOT Claude
     provider_name, _ = parse_model(config.default_model)
     if provider is None and provider_name and not resolved_model:
-        from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
-
-        print(f"  -ERROR- Provider '{provider_name}' is down and no healthy fallback configured", file=sys.stderr)
-        return RoundResult(
-            round_name=round_def.name,
-            status="error",
-            task_results=[
-                TaskResult(
-                    task_name="dispatch",
-                    status="error",
-                    error_code="ERR_PROVIDER_DOWN",
-                    error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
-                    model=config.default_model,
-                )
-            ],
-        )
+        return _provider_down_result(round_def.name, provider_name, config.default_model)
 
     if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
@@ -542,34 +582,9 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
             except (OSError, TypeError):
                 pass
 
-        task_results = []
-        for task in round_def.tasks:
-            if config.dry_run:
-                task_results.append(
-                    TaskResult(
-                        task_name=task.name,
-                        status="skipped",
-                        prompt_sent=(task.instruction or "")[:500],
-                        model=config.default_model,
-                    )
-                )
-            else:
-                # -- Audit INTENT before dispatch
-                audit_record = None
-                if audit_trail:
-                    audit_record = audit_trail.record_intent(
-                        task_name=task.name,
-                        round_name=round_def.name,
-                        model=config.default_model,
-                        prompt=task.instruction or "",
-                        task_type=getattr(task, "task_type", "") or "",
-                    )
-                dispatch_prompt = _inject_return_template(task.instruction or "", config.default_model)
-                tr = provider.dispatch(prompt=dispatch_prompt, model=config.default_model, task_name=task.name)
-                usage = DispatchUsage(task_name=task.name, model=config.default_model, cost_usd=tr.cost_usd or 0.0)
-                # -- REQ-109 req 026: shared finalization (audit OUTCOME, sanitize, spool, history, metrics)
-                tr, usage = _finalize_dispatch(tr, usage, config, audit_trail, audit_record, round_name=round_def.name)
-                task_results.append(tr)
+        task_results = [
+            _provider_task_result(task, round_def, provider, config, audit_trail) for task in round_def.tasks
+        ]
         ok = {"done", "skipped"}
         return RoundResult(
             round_name=round_def.name,

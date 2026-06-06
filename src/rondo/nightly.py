@@ -27,9 +27,9 @@ from typing import Any
 
 from rondo.notify import notify_watchdog
 
-## -- the campaign goal: 95% dispatch reliability (STD-101 scoreboard target)
+# -- the campaign goal: 95% dispatch reliability (STD-101 scoreboard target)
 RELIABILITY_FLOOR = 0.95
-## -- minimum 7d volume before a low rate is signal rather than noise
+# -- minimum 7d volume before a low rate is signal rather than noise
 RELIABILITY_MIN_VOLUME = 10
 
 
@@ -101,18 +101,18 @@ def run_nightly_check(*, refresh: bool = True, notify_alerts: bool = True) -> Ni
     """
     report = NightlyReport()
 
-    ## -- 1) model registry drift: a STALE model means tomorrow's dispatch 404s
+    # -- 1) model registry drift: a STALE model means tomorrow's dispatch 404s
     try:
         report.drift = _gather_drift(refresh)
-        ## -- drift_report entries carry "state" (NOT "status") — guarded by
-        ## -- test_drift_alert_uses_real_drift_report_shape
+        # -- drift_report entries carry "state" (NOT "status") — guarded by
+        # -- test_drift_alert_uses_real_drift_report_shape
         for entry in report.drift:
             if entry.get("state") in ("STALE", "NO_CACHE"):
                 report.alerts.append(f"{entry.get('provider')}: {entry.get('model')} is {entry.get('state')}")
     except (OSError, ValueError, KeyError) as exc:
         report.alerts.append(f"drift check failed: {exc}")
 
-    ## -- 2) retry queue: sweep rot to dead-letter, alert on depth
+    # -- 2) retry queue: sweep rot to dead-letter, alert on depth
     try:
         report.retry_sweep = _sweep_retryq()
         if report.retry_sweep.get("queue_alert"):
@@ -120,7 +120,7 @@ def run_nightly_check(*, refresh: bool = True, notify_alerts: bool = True) -> Ni
     except (OSError, ValueError, KeyError) as exc:
         report.alerts.append(f"retry sweep failed: {exc}")
 
-    ## -- 3) reliability: 7d rate below the 95% floor (with volume) is an alert
+    # -- 3) reliability: 7d rate below the 95% floor (with volume) is an alert
     try:
         reliability = _compute_reliability()
         report.success_rate_7d = reliability.get("success_rate_7d")
@@ -138,3 +138,6 @@ def run_nightly_check(*, refresh: bool = True, notify_alerts: bool = True) -> Ni
         if notify_alerts:
             notify_watchdog(report.alerts, title="Rondo nightly watchdog")
     return report
+
+
+# -- sig: mgh-6201.cd.bd955f.9b9b.fde460

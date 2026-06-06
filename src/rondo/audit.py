@@ -576,9 +576,9 @@ class AuditTrail:
                 f.flush()
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             except (ImportError, OSError) as lock_exc:
-                ## -- Windows or lock failure: write without lock (best-effort).
-                ## -- RONDO-216 C3: append-only JSONL is POSIX-atomic for <PIPE_BUF,
-                ## -- so best-effort write is safe for small records. But log a warning.
+                # -- Windows or lock failure: write without lock (best-effort).
+                # -- RONDO-216 C3: append-only JSONL is POSIX-atomic for <PIPE_BUF,
+                # -- so best-effort write is safe for small records. But log a warning.
                 logger.warning("Audit append without lock (best-effort): %s", lock_exc)
                 f.write(line)
 

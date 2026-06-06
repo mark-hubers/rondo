@@ -149,7 +149,7 @@ Execution defaults when `execution=""`:
 
 ---
 
-## CLI Commands (19)
+## CLI Commands (24)
 
 | Command | What it does |
 |---------|-------------|
@@ -172,6 +172,12 @@ Execution defaults when `execution=""`:
 | `rondo schedule <file>` | Create recurring launchd schedule |
 | `rondo mcp` | Start MCP stdio server for Claude Code |
 | `rondo version [--bump]` | Show version or bump build counter (RONDO-290) |
+| `rondo learn` | Compute 7-day provider scores from dispatch history (REQ-111) |
+| `rondo matrix run\|status\|report\|reveal` | Experiment grids: model × effort × context, budgeted + blind (REQ-113) |
+| `rondo retryq list\|sweep\|drain\|purge-dead` | Retry queue lifecycle: classify, dead-letter, drain (STD-108) |
+| `rondo nightly` | Watchdog sweep: drift + retryq + 7d reliability; alerts on failure (RONDO-314) |
+| `rondo models --tiers\|--verify` | Derived auto-tiers (free) + live canary per configured model (RONDO-316) |
+| `rondo doctor [--bundle]` | Install diagnosis + redacted support bundle (RONDO-320) |
 
 ---
 

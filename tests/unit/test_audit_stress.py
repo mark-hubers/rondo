@@ -10,6 +10,8 @@ campaign rule is VERIFY-FIRST: this test decides whether the flock layer
 is built at all. If ≥25 concurrent workers cannot produce a false-stuck or
 a duplicate/torn record, the heuristic stands and the flock work is closed
 as not-needed (with this test as the permanent guard).
+
+VER-001 verification matrix: concurrent audit writes stay uncorrupted.
 """
 
 import json
@@ -74,3 +76,6 @@ class TestCrossProcessAuditStress:
 
 
 # -- sig: mgh-6201.cd.bd955f.f1aa.st310a
+
+
+# -- sig: mgh-6201.cd.bd955f.0f9e.d369b4

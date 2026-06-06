@@ -6,6 +6,8 @@ Scores were per-MODEL only: a model great at summarizing but bad at code
 review got one blended score. The affinity chain: task_type rides the
 AuditRecord → scoring groups by (task_type, model) → recommend_model
 prefers the task-level learned winner over the global one.
+
+VER-001 verification matrix: per-task scoring and learned routing.
 """
 
 from __future__ import annotations
@@ -155,3 +157,6 @@ class TestRecommendModelAffinity:
         from rondo.providers import recommend_model
 
         assert recommend_model("never-seen-task") == "sonnet"
+
+
+# -- sig: mgh-6201.cd.bd955f.eef0.7cffbf

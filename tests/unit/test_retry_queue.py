@@ -5,6 +5,8 @@
 Driver: 50 stale files in ~/.rondo/retry/, 60% ERR_SUBPROCESS_FOOTGUN
 (permanent blocks that can NEVER succeed on retry). The queue was a
 write-only bin: no classification, no aging, no alerting.
+
+VER-001 verification matrix: retry classification, sweep, dead-letter.
 """
 
 import json
@@ -152,3 +154,6 @@ class TestListQueue:
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a7.rq303a
+
+
+# -- sig: mgh-6201.cd.bd955f.7c4b.62c8ee

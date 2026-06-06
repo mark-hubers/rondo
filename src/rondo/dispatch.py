@@ -711,6 +711,61 @@ def finalize_dispatch(
     return _finalize_dispatch(result, usage, config, audit_trail, audit_record, round_name=round_name)
 
 
+def _rate_json_response(result: TaskResult) -> tuple[bool | None, bool | None]:
+    """REQ-111 reqs 440-441: auto-rate JSON response quality.
+
+    Extracted from _finalize_dispatch (RONDO-322 complexity lock).
+    """
+    if not (result.raw_output and result.status == "done"):
+        return None, None
+    try:
+        from rondo.smart_return import validate_return_json  # pylint: disable=import-outside-toplevel
+
+        rating = validate_return_json(result.raw_output)
+        return rating.get("_json_valid"), rating.get("_fields_complete")
+    except (ImportError, TypeError, ValueError):
+        return None, None  # -- smart_return not available or response not ratable
+
+
+def _write_audit_outcome(
+    result: TaskResult,
+    usage: DispatchUsage,
+    audit_trail: AuditTrail,
+    audit_record: object,
+    round_name: str,
+) -> None:
+    """STD-113 OUTCOME write with forensics — extracted from _finalize_dispatch.
+
+    Best-effort: an audit write failure never breaks the dispatch result.
+    """
+    json_valid, fields_complete = _rate_json_response(result)
+    try:
+        audit_trail.record_outcome(
+            dispatch_id=audit_record.dispatch_id,
+            task_name=result.task_name,
+            round_name=round_name,
+            model=result.model,
+            status=result.status,
+            exit_code=result.exit_code or 0,
+            error_code=result.error_code,
+            cost_usd=usage.cost_usd,
+            duration_sec=result.duration_sec,
+            raw_output=result.raw_output,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            files_modified=result.files_modified,
+            json_valid=json_valid,
+            fields_complete=fields_complete,
+            # -- STD-113 reqs 021-026 (RONDO-301): forensics — failures
+            # -- carry their own explanation into the audit trail.
+            error_message=result.error_message or "",
+            stderr=result.stderr or "",
+            blocked_reason=((result.parsed_result or {}).get("question", "") if result.status == "blocked" else ""),
+        )
+    except (OSError, TypeError) as exc:
+        logger.debug("Audit outcome failed (non-fatal): %s", exc)
+
+
 def _finalize_dispatch(
     result: TaskResult,
     usage: DispatchUsage,
@@ -738,46 +793,9 @@ def _finalize_dispatch(
     except (TypeError, AttributeError) as exc:
         logger.debug("Sanitize failed (non-fatal): %s", exc)
 
-    # -- REQ-111 reqs 440-441: auto-rate JSON response quality
-    _json_valid = None
-    _fields_complete = None
-    if result.raw_output and result.status == "done":
-        try:
-            from rondo.smart_return import validate_return_json  # pylint: disable=import-outside-toplevel
-
-            rating = validate_return_json(result.raw_output)
-            _json_valid = rating.get("_json_valid")
-            _fields_complete = rating.get("_fields_complete")
-        except (ImportError, TypeError, ValueError):
-            pass  # -- smart_return not available or response not ratable
-
-    # -- STD-113: record audit OUTCOME (now with sanitized raw_output + auto-rating)
+    # -- STD-113: record audit OUTCOME (sanitized raw_output + auto-rating)
     if audit_trail and audit_record:
-        try:
-            audit_trail.record_outcome(
-                dispatch_id=audit_record.dispatch_id,
-                task_name=result.task_name,
-                round_name=round_name,
-                model=result.model,
-                status=result.status,
-                exit_code=result.exit_code or 0,
-                error_code=result.error_code,
-                cost_usd=usage.cost_usd,
-                duration_sec=result.duration_sec,
-                raw_output=result.raw_output,
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-                files_modified=result.files_modified,
-                json_valid=_json_valid,
-                fields_complete=_fields_complete,
-                # -- STD-113 reqs 021-026 (RONDO-301): forensics — failures
-                # -- carry their own explanation into the audit trail.
-                error_message=result.error_message or "",
-                stderr=result.stderr or "",
-                blocked_reason=((result.parsed_result or {}).get("question", "") if result.status == "blocked" else ""),
-            )
-        except (OSError, TypeError) as exc:
-            logger.debug("Audit outcome failed (non-fatal): %s", exc)
+        _write_audit_outcome(result, usage, audit_trail, audit_record, round_name)
 
     # -- REQ-101 req 045: spool only for async/overnight callers
     if config.spool_enabled:
@@ -814,7 +832,7 @@ def _build_subprocess_cmd(
     REQ-100 reqs 047-049: --permission-mode from config.
     REQ-100 reqs 071-073: --bare for automated dispatch.
     """
-    ## -- Finding #177: prompt piped via stdin, not CLI arg (ARG_MAX safe)
+    # -- Finding #177: prompt piped via stdin, not CLI arg (ARG_MAX safe)
     cmd = [
         config.claude_binary,
         "-p",
@@ -884,7 +902,7 @@ def _add_claude_p_flags(cmd: list[str], config: RondoConfig) -> None:
         cmd.extend(["--max-turns", str(config.claude_p_max_turns)])
     if config.claude_p_add_dir:
         cmd.extend(["--add-dir", config.claude_p_add_dir])
-    ## -- RONDO-261: single --json-schema — claude_p_json_schema first, else legacy json_schema ("auto" → canonical)
+    # -- RONDO-261: single --json-schema — claude_p_json_schema first, else legacy json_schema ("auto" → canonical)
     schema_for_cli = config.claude_p_json_schema
     if not schema_for_cli:
         schema_for_cli = RONDO_RESULT_SCHEMA if config.json_schema == "auto" else config.json_schema
@@ -964,7 +982,7 @@ def _run_subprocess(
         env=env,
         cwd=cwd or None,
     )
-    ## -- Write prompt to stdin if provided
+    # -- Write prompt to stdin if provided
     if stdin_text and proc.stdin:
         proc.stdin.write(stdin_text)
         proc.stdin.close()

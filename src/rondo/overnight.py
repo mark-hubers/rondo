@@ -152,6 +152,35 @@ def _overnight_preflight(config: RondoConfig) -> bool:
         return True
 
 
+def _sweep_retry_queue_at_start(event_log: EventLog) -> None:
+    """STD-108 reqs 015-017 (RONDO-303): retry-queue sweep at run start.
+
+    Permanent/expired entries dead-letter; depth alert goes to the event
+    log (and the morning report carries it). Best-effort, never blocks.
+    Extracted from run_overnight (RONDO-322 complexity lock).
+    """
+    try:
+        from rondo.retry_queue import (  # pylint: disable=import-outside-toplevel
+            resolve_retry_dir,
+            sweep_retry_queue,
+        )
+
+        sweep = sweep_retry_queue(resolve_retry_dir())
+        if sweep.dead_lettered_permanent or sweep.dead_lettered_expired or sweep.alert:
+            event_log.append(
+                {
+                    "type": "retry_sweep",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "dead_lettered_permanent": sweep.dead_lettered_permanent,
+                    "dead_lettered_expired": sweep.dead_lettered_expired,
+                    "remaining": sweep.remaining,
+                    "alert": sweep.alert or "",
+                }
+            )
+    except (OSError, ImportError, TypeError) as exc:
+        logger.debug("Retry sweep skipped (non-fatal): %s", exc)
+
+
 def run_overnight(  # pylint: disable=too-many-branches
     phases: list[Round],
     config: RondoConfig,
@@ -192,30 +221,7 @@ def run_overnight(  # pylint: disable=too-many-branches
         result.duration_sec = time.monotonic() - start_time
         return result
 
-    # -- STD-108 reqs 015-017 (RONDO-303): sweep the retry queue at run start.
-    # -- Permanent/expired entries dead-letter; depth alert goes to the event
-    # -- log (and the morning report carries it). Best-effort, never blocks.
-    try:
-        import os  # pylint: disable=import-outside-toplevel
-
-        from rondo.retry_queue import sweep_retry_queue  # pylint: disable=import-outside-toplevel
-
-        test_dir = os.environ.get("RONDO_TEST_DIR")
-        retry_dir = os.path.join(test_dir, "retry") if test_dir else "~/.rondo/retry"
-        sweep = sweep_retry_queue(retry_dir)
-        if sweep.dead_lettered_permanent or sweep.dead_lettered_expired or sweep.alert:
-            event_log.append(
-                {
-                    "type": "retry_sweep",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "dead_lettered_permanent": sweep.dead_lettered_permanent,
-                    "dead_lettered_expired": sweep.dead_lettered_expired,
-                    "remaining": sweep.remaining,
-                    "alert": sweep.alert or "",
-                }
-            )
-    except (OSError, ImportError, TypeError) as exc:
-        logger.debug("Retry sweep skipped (non-fatal): %s", exc)
+    _sweep_retry_queue_at_start(event_log)
 
     # -- Filter phases by mode (Rondo-REQ-101 reqs 13-15)
     active_phases = _filter_phases(phases, mode, modes)

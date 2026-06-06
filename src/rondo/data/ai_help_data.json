@@ -117,8 +117,16 @@
       "task": "rondo providers --scores",
       "run": "7-day learned scores per model (success/cost/latency). Feeds recommend_model's learned tier: manual override -> curated default -> learned best -> sonnet."
     },
-    "rondo nightly --json   # watchdog sweep: drift + retryq + reliability, machine-readable",
-    "rondo doctor   # is this install healthy + exactly what to fix (free)"
+    {
+      "task": "Watchdog sweep: drift + retry queue + 7d reliability, machine-readable",
+      "run": "rondo nightly --json",
+      "name": "Nightly watchdog sweep"
+    },
+    {
+      "task": "Install diagnosis: is this setup healthy + exactly what to fix (free)",
+      "run": "rondo doctor",
+      "name": "Install diagnosis"
+    }
   ],
   "mcp_tools": [
     {

@@ -5,6 +5,8 @@
 Preflight answers "can I dispatch right now". Doctor answers "is this
 INSTALL healthy, and what exactly do I fix" — the first command support
 asks a stranger to run. Zero dispatches, zero cost, never a traceback.
+
+VER-001 verification matrix: install diagnosis, exit contract, redacted bundle.
 """
 
 from __future__ import annotations
@@ -106,3 +108,6 @@ class TestBundle:
         monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
         text = build_support_bundle([_row()])
         assert "raw_output" not in text
+
+
+# -- sig: mgh-6201.cd.bd955f.ca74.5d0db3

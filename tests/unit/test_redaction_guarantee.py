@@ -5,6 +5,8 @@
 Not function-level tests of sanitize_text — ARTIFACT-level proof: plant
 key-shaped secrets at every ingress (prompt, error message, notification)
 and sweep every file Rondo wrote. Zero survivors or the test fails.
+
+VER-001 verification matrix: artifact-level secret redaction guarantee.
 """
 
 from __future__ import annotations
@@ -105,3 +107,6 @@ class TestNotifyGuarantee:
         )
         hits = _sweep_tree(audit_env)
         assert not hits, f"planted secrets survived into notification log: {hits}"
+
+
+# -- sig: mgh-6201.cd.bd955f.c0b7.ef4015

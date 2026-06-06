@@ -28,7 +28,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-## -- key-shaped material that must never survive into output/bundle (req 035)
+# -- key-shaped material that must never survive into output/bundle (req 035)
 _KEY_PATTERNS = (
     re.compile(r"\bsk-(?:ant-)?[A-Za-z0-9_-]{8,}"),
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{16,}"),
@@ -267,3 +267,6 @@ def build_support_bundle(rows: list[DoctorCheck]) -> str:
         if pattern.search(bundle):
             raise ValueError("key-shaped material survived redaction — bundle NOT written (req 035)")
     return bundle
+
+
+# -- sig: mgh-6201.cd.bd955f.1deb.e9cf65

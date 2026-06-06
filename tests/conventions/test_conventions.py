@@ -249,7 +249,7 @@ class TestImportLayering:
         },
         "runner.py": {"engine", "config", "dispatch", "parallel", "notify", "hooks"},
         "parallel.py": {"engine", "config", "dispatch"},
-        "overnight.py": {"engine", "config", "runner", "preflight", "spool"},
+        "overnight.py": {"engine", "config", "runner", "preflight", "spool", "retry_queue"},
         "live.py": {"engine"},
         "cli.py": {
             "engine",
@@ -311,6 +311,15 @@ class TestImportLayering:
             "adapters",
             "health",
             "_version",  # -- RONDO-290 (Finding #266): `rondo version --bump` CLI
+            "config",  # -- RONDO-305+: providers/models/nightly read providers cfg
+            "model_registry",  # -- RONDO-305/316: --refresh/--drift/--tiers/--verify
+            "scoring",  # -- RONDO-306: providers --scores
+            "retry_queue",  # -- RONDO-309: rondo retryq
+            "matrix",  # -- RONDO-308: rondo matrix
+            "nightly",  # -- RONDO-314: rondo nightly watchdog
+            "doctor",  # -- RONDO-320: rondo doctor
+            "auth",  # -- adapters.auth key loading for --refresh/--verify
+            "mcp_dispatch",  # -- RONDO-309: retryq drain reuses rondo_retry
         },
         "cli_commands/review.py": {
             "cli_commands",
@@ -318,7 +327,7 @@ class TestImportLayering:
             "providers",
             "config",
         },
-        "report.py": {"engine", "config", "overnight"},
+        "report.py": {"engine", "config", "overnight", "metrics", "retry_queue"},
         "__init__.py": {"engine", "config", "dispatch", "runner", "parallel", "overnight", "report", "live"},
         "__main__.py": {"cli"},
     }

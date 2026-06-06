@@ -233,7 +233,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
 
     sub_cmd = getattr(args, "cmd", "") or ""
     if sub_cmd:
-        ## -- RONDO-314: schedule a rondo subcommand (e.g. the nightly watchdog)
+        # -- RONDO-314: schedule a rondo subcommand (e.g. the nightly watchdog)
         name = args.name or sub_cmd
         cmd_args = [sub_cmd]
         work_dir = str(Path.home())
@@ -387,32 +387,39 @@ def _cmd_nightly(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _providers_registry_action(args: argparse.Namespace) -> int:
+    """--refresh / --drift: the registry that caught dead grok-3 (RONDO-305).
+
+    Extracted from _cmd_providers (RONDO-322 complexity lock).
+    """
+    from rondo.adapters.auth import load_api_key  # pylint: disable=import-outside-toplevel
+    from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
+    from rondo.model_registry import (  # pylint: disable=import-outside-toplevel
+        drift_report,
+        format_drift_table,
+        load_cache,
+        refresh_registry,
+    )
+
+    providers_cfg = get_rondo_config().get("providers", {})
+    if getattr(args, "refresh", False):
+        cache = refresh_registry(providers_cfg, key_loader=load_api_key)
+        ok = sum(1 for v in cache["providers"].values() if not v["error"])
+        print(f"  -PASS- registry refreshed: {ok}/{len(cache['providers'])} providers cached")
+    else:
+        cache = load_cache()
+        if cache is None:
+            print("  -WARNING- no registry cache yet — run: rondo providers --refresh", file=sys.stderr)
+            return EXIT_FAILURE
+    if getattr(args, "drift", False):
+        print(format_drift_table(drift_report(cache, providers_cfg)))
+    return EXIT_SUCCESS
+
+
 def _cmd_providers(args: argparse.Namespace) -> int:
     """Show providers: health (REQ-109 req 020), registry drift (REQ-111 600-603)."""
-    # -- RONDO-305: --refresh / --drift — the registry that caught dead grok-3
     if getattr(args, "refresh", False) or getattr(args, "drift", False):
-        from rondo.adapters.auth import load_api_key  # pylint: disable=import-outside-toplevel
-        from rondo.config import get_rondo_config  # pylint: disable=import-outside-toplevel
-        from rondo.model_registry import (  # pylint: disable=import-outside-toplevel
-            drift_report,
-            format_drift_table,
-            load_cache,
-            refresh_registry,
-        )
-
-        providers_cfg = get_rondo_config().get("providers", {})
-        if getattr(args, "refresh", False):
-            cache = refresh_registry(providers_cfg, key_loader=load_api_key)
-            ok = sum(1 for v in cache["providers"].values() if not v["error"])
-            print(f"  -PASS- registry refreshed: {ok}/{len(cache['providers'])} providers cached")
-        else:
-            cache = load_cache()
-            if cache is None:
-                print("  -WARNING- no registry cache yet — run: rondo providers --refresh", file=sys.stderr)
-                return EXIT_FAILURE
-        if getattr(args, "drift", False):
-            print(format_drift_table(drift_report(cache, providers_cfg)))
-        return EXIT_SUCCESS
+        return _providers_registry_action(args)
 
     # -- RONDO-306 (REQ-109 req 313): --scores was a DEAD FLAG — parsed, never
     # -- handled. Now shows the learned 7-day per-model score breakdown.

@@ -4,6 +4,8 @@
 
 Driver: the USH essay-split protocol run by hand (PROTOCOL.md 2026-06-03).
 Dispatch is injected — these tests never touch a network or a real provider.
+
+VER-001 verification matrix: experiment grids, budgets, blind mode, judge.
 """
 
 from pathlib import Path
@@ -376,3 +378,6 @@ class TestJudgeScoring:
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a9.mx308a
+
+
+# -- sig: mgh-6201.cd.bd955f.a41d.69007d

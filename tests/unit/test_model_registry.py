@@ -6,6 +6,8 @@ Driver: the hand-run drift check (2026-06-05) found xAI had RETIRED the
 entire grok-3 family — all three configured tiers would 404 — and nobody
 knew. This module is that check as a real, daily-runnable tool.
 Fetcher is injected: tests never touch the network.
+
+VER-001 verification matrix: registry refresh, drift states, alias-first.
 """
 
 import json
@@ -130,3 +132,6 @@ class TestDrift:
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a8.mr305a
+
+
+# -- sig: mgh-6201.cd.bd955f.d5e0.1c1548

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-## -- req 212 built-in defaults. Keys: "classic" or f"thinking_{effort}".
+# -- req 212 built-in defaults. Keys: "classic" or f"thinking_{effort}".
 DEFAULT_TIMEOUTS: dict[str, int] = {
     "classic": 120,
     "thinking_low": 600,
@@ -30,7 +30,7 @@ DEFAULT_TIMEOUTS: dict[str, int] = {
     "thinking_xhigh": 900,
     "thinking_max": 900,
 }
-## -- a thinking model with an unrecognized effort still never gets 120s
+# -- a thinking model with an unrecognized effort still never gets 120s
 _THINKING_FLOOR_KEY = "thinking_high"
 
 

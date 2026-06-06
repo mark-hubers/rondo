@@ -195,6 +195,35 @@ def _resolve_context_text(spec: MatrixSpec, ctx_name: str) -> str:
     return Path(src).expanduser().read_text(encoding="utf-8")
 
 
+def _load_or_init_manifest(spec: MatrixSpec, out_dir: Path, cells: list[dict[str, Any]]) -> dict[str, Any]:
+    """Resume manifest if present, else create + blind-seal — reqs 022, 040-042.
+
+    Extracted from run_matrix (RONDO-322 complexity lock).
+    """
+    manifest_path = out_dir / "manifest.json"
+    if manifest_path.exists():
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest: dict[str, Any] = {
+        "name": spec.name,
+        "created_at": datetime.now(UTC).isoformat(),
+        "blind": spec.blind,
+        "baseline": spec.baseline,
+        "spent_usd": 0.0,
+        "cells": {},
+        "revealed_at": "",
+    }
+    # -- blind seal (reqs 040, 042): group codes, mapping sealed + hashed
+    if spec.blind:
+        groups = sorted({_group_key(c) for c in cells})
+        mapping = {f"cell-{chr(ord('A') + i)}": g for i, g in enumerate(groups)}
+        sealed = json.dumps(mapping, sort_keys=True)
+        (out_dir / "manifest.sealed.json").write_text(sealed, encoding="utf-8")
+        (out_dir / "manifest.sealed.json").chmod(0o600)
+        manifest["sealed_sha256"] = hashlib.sha256(sealed.encode("utf-8")).hexdigest()
+    _save_manifest(out_dir, manifest)
+    return manifest
+
+
 def run_matrix(
     spec: MatrixSpec,
     *,
@@ -221,30 +250,7 @@ def run_matrix(
 
     out_dir = _matrix_base_dir(base_dir) / spec.name
     out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-
-    # -- resume (req 022): load prior manifest if present
-    manifest_path = out_dir / "manifest.json"
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    else:
-        manifest = {
-            "name": spec.name,
-            "created_at": datetime.now(UTC).isoformat(),
-            "blind": spec.blind,
-            "baseline": spec.baseline,
-            "spent_usd": 0.0,
-            "cells": {},
-            "revealed_at": "",
-        }
-        # -- blind seal (reqs 040, 042): group codes, mapping sealed + hashed
-        if spec.blind:
-            groups = sorted({_group_key(c) for c in cells})
-            mapping = {f"cell-{chr(ord('A') + i)}": g for i, g in enumerate(groups)}
-            sealed = json.dumps(mapping, sort_keys=True)
-            (out_dir / "manifest.sealed.json").write_text(sealed, encoding="utf-8")
-            (out_dir / "manifest.sealed.json").chmod(0o600)
-            manifest["sealed_sha256"] = hashlib.sha256(sealed.encode("utf-8")).hexdigest()
-        _save_manifest(out_dir, manifest)
+    manifest = _load_or_init_manifest(spec, out_dir, cells)
 
     code_by_group: dict[str, str] = {}
     if spec.blind:
@@ -409,6 +415,52 @@ def reveal_matrix(name: str, *, base_dir: str | None = None) -> dict[str, str]:
     return json.loads(sealed)
 
 
+def _report_group_row(
+    label: str,
+    members: list[tuple[str, dict[str, Any]]],
+    out_dir: Path,
+    baseline_text: str,
+) -> str:
+    """Render one report row: stats, self/judge columns, flags — reqs 031-033, 050-051.
+
+    Extracted from matrix_report (RONDO-322 complexity lock).
+    """
+    done = [r for _, r in members if r.get("status") == "done"]
+    cost = sum(r.get("cost_usd", 0.0) for _, r in members)
+    lats = [r["latency_sec"] for r in done if r.get("latency_sec")]
+    ratings = [r["self_rating"] for r in done if isinstance(r.get("self_rating"), (int, float))]
+    lat = f"{statistics.mean(lats):.1f}" if lats else "-"
+    flags = []
+    if ratings:
+        mean = statistics.mean(ratings)
+        stdev = statistics.stdev(ratings) if len(ratings) > 1 else 0.0
+        self_col = f"{mean:.1f} ± {stdev:.1f} (n={len(ratings)})"
+        if mean and stdev > NOISY_STDEV_RATIO * mean:
+            flags.append("noisy")
+    else:
+        self_col = "-"
+    if baseline_text and done:
+        try:
+            out_text = (out_dir / done[0]["file"]).read_text(encoding="utf-8")
+            flags.append(f"len×{len(out_text) / max(1, len(baseline_text)):.2f}")
+        except (OSError, KeyError):
+            pass
+    statuses = {r.get("status") for _, r in members}
+    if "budget_exhausted" in statuses:
+        flags.append("budget_exhausted")
+    if "error" in statuses:
+        flags.append("errors")
+    # -- req 051: external judge scores — unlike self-ratings these come
+    # -- from one consistent scorer, so cross-group comparison is fair
+    judge_scores = [
+        r["judge"]["score"]
+        for r in done
+        if isinstance(r.get("judge"), dict) and isinstance(r["judge"].get("score"), (int, float))
+    ]
+    judge_col = f"{statistics.mean(judge_scores):.1f} (n={len(judge_scores)})" if judge_scores else "-"
+    return f"  {label:<44} {len(done):>4} {cost:>8.4f} {lat:>7} {self_col:>22} {judge_col:>11} {','.join(flags)}"
+
+
 def matrix_report(name: str, *, base_dir: str | None = None) -> str:
     """Per-group report: replicate stats, noise flags, baseline deltas — reqs 031-033, 050."""
     out_dir = _matrix_base_dir(base_dir) / name
@@ -443,43 +495,7 @@ def matrix_report(name: str, *, base_dir: str | None = None) -> str:
     lines.append(f"  {'─' * 44} {'─' * 4} {'─' * 8} {'─' * 7} {'─' * 22} {'─' * 11} {'─' * 10}")
     for group, members in sorted(groups.items()):
         label = code_by_group.get(group, group) if blind_hidden else group
-        done = [r for _, r in members if r.get("status") == "done"]
-        cost = sum(r.get("cost_usd", 0.0) for _, r in members)
-        lats = [r["latency_sec"] for r in done if r.get("latency_sec")]
-        ratings = [r["self_rating"] for r in done if isinstance(r.get("self_rating"), (int, float))]
-        lat = f"{statistics.mean(lats):.1f}" if lats else "-"
-        flags = []
-        if ratings:
-            mean = statistics.mean(ratings)
-            stdev = statistics.stdev(ratings) if len(ratings) > 1 else 0.0
-            self_col = f"{mean:.1f} ± {stdev:.1f} (n={len(ratings)})"
-            if mean and stdev > NOISY_STDEV_RATIO * mean:
-                flags.append("noisy")
-        else:
-            self_col = "-"
-        if baseline_text and done:
-            try:
-                out_text = (out_dir / done[0]["file"]).read_text(encoding="utf-8")
-                ratio = len(out_text) / max(1, len(baseline_text))
-                flags.append(f"len×{ratio:.2f}")
-            except (OSError, KeyError):
-                pass
-        statuses = {r.get("status") for _, r in members}
-        if "budget_exhausted" in statuses:
-            flags.append("budget_exhausted")
-        if "error" in statuses:
-            flags.append("errors")
-        # -- req 051: external judge scores — unlike self-ratings these come
-        # -- from one consistent scorer, so cross-group comparison is fair
-        judge_scores = [
-            r["judge"]["score"]
-            for r in done
-            if isinstance(r.get("judge"), dict) and isinstance(r["judge"].get("score"), (int, float))
-        ]
-        judge_col = f"{statistics.mean(judge_scores):.1f} (n={len(judge_scores)})" if judge_scores else "-"
-        lines.append(
-            f"  {label:<44} {len(done):>4} {cost:>8.4f} {lat:>7} {self_col:>22} {judge_col:>11} {','.join(flags)}"
-        )
+        lines.append(_report_group_row(label, members, out_dir, baseline_text))
     if blind_hidden:
         lines.append(f"  (blind run — groups coded; `rondo matrix reveal {name}` to de-anonymize)")
     return "\n".join(lines)
@@ -496,3 +512,6 @@ def matrix_status(name: str, *, base_dir: str | None = None) -> dict[str, Any]:
 
 
 # -- sig: mgh-6201.cd.bd955f.f1a9.mx308b
+
+
+# -- sig: mgh-6201.cd.bd955f.499c.7fd53c

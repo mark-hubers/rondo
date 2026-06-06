@@ -6,6 +6,8 @@ Auto-tiers derive auto_low/mid/high per provider from the registry cache so
 new model generations get picked up without hand-editing config. Manual pins
 ALWAYS win (req 610); derivation never crosses providers (req 609); the
 canary (req 604) proves each configured tier model actually answers.
+
+VER-001 verification matrix: auto-tier derivation, collapse ladder, canary.
 """
 
 from __future__ import annotations
@@ -160,3 +162,6 @@ class TestRegistryMode:
         from rondo.model_registry import registry_mode
 
         assert registry_mode({"registry": {"mode": "auto"}}) == "suggest"
+
+
+# -- sig: mgh-6201.cd.bd955f.93a3.aa26ed

@@ -2400,6 +2400,14 @@ class TestHistoricCorpusParsing:
             raw = json.loads(p.read_text()).get("raw_output") or ""
             if "Not logged in" in raw or "Please run /login" in raw:
                 continue  # -- auth-loss bucket — IFS-100 reqs 011-014, not a parse problem
+            # -- RONDO-322 refinement: the gate's claim is "any output bearing
+            # -- result-schema markers MUST parse" (the 80 misfiled successes
+            # -- all carried them). A TRUE partial — dispatch died before any
+            # -- result JSON — is correctly status=partial, not a parser bug.
+            # -- (First true-partial since the parser fix: 2026-06-06 affinity
+            # -- round, prose preamble only, killed mid-dispatch.)
+            if not any(marker in raw for marker in ('"result"', '"status"', '"passed"')):
+                continue
             candidates += 1
             if parse_task_json(raw) is None:
                 failures += 1

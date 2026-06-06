@@ -186,7 +186,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
             return json.loads(self.raw_output)
         except (ValueError, TypeError):
             pass
-        ## -- Try balanced-brace extraction for nested JSON (Finding #178)
+        # -- Try balanced-brace extraction for nested JSON (Finding #178)
         try:
             start = self.raw_output.index("{")
             depth = 0
@@ -218,7 +218,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
         if not self.raw_output or not isinstance(self.raw_output, str):
             return []
         lines = self.raw_output.strip().splitlines()
-        ## -- Find header row (contains |)
+        # -- Find header row (contains |)
         header_idx = -1
         for i, line in enumerate(lines):
             if "|" in line and i + 1 < len(lines) and "---" in lines[i + 1]:

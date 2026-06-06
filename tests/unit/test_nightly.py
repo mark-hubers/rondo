@@ -5,6 +5,8 @@
 The campaign's top weakness: drift/retryq/metrics existed but NOBODY WAS
 WATCHING. run_nightly_check() composes all three into one schedulable
 sweep that alerts on FAILURE/STALE instead of waiting to be asked.
+
+VER-001 verification matrix: watchdog sweep, alerts, contract tests.
 """
 
 from __future__ import annotations
@@ -193,3 +195,6 @@ class TestNightlyConstants:
         report = NightlyReport()
         assert report.status == "OK"
         assert report.alerts == []
+
+
+# -- sig: mgh-6201.cd.bd955f.f070.a93068

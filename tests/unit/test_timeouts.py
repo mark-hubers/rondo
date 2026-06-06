@@ -5,6 +5,8 @@
 5-10 minutes is NORMAL for max-effort thinking on long tasks — a fixed
 timeout is always wrong for someone. COALESCE: per-dispatch → config
 [timeouts] per (model-class, effort) → built-in defaults.
+
+VER-001 verification matrix: read-timeout COALESCE per model-class/effort.
 """
 
 from __future__ import annotations
@@ -81,3 +83,6 @@ class TestAdapterWiring:
         assert adapter.read_timeout_for("claude-sonnet-4-6", "", timeouts_cfg={}) == 120
         assert adapter.read_timeout_for("claude-opus-4-8", "max", timeouts_cfg={}) == 900
         assert adapter.read_timeout_for("claude-opus-4-8", "max", timeouts_cfg={"thinking_max": 1200}) == 1200
+
+
+# -- sig: mgh-6201.cd.bd955f.5a1f.ab9e9b

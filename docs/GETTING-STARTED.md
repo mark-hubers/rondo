@@ -9,7 +9,23 @@ For the five-command first hour (each verified live), see `docs/GOLDEN-FIVE.md`.
 Full cross-directory example map: `examples/INDEX.md` (90 examples by dispatch mode, providers, and use case).
 Dispatch envelope contract (status + error_code semantics): `docs/ERROR-ENVELOPE-CONTRACT.md`.
 
+## Words Rondo uses (30 seconds, then everything below reads easily)
+
+| Word | Plain English |
+|------|---------------|
+| **task** | One unit of AI work: an instruction, optional context files, and a "done when" |
+| **round file** | A list of tasks saved as YAML/JSON/Python — run it, rerun it, share it |
+| **dispatch** | One actual call to a model (any provider) |
+| **smart return** | Rondo asks the model to answer as structured JSON, then validates it |
+| **envelope** | The fixed JSON shape every result/error comes back in (`status`, `error_code`, ...) |
+| **COALESCE** | "First non-empty wins": your setting → config file → learned value → default |
+| **tier** | low / default / best — a per-provider model slot you reference instead of exact IDs |
+| **drift** | When a model ID in your config/docs no longer exists at the provider |
+| **budget** | A hard dollar ceiling on a run — Rondo estimates first and stops at the cap |
+| **XDG** | The Linux/macOS standard config location (`~/.config/rondo/`); `~/.rondo` works too |
+
 ---
+
 
 ## 1. Quickstart (about 30 seconds)
 
@@ -31,7 +47,7 @@ Use a **multi-word** prompt so the CLI treats it as inline dispatch (not a misty
 rondo "review this code for obvious bugs"
 ```
 
-Stdout is **validated JSON** by default (smart return + `validate_return_json`). Default model comes from config (`[routing]` / provider defaults). Override:
+Stdout is **validated JSON** by default ("smart return" — Rondo asks the model for structured JSON and validates it; `validate_return_json`). Default model comes from config (`[routing]` / provider defaults). Override:
 
 ```bash
 rondo "summarize this diff" --model gemini:gemini-flash-latest
@@ -138,7 +154,7 @@ If the model returns non-JSON or messy text, Rondo tries brace-balanced extracti
 
 | Flag | Effect |
 |------|--------|
-| `--field <name>` | Ask the model to put the main answer in that field **and** keep the standard fields (COALESCE: defaults + named field). |
+| `--field <name>` | Ask the model to put the main answer in that field **and** keep the standard fields (COALESCE — first non-empty wins: defaults + your named field). |
 | `--return-schema '<json>'` | Full custom schema string — **wins over** `--field` and defaults. |
 | `--text` | No JSON return prompt; raw model text on stdout. |
 

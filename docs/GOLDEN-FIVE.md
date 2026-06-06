@@ -81,7 +81,7 @@ Want this running while you sleep?
 | Want | Go to |
 |------|-------|
 | All 90 runnable examples | `examples/INDEX.md` |
-| Full getting-started | `docs/GETTING-STARTED.md` |
+| Full getting-started (incl. the 30-second glossary) | `docs/GETTING-STARTED.md` |
 | The error contract | `docs/ERROR-ENVELOPE-CONTRACT.md` |
 | MCP (Claude Code) path | `examples/mcp/README.md` |
 | Recipes | `docs/COOKBOOK.md` |

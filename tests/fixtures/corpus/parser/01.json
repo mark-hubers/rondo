@@ -1,0 +1,5 @@
+{
+  "sanitized_from": "production audit corpus (2026-06, RONDO-313)",
+  "expect": "parse",
+  "raw_output": "{\"passed\":true,\"confidence\":1.0,\"result\":\"{\\\"cache_demo\\\":\\\"stable\\\",\\\"n\\\":2}\",\"issues\":[],\"suggestions\":[],\"metadata\":{\"task\":\"inline-task\",\"requested_json\":{\"cache_demo\":\"stable\",\"n\":2}},\"_meta\":{\"quality\":10,\"complete\":true,\"limitations\":\"none\"}}"
+}

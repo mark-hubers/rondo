@@ -1,0 +1,5 @@
+{
+  "sanitized_from": "production audit corpus (2026-06, RONDO-313)",
+  "expect": "auth_loss",
+  "raw_output": "Not logged in · Please run /login"
+}

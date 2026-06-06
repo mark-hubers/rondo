@@ -2354,8 +2354,30 @@ class TestSmartReturnParsing:
         assert parse_task_json("just prose, no JSON at all") is None
 
 
+# -- RONDO-313: sanitized corpus fixtures shipped IN the repo so the corpus
+# -- gates run everywhere (CI, other machines) — answers Cursor finding #301
+# -- "local-only gates". Full local audit corpus still runs when present.
+CORPUS_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
+
+
+def load_corpus_fixtures(kind: str) -> list[str]:
+    """Return raw_output strings from repo fixtures: kind is 'parser' or 'auth'."""
+    folder = CORPUS_FIXTURES / kind
+    return [
+        json.loads(p.read_text())["raw_output"]
+        for p in sorted(folder.glob("*.json"))
+    ]
+
+
 class TestHistoricCorpusParsing:
     """REQ-100 req 126: the 80 misfiled production outputs are the regression suite."""
+
+    def test_fixture_partials_parse(self) -> None:
+        """Repo-fixture corpus gate — runs on EVERY machine, never skips."""
+        raws = load_corpus_fixtures("parser")
+        assert len(raws) >= 10, "parser fixture corpus missing or too small"
+        failures = [i for i, raw in enumerate(raws) if parse_task_json(raw) is None]
+        assert not failures, f"fixture records {failures} unparseable — parser regression"
 
     def test_historic_partials_parse(self) -> None:
         """Re-parse every preserved partial raw_output (excluding auth-loss)."""
@@ -2385,7 +2407,8 @@ class TestHistoricCorpusParsing:
             pytest.skip("no partial records in local corpus")
         # -- Cursor review 2026-06-05: gate must match the claim. All 80 were
         # -- measured parsing; the gate is therefore ZERO failures, not 95%.
-        # -- (Local corpus only — skips elsewhere; see finding #301 re: CI gating.)
+        # -- (Full local corpus when present; repo fixtures above cover CI —
+        # --  finding #301 resolved by RONDO-313.)
         assert failures == 0, f"{failures}/{candidates} historic outputs unparseable — regression vs the 80/80 baseline"
 
 
@@ -2420,6 +2443,15 @@ class TestAuthLossDetection:
 
         signal = detect_auth_loss("blah Credit balance is too low blah")
         assert signal == "Credit balance is too low"
+
+    def test_fixture_auth_corpus_detected(self) -> None:
+        """Repo-fixture auth-loss gate — runs on EVERY machine, never skips."""
+        from rondo.dispatch_parse import detect_auth_loss
+
+        raws = load_corpus_fixtures("auth")
+        assert len(raws) >= 5, "auth fixture corpus missing or too small"
+        missed = [i for i, raw in enumerate(raws) if detect_auth_loss(raw) is None]
+        assert not missed, f"fixture records {missed} not detected — auth-loss regression"
 
     def test_historic_auth_corpus_detected(self) -> None:
         """All 33 historic auth-loss outputs must be detected (production corpus)."""

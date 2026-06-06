@@ -1,0 +1,5 @@
+{
+  "sanitized_from": "production audit corpus (2026-06, RONDO-313)",
+  "expect": "parse",
+  "raw_output": "{\"passed\": true, \"confidence\": 1.0, \"result\": \"566\", \"issues\": [], \"suggestions\": [], \"metadata\": {\"file\": \"rondo/src/rondo/config.py\", \"line_count\": 566, \"full_path\": \"[PATH]/config.py\"}, \"_meta\": {\"quality\": 10, \"complete\": true, \"limitations\": \"none\"}}"
+}

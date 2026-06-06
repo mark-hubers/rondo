@@ -1,0 +1,5 @@
+{
+  "sanitized_from": "production audit corpus (2026-06, RONDO-313)",
+  "expect": "parse",
+  "raw_output": "{\"passed\": true, \"confidence\": 1.0, \"result\": \"2 + 2 = 4\\n\\nStep-by-step solution:\\n\\nStep 1: Identify the operands.\\n  - First number: 2\\n  - Second number: 2\\n  - Operation: Addition (+)\\n\\nStep 2: Apply the addition operation.\\n  - Start at 2 on the number line.\\n  - Move 2 places to the right.\\n  - 2 + 1 = 3\\n  - 3 + 1 = 4\\n\\nStep 3: State the result.\\n  - 2 + 2 = 4\\n\\nThe answer is 4.\", \"issues\": [], \"suggestions\": [\"For more complex addition problems, consider using place value decomposition (e.g., breaking numbers into tens and ones).\", \"Practice number line visualization to build strong mental math foundations.\"], \"metadata\": {\"operation\": \"addition\", \"operands\": [2, 2], \"result\": 4, \"difficulty_level\": \"basic arithmetic\", \"concept\": \"whole number addition\", \"number_system\": \"integers\", \"grade_level\": \"kindergarten to 1st grade\"}, \"_meta\": {\"quality\": 10, \"complete\": true, \"limitations\": \"None — this is a straightforward arithmetic fact with a definitive answer.\"}}"
+}

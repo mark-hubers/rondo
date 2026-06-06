@@ -1,0 +1,5 @@
+{
+  "sanitized_from": "synthetic — IFS-100 AUTH_LOSS_PATTERNS coverage (RONDO-313)",
+  "expect": "auth_loss",
+  "raw_output": "Error: Please run /login · Please resolve and retry."
+}

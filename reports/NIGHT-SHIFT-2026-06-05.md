@@ -17,9 +17,9 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 ## TASK QUEUE (work top-down; update status as you go)
 | # | Task | Status | Sprint |
 |---|------|--------|--------|
-| 0 | Recover Cold Witness outputs from ~/.rondo/audit (wrong key in my print; DO NOT redispatch) | TODO | — |
-| 1 | Retry Cursor productization roadmap (output came back empty; earlier hostile review worked — maybe drop --mode plan or retry as-is) | TODO | — |
-| 2 | Synthesize Cursor hostile review + roadmap + panel → **Rondo-SOP-105-public-release.md** (the "usable by a stranger" definition of done + phased work list) | TODO | RONDO-312 |
+| 0 | Recover Cold Witness outputs | DONE (audit recovery; finding #302 on return shape) | — |
+| 1 | Cursor roadmap retry | DONE (reports/cursor-productization-roadmap-2026-06-06.md; empty-output cause: --mode plan suppressed print) | — |
+| 2 | SOP-105 public-release roadmap | DONE v0.2 (4-AI synthesis, committed) | RONDO-312 ✓ |
 | 3 | **CI-able corpora** (answers Cursor's "local-only gates" indictment): sanitize a sample of the 80-parser + 33-auth corpus records into repo fixtures (tests/fixtures/corpus/), corpus tests run BOTH repo fixtures (always) and full local corpus (when present) | TODO | RONDO-313 |
 | 4 | **Nightly alert wiring** (#285 residual — top weakness "nobody's watching"): `rondo schedule` daily job → providers --refresh --drift + retryq sweep + metrics 7d; FAILURE/STALE → macOS notification (notify support exists). Real working example of `rondo schedule` while at it | TODO | RONDO-314 |
 | 5 | **#297 per-task affinity:** add task_type to AuditRecord (+dispatch pass-through), scoring groups by (model, task_type), recommend_model uses task-level learned BEFORE global learned | TODO | RONDO-315 |
@@ -45,4 +45,4 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - Budget: log EVERY paid dispatch here. STOP paid work at $6.00.
 
 ## SPRINT LOG (append after each)
-(empty — night starting)
+- RONDO-312 ✓ SOP-105 v0.1→v0.2 (4-AI synthesis). Panel recovered from audit (~$0.10). Findings #302. Cursor lesson: --mode plan suppresses -p output; omit it for printable runs.

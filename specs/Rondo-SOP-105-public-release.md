@@ -6,7 +6,7 @@
 **Category:** SOP
 **Created:** 2026-06-06 (night shift, Mark's directive: "usable for everyone")
 **Status:** DESIGNED
-**Version:** 0.1
+**Version:** 0.2
 **Owner:** Mark G. Hubers
 **Sources synthesized:** Cursor hostile review (reports/cursor-review-2026-06-05.md, scored 7/10 owner · 4.5/10 public) + Cold Witness panel of 3 independent AIs (reports/cold-witness-public-release-2026-06-06.md: gemini-pro, gpt-5.5, mistral-large) + campaign findings #284-#301.
 
@@ -46,10 +46,21 @@ Score target: independent hostile re-review ≥ 8/10 public.
 | P1-5 | **Packaging**: PyPI + pipx; console entry point already exists; name collision check ("rondo" on PyPI?) | M | 4/4 |
 | P1-6 | **Public cut excludes**: the Max-plan `--auth max` subprocess pattern (Mark's standing concern) ships disabled/undocumented in public builds | S | brief |
 
+### P1 additions (Cursor roadmap pass, 2026-06-06)
+
+| ID | Item | Effort |
+|----|------|--------|
+| P1-7 | Secrets redaction GUARANTEE: automated redaction tests over logs/audit/exceptions + `rondo config --show` (redacted) | M |
+| P1-8 | Dependency policy: zero-dep core + optional extras (`rondo[openai]`…), documented | S |
+| P1-9 | CLI contract: actionable errors (no raw tracebacks), stable exit codes, strict stdout/stderr split, `--json` never mixes logs | M |
+| P1-10 | Split-brain documented honestly: what's API-only vs subprocess-only and why (matrix/streaming/effort) | S |
+| P1-11 | Cost guardrails impossible to misunderstand: worst-case preview before run, caps on by default, cancellation + partial-results semantics | M |
+
 ### P2 — ONBOARDING (the first 10 minutes)
 
 | ID | Item | Effort |
 |----|------|--------|
+| P2-0 | `rondo doctor`: validate config/keys(redacted)/network/models/MCP + emit redacted support bundle for issue reports | M |
 | P2-1 | `rondo init` first-run wizard: create config, pick ONE provider, validate key, run a smoke dispatch, point at golden examples (gpt-5.5's "first-run command") | M |
 | P2-2 | Golden path: curate 5 "first hour" examples (the 85 stay; strangers need a guided 5) — README already sketches this sequence | S |
 | P2-3 | Docs-for-strangers pass: define bespoke terms at first use (round, experiment matrix, smart return, COALESCE); beginner quickstart that assumes nothing | M |
@@ -92,4 +103,5 @@ goes public. P4 after real outside users exist. **The standalone-repo move
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.2 | 2026-06-06 | Folded Cursor productization pass: doctor+support-bundle, redaction guarantee+tests, dependency-extras policy, CLI exit-code/stream contract, cost-UX, split-brain documentation. |
 | 0.1 | 2026-06-06 | Initial synthesis: Cursor hostile review + 3-AI Cold Witness panel + findings #284-#301. The first written "usable by a stranger" definition of done. |

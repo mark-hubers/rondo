@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 13 sprints closed (RONDO-313 → 325), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
+**TL;DR: 14 sprints closed (RONDO-313 → 326), every feature live-tested, full suite 2165/2165 GREEN, $0.10 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -74,6 +74,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 15 | BONUS: streaming disconnect handling | DONE (req 215; partial content preserved; ERR_STREAM_DISCONNECT transient; live ceiling repro deferred deliberately) | RONDO-323 ✓ |
 | 16 | BONUS: MCP surface (doctor+fleet) | DONE (IFS-104 rev-0004; never-notify rule for MCP; wheel redeployed) | RONDO-324 ✓ |
 | 17 | BONUS: docs-drift (req 611) | DONE (detection-only; date-suffix alias tolerance; live clean) | RONDO-325 ✓ |
+| 18 | BONUS: standing detector + conventions catch-up | DONE (suite re-scans docs every run; 144 green; per-sprint conventions rule adopted) | RONDO-326 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -91,6 +92,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - RUN tests/conventions/ in EVERY sprint verify — ace-build full does NOT catch them (open finding).
 
 ## SPRINT LOG (append after each)
+- RONDO-326 ✓ standing detector: tests/conventions/test_docs_drift.py; conventions catch-up for 324/325 (locks fired again — the per-sprint conventions rule is now in CONSTANTS).
 - RONDO-325 ✓ docs-drift (req 611): evidence-based alias rule (canary beat assumption). models --docs-drift exit-1 contract.
 - RONDO-324 ✓ MCP surface: rondo_doctor + rondo_fleet. fleet NEVER notifies over MCP (caller is the watcher).
 - RONDO-323 ✓ streaming disconnect (req 215): consume_sse_stream returns accumulated partials on drop; IncompleteRead is HTTPException not OSError — both caught. 30 min of thinking never evaporates again.

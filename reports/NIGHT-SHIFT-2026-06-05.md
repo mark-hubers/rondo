@@ -2,7 +2,7 @@
 
 ## ☀ MORNING REPORT (read this first)
 
-**TL;DR: 17 sprints closed (RONDO-313 → 329), every feature live-tested, honest gate runs ALL 15,778 tests GREEN, $0.22 of your $6.00 spent.**
+**TL;DR: 18 sprints closed (RONDO-313 → 330), every feature live-tested, honest gate runs ALL 15,783 tests GREEN, $0.22 of your $6.00 spent.**
 
 | # | What Rondo gained tonight | Proof it works |
 |---|---------------------------|----------------|
@@ -14,6 +14,7 @@
 | 6 | **Config `[timeouts]`** — per model-class × effort, COALESCE, in config-template | Live resolve: 120 / 600 / 900 |
 | 7 | **STD-102→109 merge** — finding #298 closed, 20 refs repointed, 102 archived | Residual grep clean |
 | 8 | **`rondo doctor`** — install diagnosis + redacted support bundle (the first command support asks a stranger to run) | Live: 6/6 PASS on your machine; bundle leak-scan clean |
+| 16 | **Round-file trust model (P1-3)** — the 4-AI review's deepest stranger-safety item: .py rounds now EXPLICIT opt-in, deny-by-default for strangers, your flow untouched. Honest public score ~4.5 → ~6 | proven live on a fake stranger machine |
 | 15 | **Golden five + stranger-path fixes** — verifying the first hour LIVE found 3 real bugs: provider-prefix 404, hidden JSON errors (now honest contract envelope), scary validator warning. docs/GOLDEN-FIVE.md = 5 verified commands under 5¢ | stranger command returns result OK exit 0 |
 | 14 | **GATE TRUST RESTORED** (morning, after you woke me up) — ace-build had silently skipped the whole test suite for 20+ builds; fixed + proven 3 ways; the honest gate then exposed 2-month-old hidden reds (16 swapped sprints, 29 missed closes) — all paid honestly | 15,776 tests green under the honest gate |
 | 13 | **Docs-drift scanner** — `rondo models --docs-drift`: stale model IDs in examples/docs (req 611, was spec-only). First run's 5 hits were alias false-positives — a $0.000026 canary proved it, tolerance built on evidence | examples+docs verified clean |
@@ -99,6 +100,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 | 19 | MORNING: gate trust + hidden-red debt + req 606 design + dead doc refs | DONE (3 proofs; 29 closes backfilled from git; design proposal awaiting your 3 answers) | RONDO-327 ✓ |
 | 20 | MORNING: golden five + 3 stranger-path bugs (live-found) + WOW API path | DONE (ERROR-ENVELOPE-CONTRACT now honored in inline JSON; 15,778 green) | RONDO-328 ✓ |
 | 21 | MORNING: ceiling probe | DONE — completed 408s/$0.114, no disconnect; 1802s incident reads as server variance; RONDO-323 protections stand | RONDO-329 ✓ |
+| 22 | MORNING: trust model P1-3 + P1 scoreboard v0.3 | DONE (gate at BOTH executors; P1-1 verified already built; second ungated executor found+fixed) | RONDO-330 ✓ |
 
 ## CONSTANTS / GOTCHAS (relearn after compaction)
 - Repo: /Users/markhubers/git/mhubers/ace2 (rondo/ inside). cwd DRIFTS — always cd first.
@@ -116,6 +118,7 @@ HERE after every sprint · OB tools every sprint (register→loops→gate→comm
 - RUN tests/conventions/ in EVERY sprint verify — ace-build full does NOT catch them (open finding).
 
 ## SPRINT LOG (append after each)
+- RONDO-330 ✓ trust model: .py rounds/phases gated at executors; --allow-python-rounds; template deny-by-default; conftest tests-as-trusted-authors; SOP-105 v0.3 honest scoreboard.
 - RONDO-329 ✓ ceiling probe: identical workload to the 1802s incident COMPLETED at 408s — one data point against a hard ceiling; chunked streaming deferred unless forensics capture a second ~1800s death.
 - RONDO-328 ✓ golden five: live verification of the first hour found provider-prefix 404 (bare-model parse fix), silent JSON errors (contract envelope), validator warning. Mock-drift self-caught same-session. WOW + README + ai-help wired.
 - RONDO-327 ✓ gate trust: zsh word-split in step 6 (bare $PRODUCT_TESTS); ${=} fix + zero-collected HARD FAIL; 3 proofs. Honest gate exposed: 16 layer/type swaps (incl. April block), 29 missed sprint-closes (backfilled from git), CALIBER layer vocab. Era-scoped results test AFTER paying debt. gemini:flash 404 canary -> 6 doc fixes.

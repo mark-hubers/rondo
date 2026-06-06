@@ -48,7 +48,7 @@ mostly don't exist yet, and CANNOT exist without the repo move).
 |------|--------|-----|--------------|
 | Dead-flag standing lock | RONDO-333 ✓ | 4 | tests/conventions/test_dead_flags.py (first run caught --no-refresh) |
 | Auto-retry ×1 on ERR_STREAM_DISCONNECT | RONDO-334 | 10 | hermetic retry test + forensics record of the retry |
-| Error-UX sweep: zero raw tracebacks on user errors, exit codes documented in --help epilog | RONDO-335 | 4 | a conventions test greps every `except` print-path; manual sweep of run/live/overnight/matrix CLI errors |
+| Error-UX sweep: zero raw tracebacks on user errors, exit codes documented in --help epilog | RONDO-335 ✓ VERIFIED 2026-06-06 | 4 | LIVE-VERIFIED (RONDO-340): missing round file → friendly msg, exit 1, no traceback; unknown subcommand / missing args → usage, exit 2; `rondo --help` epilog lists 0/1/2/130. Pinned by tests/unit/test_error_ux.py (safety net cli.py `_print_unexpected_error`, --verbose escape hatch, epilog test) + TestErrorHandlingInCli in tests/conventions/test_conventions.py |
 | P2-3 stranger docs pass: define round/matrix/smart-return/COALESCE at first use; kill insider jargon | RONDO-336 | 5 | docs-drift stays green + a fresh-eyes AI read-through scores ≥8 on "could a stranger follow this" |
 | SECURITY.md + CONTRIBUTING.md + trust-model doc drafts | RONDO-337 | 8 | files exist, cross-linked from README; LICENSE row stays Mark-only |
 | Split-brain honesty doc (P1-10): API-only vs subprocess-only table | RONDO-337 | 5 | one table in README/REFERENCE, verified against code |
@@ -82,4 +82,5 @@ labor — the kind this codebase has been eating for breakfast.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.2 | 2026-06-06 | RONDO-340: hostile re-review executed (3-AI panel, mean 3.13 — reports/hostile-review-2026-06-06.md); RONDO-335 marked LIVE-VERIFIED with evidence; stable API surface declared (docs/API-STABILITY.md + conventions lock, dim 9); LICENSE file added (pyproject already said MIT — consistency fix, not a publish decision). |
 | 0.1 | 2026-06-06 | Initial: the 10-dimension rubric (8.5 mean + 7.5 per-dimension floor), gap plan C-now vs B-gated, honest current position ~6.5. |

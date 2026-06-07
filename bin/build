@@ -24,6 +24,11 @@ if [[ "$RUFF_VER" != "$RUFF_PIN" ]]; then
    exit 1
 fi
 
+## -- RONDO-345: stamp honesty — every build refreshes the version build
+## -- counter, so the running/installed version reflects the last build date
+## -- (a stale +20260421 stamp on June code muddied two live triages)
+"$PY/python" -c "from rondo._version import bump_build; bump_build()" >/dev/null
+
 step "1/6 Ruff lint"
 if "$PY/ruff" check src/rondo/ tests/; then pass "lint clean"; else fail "ruff found issues"; fi
 

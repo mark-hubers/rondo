@@ -73,6 +73,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         cost_str = f" (${total_cost:.4f})" if total_cost > 0 else ""
         print(f"{result.status}: {result.summary}{cost_str}")
 
+    # -- RONDO-345: a dry-run that built its preview is a SUCCESS — all
+    # -- tasks report 'skipped' by design (found by USH Proof A: exit 1 on
+    # -- a perfect $0 preview violated the exit-code contract's meaning).
+    if config.dry_run and result.status != "error":
+        return EXIT_SUCCESS
     return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
 

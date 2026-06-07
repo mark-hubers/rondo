@@ -343,6 +343,19 @@ class TestExitCodes:
         """No subcommand returns EXIT_USAGE (2)."""
         assert main([]) == EXIT_USAGE
 
+    def test_dry_run_exits_success(self, tmp_path):
+        """RONDO-345: a successful dry-run preview exits 0, not 1.
+
+        Found by Proof A (USH): all-skipped dry-run rounds reported
+        'skipped' status → exit 1, violating the exit-code contract's
+        meaning (1 = failure). A $0 preview that built every task is a
+        SUCCESS. Pre-gate-blocked rounds (also 'skipped') keep exit 1 —
+        that path refuses work, it doesn't preview it.
+        """
+        filepath = _write_round_file(tmp_path)
+        exit_code = main(["run", filepath, "--dry-run"])
+        assert exit_code == EXIT_SUCCESS, "dry-run preview must exit 0 (RONDO-345)"
+
     def test_keyboard_interrupt_exit_code(self, tmp_path):
         """KeyboardInterrupt returns EXIT_INTERRUPTED (130)."""
         filepath = _write_round_file(tmp_path)

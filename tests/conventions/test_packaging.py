@@ -46,5 +46,15 @@ class TestPackagingLock:
         ruff = [d for d in _dev_deps() if d.lower().startswith("ruff")]
         assert ruff and "==" in ruff[0], "ruff must be ==pinned in dev extra (RONDO-338 format baseline)"
 
+    def test_build_script_bumps_version_stamp(self) -> None:
+        """RONDO-345: every bin/build refreshes the build stamp.
+
+        The installed tool reported +20260421 while shipping June code —
+        the stale stamp muddied TWO live triages. The stamp is only honest
+        if bumping is part of the build, not a manual ritual.
+        """
+        build_script = (RONDO_ROOT / "bin" / "build").read_text(encoding="utf-8")
+        assert "bump_build" in build_script, "bin/build must call bump_build (RONDO-345 stamp honesty)"
+
 
 # -- sig: mgh-6201.cd.bd955f.6f07.c62567

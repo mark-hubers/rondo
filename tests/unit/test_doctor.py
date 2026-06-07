@@ -110,4 +110,42 @@ class TestBundle:
         assert "raw_output" not in text
 
 
+class TestInstallFreshness:
+    """RONDO-345: doctor warns when the installed tool's build stamp is stale.
+
+    TWO live incidents in two days traced to a silently-stale installed
+    binary (morning 404s; the USH 'Invalid model' panel ran a tool weeks
+    behind the repo). Staleness must be VISIBLE in the first command
+    support asks anyone to run.
+    """
+
+    def test_versions_warns_when_build_stamp_stale(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Build stamp older than 14 days → WARN with a reinstall hint."""
+        import rondo.doctor as _doc
+
+        monkeypatch.setattr(_doc, "_installed_version", lambda: "0.7.0+20260101.1")
+        row = _doc._check_versions()
+        assert row.result == "WARN", f"stale stamp must WARN, got {row.result}: {row.detail}"
+        assert "reinstall" in (row.fix or "").lower()
+
+    def test_versions_pass_when_stamp_fresh(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A recent build stamp stays PASS."""
+        from datetime import UTC, datetime
+
+        import rondo.doctor as _doc
+
+        fresh = f"0.7.0+{datetime.now(UTC).strftime('%Y%m%d')}.1"
+        monkeypatch.setattr(_doc, "_installed_version", lambda: fresh)
+        row = _doc._check_versions()
+        assert row.result == "PASS", f"fresh stamp must PASS, got {row.result}: {row.detail}"
+
+    def test_versions_pass_when_no_stamp(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """No build stamp (plain PyPI install) → PASS, never punish strangers."""
+        import rondo.doctor as _doc
+
+        monkeypatch.setattr(_doc, "_installed_version", lambda: "0.7.0")
+        row = _doc._check_versions()
+        assert row.result == "PASS"
+
+
 # -- sig: mgh-6201.cd.bd955f.ca74.5d0db3

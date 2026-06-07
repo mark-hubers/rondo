@@ -174,12 +174,45 @@ def _check_claude_binary() -> DoctorCheck:
     return DoctorCheck("claude binary", "PASS", path)
 
 
-def _check_versions() -> DoctorCheck:
-    """Rondo + Python versions — req 030 (every support thread starts here)."""
+def _installed_version() -> str:
+    """Version string of THIS running install — seam for freshness tests."""
     from rondo._version import get_version  # pylint: disable=import-outside-toplevel
 
+    return get_version()
+
+
+# -- RONDO-345: a build stamp older than this is suspicious on a dev box —
+# -- two live triages (404 panel, USH 'Invalid model') traced to a stale
+# -- installed binary that nothing surfaced.
+_STALE_STAMP_DAYS = 14
+
+
+def _check_versions() -> DoctorCheck:
+    """Rondo + Python versions + install freshness — req 030, RONDO-345."""
+    from datetime import UTC, datetime  # pylint: disable=import-outside-toplevel
+
     py = ".".join(str(v) for v in sys.version_info[:3])
-    return DoctorCheck("versions", "PASS", f"rondo {get_version()} on python {py}")
+    ver = _installed_version()
+    detail = f"rondo {ver} on python {py}"
+
+    stamp = re.search(r"\+(\d{8})\.", ver)
+    if stamp:
+        try:
+            built = datetime.strptime(stamp.group(1), "%Y%m%d").replace(tzinfo=UTC)
+            age_days = (datetime.now(UTC) - built).days
+        except ValueError:
+            return DoctorCheck("versions", "PASS", detail)
+        if age_days > _STALE_STAMP_DAYS:
+            return DoctorCheck(
+                "versions",
+                "WARN",
+                f"{detail} — build stamp is {age_days} days old",
+                fix=(
+                    "if you develop rondo locally, the installed tool may lag the "
+                    "repo: reinstall with `uv tool install --force <repo-path>`"
+                ),
+            )
+    return DoctorCheck("versions", "PASS", detail)
 
 
 DEFAULT_CHECKS: tuple[Callable[[], DoctorCheck], ...] = (

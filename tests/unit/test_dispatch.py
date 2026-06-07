@@ -1082,9 +1082,16 @@ class TestBuildSubprocessCmd:
         assert "--output-format" in cmd
 
     def test_bare_flag_added_when_enabled(self):
-        """REQ-100 req 071 + IFS-100 req 015: --bare added when bare=True AND auth=api."""
+        """REQ-100 req 071 + IFS-100 req 015: --bare added when bare=True AND auth=api.
+
+        RONDO-341: mock the CC version probe — on a machine without the
+        claude binary (Linux container) the real probe returns None and
+        --bare is silently skipped, making this test machine-dependent.
+        """
         config = RondoConfig(bare=True, auth="api")
-        cmd = _build_subprocess_cmd(config, "test", "sonnet")
+        with patch("rondo.dispatch.detect_cc_version", return_value=(9, 9, 9)):
+            with patch("rondo.dispatch._cc_version_cache", None):
+                cmd = _build_subprocess_cmd(config, "test", "sonnet")
         assert "--bare" in cmd
 
     def test_bare_dropped_under_max_auth(self):
@@ -1434,6 +1441,10 @@ class TestPreflightSerialization:
     """Preflight results can be used programmatically."""
 
     def test_result_serializable(self):
+        """RONDO-341: asserts SERIALIZABILITY, not a specific status.
+
+        Linux legitimately yields YELLOW (keychain/launchd warnings).
+        """
         import json as _json
 
         from rondo.preflight import run_preflight
@@ -1441,7 +1452,9 @@ class TestPreflightSerialization:
         with patch("shutil.which", return_value="/usr/local/bin/claude"):
             result = run_preflight()
         data = {"status": result.status, "checks": result.checks}
-        assert "GREEN" in _json.dumps(data)
+        text = _json.dumps(data)
+        assert result.status in ("GREEN", "YELLOW", "RED")
+        assert result.status in text
 
 
 class TestHistoryWithRealData:

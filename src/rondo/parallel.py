@@ -20,7 +20,8 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 from rondo.config import RondoConfig
-from rondo.dispatch import dispatch_task, save_result
+from rondo.dispatch import save_result
+from rondo.dispatch_routing import dispatch_task_routed
 from rondo.engine import (
     DispatchUsage,
     Round,
@@ -223,11 +224,12 @@ def _dispatch_worker(
 ) -> tuple[TaskResult, DispatchUsage]:
     """Worker function for ThreadPoolExecutor.
 
-    Rondo-STD-110 C2: Each thread calls dispatch_task independently,
+    Rondo-STD-110 C2: Each thread calls dispatch_task_routed independently,
     returns its own (TaskResult, DispatchUsage) tuple.
     No shared mutable state.
+    RONDO-342: routed so per-task cloud models reach provider adapters.
     """
-    return dispatch_task(task, config)
+    return dispatch_task_routed(task, config)
 
 
 # -- sig: mgh-6201.cd.bd955f.1e5a.3424d1

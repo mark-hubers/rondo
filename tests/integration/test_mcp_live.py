@@ -9,12 +9,23 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import tempfile
 import textwrap
 import time
 from pathlib import Path
 
+import pytest
+
 from rondo.mcp_server import create_mcp_server
+
+# -- RONDO-341: live tests need the REAL binary — on a machine without it
+# -- (Linux container, fresh CI) they SKIP honestly instead of failing.
+# -- Never fake the binary here: that would silently mock an unmocked seam.
+pytestmark = pytest.mark.skipif(
+    shutil.which("claude") is None,
+    reason="live dispatch tests require the real claude binary (RONDO-341)",
+)
 
 
 def _call_mcp_tool(name: str, arguments: dict) -> dict:

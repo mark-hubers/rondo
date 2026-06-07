@@ -211,6 +211,32 @@ def _notify_completion(session: Any, dispatch_id: str, result: dict) -> None:
         pass  # -- U-49: best-effort, polling is fallback
 
 
+def _provider_down_round(round_def: Any, provider_name: str, model: str, dry_run: bool, _run_pipeline: Any) -> Any:
+    """Provider down: dry-run previews free, live errors — RONDO-341 extract.
+
+    Dry run is the FREE preview (GOLDEN-FIVE #3): no keys, no network, no
+    healthy provider may be required to preview. Found on Linux: keyless
+    dry_run returned ERR_PROVIDER_DOWN before previewing anything.
+    Extracted from _dispatch_via_provider_or_claude (complexity lock <=15).
+    """
+    round_name = round_def.name if hasattr(round_def, "name") else "dispatch"
+    if dry_run:
+        note = (
+            f"DRY RUN: provider '{provider_name}' unavailable (no key or unhealthy) — preview only, nothing dispatched"
+        )
+        skipped_tr = TaskResult(task_name="dispatch", status="skipped", raw_output=note, model=model)
+        return RoundResult(round_name=round_name, status="done", task_results=[_run_pipeline(skipped_tr, "dispatch")])
+    error_tr = TaskResult(
+        task_name="dispatch",
+        status="error",
+        error_code="ERR_PROVIDER_DOWN",
+        error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
+        model=model,
+    )
+    # -- RONDO-139: even provider-down errors get the pipeline
+    return RoundResult(round_name=round_name, status="error", task_results=[_run_pipeline(error_tr, "dispatch")])
+
+
 def _dispatch_via_provider_or_claude(
     round_def: Any,
     config: Any,
@@ -282,20 +308,7 @@ def _dispatch_via_provider_or_claude(
 
     # -- REQ-109 req 016: provider down → error result MUST also flow through pipeline
     if provider is None and provider_name and not resolved_model:
-        error_tr = TaskResult(
-            task_name="dispatch",
-            status="error",
-            error_code="ERR_PROVIDER_DOWN",
-            error_message=f"Provider '{provider_name}' is down and no healthy fallback configured",
-            model=model,
-        )
-        # -- RONDO-139: even provider-down errors get the pipeline
-        finalized = _run_pipeline(error_tr, "dispatch")
-        return RoundResult(
-            round_name=round_def.name if hasattr(round_def, "name") else "dispatch",
-            status="error",
-            task_results=[finalized],
-        )
+        return _provider_down_round(round_def, provider_name, model, dry_run, _run_pipeline)
 
     if provider is not None:
         # -- Strip provider prefix for adapter dispatch (local:llama → llama)

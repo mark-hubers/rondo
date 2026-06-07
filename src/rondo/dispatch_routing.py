@@ -459,4 +459,110 @@ def _resolve_no_provider_model(
     }
 
 
+# -- ──────────────────────────────────────────────────────────────
+# --  RONDO-342: per-task provider routing for round files
+# --  (Rondo-FIX-342). The round runners called dispatch_task directly,
+# --  which is Claude-only — cloud-model rounds died with "Invalid model".
+# --  Lives HERE (the routing layer) so dispatch.py stays the pure Claude
+# --  executor; uses only PUBLIC seams (dispatch_task, finalize_dispatch).
+# -- ──────────────────────────────────────────────────────────────
+
+
+def _provider_down_or_preview(task: Any, model: str, config: Any) -> tuple[Any, Any]:
+    """No healthy provider: dry-run previews (free), live errors (REQ-109 req 016)."""
+    from datetime import UTC, datetime  # pylint: disable=import-outside-toplevel
+
+    from rondo.engine import DispatchUsage, TaskResult  # pylint: disable=import-outside-toplevel
+
+    timestamp = datetime.now(UTC).isoformat()
+    if config.dry_run:
+        note = f"DRY RUN: provider for '{model}' unavailable — preview only, nothing dispatched"
+        result = TaskResult(task_name=task.name, status="skipped", raw_output=note, model=model, timestamp=timestamp)
+    else:
+        result = TaskResult(
+            task_name=task.name,
+            status="error",
+            error_code="ERR_PROVIDER_DOWN",
+            error_message=f"Provider for '{model}' is down and no healthy fallback configured",
+            model=model,
+            timestamp=timestamp,
+        )
+    return result, DispatchUsage(task_name=task.name, model=model)
+
+
+def _dispatch_task_via_provider(task: Any, config: Any, model: str, round_name: str) -> tuple[Any, Any]:
+    """Dispatch ONE task to a cloud provider adapter — RONDO-342.
+
+    Mirrors the inline/MCP provider path: resolve adapter, dry-run previews
+    free, real dispatch goes through finalize_dispatch (audit, sanitize,
+    spool, history, metrics — the ALWAYS-ON pipeline). RONDO-328: adapters
+    get the BARE model id (prefix stripped), never 'provider:model'.
+    """
+    from datetime import UTC, datetime  # pylint: disable=import-outside-toplevel
+
+    from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel
+    from rondo.dispatch import finalize_dispatch  # pylint: disable=import-outside-toplevel
+    from rondo.engine import DispatchUsage, TaskResult  # pylint: disable=import-outside-toplevel
+    from rondo.providers import get_provider_with_fallback  # pylint: disable=import-outside-toplevel
+
+    # -- typed Any: get_provider_with_fallback returns `object | None` by
+    # -- contract; adapters duck-type a .dispatch() method (REQ-109)
+    provider: Any
+    provider, resolved = get_provider_with_fallback(model)
+    if provider is None:
+        return _provider_down_or_preview(task, model, config)
+
+    _, bare_model = parse_model(resolved or model)
+    dispatch_model = bare_model or model
+    timestamp = datetime.now(UTC).isoformat()
+
+    if config.dry_run:
+        result = TaskResult(
+            task_name=task.name,
+            status="skipped",
+            prompt_sent=(task.instruction or "")[:500],
+            model=dispatch_model,
+            timestamp=timestamp,
+        )
+        return result, DispatchUsage(task_name=task.name, model=dispatch_model)
+
+    audit_trail = None
+    if config.audit_dir:
+        try:
+            audit_trail = AuditTrail(config=AuditConfig(audit_dir=config.audit_dir))
+        except (OSError, TypeError):
+            audit_trail = None
+    audit_record = None
+    if audit_trail:
+        audit_record = audit_trail.record_intent(
+            task_name=task.name,
+            round_name=round_name,
+            model=dispatch_model,
+            prompt=task.instruction or "",
+            task_type=getattr(task, "task_type", "") or "",
+        )
+    tr = provider.dispatch(prompt=task.instruction or "", model=dispatch_model, task_name=task.name)
+    usage = DispatchUsage(task_name=task.name, model=dispatch_model, cost_usd=tr.cost_usd or 0.0)
+    return finalize_dispatch(tr, usage, config, audit_trail, audit_record, round_name=round_name)
+
+
+def dispatch_task_routed(
+    task: Any, config: Any, *, cli_model: str | None = None, round_name: str = ""
+) -> tuple[Any, Any]:
+    """Route a task to its provider — RONDO-342, the round-file front-door fix.
+
+    Claude / inline / auto tasks → dispatch_task (unchanged proven path).
+    Provider-prefixed models (gemini:, grok:, …) → adapter path. This is
+    what run_sequential / run_parallel call so `rondo run <roundfile>` can
+    dispatch cloud models, not just the inline/MCP paths.
+    """
+    from rondo.dispatch import dispatch_task  # pylint: disable=import-outside-toplevel
+
+    effective = cli_model or task.model or config.default_model
+    provider_name, _ = parse_model(effective or "")
+    if task.is_auto or not provider_name:
+        return dispatch_task(task, config, cli_model=cli_model, round_name=round_name)
+    return _dispatch_task_via_provider(task, config, effective, round_name)
+
+
 # -- sig: mgh-6201.cd.bd955f.f1a5.a27900

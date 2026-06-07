@@ -9,6 +9,8 @@ TDD: tests written BEFORE preflight.py exists.
 import os
 from unittest.mock import patch
 
+import pytest
+
 from rondo.preflight import PreflightResult, run_preflight
 
 
@@ -44,8 +46,14 @@ class TestPreflightResult:
         assert r.can_proceed is False
 
 
+@pytest.mark.real_claude_check
 class TestClaudeBinaryCheck:
-    """REQ-103 req 003: claude binary on PATH."""
+    """REQ-103 req 003: claude binary on PATH.
+
+    RONDO-341: marked real_claude_check — these test the binary check
+    ITSELF, so the hermetic autouse fake (tests/conftest.py) must stand
+    aside. Both directions pinned: found AND missing.
+    """
 
     def test_claude_found(self):
         """Claude on PATH = passes."""

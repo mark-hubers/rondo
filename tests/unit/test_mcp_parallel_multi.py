@@ -505,6 +505,32 @@ class TestDiskBasedRetry:
         assert len(files) <= 50
 
 
+def _write_cloud_config(tmp_path, monkeypatch) -> None:
+    """RONDO-341: hermetic cloud config via $RONDO_CONFIG.
+
+    The profile tests used to pass ONLY on machines where the developer's
+    personal ~/.rondo/config.toml defined profiles (the RONDO-300 bug
+    class) — a fresh Linux container exposed them.
+    """
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        "[cloud.profiles.review]\n"
+        'providers = ["gemini", "grok"]\n'
+        "[cloud.profiles.coding]\n"
+        'providers = ["gemini"]\n'
+        "[cloud.profiles.rondo341_hermetic]\n"
+        'providers = ["gemini"]\n'
+        "[providers.gemini]\n"
+        "enabled = true\n"
+        'default_model = "gemini-2.5-flash"\n'
+        "[providers.grok]\n"
+        "enabled = true\n"
+        'default_model = "grok-3"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RONDO_CONFIG", str(cfg))
+
+
 class TestCloudDispatch:
     """REQ-109 reqs 046-063: cloud dispatch with profiles, tiers, cost caps."""
 
@@ -517,16 +543,34 @@ class TestCloudDispatch:
         assert result["cloud"]["tier"] == "default"
         assert result["cloud"]["count_requested"] == 2
 
-    def test_profile_review(self) -> None:
+    def test_cloud_honors_rondo_config_env(self, tmp_path, monkeypatch) -> None:
+        """RONDO-341: rondo_cloud resolves config via discover_config_path().
+
+        Chain is $RONDO_CONFIG → XDG → legacy, not a hardcoded ~/.rondo path.
+
+        The profile name exists ONLY in the fixture config — if this test
+        passes, rondo_cloud read $RONDO_CONFIG; a developer's live
+        ~/.rondo/config.toml cannot fake the green.
+        """
         from rondo.mcp_tools import rondo_cloud
 
+        _write_cloud_config(tmp_path, monkeypatch)
+        result = json.loads(rondo_cloud(prompt="x", profile="rondo341_hermetic", dry_run=True))
+        assert result["status"] == "done"
+        assert result["cloud"]["profile"] == "rondo341_hermetic"
+
+    def test_profile_review(self, tmp_path, monkeypatch) -> None:
+        from rondo.mcp_tools import rondo_cloud
+
+        _write_cloud_config(tmp_path, monkeypatch)
         result = json.loads(rondo_cloud(prompt="Review this", profile="review", dry_run=True))
         assert result["status"] == "done"
         assert result["cloud"]["profile"] == "review"
 
-    def test_profile_coding(self) -> None:
+    def test_profile_coding(self, tmp_path, monkeypatch) -> None:
         from rondo.mcp_tools import rondo_cloud
 
+        _write_cloud_config(tmp_path, monkeypatch)
         result = json.loads(rondo_cloud(prompt="Fix this", profile="coding", dry_run=True))
         assert result["status"] == "done"
         assert result["cloud"]["profile"] == "coding"

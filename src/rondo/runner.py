@@ -22,7 +22,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rondo.config import RondoConfig
-from rondo.dispatch import dispatch_task, save_result
+from rondo.dispatch import save_result
+from rondo.dispatch_routing import dispatch_task_routed
 from rondo.engine import (
     DispatchUsage,
     Round,
@@ -376,7 +377,10 @@ def _dispatch_with_safety_net(
             )
 
     try:
-        task_result, usage = dispatch_task(task, config, round_name=round_name)
+        # -- RONDO-342: route per-task — cloud models go to provider adapters,
+        # -- Claude/auto stay on dispatch_task. Was dispatch_task() directly,
+        # -- which rejected every cloud-model round ("Invalid model").
+        task_result, usage = dispatch_task_routed(task, config, round_name=round_name)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         logger.warning("Dispatch safety net caught %s for task %s: %s", type(exc).__name__, task.name, exc)
         return (

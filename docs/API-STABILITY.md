@@ -107,7 +107,7 @@ Derived from `src/rondo/mcp_server.py` (`create_mcp_server()`).
 | rondo_summarize | Summarize code/docs |
 | rondo_diff | Diff two task results |
 | rondo_metrics | Full dispatch metrics dashboard |
-| rondo_health | Quick health check (GREEN/YELLOW/RED) |
+| rondo_health | Quick health check (GREEN/YELLOW/RED; UNKNOWN = zero providers configured) |
 | rondo_doctor | Install diagnosis |
 | rondo_fleet | Fleet watchdog sweep |
 | rondo_audit_summary | Recent dispatch audit records |

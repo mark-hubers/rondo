@@ -103,6 +103,42 @@ class TestDispatchChainIntegration:
             f"dry_run should be plan/done/skipped, got {result.get('status')}"
         )
 
+    def test_dry_run_works_without_provider_keys(self, tmp_path, monkeypatch):
+        """RONDO-341: dry run must work on a machine with ZERO provider keys.
+
+        Dry run is the FREE preview (GOLDEN-FIVE #3).
+
+        Found on Linux: missing GEMINI_API_KEY made dry_run return
+        ERR_PROVIDER_DOWN — a stranger's documented first-hour command
+        failed before previewing anything. Keys are for dispatching,
+        never for previewing.
+        """
+        from rondo.mcp_server import rondo_run_file
+
+        monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        # -- Simulate the keyless/offline stranger: no key loadable AND the
+        # -- live health probe reports every provider down (no network, no
+        # -- keys — the fresh-machine reality the Linux container exposed)
+        import rondo.adapters.health as _health
+        import rondo.providers as _providers
+
+        monkeypatch.setattr(_providers, "load_api_key", lambda provider: "")
+        monkeypatch.setattr(_health, "is_provider_healthy", lambda provider: False)
+        cfg = tmp_path / "config.toml"
+        cfg.write_text('[providers.gemini]\nenabled = true\ndefault_model = "gemini-2.5-flash"\n', encoding="utf-8")
+        monkeypatch.setenv("RONDO_CONFIG", str(cfg))
+
+        result = json.loads(
+            rondo_run_file(
+                prompt="Hello, keyless stranger",
+                model="gemini:gemini-2.5-flash",
+                dry_run=True,
+            )
+        )
+        assert result.get("status") in ("plan", "done", "skipped"), (
+            f"keyless dry_run must preview, not error — got {result.get('status')}: {result.get('error_message', '')}"
+        )
+
     def test_full_mcp_chain_error_path_produces_valid_error_response(self, tmp_path, monkeypatch):
         """MCP chain: invalid input → structured error response (not exception).
 

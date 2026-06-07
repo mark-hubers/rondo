@@ -169,6 +169,7 @@ class TestSpoolExport:
 class TestSpoolResilience:
     """REQ-101 req 052: spool failure is non-fatal."""
 
+    @pytest.mark.skipif(os.geteuid() == 0, reason="chmod cannot make a dir unwritable for root (RONDO-341)")
     def test_write_to_readonly_dir_doesnt_crash(self, tmp_path):
         """Writing to unwritable dir logs warning, doesn't crash."""
         bad_dir = tmp_path / "readonly"

@@ -110,7 +110,7 @@ def create_mcp_server() -> Any:
 
     @mcp.tool(
         name="rondo_health",
-        description="Quick health check: GREEN/YELLOW/RED with key numbers. Lightweight for preflight.",
+        description="Quick health check: GREEN/YELLOW/RED with key numbers (UNKNOWN when zero providers configured). Lightweight for preflight.",
     )
     def _health() -> str:
         return rondo_health()

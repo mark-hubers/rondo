@@ -377,16 +377,22 @@ class TestCLIProviderDispatch:
     """CLI dispatch routes non-Claude models to provider adapters."""
 
     def test_cli_dispatch_ollama_dry_run(self) -> None:
-        """Rondo run with ollama model works in dry-run."""
+        """Rondo run with ollama model works in dry-run.
+
+        RONDO-341: invoke THIS repo's code via `python -m rondo` — was a
+        hardcoded /Users/.../rondo path that (a) only existed on Mark's
+        Mac and (b) silently tested the INSTALLED tool, not the checkout.
+        """
         import subprocess
+        import sys
 
         result = subprocess.run(
-            ["/Users/markhubers/.local/bin/rondo", "run", "--dry-run", "--model", "llama3.1:8b"],
+            [sys.executable, "-m", "rondo", "run", "--dry-run", "--model", "llama3.1:8b"],
             input="",
             capture_output=True,
             text=True,
             check=False,
-            timeout=10,
+            timeout=30,
             env={k: v for k, v in __import__("os").environ.items() if k != "CLAUDECODE"},
         )
         ## -- Dry-run should work (shows prompts, no dispatch)

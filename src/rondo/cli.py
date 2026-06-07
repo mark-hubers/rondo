@@ -601,12 +601,26 @@ def _provider_task_result(
     return tr
 
 
-def _provider_down_result(round_name: str, provider_name: str, model: str) -> Any:
+def _provider_down_result(round_name: str, provider_name: str, model: str, dry_run: bool = False) -> Any:
     """REQ-109 req 016 error result.
 
     Extracted from _dispatch_with_provider (RONDO-322 complexity lock).
+    RONDO-341: dry_run=True returns a skipped PREVIEW instead — dry run
+    is the free first-hour promise (GOLDEN-FIVE #3): no keys, no network,
+    no healthy provider may be required to preview a round.
     """
     from rondo.engine import RoundResult, TaskResult  # pylint: disable=import-outside-toplevel
+
+    if dry_run:
+        note = (
+            f"DRY RUN: provider '{provider_name}' unavailable (no key or unhealthy) — preview only, nothing dispatched"
+        )
+        print(f"  -WARNING- {note}", file=sys.stderr)
+        return RoundResult(
+            round_name=round_name,
+            status="done",
+            task_results=[TaskResult(task_name="dispatch", status="skipped", raw_output=note, model=model)],
+        )
 
     message = f"Provider '{provider_name}' is down and no healthy fallback configured"
     print(f"  -ERROR- {message}", file=sys.stderr)
@@ -639,7 +653,7 @@ def _dispatch_with_provider(round_def: Round, config: RondoConfig) -> Any:
     # -- REQ-109 req 016: all providers down + no fallback → error, NOT Claude
     provider_name, _ = parse_model(config.default_model)
     if provider is None and provider_name and not resolved_model:
-        return _provider_down_result(round_def.name, provider_name, config.default_model)
+        return _provider_down_result(round_def.name, provider_name, config.default_model, dry_run=config.dry_run)
 
     if provider is not None:
         from rondo.audit import AuditConfig, AuditTrail  # pylint: disable=import-outside-toplevel

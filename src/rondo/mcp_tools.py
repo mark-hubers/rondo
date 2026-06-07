@@ -569,8 +569,12 @@ def rondo_cloud(
         count: Number of providers (0 = use config default_count).
         dry_run: Preview without dispatching.
     """
-    # -- Load cloud config
-    config_path = Path.home() / ".rondo" / "config.toml"
+    # -- Load cloud config — RONDO-341: via discover_config_path() so
+    # -- $RONDO_CONFIG and XDG are honored (was a hardcoded ~/.rondo path
+    # -- that bypassed RONDO-331 discovery; Linux container exposed it)
+    from rondo.config import discover_config_path  # pylint: disable=import-outside-toplevel
+
+    config_path = discover_config_path()
     cloud_cfg: dict = {}
     providers_cfg: dict = {}
     if config_path.is_file():

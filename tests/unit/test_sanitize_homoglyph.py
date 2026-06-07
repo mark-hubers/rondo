@@ -24,6 +24,8 @@ These tests verify:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from rondo.sanitize import SanitizeConfig, sanitize_text
 
 
@@ -91,10 +93,13 @@ class TestNormalizationDoesNotBreakExistingSanitization:
 
     def test_home_paths_still_scrubbed(self) -> None:
         ## Home path scrubbing still works
-        text = "Reading /Users/markhubers/.ssh/id_rsa for auth"
+        ## RONDO-341: derive from Path.home() — the scrubber targets the
+        ## PRODUCING machine's home (Linux container home is /root, not /Users/...)
+        home = str(Path.home())
+        text = f"Reading {home}/.ssh/id_rsa for auth"
         result = sanitize_text(text)
         ## sanitized text should have home path replaced
-        assert "/Users/markhubers/" not in result.sanitized_text
+        assert f"{home}/" not in result.sanitized_text
 
     def test_empty_string_still_handled(self) -> None:
         result = sanitize_text("")

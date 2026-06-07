@@ -91,8 +91,12 @@ class TestMCPQueryTools:
 
         result = json.loads(rondo_health())
         # -- Health uses 'api_status' as the top-level status key
+        # -- RONDO-341: UNKNOWN is the honest zero-providers state (fresh
+        # -- machine, no keys) — deliberate in mcp_tools, now in the contract
         assert "api_status" in result, f"health missing 'api_status': {list(result.keys())}"
-        assert result["api_status"] in ("GREEN", "YELLOW", "RED"), f"Bad health status: {result['api_status']}"
+        assert result["api_status"] in ("GREEN", "YELLOW", "RED", "UNKNOWN"), (
+            f"Bad health status: {result['api_status']}"
+        )
 
     def test_metrics_returns_json(self) -> None:
         from rondo.mcp_server import rondo_metrics

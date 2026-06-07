@@ -42,7 +42,7 @@ class TestSubprocessCrash:
         )
         config = RondoConfig(workers=1)
 
-        with patch("rondo.runner.dispatch_task") as mock_dispatch:
+        with patch("rondo.runner.dispatch_task_routed") as mock_dispatch:
             mock_dispatch.return_value = (
                 TaskResult(
                     task_name="t1",
@@ -81,7 +81,7 @@ class TestRateLimitStorm:
         )
         config = RondoConfig(workers=1)
 
-        with patch("rondo.runner.dispatch_task") as mock_dispatch:
+        with patch("rondo.runner.dispatch_task_routed") as mock_dispatch:
             mock_dispatch.return_value = (
                 TaskResult(
                     task_name="t",
@@ -124,7 +124,7 @@ class TestMalformedOutput:
         )
         config = RondoConfig(workers=1)
 
-        with patch("rondo.runner.dispatch_task") as mock_dispatch:
+        with patch("rondo.runner.dispatch_task_routed") as mock_dispatch:
             mock_dispatch.return_value = (
                 TaskResult(
                     task_name="t1",

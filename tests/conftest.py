@@ -104,4 +104,25 @@ def _clean_test_env(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(_rl, "_config_allows_python_rounds", lambda: True)
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_claude_binary(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """RONDO-341: tests must not depend on a claude binary being installed.
+
+    First-ever Linux container run: ~50 tests failed solely because
+    preflight found no `claude` on PATH — the suite was secretly
+    machine-dependent (every Mac dev box has claude; a fresh OS does not).
+
+    Default: preflight's binary check is a no-op (GREEN), same hermetic
+    philosophy as RONDO-300 above. Opt-outs:
+      - @pytest.mark.real_claude_check — tests OF the binary check itself
+      - live dispatch tests skip themselves when claude is absent
+        (module-level skipif in test_*_live.py — they need the REAL thing)
+    """
+    if request.node.get_closest_marker("real_claude_check"):
+        return
+    import rondo.preflight as _pf
+
+    monkeypatch.setattr(_pf, "_check_claude_binary", lambda result, config: None)
+
+
 # -- sig: mgh-6201.cd.bd955f.e4a1.conf01

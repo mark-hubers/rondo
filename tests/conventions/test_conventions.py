@@ -191,6 +191,14 @@ class TestImportLayering:
             "config",
             "envelope",
             "providers",
+            # -- RONDO-342: per-task router for round files lives here (the
+            # -- routing layer) — calls dispatch_task/finalize_dispatch via
+            # -- PUBLIC seams; engine for TaskResult/DispatchUsage; audit
+            # -- for intent records on the provider path. Lazy imports —
+            # -- no cycle (dispatch does not import dispatch_routing).
+            "dispatch",
+            "engine",
+            "audit",
         },
         "mcp_dispatch.py": {
             "metrics",
@@ -250,8 +258,10 @@ class TestImportLayering:
             "structured_log",  # -- RONDO-205 #242: request_id binding + log_event
             "smart_return",  # -- REQ-111: auto-rating in finalize
         },
-        "runner.py": {"engine", "config", "dispatch", "parallel", "notify", "hooks"},
-        "parallel.py": {"engine", "config", "dispatch"},
+        # -- RONDO-342: runners call dispatch_task_routed (routing layer) so
+        # -- round files can dispatch per-task cloud models, not just Claude
+        "runner.py": {"engine", "config", "dispatch", "dispatch_routing", "parallel", "notify", "hooks"},
+        "parallel.py": {"engine", "config", "dispatch", "dispatch_routing"},
         "overnight.py": {"engine", "config", "runner", "preflight", "spool", "retry_queue"},
         "live.py": {"engine"},
         "cli.py": {

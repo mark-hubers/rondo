@@ -810,10 +810,21 @@ class TestInlinePromptOutputNormalization:
 
 
 # -- Rondo-REQ-103 req 015: preflight standalone command
+# -- RONDO-341: these test the SUBCOMMAND (formatting + exit codes), so the
+# -- environment result is injected — patching shutil.which was not enough:
+# -- on Linux the keychain/launchd/cc-version checks legitimately go YELLOW.
+def _preflight_result(status: str, **kw):
+    from rondo.preflight import PreflightResult
+
+    defaults = {"checks": ["claude binary found"], "warnings": [], "errors": []}
+    defaults.update(kw)
+    return PreflightResult(status=status, **defaults)
+
+
 class TestPreflightSubcommand:
     def test_preflight_returns_success_when_green(self, capsys):
         """Rondo preflight returns 0 when all checks pass."""
-        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+        with patch("rondo.preflight.run_preflight", return_value=_preflight_result("GREEN")):
             exit_code = main(["preflight"])
         assert exit_code == EXIT_SUCCESS
         captured = capsys.readouterr()
@@ -821,7 +832,8 @@ class TestPreflightSubcommand:
 
     def test_preflight_returns_failure_when_red(self, capsys):
         """Rondo preflight returns 1 when critical check fails."""
-        with patch("shutil.which", return_value=None):
+        red = _preflight_result("RED", checks=[], errors=["claude binary 'claude' not found on PATH"])
+        with patch("rondo.preflight.run_preflight", return_value=red):
             exit_code = main(["preflight"])
         assert exit_code == EXIT_FAILURE
         captured = capsys.readouterr()
@@ -829,7 +841,7 @@ class TestPreflightSubcommand:
 
     def test_preflight_shows_checks(self, capsys):
         """Preflight output shows individual check results."""
-        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+        with patch("rondo.preflight.run_preflight", return_value=_preflight_result("GREEN")):
             main(["preflight"])
         captured = capsys.readouterr()
         assert "claude" in captured.out.lower()
@@ -838,7 +850,7 @@ class TestPreflightSubcommand:
         """Rondo preflight --json returns valid JSON."""
         import json
 
-        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+        with patch("rondo.preflight.run_preflight", return_value=_preflight_result("GREEN")):
             exit_code = main(["preflight", "--json"])
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -888,7 +900,7 @@ class TestCostDisplay:
         round_file = _write_round_file(tmp_path)
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
-            patch("rondo.runner.dispatch_task") as mock_disp,
+            patch("rondo.runner.dispatch_task_routed") as mock_disp,
         ):
             from rondo.engine import DispatchUsage, TaskResult
 
@@ -975,7 +987,7 @@ class TestFailureNotification:
         """notify_failure called when task has error_code."""
         with (
             patch("shutil.which", return_value="/usr/local/bin/claude"),
-            patch("rondo.runner.dispatch_task") as mock_disp,
+            patch("rondo.runner.dispatch_task_routed") as mock_disp,
             patch("rondo.runner._notify_failure") as mock_notify,
         ):
             from rondo.config import RondoConfig

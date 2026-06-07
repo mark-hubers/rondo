@@ -8,12 +8,23 @@ No mocks, no patches, no fakes: every test calls real API dispatch paths.
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import textwrap
 import time
 from pathlib import Path
 
+import pytest
+
 from rondo.mcp_dispatch import rondo_run_file, rondo_run_status
+
+# -- RONDO-341: live tests need the REAL binary — on a machine without it
+# -- (Linux container, fresh CI) they SKIP honestly instead of failing.
+# -- Never fake the binary here: that would silently mock an unmocked seam.
+pytestmark = pytest.mark.skipif(
+    shutil.which("claude") is None,
+    reason="live dispatch tests require the real claude binary (RONDO-341)",
+)
 
 
 def _run_json(**kwargs) -> dict:

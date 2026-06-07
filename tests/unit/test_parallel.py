@@ -124,7 +124,7 @@ class TestThreadPoolUsage:
         """
         r = Round(name="pool", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert result.parallelism == 2
             assert len(result.task_results) == 2
@@ -140,7 +140,7 @@ class TestWorkerConfig:
         """Rondo-REQ-101 req 2: worker count from config."""
         r = Round(name="workers", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert result.parallelism == 3
 
@@ -148,7 +148,7 @@ class TestWorkerConfig:
         """workers=1 should still use ThreadPoolExecutor (just 1 thread)."""
         r = Round(name="single", tasks=_make_tasks(1))
         config = RondoConfig(workers=1, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert result.parallelism == 1
             assert result.status == "done"
@@ -172,7 +172,7 @@ class TestThrottle:
             submit_times.append(time.monotonic())
             return original_dispatch(task, config, **kwargs)
 
-        with patch("rondo.parallel.dispatch_task", side_effect=_timed_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_timed_dispatch):
             run_parallel(r, config)
 
         # -- Check that submissions are spaced by at least throttle_sec
@@ -185,7 +185,7 @@ class TestThrottle:
         """throttle_sec=0 → no delay between submissions."""
         r = Round(name="fast", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             start = time.monotonic()
             run_parallel(r, config)
             elapsed = time.monotonic() - start
@@ -203,7 +203,7 @@ class TestResultCollection:
         """Rondo-REQ-101 req 4: results collected as futures complete."""
         r = Round(name="collect", tasks=_make_tasks(4))
         config = RondoConfig(workers=4, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert len(result.task_results) == 4
             # -- All tasks should appear in results (order may differ)
@@ -214,7 +214,7 @@ class TestResultCollection:
         """Usage metadata collected for every task."""
         r = Round(name="usage", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert len(result.usage) == 3
             usage_names = {u.task_name for u in result.usage}
@@ -288,7 +288,7 @@ class TestConflictDetection:
         }
         r = Round(name="conflict", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch_with_files(file_map)):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch_with_files(file_map)):
             result = run_parallel(r, config)
             assert len(result.conflicts) == 1
             assert "shared.py" in result.conflicts[0]
@@ -301,7 +301,7 @@ class TestConflictDetection:
         }
         r = Round(name="advisory", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch_with_files(file_map)):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch_with_files(file_map)):
             result = run_parallel(r, config)
             # -- Round status is based on task results, not conflicts
             assert result.status == "done"
@@ -326,7 +326,7 @@ class TestSummaryStats:
 
         r = Round(name="stats", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mixed):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mixed):
             result = run_parallel(r, config)
             assert "1" in result.summary  # -- 1 done
             assert result.status == "partial"
@@ -335,7 +335,7 @@ class TestSummaryStats:
         """Rondo-REQ-101 req 7: wall time as ISO 8601, duration non-negative."""
         r = Round(name="timing", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert result.started_at.startswith("20"), f"Not ISO 8601: {result.started_at!r}"
             assert "T" in result.started_at
@@ -347,7 +347,7 @@ class TestSummaryStats:
         """All tasks done → round status done."""
         r = Round(name="all-done", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert result.status == "done"
             assert "3/3" in result.summary
@@ -356,7 +356,7 @@ class TestSummaryStats:
         """All tasks error → round status error."""
         r = Round(name="all-error", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch_error):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch_error):
             result = run_parallel(r, config)
             assert result.status == "error"
 
@@ -379,7 +379,7 @@ class TestTaskIsolation:
 
         r = Round(name="isolation", tasks=_make_tasks(3))
         config = RondoConfig(workers=3, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_first_fails):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_first_fails):
             result = run_parallel(r, config)
             # -- All 3 tasks should have results
             assert len(result.task_results) == 3
@@ -399,7 +399,7 @@ class TestTaskIsolation:
 
         r = Round(name="exception", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_raises):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_raises):
             result = run_parallel(r, config)
             assert len(result.task_results) == 2
             error_results = [tr for tr in result.task_results if tr.status == "error"]
@@ -411,7 +411,7 @@ class TestTaskIsolation:
         # -- This test verifies correctness by checking result integrity
         r = Round(name="no-share", tasks=_make_tasks(4))
         config = RondoConfig(workers=4, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             # -- Each result has unique task_name (no stomping)
             names = [tr.task_name for tr in result.task_results]
@@ -428,7 +428,7 @@ class TestResultFormat:
         """Rondo-REQ-101 req 9: parallel returns same RoundResult as sequential."""
         r = Round(name="format", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert isinstance(result, RoundResult)
 
@@ -436,7 +436,7 @@ class TestResultFormat:
         """RoundResult has correct round_name."""
         r = Round(name="my-parallel-round", tasks=_make_tasks(1))
         config = RondoConfig(workers=1, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert result.round_name == "my-parallel-round"
 
@@ -444,7 +444,7 @@ class TestResultFormat:
         """All task results are TaskResult dataclass instances."""
         r = Round(name="types", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             for tr in result.task_results:
                 assert isinstance(tr, TaskResult)
@@ -453,7 +453,7 @@ class TestResultFormat:
         """All usage entries are DispatchUsage instances."""
         r = Round(name="usage-types", tasks=_make_tasks(2))
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             for u in result.usage:
                 assert isinstance(u, DispatchUsage)
@@ -473,7 +473,7 @@ class TestGatesInParallel:
             tasks=_make_tasks(2),
         )
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch) as mock_disp:
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch) as mock_disp:
             result = run_parallel(r, config)
             mock_disp.assert_not_called()
             assert result.status == "skipped"
@@ -489,7 +489,7 @@ class TestGatesInParallel:
             ],
         )
         config = RondoConfig(workers=2, throttle_sec=0.0)
-        with patch("rondo.parallel.dispatch_task", side_effect=_mock_dispatch):
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
             result = run_parallel(r, config)
             assert len(post_ran) == 1
             assert len(result.post_gate_results) == 1

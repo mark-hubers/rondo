@@ -16,6 +16,21 @@ dependencies = [
     "PyYAML>=6.0",
 ]
 
+## -- RONDO-341: the suite + 6-gate toolchain, declared so a stranger (or a
+## -- Linux container) can recreate the env with: pip install -e '.[dev]'
+## -- ruff is ==pinned — the format baseline (RONDO-338); locked by
+## -- tests/conventions/test_packaging.py
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-xdist>=3.8",
+    "hypothesis>=6.155",
+    "ruff==0.15.5",
+    "mypy>=1.19",
+    "pylint>=4.0",
+    "bandit>=1.8",
+]
+
 [project.scripts]
 rondo = "rondo.cli:main"
 
@@ -70,6 +85,7 @@ markers = [
     "cloud_full: Config-driven validation of ALL providers + tiers (~$0.10-0.50). Run: pytest -m cloud_full",
     "ollama: Real Ollama local dispatch tests ($0, needs Ollama running). Run: pytest -m ollama",
     "perf: Performance regression tests — time-sensitive, may be flaky on loaded systems. Run: pytest -m perf",
+    "real_claude_check: opt OUT of the RONDO-341 hermetic claude-binary fake — for tests OF the binary check itself",
 ]
 addopts = "-m 'not cloud and not cloud_full and not ollama and not perf'"
 

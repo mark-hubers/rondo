@@ -56,18 +56,25 @@ def _default_breaker_path() -> Path:
 
 @dataclass
 class RetryConfig:
-    """Retry configuration — tunable per provider."""
+    """Retry configuration — tunable per provider.
 
-    max_attempts: int = 5  # -- RONDO-348: was 3 — tight-limit providers (mistral) need more tries
-    initial_delay_sec: float = 0.5
-    max_delay_sec: float = 10.0
-    backoff_multiplier: float = 2.0
+    RONDO-349: flat patient schedule — first retry waits initial_delay_sec,
+    every retry after waits subsequent_delay_sec. So with the defaults the
+    waits are 3, 5, 5, 5 (across 5 attempts) — patient enough for rate
+    limits without a special case, gentle on AI-dispatch latency. The
+    server's Retry-After header still overrides when present.
+    """
+
+    max_attempts: int = 5
+    initial_delay_sec: float = 3.0  # -- RONDO-349: first retry wait (was 0.5 — too fast for rate limits)
+    subsequent_delay_sec: float = 5.0  # -- RONDO-349: every retry after the first
+    max_delay_sec: float = 60.0  # -- ceiling (also bounds a server Retry-After)
     jitter: bool = True
 
 
-# -- RONDO-348: a 429 with no Retry-After (mistral) still needs a real wait —
-# -- the rate window is seconds, not the 0.5s first backoff. Floor it.
-_RATE_LIMIT_MIN_BACKOFF_SEC = 2.0
+def _scheduled_delay(attempt: int, cfg: RetryConfig) -> float:
+    """Wait before the next retry — RONDO-349 flat schedule (3 then 5 flat)."""
+    return cfg.initial_delay_sec if attempt == 1 else cfg.subsequent_delay_sec
 
 
 # -- RONDO-348: cap simultaneous in-flight requests to ONE provider. Found via a
@@ -95,11 +102,6 @@ def _reset_provider_gates() -> None:
     """Drop all gates so a new _MAX_INFLIGHT_PER_PROVIDER takes effect — tests only."""
     with _provider_gates_lock:
         _provider_gates.clear()
-
-
-# -- RONDO-347: ceiling on a server-supplied Retry-After so a hostile or
-# -- misconfigured provider can't hang a dispatch indefinitely.
-_RETRY_AFTER_CAP_SEC = 60.0
 
 
 def _retry_after_sec(exc: Exception) -> float | None:
@@ -146,11 +148,11 @@ def retry_http(
 ) -> Any:
     """Call fn() with retries on transient HTTP failures.
 
-    Exponential backoff with optional jitter. Non-transient errors
-    (4xx client errors other than 429) fail immediately.
+    RONDO-349: flat schedule (first retry 3s, then 5s flat) with optional
+    jitter; a server Retry-After header overrides it (capped). Non-transient
+    errors (4xx client errors other than 429) fail immediately.
     """
     cfg = config or RetryConfig()
-    delay = cfg.initial_delay_sec
     last_exc: Exception | None = None
 
     # -- RONDO-209 #254: narrowed catch from 'Exception' to specific HTTP/network
@@ -181,24 +183,18 @@ def retry_http(
             if attempt >= cfg.max_attempts:
                 # -- Last attempt — don't sleep, just fail
                 break
-            # -- Sleep with optional jitter before retry (secrets for non-predictable jitter)
-            sleep_for = delay
+            # -- RONDO-349: flat schedule (3s then 5s) with optional jitter.
+            sleep_for = _scheduled_delay(attempt, cfg)
             if cfg.jitter:
-                # -- secrets.randbelow is deterministic-safe; scale to [0.5, 1.5)
-                jitter_factor = 0.5 + (secrets.randbelow(1000) / 1000.0)
-                sleep_for = delay * jitter_factor
-            # -- RONDO-347: honor the server's Retry-After (429) over our backoff —
-            # -- waiting exactly what mistral/etc. ask, capped so it can't hang us.
-            # -- This is the fix for the 9 lost panel votes: fixed 2s backoff gave
-            # -- up while the provider was asking for longer.
+                # -- secrets.randbelow is deterministic-safe; scale to [0.85, 1.15)
+                jitter_factor = 0.85 + (secrets.randbelow(300) / 1000.0)
+                sleep_for *= jitter_factor
+            # -- RONDO-347: a server Retry-After (429) overrides the schedule —
+            # -- wait exactly what the provider asks, capped so it can't hang us.
             asked = _retry_after_sec(exc)
             if asked is not None:
-                sleep_for = min(max(sleep_for, asked), _RETRY_AFTER_CAP_SEC)
-            elif isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
-                # -- RONDO-348: provider said "rate limited" but sent no
-                # -- Retry-After (mistral) — a 0.5s backoff exhausts before the
-                # -- window recovers. Wait a real minimum so the limit clears.
-                sleep_for = max(sleep_for, _RATE_LIMIT_MIN_BACKOFF_SEC)
+                sleep_for = max(sleep_for, asked)
+            sleep_for = min(sleep_for, cfg.max_delay_sec)
             logger.info(
                 "Retry %d/%d for %s after transient error: %s (sleeping %.2fs)",
                 attempt,
@@ -208,7 +204,6 @@ def retry_http(
                 sleep_for,
             )
             time.sleep(sleep_for)
-            delay = min(delay * cfg.backoff_multiplier, cfg.max_delay_sec)
 
     # -- Exhausted retries — raise the last exception
     if last_exc is None:

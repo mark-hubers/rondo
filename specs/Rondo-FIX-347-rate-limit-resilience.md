@@ -76,8 +76,25 @@ overflow. 348 is DONE; no 348b.
   a simple concurrency cap + Retry-After backpressure is the right size.
 - No retry of non-transient 4xx (auth/bad-request stay immediate failures).
 
+## 4. RONDO-349 — Mark's retry schedule (flat 3-then-5)
+
+Replaced exponential backoff (0.5→1→2) with Mark's flat patient schedule:
+**first retry 3s, every retry after 5s** (waits: 3, 5, 5 across 5 attempts).
+Rationale (Mark): 0.5s was absurdly fast for a rate limit; a flat patient
+schedule is easy to reason about and patient enough that the separate
+429-floor special case (348) became redundant and was DELETED — simpler.
+- Server `Retry-After` still overrides the schedule (capped 60s).
+- Rejected "ask each AI its own retry time": a model doesn't know its API's
+  infra rate limits — it would return confident-but-made-up numbers
+  (anti-honesty). Authoritative sources are the Retry-After header (live)
+  and published docs → future per-provider config, never model guesses.
+- Per-provider config (`[providers.NAME].initial_delay_sec` etc.) is the
+  natural next step but not built yet — defaults serve all providers now.
+
 ## 5. Change history
 
 | Version | Date | Change |
 |---------|------|--------|
 | 0.1 | 2026-06-07 | 347 Retry-After honoring shipped; 348 outbound pacing specced. |
+| 0.2 | 2026-06-07 | 348 shipped (gate + floor), proven via canary, mistral wall documented. |
+| 0.3 | 2026-06-07 | 349: flat 3-then-5 schedule (Mark's), deleted redundant floor; rejected model-asking with rationale. |

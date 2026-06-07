@@ -78,19 +78,20 @@ class TestRetryHonorsRetryAfter:
         retry_http(fn, provider_name="mistral")
         assert slept[0] <= 60.0, f"a hostile Retry-After must be capped, slept {slept[0]}"
 
-    def test_no_header_uses_backoff(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_flat_schedule_3_then_5(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """RONDO-349: waits follow 3s then 5s flat (no Retry-After header)."""
         slept: list[float] = []
         monkeypatch.setattr("rondo.retry.time.sleep", slept.append)
         calls = {"n": 0}
 
         def fn() -> str:
             calls["n"] += 1
-            if calls["n"] == 1:
-                raise _http_error(429)
+            if calls["n"] < 4:  # -- fail 3 times → 3 waits recorded
+                raise _http_error(503)
             return "ok"
 
-        retry_http(fn, provider_name="mistral", config=RetryConfig(jitter=False))
-        assert slept and slept[0] < 5.0, f"no header → exponential backoff, got {slept}"
+        retry_http(fn, provider_name="grok", config=RetryConfig(jitter=False))
+        assert slept == [3.0, 5.0, 5.0], f"schedule must be 3 then 5 flat, got {slept}"
 
     def test_non_transient_fails_without_retry(self, monkeypatch: pytest.MonkeyPatch) -> None:
         slept: list[float] = []
@@ -103,11 +104,11 @@ class TestRetryHonorsRetryAfter:
             retry_http(fn, provider_name="mistral")
         assert not slept, "4xx (non-429) must fail immediately, no sleep"
 
-    def test_429_no_header_uses_rate_limit_floor(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """RONDO-348: a 429 without Retry-After (mistral) still waits >=2s.
+    def test_429_no_header_is_patient(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """RONDO-349: a 429 without Retry-After (mistral) waits >=3s.
 
-        The 0.5s first backoff exhausted before the window cleared, losing
-        live votes; the rate-limit floor gives the limit time to reset.
+        The old 0.5s first wait exhausted before the window cleared, losing
+        live votes; the patient schedule gives the limit time to reset.
         """
         slept: list[float] = []
         monkeypatch.setattr("rondo.retry.time.sleep", slept.append)
@@ -120,7 +121,7 @@ class TestRetryHonorsRetryAfter:
             return "ok"
 
         retry_http(fn, provider_name="mistral", config=RetryConfig(jitter=False))
-        assert slept and slept[0] >= 2.0, f"429 floor not applied, slept {slept}"
+        assert slept and slept[0] >= 3.0, f"429 not patient enough, slept {slept}"
 
     def test_429_is_transient(self) -> None:
         assert is_transient_http_error(_http_error(429))
@@ -195,4 +196,4 @@ class TestPerProviderConcurrencyGate:
         assert state["peak"] == 2, f"different providers must overlap, peak was {state['peak']}"
 
 
-# -- sig: mgh-6201.cd.bd955f.87bf.10f154
+# -- sig: mgh-6201.cd.bd955f.87bf.4fd1ba

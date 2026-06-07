@@ -65,6 +65,33 @@ class RetryConfig:
     jitter: bool = True
 
 
+# -- RONDO-347: ceiling on a server-supplied Retry-After so a hostile or
+# -- misconfigured provider can't hang a dispatch indefinitely.
+_RETRY_AFTER_CAP_SEC = 60.0
+
+
+def _retry_after_sec(exc: Exception) -> float | None:
+    """Read the HTTP `Retry-After` header (seconds) off an HTTPError — RONDO-347.
+
+    Returns the requested wait in seconds, or None when the header is absent,
+    non-numeric, or the exception isn't an HTTPError. Only the integer-seconds
+    form is honored (the form every cloud provider sends on 429); the rarer
+    HTTP-date form returns None and the caller falls back to backoff.
+    """
+    if not isinstance(exc, urllib.error.HTTPError):
+        return None
+    headers = getattr(exc, "headers", None)
+    if headers is None:
+        return None
+    raw = headers.get("Retry-After")
+    if raw is None:
+        return None
+    try:
+        return float(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def is_transient_http_error(exc: Exception) -> bool:
     """Determine if an HTTP exception is transient (worth retrying).
 
@@ -123,6 +150,13 @@ def retry_http(
                 # -- secrets.randbelow is deterministic-safe; scale to [0.5, 1.5)
                 jitter_factor = 0.5 + (secrets.randbelow(1000) / 1000.0)
                 sleep_for = delay * jitter_factor
+            # -- RONDO-347: honor the server's Retry-After (429) over our backoff —
+            # -- waiting exactly what mistral/etc. ask, capped so it can't hang us.
+            # -- This is the fix for the 9 lost panel votes: fixed 2s backoff gave
+            # -- up while the provider was asking for longer.
+            asked = _retry_after_sec(exc)
+            if asked is not None:
+                sleep_for = min(max(sleep_for, asked), _RETRY_AFTER_CAP_SEC)
             logger.info(
                 "Retry %d/%d for %s after transient error: %s (sleeping %.2fs)",
                 attempt,

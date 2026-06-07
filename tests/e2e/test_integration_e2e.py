@@ -143,7 +143,10 @@ class TestE2EDryRun:
             "    ])\n"
         )
         result = _run(["run", str(round_file), "--dry-run", "--verbose"])
-        assert result.returncode == 1  # skipped = not "done"
+        # -- RONDO-345: a successful dry-run PREVIEW exits 0 (was 1). All tasks
+        # -- report 'skipped' by design; a $0 preview that built every task is a
+        # -- success, not a failure (exit-code contract honesty).
+        assert result.returncode == 0
         assert "skipped" in result.stdout.lower()
         assert "$0.0000" in result.stdout
 

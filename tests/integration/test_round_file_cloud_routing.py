@@ -102,4 +102,70 @@ class TestRoundFileCloudRouting:
         assert result.status != "error", f"claude-model round broke: {_errors(result)}"
 
 
+def _write_round(tmp_path, model: str) -> str:
+    """Write a one-task round file with the given model; return its path."""
+    content = (
+        "from rondo.engine import Round, Task\n\n"
+        "def build_round():\n"
+        f'    return Round(name="r", tasks=[Task(name="t", instruction="x", done_when="d", model="{model}")])\n'
+    )
+    p = tmp_path / "round.py"
+    p.write_text(content, encoding="utf-8")
+    return str(p)
+
+
+class TestCloudRoundInsideClaudeCode:
+    """RONDO-344: preflight's nested-session guard must be MODEL-AWARE.
+
+    PROOF-B failure (USH live panel, 2026-06-07): the cloud-only 80-vote
+    round was hard-blocked by preflight RED 'CLAUDECODE env var is set'.
+    The nested-session hazard is REAL — but only for tasks that spawn a
+    claude subprocess. A cloud-only round makes HTTP calls; blocking it
+    inside Claude Code protects nothing and broke the documented USH flow.
+
+    Guard preserved where it matters: Claude-bound rounds still go RED.
+    """
+
+    def test_cloud_only_round_runs_inside_claude_code(self, tmp_path, monkeypatch) -> None:
+        """A cloud-only round must pass preflight even with CLAUDECODE set."""
+        from unittest.mock import patch as _patch
+
+        from rondo.cli import EXIT_SUCCESS, main
+        from rondo.engine import RoundResult
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        done = RoundResult(round_name="r", status="done")
+        with _patch("rondo.cli._dispatch_with_provider", return_value=done):
+            exit_code = main(["run", _write_round(tmp_path, "gemini:gemini-2.5-flash")])
+        assert exit_code == EXIT_SUCCESS, (
+            "cloud-only round blocked inside Claude Code (RONDO-344 regression) — "
+            "nested-session guard fired on a round with zero claude subprocesses"
+        )
+
+    def test_claude_round_still_blocked_inside_claude_code(self, tmp_path, monkeypatch) -> None:
+        """The guard KEEPS protecting Claude-bound rounds — never weaken it."""
+        from rondo.cli import EXIT_FAILURE, main
+
+        monkeypatch.setenv("CLAUDECODE", "1")
+        exit_code = main(["run", _write_round(tmp_path, "sonnet")])
+        assert exit_code == EXIT_FAILURE, "claude-bound round must STILL be preflight-blocked in-session"
+
+    def test_mixed_round_is_blocked_inside_claude_code(self, tmp_path, monkeypatch) -> None:
+        """One claude-bound task is enough to keep the hard guard."""
+        from rondo.cli import EXIT_FAILURE, main
+
+        content = (
+            "from rondo.engine import Round, Task\n\n"
+            "def build_round():\n"
+            "    return Round(name='r', tasks=["
+            "Task(name='a', instruction='x', done_when='d', model='gemini:gemini-2.5-flash'), "
+            "Task(name='b', instruction='x', done_when='d', model='sonnet')])\n"
+        )
+        p = tmp_path / "mixed.py"
+        p.write_text(content, encoding="utf-8")
+        monkeypatch.setenv("CLAUDECODE", "1")
+        exit_code = main(["run", str(p)])
+        assert exit_code == EXIT_FAILURE, "mixed round has a claude-bound task — guard must hold"
+
+
 # -- sig: mgh-6201.cd.bd955f.6f1d.9d8f32

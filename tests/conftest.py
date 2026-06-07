@@ -122,7 +122,7 @@ def _hermetic_claude_binary(request: pytest.FixtureRequest, monkeypatch: pytest.
         return
     import rondo.preflight as _pf
 
-    monkeypatch.setattr(_pf, "_check_claude_binary", lambda result, config: None)
+    monkeypatch.setattr(_pf, "_check_claude_binary", lambda result, config, needs_claude=True: None)
 
 
 # -- sig: mgh-6201.cd.bd955f.e4a1.conf01

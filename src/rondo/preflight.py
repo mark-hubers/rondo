@@ -50,21 +50,47 @@ class PreflightResult:
         return self.status in ("GREEN", "YELLOW")
 
 
+def round_needs_claude(round_def: object, default_model: str = "") -> bool:
+    """RONDO-344: does ANY task in this round spawn a claude subprocess?
+
+    Auto tasks call Python functions; provider-prefixed models (gemini:,
+    grok:, …) go HTTP. Only bare Claude models (sonnet/opus/haiku/empty)
+    need the claude binary — and only those carry nested-session risk.
+    """
+    from rondo.providers import parse_model  # pylint: disable=import-outside-toplevel
+
+    for task in getattr(round_def, "tasks", None) or []:
+        if getattr(task, "is_auto", False):
+            continue
+        effective = getattr(task, "model", None) or default_model
+        provider_name, _ = parse_model(effective or "")
+        if not provider_name:
+            return True
+    return False
+
+
 def run_preflight(
     *,
     config: RondoConfig | None = None,
+    needs_claude: bool = True,
 ) -> PreflightResult:
     """Run all preflight checks. Returns PreflightResult.
 
     REQ-103 reqs 001-013: environment validation before dispatch.
     REQ-103 req 025-026: cache result keyed by CC version.
+
+    RONDO-344: needs_claude=False means the upcoming work spawns ZERO
+    claude subprocesses (cloud-only / auto-only round) — the claude-binary
+    and nested-session checks downgrade to informational. Found live: the
+    USH 80-vote cloud panel was hard-blocked inside Claude Code by a guard
+    protecting against a hazard the round could not trigger.
     """
     if config is None:
         config = RondoConfig()
 
-    # -- REQ-103 req 026: check cache by CC version
+    # -- REQ-103 req 026: check cache by CC version (+ RONDO-344 claude-need)
     version = detect_cc_version(config.claude_binary)
-    cache_key = ".".join(str(x) for x in version) if version else "unknown"
+    cache_key = (".".join(str(x) for x in version) if version else "unknown") + f":nc={needs_claude}"
     if cache_key in _preflight_cache:
         logger.debug("Preflight cache hit: %s", cache_key)
         return _preflight_cache[cache_key]
@@ -72,10 +98,10 @@ def run_preflight(
     result = PreflightResult()
 
     # -- REQ-103 req 003: claude binary on PATH
-    _check_claude_binary(result, config)
+    _check_claude_binary(result, config, needs_claude=needs_claude)
 
     # -- REQ-103 req 010: CLAUDECODE env var (nested session guard)
-    _check_nested_session(result)
+    _check_nested_session(result, needs_claude=needs_claude)
 
     # -- REQ-103 req 005: API key / auth
     _check_auth(result, config)
@@ -108,26 +134,40 @@ def run_preflight(
     return result
 
 
-def _check_claude_binary(result: PreflightResult, config: RondoConfig) -> None:
-    """REQ-103 req 003: claude binary on PATH and executable."""
+def _check_claude_binary(result: PreflightResult, config: RondoConfig, needs_claude: bool = True) -> None:
+    """REQ-103 req 003: claude binary on PATH and executable.
+
+    RONDO-344: cloud-only work (needs_claude=False) does not require the
+    binary — absence becomes informational, never a RED.
+    """
     binary = shutil.which(config.claude_binary)
     if binary:
         result.checks.append(f"claude binary: {binary}")
-    else:
+    elif needs_claude:
         result.errors.append(
             f"claude binary '{config.claude_binary}' not found on PATH. "
             "Install Claude Code: npm install -g @anthropic-ai/claude-code"
         )
+    else:
+        result.checks.append("claude binary absent — not required (cloud-only work)")
 
 
-def _check_nested_session(result: PreflightResult) -> None:
-    """REQ-103 req 010: CLAUDECODE env var not set."""
+def _check_nested_session(result: PreflightResult, needs_claude: bool = True) -> None:
+    """REQ-103 req 010: CLAUDECODE env var not set.
+
+    RONDO-344: nesting is only hazardous for claude-subprocess tasks.
+    Cloud-only rounds (needs_claude=False) make HTTP calls — running them
+    inside Claude Code is safe and supported (the USH panel case).
+    """
     if os.environ.get("CLAUDECODE"):
-        result.errors.append(
-            "CLAUDECODE env var is set — running inside a Claude Code session. "
-            "Nested dispatch will fail with ERR_NESTED_SESSION. "
-            "Fix: dispatch strips CLAUDECODE (REQ-100 req 013)."
-        )
+        if needs_claude:
+            result.errors.append(
+                "CLAUDECODE env var is set — running inside a Claude Code session. "
+                "Nested dispatch will fail with ERR_NESTED_SESSION. "
+                "Fix: dispatch strips CLAUDECODE (REQ-100 req 013)."
+            )
+        else:
+            result.checks.append("inside Claude Code — safe for cloud-only work (no claude subprocess)")
     else:
         result.checks.append("CLAUDECODE not set (no nesting risk)")
 

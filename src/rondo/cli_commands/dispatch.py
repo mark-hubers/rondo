@@ -43,9 +43,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # -- U-01/U-02: dry-run skips preflight (no dispatch = no preflight needed)
     if not config.dry_run:
         # -- REQ-103 req 001: preflight before dispatch
-        from rondo.preflight import run_preflight  # pylint: disable=import-outside-toplevel
+        # -- RONDO-344: model-aware — cloud-only rounds (zero claude
+        # -- subprocesses) must not be blocked by claude-binary or
+        # -- nested-session checks (the USH 80-vote panel case)
+        from rondo.preflight import round_needs_claude, run_preflight  # pylint: disable=import-outside-toplevel
 
-        preflight = run_preflight(config=config)
+        preflight = run_preflight(config=config, needs_claude=round_needs_claude(round_def, config.default_model))
         if not preflight.can_proceed:
             print("Preflight FAILED (RED):", file=sys.stderr)
             for err in preflight.errors:

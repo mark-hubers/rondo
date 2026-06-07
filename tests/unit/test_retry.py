@@ -103,6 +103,25 @@ class TestRetryHonorsRetryAfter:
             retry_http(fn, provider_name="mistral")
         assert not slept, "4xx (non-429) must fail immediately, no sleep"
 
+    def test_429_no_header_uses_rate_limit_floor(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """RONDO-348: a 429 without Retry-After (mistral) still waits >=2s.
+
+        The 0.5s first backoff exhausted before the window cleared, losing
+        live votes; the rate-limit floor gives the limit time to reset.
+        """
+        slept: list[float] = []
+        monkeypatch.setattr("rondo.retry.time.sleep", slept.append)
+        calls = {"n": 0}
+
+        def fn() -> str:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise _http_error(429)
+            return "ok"
+
+        retry_http(fn, provider_name="mistral", config=RetryConfig(jitter=False))
+        assert slept and slept[0] >= 2.0, f"429 floor not applied, slept {slept}"
+
     def test_429_is_transient(self) -> None:
         assert is_transient_http_error(_http_error(429))
 
@@ -176,4 +195,4 @@ class TestPerProviderConcurrencyGate:
         assert state["peak"] == 2, f"different providers must overlap, peak was {state['peak']}"
 
 
-# -- sig: mgh-6201.cd.bd955f.87bf.8869af
+# -- sig: mgh-6201.cd.bd955f.87bf.10f154

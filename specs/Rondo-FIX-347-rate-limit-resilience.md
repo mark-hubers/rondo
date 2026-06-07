@@ -44,6 +44,32 @@ Retry-After (Fix 347) is the correct fix for the recovery path.
 
 This is honesty engineering: no fix without a failure that demands it.
 
+### 3a. What the canary actually proved (2026-06-07)
+
+Three evidence-driven layers shipped, each demanded by a live canary:
+1. **Retry-After honoring** (347) — wait what the server asks, capped 60s.
+2. **Per-provider concurrency gate** — `BoundedSemaphore`, default cap 4,
+   per provider (cross-provider stays parallel).
+3. **429 rate-limit floor + more attempts** — a 429 with no Retry-After
+   (mistral sends none) waits ≥2s; `max_attempts` 3→5.
+
+**Canary results (8 mistral tasks, `--workers 8`):**
+- Before: 4/8, failures gave up in ~2.5s (short backoff exhausted).
+- After: 4/8 — BUT failures now retry a real 11–14s before giving up
+  (floor + 5 attempts engaged) and the 4 that fail do so HONESTLY with
+  ERR_RATE_LIMIT.
+- **Realistic load (4 tasks, `--workers 4`): 4/4 clean.**
+
+**Honest conclusion — provider wall, not a client bug:** mistral free tier
+is ~4 requests/MINUTE. 8-in-a-burst can't all succeed no matter the client
+strategy short of minute-scale spacing (which would cripple every provider).
+The fixes deliver the maximum a client can: serve the quota cleanly, retry
+the rest patiently, fail honestly. **Do NOT add minute-long waits or a
+global RPM token-bucket to beat a synthetic 8-burst** — that would harm
+normal use to chase an extreme. For mistral-heavy bursts: use `--workers`
+≤ the provider's per-minute quota, or expect a follow-up pass for the
+overflow. 348 is DONE; no 348b.
+
 ## 4. Non-goals
 
 - No token-bucket per-RPM modelling (provider limits vary, undocumented) —

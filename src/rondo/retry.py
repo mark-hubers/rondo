@@ -58,11 +58,16 @@ def _default_breaker_path() -> Path:
 class RetryConfig:
     """Retry configuration — tunable per provider."""
 
-    max_attempts: int = 3
+    max_attempts: int = 5  # -- RONDO-348: was 3 — tight-limit providers (mistral) need more tries
     initial_delay_sec: float = 0.5
     max_delay_sec: float = 10.0
     backoff_multiplier: float = 2.0
     jitter: bool = True
+
+
+# -- RONDO-348: a 429 with no Retry-After (mistral) still needs a real wait —
+# -- the rate window is seconds, not the 0.5s first backoff. Floor it.
+_RATE_LIMIT_MIN_BACKOFF_SEC = 2.0
 
 
 # -- RONDO-348: cap simultaneous in-flight requests to ONE provider. Found via a
@@ -189,6 +194,11 @@ def retry_http(
             asked = _retry_after_sec(exc)
             if asked is not None:
                 sleep_for = min(max(sleep_for, asked), _RETRY_AFTER_CAP_SEC)
+            elif isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+                # -- RONDO-348: provider said "rate limited" but sent no
+                # -- Retry-After (mistral) — a 0.5s backoff exhausts before the
+                # -- window recovers. Wait a real minimum so the limit clears.
+                sleep_for = max(sleep_for, _RATE_LIMIT_MIN_BACKOFF_SEC)
             logger.info(
                 "Retry %d/%d for %s after transient error: %s (sleeping %.2fs)",
                 attempt,

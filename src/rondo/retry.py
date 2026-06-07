@@ -65,6 +65,33 @@ class RetryConfig:
     jitter: bool = True
 
 
+# -- RONDO-348: cap simultaneous in-flight requests to ONE provider. Found via a
+# -- live mistral micro-burst — 8 concurrent tasks overran the rate limit and 4
+# -- died with ERR_RATE_LIMIT even WITH Retry-After. The gate spreads the burst
+# -- into waves; different providers keep running fully in parallel (one
+# -- semaphore PER provider name). 4 is generous enough never to throttle normal
+# -- single dispatches, low enough to tame a pathological fan-out.
+_MAX_INFLIGHT_PER_PROVIDER = 4
+_provider_gates: dict[str, threading.BoundedSemaphore] = {}
+_provider_gates_lock = threading.Lock()
+
+
+def _provider_gate(provider_name: str) -> threading.BoundedSemaphore:
+    """Lazily get the per-provider concurrency semaphore — RONDO-348."""
+    with _provider_gates_lock:
+        gate = _provider_gates.get(provider_name)
+        if gate is None:
+            gate = threading.BoundedSemaphore(_MAX_INFLIGHT_PER_PROVIDER)
+            _provider_gates[provider_name] = gate
+        return gate
+
+
+def _reset_provider_gates() -> None:
+    """Drop all gates so a new _MAX_INFLIGHT_PER_PROVIDER takes effect — tests only."""
+    with _provider_gates_lock:
+        _provider_gates.clear()
+
+
 # -- RONDO-347: ceiling on a server-supplied Retry-After so a hostile or
 # -- misconfigured provider can't hang a dispatch indefinitely.
 _RETRY_AFTER_CAP_SEC = 60.0
@@ -133,9 +160,14 @@ def retry_http(
         OSError,
     )
 
+    # -- RONDO-348: hold a per-provider slot only during the actual call; the
+    # -- gate is released across backoff sleeps so a waiting task can use the
+    # -- slot, and different providers never block each other.
+    gate = _provider_gate(provider_name)
     for attempt in range(1, cfg.max_attempts + 1):
         try:
-            return fn()
+            with gate:
+                return fn()
         except transient_types as exc:
             last_exc = exc
             if not is_transient_http_error(exc):

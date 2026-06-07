@@ -27,16 +27,22 @@ Shared seam → every provider's 429 handling improved at once.
 real-`HTTPError` contract test (pins the header shape the parser depends on).
 Honors seconds form; HTTP-date form falls back to backoff (documented).
 
-## 3. Fix 348 — outbound pacing (PLANNED, this sprint)
+## 3. Fix 348 — outbound pacing (EVIDENCE-GATED, not built blind)
 
-Prevent the burst rather than only recovering from it: a per-provider
-concurrency/rate gate so requests to one provider don't all fire at once.
-Design constraints:
-- Must NOT change the stable surface (no new required config; sane default).
-- Must NOT serialize across providers (gemini + grok still run in parallel).
-- Lives at the dispatch seam, not in each adapter (one place, all providers).
-- TDD: a test that simulates N concurrent same-provider calls and asserts
-  they don't exceed the gate; cross-provider stays concurrent.
+**Honest reassessment 2026-06-07:** the lost-votes panel ran at **4 workers**.
+A per-provider *concurrency* cap ≥4 would never fire at 4 workers — so the
+429s were **requests-per-minute** pressure, not concurrency. A concurrency
+cap would be speculative complexity that does NOT address the observed bug.
+Retry-After (Fix 347) is the correct fix for the recovery path.
+
+**Decision:** do NOT build pacing on speculation. Gate it on evidence:
+1. Live-verify 347 with a real mistral micro-burst canary (~$0.01).
+2. If 429s still LOSE votes after Retry-After, the real fix is a per-provider
+   **RPM token-bucket** (concurrency caps won't help RPM) — a larger change,
+   specced then, with the canary as proof it's needed.
+3. If the canary recovers cleanly, 348 is unnecessary — say so, don't pad.
+
+This is honesty engineering: no fix without a failure that demands it.
 
 ## 4. Non-goals
 

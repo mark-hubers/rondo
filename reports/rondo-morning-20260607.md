@@ -1,9 +1,9 @@
 # Rondo Morning Report
 
 **Mode:** all
-**Started:** 2026-06-07T20:02:46.821830+00:00
-**Completed:** 2026-06-07T20:02:50.648539+00:00
-**Duration:** 3.8s
+**Started:** 2026-06-07T21:06:01.063495+00:00
+**Completed:** 2026-06-07T21:06:04.559246+00:00
+**Duration:** 3.5s
 **Status:** skipped
 
 ## Summary
@@ -15,10 +15,10 @@
 | Errors | 0 |
 | Skipped | 4 |
 | Blocked | 0 |
-| Duration | 3.8s (3.8s) |
+| Duration | 3.5s (3.5s) |
 | Health | FAIL |
 
-**7-day success:** 90% ↓ (602 dispatches — target 95% ✗ BELOW)
+**7-day success:** 89% ↓ (758 dispatches — target 95% ✗ BELOW)
 
 ## Usage
 

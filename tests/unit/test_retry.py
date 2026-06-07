@@ -15,6 +15,7 @@ unmocked real-HTTPError shape the parser depends on.
 from __future__ import annotations
 
 import email.message
+import time
 import urllib.error
 
 import pytest
@@ -106,4 +107,73 @@ class TestRetryHonorsRetryAfter:
         assert is_transient_http_error(_http_error(429))
 
 
-# -- sig: mgh-6201.cd.bd955f.87bf.fe3485
+class TestPerProviderConcurrencyGate:
+    """Per-provider concurrency gate — RONDO-348.
+
+    Found via a live mistral micro-burst: 8 concurrent tasks overran the limit
+    and 4 died with ERR_RATE_LIMIT even with Retry-After. The gate spreads the
+    burst; different providers still run fully in parallel.
+    """
+
+    def test_same_provider_capped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """No more than the cap of one provider's calls run at once."""
+        import threading
+
+        from rondo import retry as _retry
+
+        monkeypatch.setattr(_retry, "_MAX_INFLIGHT_PER_PROVIDER", 2)
+        _retry._reset_provider_gates()  # -- fresh semaphores at the new cap
+
+        lock = threading.Lock()
+        state = {"now": 0, "peak": 0}
+
+        def fn() -> str:
+            with lock:
+                state["now"] += 1
+                state["peak"] = max(state["peak"], state["now"])
+            time.sleep(0.05)
+            with lock:
+                state["now"] -= 1
+            return "ok"
+
+        threads = [threading.Thread(target=lambda: retry_http(fn, provider_name="mistral")) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert state["peak"] <= 2, f"gate breached: {state['peak']} mistral calls ran at once (cap 2)"
+
+    def test_different_providers_not_serialized(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The gate is PER provider — gemini and grok still run concurrently."""
+        import threading
+
+        from rondo import retry as _retry
+
+        monkeypatch.setattr(_retry, "_MAX_INFLIGHT_PER_PROVIDER", 1)
+        _retry._reset_provider_gates()
+
+        lock = threading.Lock()
+        state = {"now": 0, "peak": 0}
+
+        def fn() -> str:
+            with lock:
+                state["now"] += 1
+                state["peak"] = max(state["peak"], state["now"])
+            time.sleep(0.05)
+            with lock:
+                state["now"] -= 1
+            return "ok"
+
+        # -- one mistral + one gemini: cap-1 EACH, but cross-provider concurrent
+        threads = [
+            threading.Thread(target=lambda: retry_http(fn, provider_name="mistral")),
+            threading.Thread(target=lambda: retry_http(fn, provider_name="gemini")),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert state["peak"] == 2, f"different providers must overlap, peak was {state['peak']}"
+
+
+# -- sig: mgh-6201.cd.bd955f.87bf.8869af

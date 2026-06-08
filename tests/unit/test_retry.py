@@ -196,4 +196,97 @@ class TestPerProviderConcurrencyGate:
         assert state["peak"] == 2, f"different providers must overlap, peak was {state['peak']}"
 
 
-# -- sig: mgh-6201.cd.bd955f.87bf.4fd1ba
+class TestBreakerLiveShare:
+    """RONDO-361 (cursor concurrency #5): a LIVE breaker sees a peer's later trip.
+
+    Not just trips that existed at its construction.
+    The existing multiprocess test only checks an instance built AFTER the
+    trip (it loads at construction). This pins the uncovered gap: instance B
+    exists FIRST, then A trips. B.is_open() must re-read disk and report OPEN,
+    otherwise B keeps hammering a provider a peer already knows is down.
+    """
+
+    def test_live_instance_sees_peer_trip(self, tmp_path) -> None:
+        from rondo.retry import CircuitBreaker
+
+        persist = tmp_path / "breaker.json"
+        # -- Two instances share one file = two processes. B is built BEFORE
+        # -- the trip, so its construction-time load saw an empty/closed state.
+        breaker_a = CircuitBreaker(failure_threshold=2, cooldown_sec=300.0, persist_path=persist)
+        breaker_b = CircuitBreaker(failure_threshold=2, cooldown_sec=300.0, persist_path=persist)
+
+        assert breaker_b.is_open("prod") is False  # -- nothing tripped yet
+
+        # -- Peer A trips the breaker AFTER B already exists.
+        breaker_a.record_failure("prod")
+        breaker_a.record_failure("prod")
+        assert breaker_a.is_open("prod") is True
+
+        # -- B never re-read before the fix → would say CLOSED and keep hammering.
+        assert breaker_b.is_open("prod") is True, "live instance blind to peer trip"
+
+    def test_reload_is_fail_closed_keeps_longer_cooldown(self, tmp_path) -> None:
+        """A disk reload must never SHORTEN an in-memory open_until (fail-closed).
+
+        If this instance has a longer local cooldown than what's on disk, a
+        reload must keep the longer one — backing off MORE is always safe.
+        """
+        from rondo.retry import CircuitBreaker
+
+        persist = tmp_path / "breaker.json"
+        breaker_a = CircuitBreaker(failure_threshold=2, cooldown_sec=10.0, persist_path=persist)
+        breaker_b = CircuitBreaker(failure_threshold=2, cooldown_sec=10000.0, persist_path=persist)
+
+        # -- B trips with a long cooldown (in memory + on disk).
+        breaker_b.record_failure("prod")
+        breaker_b.record_failure("prod")
+        long_open_until = breaker_b._states["prod"].open_until
+
+        # -- A trips with a SHORT cooldown, overwriting disk with a sooner time.
+        breaker_a.record_failure("prod")
+        breaker_a.record_failure("prod")
+
+        # -- B re-reads on is_open; must NOT adopt A's sooner open_until.
+        assert breaker_b.is_open("prod") is True
+        assert breaker_b._states["prod"].open_until == long_open_until, "reload shortened cooldown"
+
+
+class TestBreakerSaveUnderLock:
+    """RONDO-361 (cursor concurrency #6): _save_state reads each state under its own lock.
+
+    Not a different lock.
+    open_until/failure_count are guarded by state.lock everywhere they are
+    WRITTEN, but the persist merge read them under _global_lock only — a
+    formal data race (in CPython the GIL masks torn primitive reads, so this
+    is a convergence guard: under concurrent trips, every trip must land on
+    disk with no lost entries).
+    """
+
+    def test_concurrent_trips_all_persist(self, tmp_path) -> None:
+        import json as _json
+        import threading as _threading
+
+        from rondo.retry import CircuitBreaker
+
+        persist = tmp_path / "breaker.json"
+        breaker = CircuitBreaker(failure_threshold=1, cooldown_sec=300.0, persist_path=persist)
+
+        providers = [f"p{i}" for i in range(24)]
+        launch = _threading.Barrier(len(providers))
+
+        def _trip(name: str) -> None:
+            launch.wait()
+            breaker.record_failure(name)  # -- threshold=1 → trips + persists immediately
+
+        threads = [_threading.Thread(target=_trip, args=(p,)) for p in providers]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        on_disk = _json.loads(persist.read_text(encoding="utf-8"))
+        missing = [p for p in providers if p not in on_disk]
+        assert not missing, f"concurrent trips lost on disk: {missing}"
+
+
+# -- sig: mgh-6201.cd.bd955f.87bf.2fde94

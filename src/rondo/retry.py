@@ -249,6 +249,10 @@ class CircuitBreaker:
         self._global_lock = threading.Lock()
         # -- #236: persistent state file for cross-restart safety
         self._persist_path = persist_path if persist_path is not None else _default_breaker_path()
+        # -- RONDO-361 #5: mtime of the state file at last load. is_open() re-reads
+        # -- only when the file changed, so a peer process's later trip becomes
+        # -- visible to this LIVE instance (not just to instances built afterward).
+        self._persist_mtime: float = 0.0
         self._load_state()
 
     def _get_state(self, provider: str) -> CircuitBreakerState:
@@ -290,46 +294,17 @@ class CircuitBreaker:
                     logger.warning("Breaker persist ABORTED — file lock failed: %s", lock_exc)
                     return
 
-                # -- Read existing state (other processes may have written here)
-                existing: dict[str, dict[str, float]] = {}
-                if self._persist_path.exists():
-                    try:
-                        existing_raw = self._persist_path.read_text(encoding="utf-8")
-                        loaded = json.loads(existing_raw)
-                        if isinstance(loaded, dict):
-                            existing = loaded
-                    except (OSError, ValueError, json.JSONDecodeError):
-                        existing = {}
-
-                # -- Merge: our in-memory state overrides existing for our providers
-                payload: dict[str, dict[str, float]] = {}
-                # -- Keep other processes' still-valid entries
-                for provider, entry in existing.items():
-                    if not isinstance(entry, dict):
-                        continue
-                    open_until = float(entry.get("open_until", 0.0))
-                    if open_until > now:
-                        payload[provider] = {
-                            "open_until": open_until,
-                            "failure_count": float(entry.get("failure_count", 0.0)),
-                        }
-
-                # -- Add/update our in-memory OPEN states
-                with self._global_lock:
-                    for provider, state in self._states.items():
-                        if state.open_until > now:
-                            payload[provider] = {
-                                "open_until": state.open_until,
-                                "failure_count": float(state.failure_count),
-                            }
-                        elif provider in payload:
-                            # -- Our state says CLOSED — remove from merged payload
-                            del payload[provider]
+                # -- Read still-valid peer entries, then merge our in-memory states
+                # -- on top (extracted to keep this method under the complexity lock).
+                payload = self._read_existing_payload(now)
+                self._apply_memory_states(payload, now)
 
                 # -- Atomic write via tmp+replace (lock still held)
                 tmp_path = self._persist_path.with_suffix(".tmp")
                 tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
                 os.replace(tmp_path, self._persist_path)
+                # -- RONDO-361 #5: our own write is "seen" — don't reload it back.
+                self._record_mtime()
 
                 try:
                     fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
@@ -338,39 +313,130 @@ class CircuitBreaker:
         except (OSError, TypeError, ValueError) as exc:
             logger.debug("Circuit breaker persist failed (non-fatal): %s", exc)
 
-    def _load_state(self) -> None:
-        """Restore OPEN circuit states from disk — #236 + #246.
+    def _read_existing_payload(self, now: float) -> dict[str, dict[str, float]]:
+        """Read still-valid peer entries from disk into a fresh payload — #246.
 
-        Only loads states where open_until is still in the future (by
-        wall clock). Expired entries are ignored. Non-fatal on any error.
+        Keeps entries written by OTHER processes whose cooldown hasn't expired,
+        so our write merges with theirs instead of clobbering it.
+        """
+        existing: dict[str, Any] = {}
+        if self._persist_path.exists():
+            try:
+                loaded = json.loads(self._persist_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    existing = loaded
+            except (OSError, ValueError, json.JSONDecodeError):
+                existing = {}
+        payload: dict[str, dict[str, float]] = {}
+        for provider, entry in existing.items():
+            if not isinstance(entry, dict):
+                continue
+            open_until = float(entry.get("open_until", 0.0))
+            if open_until > now:
+                payload[provider] = {
+                    "open_until": open_until,
+                    "failure_count": float(entry.get("failure_count", 0.0)),
+                }
+        return payload
+
+    def _apply_memory_states(self, payload: dict[str, dict[str, float]], now: float) -> None:
+        """Merge in-memory OPEN states into payload, fail-closed — RONDO-361 #5/#6.
+
+        #6: open_until/failure_count are guarded by state.lock everywhere they
+        are WRITTEN, so read them under that SAME lock here — not under
+        _global_lock alone. We snapshot the dict items under _global_lock,
+        release it, then take each state.lock individually (never both at once
+        → no lock-order deadlock with _get_state, which holds only _global_lock).
+        #5: fail-closed — if a peer's on-disk entry has a LATER cooldown, keep
+        theirs (a reload/merge may extend backoff, never shorten it).
+        """
+        with self._global_lock:
+            states_items = list(self._states.items())
+        for provider, state in states_items:
+            with state.lock:
+                s_open_until = state.open_until
+                s_failure = state.failure_count
+            if s_open_until > now:
+                prev = payload.get(provider, {})
+                payload[provider] = {
+                    "open_until": max(s_open_until, float(prev.get("open_until", 0.0))),
+                    "failure_count": float(max(s_failure, int(prev.get("failure_count", 0)))),
+                }
+            elif provider in payload:
+                # -- Our state says CLOSED (success/recovery) — remove from payload
+                del payload[provider]
+
+    def _record_mtime(self) -> None:
+        """Remember the state file's mtime so we only reload when it changes — #5."""
+        try:
+            self._persist_mtime = self._persist_path.stat().st_mtime
+        except OSError:
+            self._persist_mtime = 0.0
+
+    def _merge_disk_entry(self, provider: str, entry: object, now: float) -> None:
+        """Merge one on-disk breaker entry into memory, FAIL-CLOSED — RONDO-361 #5.
+
+        A provider's open_until only ever moves LATER (longer backoff), never
+        earlier — so a reload can reveal a peer's trip but can never shorten a
+        cooldown this instance already holds. Updates the existing state object
+        in place so live references (held by is_open) stay valid.
+        """
+        if not isinstance(entry, dict):
+            return
+        open_until = float(entry.get("open_until", 0.0))
+        if open_until <= now:
+            return
+        failure_count = int(entry.get("failure_count", self.failure_threshold))
+        with self._global_lock:
+            existing = self._states.get(provider)
+            if existing is None:
+                self._states[provider] = CircuitBreakerState(failure_count=failure_count, open_until=open_until)
+                return
+        # -- Update in place, fail-closed (keep the later cooldown).
+        with existing.lock:
+            if open_until > existing.open_until:
+                existing.open_until = open_until
+                existing.failure_count = max(existing.failure_count, failure_count)
+
+    def _load_state(self) -> None:
+        """Restore/refresh OPEN circuit states from disk — #236 + #246 + RONDO-361 #5.
+
+        Merges disk state into memory fail-closed (see _merge_disk_entry). Called
+        once at construction AND opportunistically by _maybe_reload when a peer
+        process changes the file. Only loads entries still in their cooldown.
+        Non-fatal on any error.
         """
         try:
             if not self._persist_path.exists():
                 return
-            data = json.loads(self._persist_path.read_text(encoding="utf-8"))
+            raw = self._persist_path.read_text(encoding="utf-8")
+            self._record_mtime()
+            data = json.loads(raw)
             if not isinstance(data, dict):
                 return
             now = time.time()
             for provider, entry in data.items():
-                if not isinstance(entry, dict):
-                    continue
-                open_until = float(entry.get("open_until", 0.0))
-                if open_until > now:
-                    state = CircuitBreakerState(
-                        failure_count=int(entry.get("failure_count", self.failure_threshold)),
-                        open_until=open_until,
-                    )
-                    self._states[provider] = state
-                    logger.info(
-                        "Circuit breaker RESTORED for %s (cooldown %.0fs remaining)",
-                        provider,
-                        open_until - now,
-                    )
+                self._merge_disk_entry(provider, entry, now)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             logger.debug("Circuit breaker load failed (non-fatal): %s", exc)
 
+    def _maybe_reload(self) -> None:
+        """Re-read disk state if a peer changed the file since our last load — #5.
+
+        One cheap stat() per call; full reparse only when mtime advanced. This is
+        what makes a peer process's trip visible to this already-running instance,
+        not just to instances constructed after the trip.
+        """
+        try:
+            current = self._persist_path.stat().st_mtime
+        except OSError:
+            return
+        if current != self._persist_mtime:
+            self._load_state()
+
     def is_open(self, provider: str) -> bool:
         """Check if circuit is open for this provider."""
+        self._maybe_reload()  # -- RONDO-361 #5: see a peer's trip on a live instance
         state = self._get_state(provider)
         transitioned = False
         with state.lock:
@@ -433,4 +499,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.f1b0.f0b061
+# -- sig: mgh-6201.cd.bd955f.3a15.d76c0b

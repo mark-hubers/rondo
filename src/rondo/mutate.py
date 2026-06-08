@@ -112,9 +112,14 @@ class _Mutator(ast.NodeTransformer):
         return node
 
     def visit_Return(self, node: ast.Return) -> ast.AST:
-        """Drop a returned value: `return x` -> `return None`."""
+        """Drop a returned value: `return x` -> `return None`.
+
+        Skips a bare `return` and `return None` — mutating those to `return None`
+        is a no-op that would masquerade as an (uncatchable) surviving mutant.
+        """
         self.generic_visit(node)
-        if node.value is not None and self._site(node, "return-none", ast.unparse(node)):
+        already_none = node.value is None or (isinstance(node.value, ast.Constant) and node.value.value is None)
+        if not already_none and self._site(node, "return-none", ast.unparse(node)):
             node.value = ast.Constant(value=None)
         return node
 
@@ -212,4 +217,4 @@ if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
 
 
-# -- sig: mgh-6201.cd.bd955f.4fc8.2bd888
+# -- sig: mgh-6201.cd.bd955f.4fc8.ec2d57

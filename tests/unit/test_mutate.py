@@ -34,6 +34,17 @@ class TestGenerateMutants:
         sources = [src for _, src in mutants]
         assert any("False" in s for s in sources), f"no True/False mutant: {sources}"
 
+    def test_return_none_yields_no_noop_mutant(self) -> None:
+        """`return None` must NOT produce a return-None mutant (no-op = fake survivor)."""
+        mutants = generate_mutants("def f():\n    return None\n")
+        assert all(m.operator != "return-none" for m, _ in mutants), "no-op return-None mutant generated"
+
+    def test_bare_return_yields_no_noop_mutant(self) -> None:
+        """A bare `return` must NOT produce a return-None mutant either."""
+        mutants = generate_mutants("def f():\n    if True:\n        return\n    return 1\n")
+        none_snips = [m.snippet for m, _ in mutants if m.operator == "return-none" and "return" == m.snippet.strip()]
+        assert not none_snips, f"bare-return mutated: {none_snips}"
+
     def test_empty_returnless_code_yields_no_crash(self) -> None:
         # -- a module with nothing mutable must not raise, just return []
         assert generate_mutants("x = 'hello'\n") == [] or isinstance(generate_mutants("x = 'hello'\n"), list)
@@ -98,4 +109,4 @@ class TestRunMutationGate:
         assert mod.read_text(encoding="utf-8") == original, "mutated code left on disk after crash"
 
 
-# -- sig: mgh-6201.cd.bd955f.a7e0.21b385
+# -- sig: mgh-6201.cd.bd955f.a7e0.adb14f

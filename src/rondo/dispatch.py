@@ -615,6 +615,16 @@ def _dispatch_interactive(
         # -- Handle non-zero exit (Rondo-REQ-100 req 27)
         # -- RONDO-259: non-zero exit with valid assistant output = hook failure,
         # -- not dispatch failure. Parse the response instead of returning error.
+        # -- DELIBERATE TRADE-OFF (re-flagged by cursor-review RONDO-358, kept):
+        # -- Claude Code exits non-zero when a POST-DISPATCH HOOK fails even
+        # -- though the model answered correctly — the common case here (Caliber
+        # -- hooks). Treating that as failure would falsely fail good dispatches.
+        # -- Residual risk (rare): a process that crashed AFTER emitting partial
+        # -- text is recorded done. We accept it because (a) the output is real
+        # -- and preserved, (b) the non-zero exit is logged below (not silent),
+        # -- and (c) hook-failure >> mid-stream-crash in this deployment. If a
+        # -- crash-masking case is ever observed, gate on a stream-completion
+        # -- marker rather than flipping the whole branch to failure.
         if returncode != 0:
             assistant_text = _collect_assistant_text(
                 parse_stream_json_events(stdout.split("\n"), task_name=task.name)[0]
@@ -1151,4 +1161,4 @@ def _log_to_history(
         logger.debug("History logging failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.e969.bc3711
+# -- sig: mgh-6201.cd.bd955f.e969.b2b512

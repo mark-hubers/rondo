@@ -1,0 +1,19 @@
+#!/bin/zsh
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+## -- Rondo mutation gate — RONDO-363: prove tests bite.
+## -- Breaks a source file one small mutation at a time; the scoped tests MUST
+## -- fail (catch it). A SURVIVED mutant = a test that passes when the code is
+## -- wrong = a gap or a lie. Trusts no one — mechanical, not opinion.
+##
+## -- Usage:
+## --   bin/mutate src/rondo/idempotency.py --tests tests/unit/test_idempotency.py
+## --   bin/mutate src/rondo/retry.py       --tests "tests/unit/test_retry.py -k Breaker"
+##
+## -- Scope it to the file you changed + its tests — running pytest once per
+## -- mutant is slow on the whole suite. Exit 1 if any mutant survives.
+
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+REPO="${0:a:h:h}"
+cd "$REPO"
+exec "$REPO/.venv/bin/python" -m rondo.mutate "$@"

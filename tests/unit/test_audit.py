@@ -642,4 +642,54 @@ class TestFailureForensics:
         assert rec.project == ""
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a2.93a2b3
+class TestReconcileConcurrencySafe:
+    """Reconcile is a serialized read-modify-write — RONDO-359 / STD-110 r016.
+
+    cursor-review found it scanned → decided → appended with no lock over the
+    whole op, so concurrent reconcilers each saw the same stale snapshot and
+    each wrote a duplicate stuck OUTCOME. A fresh AuditTrail is built per
+    dispatch and reconciles on init, so this is a real fleet race.
+    """
+
+    def test_reconcile_serialized_no_duplicate_stuck(self, tmp_path, monkeypatch) -> None:
+        """Concurrent reconciles serialize (peak 1) and write ONE stuck outcome."""
+        import threading
+        import time
+
+        seed = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)), auto_reconcile=False)
+        rec = seed.record_intent(task_name="t", round_name="r", model="m", prompt="p")  # -- no outcome → stuck
+
+        state = {"now": 0, "peak": 0}
+        track_lock = threading.Lock()
+        orig_scan = AuditTrail._scan_intents_and_outcomes
+
+        def _tracked_scan(self):
+            with track_lock:
+                state["now"] += 1
+                state["peak"] = max(state["peak"], state["now"])
+            time.sleep(0.05)  # -- hold the critical section open to force overlap
+            try:
+                return orig_scan(self)
+            finally:
+                with track_lock:
+                    state["now"] -= 1
+
+        monkeypatch.setattr(AuditTrail, "_scan_intents_and_outcomes", _tracked_scan)
+
+        def _recon() -> None:
+            t = AuditTrail(config=AuditConfig(audit_dir=str(tmp_path)), auto_reconcile=False)
+            t.reconcile_stuck_intents(stuck_after_sec=0)
+
+        threads = [threading.Thread(target=_recon) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert state["peak"] == 1, f"reconcile RMW not serialized — {state['peak']} concurrent (STD-110 r016)"
+        lines = (tmp_path / "rondo_audit.jsonl").read_text(encoding="utf-8").splitlines()
+        stuck = [ln for ln in lines if rec.dispatch_id in ln and "ERR_RECONCILED_STUCK" in ln]
+        assert len(stuck) == 1, f"duplicate stuck outcomes written: {len(stuck)}"
+
+
+# -- sig: mgh-6201.cd.bd955f.8fff.1c00b3

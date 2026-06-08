@@ -39,6 +39,14 @@ from rondo import sanitize as _sanitize_module  # avoid Caliber S3 false-positiv
 
 logger = logging.getLogger(__name__)
 
+# -- RONDO-359 / STD-110 req 016: reconcile is a read-modify-write (scan →
+# -- decide → append) that MUST be serialized. A fresh AuditTrail is built per
+# -- dispatch and reconciles on init, so without this two reconcilers saw the
+# -- same stale snapshot and each wrote a DUPLICATE stuck OUTCOME. Two layers:
+# -- this module lock serializes THREADS in one process; a flock sidecar
+# -- (in reconcile_stuck_intents) serializes PROCESSES (MCP server + CLI).
+_reconcile_lock = threading.Lock()
+
 # -- ──────────────────────────────────────────────────────────────
 # --  Configuration — STD-113 req 008
 # -- ──────────────────────────────────────────────────────────────
@@ -642,8 +650,38 @@ class AuditTrail:
         # -- RONDO-211 #257: resolve threshold (None → config default)
         if stuck_after_sec is None:
             stuck_after_sec = getattr(self.config, "stuck_after_sec", 300)
-        now = datetime.now(UTC)
 
+        # -- RONDO-359 / STD-110 r016: serialize the whole read-modify-write.
+        # -- In-process lock (threads) wraps a cross-process flock (MCP server
+        # -- + CLI) so two reconcilers never act on the same stale snapshot and
+        # -- double-write a stuck OUTCOME. A peer already reconciling → skip
+        # -- (idempotent housekeeping; one process doing it is enough).
+        import fcntl  # pylint: disable=import-outside-toplevel
+
+        with _reconcile_lock:
+            lock_path = self._jsonl_path.with_name(self._jsonl_path.name + ".reconcile.lock")
+            try:
+                lock_f = lock_path.open("w", encoding="utf-8")
+            except OSError as exc:
+                logger.warning("Reconcile lock open failed: %s", exc)
+                return 0
+            try:
+                try:
+                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    logger.debug("Reconcile in progress on a peer process; skipping")
+                    return 0
+                return self._reconcile_locked(stuck_after_sec)
+            finally:
+                try:
+                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                except OSError:
+                    pass
+                lock_f.close()
+
+    def _reconcile_locked(self, stuck_after_sec: int) -> int:
+        """Reconcile read-modify-write body — caller holds both locks (RONDO-359)."""
+        now = datetime.now(UTC)
         try:
             intents, outcomes = self._scan_intents_and_outcomes()
         except OSError as exc:
@@ -694,4 +732,4 @@ class AuditTrail:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a2.93a2b4
+# -- sig: mgh-6201.cd.bd955f.2ce9.a06c70

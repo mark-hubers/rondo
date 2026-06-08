@@ -261,7 +261,7 @@ class CircuitBreaker:
                 self._states[provider] = CircuitBreakerState()
             return self._states[provider]
 
-    def _save_state(self) -> None:
+    def _save_state(self, force_drop: set[str] | None = None) -> None:
         """Persist OPEN circuit states to disk — #236 + #246.
 
         RONDO-209 #246: uses fcntl.flock() for cross-process exclusive lock
@@ -273,6 +273,11 @@ class CircuitBreaker:
 
         Only persists providers whose cooldown has not yet expired.
         Called on transitions only (OPEN/CLOSE), not every failure.
+
+        force_drop (RONDO-361 #1): providers to remove from the merged payload
+        even if still valid on disk — the ONLY way an entry is deliberately
+        cleared (reset). The normal merge never deletes, so it can't clobber a
+        peer's live cooldown; reset is the explicit, intentional exception.
         """
         import fcntl  # pylint: disable=import-outside-toplevel
 
@@ -298,6 +303,9 @@ class CircuitBreaker:
                 # -- on top (extracted to keep this method under the complexity lock).
                 payload = self._read_existing_payload(now)
                 self._apply_memory_states(payload, now)
+                # -- RONDO-361 #1: explicit clears (reset) are the ONLY deletions.
+                for provider in force_drop or ():
+                    payload.pop(provider, None)
 
                 # -- Atomic write via tmp+replace (lock still held)
                 tmp_path = self._persist_path.with_suffix(".tmp")
@@ -340,7 +348,7 @@ class CircuitBreaker:
         return payload
 
     def _apply_memory_states(self, payload: dict[str, dict[str, float]], now: float) -> None:
-        """Merge in-memory OPEN states into payload, fail-closed — RONDO-361 #5/#6.
+        """Merge in-memory OPEN states into payload, fail-closed — RONDO-361 #5/#6/#1.
 
         #6: open_until/failure_count are guarded by state.lock everywhere they
         are WRITTEN, so read them under that SAME lock here — not under
@@ -349,6 +357,14 @@ class CircuitBreaker:
         → no lock-order deadlock with _get_state, which holds only _global_lock).
         #5: fail-closed — if a peer's on-disk entry has a LATER cooldown, keep
         theirs (a reload/merge may extend backoff, never shorten it).
+        #1 (cursor review): this method NEVER deletes a still-valid entry. The
+        old `elif ... del payload[provider]` cleared a provider whenever OUR
+        memory said CLOSED — but our memory is often stale-CLOSED while a PEER
+        holds it OPEN on disk, so an unrelated save erased the peer's live trip
+        (fail-OPEN). Expired entries are already dropped by _read_existing_payload
+        (open_until > now filter); a deliberate clear goes through
+        _save_state(force_drop=...). So a CLOSED in-memory state simply does not
+        contribute — it can never remove a peer's live cooldown.
         """
         with self._global_lock:
             states_items = list(self._states.items())
@@ -362,9 +378,6 @@ class CircuitBreaker:
                     "open_until": max(s_open_until, float(prev.get("open_until", 0.0))),
                     "failure_count": float(max(s_failure, int(prev.get("failure_count", 0)))),
                 }
-            elif provider in payload:
-                # -- Our state says CLOSED (success/recovery) — remove from payload
-                del payload[provider]
 
     def _record_mtime(self) -> None:
         """Remember the state file's mtime so we only reload when it changes — #5."""
@@ -481,13 +494,23 @@ class CircuitBreaker:
             self._save_state()  # -- #236: persist CLOSE transition only
 
     def reset(self, provider: str | None = None) -> None:
-        """Reset breaker state for a provider (or all if None)."""
+        """Reset breaker state for a provider (or all if None).
+
+        RONDO-361 #1: reset is the ONE deliberate clear, so it passes force_drop
+        to actually remove the entry from disk (the normal merge never deletes).
+        For reset-all, drop every provider known in memory OR on disk.
+        """
         with self._global_lock:
+            known = set(self._states)
             if provider is None:
                 self._states.clear()
             else:
                 self._states.pop(provider, None)
-        self._save_state()  # -- #236: persist reset
+        if provider is None:
+            drop = known | set(self._read_existing_payload(time.time()))
+        else:
+            drop = {provider}
+        self._save_state(force_drop=drop)  # -- #236 + #1: persist + clear on disk
 
 
 # -- Global shared circuit breaker for all adapters + dispatch
@@ -499,4 +522,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.3a15.d76c0b
+# -- sig: mgh-6201.cd.bd955f.3a15.6c38d1

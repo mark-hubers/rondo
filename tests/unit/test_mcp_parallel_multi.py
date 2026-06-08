@@ -471,9 +471,25 @@ class TestDiskBasedRetry:
         assert _load_background_result("nonexistent") is None
 
     def test_retry_checks_disk(self, tmp_path, monkeypatch) -> None:
-        """rondo_retry falls back to disk when not in memory."""
+        """rondo_retry falls back to disk when not in memory, then re-dispatches.
+
+        RONDO-362: the dispatch seam (rondo_run_file) is stubbed so this stays
+        a hermetic UNIT test — the original made a REAL dispatch that timed out
+        with backoff (~144s) and was non-hermetic. Stubbing also lets us assert
+        the retry actually ran, not just that the id was recognized.
+        """
         monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+        import rondo.mcp_dispatch as _md
         from rondo.mcp_server import _save_background_result, rondo_retry
+
+        # -- Stub the dispatch seam: prove the retry PATH runs without a real call.
+        calls: list[str] = []
+
+        def _fake_run_file(prompt: str = "", dry_run: bool = False, model: str = "", **kwargs: object) -> str:
+            calls.append(model)
+            return json.dumps({"status": "done", "raw_output": "retried ok", "cost_usd": 0.0})
+
+        monkeypatch.setattr(_md, "rondo_run_file", _fake_run_file)
 
         # -- Save a failure to disk
         failure = {
@@ -484,11 +500,12 @@ class TestDiskBasedRetry:
         }
         _save_background_result("disk-retry-1", failure)
 
-        # -- rondo_retry should find it on disk (not in _background_results)
+        # -- rondo_retry must find it on disk (not in _background_results) AND retry it.
         result = json.loads(rondo_retry("disk-retry-1", model="haiku"))
-        ## -- It will try to dispatch (which may fail in test env) but
-        ## -- the point is it FOUND the dispatch, not "Unknown dispatch_id"
-        assert result.get("status") != "error" or "Unknown dispatch_id" not in result.get("error", "")
+        assert "Unknown dispatch_id" not in result.get("error", ""), "disk fallback failed to find dispatch"
+        assert result["status"] == "done"
+        assert result["retried"] == 1
+        assert calls == ["haiku"], f"explicit model not honored on retry: {calls}"
 
     def test_prune_old_retry_files(self, tmp_path, monkeypatch) -> None:
         """Max 50 retry files — oldest pruned."""
@@ -731,4 +748,4 @@ class TestCloudPathPatientTimeout:
         )
 
 
-# -- sig: mgh-6201.cd.bd955f.6e25.770e1e
+# -- sig: mgh-6201.cd.bd955f.6e25.bbff85

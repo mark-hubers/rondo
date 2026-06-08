@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -50,6 +52,48 @@ def _load_example(filepath: Path):
 
 class TestAPIExamplesRun:
     """Every API example runs without errors."""
+
+    @pytest.fixture(autouse=True)
+    def _stub_outside_world(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """RONDO-362: stub the two outside-world seams so the build is hermetic.
+
+        Examples are LIVE-by-default for a human running them, but in the build
+        they must not make real (paid, flaky, ~180s-timeout) dispatches. We stub
+        the lowest-common seams so every high-level path (rondo_run_file,
+        rondo_multi_review, rondo_benchmark, ...) still builds its OWN envelope
+        shape from a fake response — this verifies example LOGIC/wiring (the real
+        test intent: "they don't crash") without any network or subprocess.
+
+        Before this, ~12 example tests each hit the 180s subprocess timeout and
+        "passed" on the degraded result — so live coverage was already fake while
+        costing ~10 min (and possibly real API spend on a keyed machine).
+        """
+        from rondo import dispatch as _dispatch
+
+        def _fake_subprocess(
+            cmd: list[str],
+            env: dict[str, str],
+            timeout_sec: int,
+            cwd: str = "",
+            watchdog_sec: int = 0,
+            stdin_text: str = "",
+        ) -> tuple[str, str, int, bool]:
+            # -- (stdout, stderr, returncode, timed_out): benign JSON success.
+            return ('{"status": "ok", "result": "hermetic-stub"}', "", 0, False)
+
+        monkeypatch.setattr(_dispatch, "_run_subprocess", _fake_subprocess)
+
+        # -- HTTP seam: raise a NON-transient (4xx) error so retry_http fails
+        # -- FAST. A transient error (429/5xx/URLError) would trip our own
+        # -- hardened backoff and reintroduce the slowness we're removing.
+        def _fake_urlopen(*args: object, **kwargs: object) -> object:
+            # -- 401 is NON-transient (4xx, not 429), so retry_http raises at once.
+            # -- A 5xx/429/URLError would be retried with backoff — reintroducing slowness.
+            raise urllib.error.HTTPError(
+                url="https://hermetic-stub", code=401, msg="stub: no live HTTP in build", hdrs=None, fp=None
+            )
+
+        monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
 
     @pytest.mark.parametrize(
         "example_file",
@@ -105,4 +149,4 @@ class TestAPIExamplesQuality:
         assert "__name__" in content and "__main__" in content, f"{example_file.name} must have __main__ guard"
 
 
-# -- sig: mgh-6201.cd.bd955f.ea01.e35e50
+# -- sig: mgh-6201.cd.bd955f.4150.59066e

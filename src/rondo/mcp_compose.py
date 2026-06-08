@@ -197,13 +197,23 @@ def rondo_review_file(
 _RETRYABLE_PROVIDER_ERRORS = frozenset({"ERR_PROVIDER_DOWN", "ERR_RATE_LIMIT"})
 
 
-def _multi_review_dispatch_one(provider_model: str, prompt: str) -> dict:
+# -- RONDO-356: the cloud panel must be PATIENT with reasoning models. The old
+# -- code used rondo_run_file's 300s default — but gpt-5.5:high finished a real
+# -- audit in 66s via rondo_run(timeout_sec=600) while dying at ~300s via the
+# -- cloud path (USH, live). Reasoning latency is variable, so 300 kills the
+# -- slow runs. Match the thinking read-timeout default (timeouts.py).
+_CLOUD_PANEL_TIMEOUT_SEC = 600
+
+
+def _multi_review_dispatch_one(provider_model: str, prompt: str, timeout_sec: int = _CLOUD_PANEL_TIMEOUT_SEC) -> dict:
     """RONDO-209 #248/#250: dispatch one provider, surface error_code+message.
 
     Extracted from rondo_multi_review for cyclomatic complexity. Returns a
     structured dict with status/output/cost/duration AND the underlying
     error_code + error_message so callers can diagnose failures (HTTP 503,
     rate limit, auth error) instead of just seeing 'partial empty'.
+    RONDO-356: timeout_sec defaults patient (600s) so reasoning models aren't
+    capped at 300; callers may pass a larger budget for very long tasks.
     """
     from rondo.mcp_dispatch import rondo_run_file  # pylint: disable=import-outside-toplevel
 
@@ -212,6 +222,7 @@ def _multi_review_dispatch_one(provider_model: str, prompt: str) -> dict:
         model=provider_model,
         dry_run=False,
         done_when="Review complete. List specific findings as bullet points.",
+        timeout_sec=timeout_sec,
     )
     r = json.loads(raw)
     tasks = r.get("tasks", [])
@@ -819,4 +830,4 @@ def rondo_review_codebase(
     )
 
 
-# -- sig: mgh-6201.cd.bd955f.7648.c0f05e
+# -- sig: mgh-6201.cd.bd955f.48a1.4c051e

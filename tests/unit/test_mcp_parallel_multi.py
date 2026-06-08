@@ -704,4 +704,31 @@ class TestCostEstimatorCalibration:
         assert cost > 0
 
 
-# -- sig: mgh-82a9.1b.f6df1b.bd01.69b6d9
+class TestCloudPathPatientTimeout:
+    """RONDO-356: the cloud panel must not cap reasoning models at 300s.
+
+    Found LIVE via USH: gpt-5.5:high finished the same audit in 66s via
+    rondo_run (timeout_sec=600) but died at ~300s via rondo_cloud — because
+    the cloud path (_multi_review_dispatch_one → rondo_run_file) used the 300s
+    DEFAULT. Reasoning latency is variable, so the 300 cap kills the slow runs.
+    The cloud path must pass a patient timeout (matching the thinking default).
+    """
+
+    def test_dispatch_one_passes_patient_timeout(self, monkeypatch) -> None:
+        """_multi_review_dispatch_one calls rondo_run_file with timeout_sec >= 600."""
+        import rondo.mcp_compose as _mc
+
+        captured = {}
+
+        def _fake_run_file(**kwargs):
+            captured.update(kwargs)
+            return json.dumps({"status": "done", "tasks": [{"raw_output": "ok"}], "total_cost_usd": 0.0})
+
+        monkeypatch.setattr("rondo.mcp_dispatch.rondo_run_file", _fake_run_file)
+        _mc._multi_review_dispatch_one("openai:gpt-5.5", "review this")
+        assert captured.get("timeout_sec", 300) >= 600, (
+            f"cloud path still caps at {captured.get('timeout_sec')}s — reasoning models need patience (RONDO-356)"
+        )
+
+
+# -- sig: mgh-6201.cd.bd955f.6e25.770e1e

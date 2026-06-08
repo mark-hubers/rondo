@@ -444,6 +444,36 @@ class TestChatCompletionsAdapter:
         adapter = ChatCompletionsAdapter(api_key="")
         assert adapter.health() is False
 
+    def test_health_dead_key_401_returns_false(self) -> None:
+        """RONDO-357: a dead/invalid key (401/403) must report UNHEALTHY.
+
+        Was treated as 'reachable' (return True) — so rondo doctor showed GREEN
+        over broken auth, then the next real dispatch died ERR_AUTH. Dishonest
+        for a tool whose dim-10 bar is an honest reliability scoreboard.
+        """
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="dead-key")
+        for code in (401, 403):
+            exc = urllib.error.HTTPError("url", code, "Unauthorized", {}, None)
+            with patch("urllib.request.urlopen", side_effect=exc):
+                assert adapter.health() is False, f"{code} (dead key) must report unhealthy"
+
+    def test_health_endpoint_quirk_404_still_healthy(self) -> None:
+        """Grok's /models legitimately 404s with a GOOD key — still reachable."""
+        import urllib.error
+        from unittest.mock import patch
+
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="grok", api_key="good-key")
+        exc = urllib.error.HTTPError("url", 404, "Not Found", {}, None)
+        with patch("urllib.request.urlopen", side_effect=exc):
+            assert adapter.health() is True, "404 endpoint quirk with a good key is still reachable"
+
     def test_returns_task_result(self) -> None:
         """Dispatch always returns TaskResult (even on error)."""
         from rondo.adapters.chat_completions import ChatCompletionsAdapter
@@ -1574,4 +1604,4 @@ class TestLearnedRoutingFallback:
         assert recommend_model("never-seen-task-xyz") == "sonnet"
 
 
-# -- sig: mgh-6201.cd.bd955f.a109.c10901
+# -- sig: mgh-6201.cd.bd955f.2c31.857d5f

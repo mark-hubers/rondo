@@ -8,11 +8,12 @@ Differences: base_url, auth header, model names.
 
 Based on ai_review.py call_openai/call_grok/call_mistral (proven patterns).
 
-Health strategy (REQ-109 req 073):
+Health strategy (REQ-109 req 073, RONDO-357):
     OpenAI: GET /v1/models (supported, returns model list)
     Mistral: GET /v1/models (OpenAI-compatible, supported)
-    Grok (xAI): GET /v1/models attempted; any non-5xx HTTP error (404, 401)
-    treated as "reachable" since it proves network path works.
+    Grok (xAI): GET /v1/models attempted; a 404 endpoint quirk with a GOOD key
+    is "reachable" (network path works). But 401/403 = a DEAD key = UNHEALTHY
+    (a green signal over broken auth is dishonest; 5xx/network = down too).
 """
 
 from __future__ import annotations
@@ -317,9 +318,14 @@ class ChatCompletionsAdapter(ProviderAdapter):
             with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                 return resp.status == 200
         except urllib.error.HTTPError as exc:
-            # -- /models returned error — try HEAD on completions endpoint
+            # -- RONDO-357: a dead/invalid KEY (401/403) is NOT healthy — green
+            # -- health over broken auth is dishonest (next dispatch dies
+            # -- ERR_AUTH). But an endpoint quirk (e.g. Grok 404s on /models
+            # -- with a GOOD key) is still reachable. Split the two.
+            if exc.code in (401, 403):
+                return False
             if exc.code < 500:
-                # -- 401/403/404 from /models = API is reachable
+                # -- other 4xx (404 endpoint quirk) = API reachable, key fine
                 return True
             return False
         except (urllib.error.URLError, OSError):
@@ -330,4 +336,4 @@ class ChatCompletionsAdapter(ProviderAdapter):
         return [self.default_model]
 
 
-# -- sig: mgh-6201.cd.bd955f.7c49.97daf5
+# -- sig: mgh-6201.cd.bd955f.7c49.aea5b5

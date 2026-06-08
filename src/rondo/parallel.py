@@ -221,35 +221,77 @@ def _save_result_safe(
 # ──────────────────────────────────────────────────────────────────
 
 
+# -- RONDO-366: backstop wait while a cold-start probe settles. settle() always
+# -- fires (worker uses try/finally), so this timeout is only a safety net
+# -- against a wedged probe — never the normal path.
+_GATE_PROBE_WAIT_SEC = 30.0
+
+
 class _BudgetGate:
-    """Thread-safe budget enforcement for the parallel path — RONDO-354.
+    """Thread-safe budget enforcement for the parallel path — RONDO-354 + RONDO-366.
 
     The sequential path enforced max_budget_usd but run_parallel did not, so N
     workers could overrun N x — a violation of IFS-101 r028 / STD-107 r018 /
-    STD-101 r212 (all MUST). Each worker calls over_budget() BEFORE dispatch
-    (spec: check before dispatch, skip if over) and record() after, both under
-    one lock. cap=None disables the gate (no behavior change without a budget).
+    STD-101 r212 (all MUST). cap=None disables the gate (no behavior change
+    without a budget).
+
+    RONDO-366 (cursor review #2): the old over_budget()/record() pair was
+    check-then-act — W workers all passed the check before any recorded, then all
+    spent, overrunning by ~(W-1)x. Fixed two ways, both essential:
+      1. RESERVE-then-settle: try_admit() atomically reserves the per-task
+         estimate against the cap in ONE locked section; settle() releases the
+         reservation and commits the actual cost. So reserved budget is visible
+         to peers the instant a task is admitted — no admission race.
+      2. COLD-START PROBE: the estimate is unknown until a real cost lands
+         (it starts at 0). Without this, the first wave would all reserve ~0 and
+         overrun. So until one cost has settled, exactly ONE task runs (the
+         probe) while the rest WAIT (not refused — they may well fit); once the
+         probe's cost is known, the rest admit-or-refuse against it.
     """
 
     def __init__(self, cap: float | None) -> None:
         self.cap = cap
-        self._lock = threading.Lock()
-        self._running = 0.0
-        self._estimate = 0.01  # -- conservative first-dispatch estimate
+        self._cond = threading.Condition()
+        self._spent = 0.0  # -- committed actual cost
+        self._reserved = 0.0  # -- in-flight reservations (admitted, not yet settled)
+        self._estimate = 0.0  # -- per-task cost estimate; 0.0 == no sample yet
+        self._inflight = 0  # -- admitted-but-unsettled count
+        self._have_sample = False
 
-    def over_budget(self) -> bool:
-        """Predictive pre-dispatch check: would the next call exceed the cap?"""
+    def try_admit(self) -> float | None:
+        """Reserve budget for one dispatch, or refuse. Returns reserved amount, or None.
+
+        None == refused (would exceed cap): the caller must NOT dispatch. A float
+        (possibly 0.0 for the cold-start probe) == admitted; the caller MUST pass
+        it back to settle() exactly once.
+        """
         if self.cap is None:
-            return False
-        with self._lock:
-            return (self._running + self._estimate) >= self.cap
+            return 0.0
+        with self._cond:
+            # -- Cold start: let one probe run alone so we learn the real cost
+            # -- before fanning out; peers wait for it rather than overrun blind.
+            while not self._have_sample and self._inflight > 0:
+                if not self._cond.wait(timeout=_GATE_PROBE_WAIT_SEC):
+                    break  # -- probe wedged — fall through rather than hang forever
+            est = self._estimate if self._have_sample else 0.0
+            if self._spent + self._reserved + est > self.cap:
+                return None
+            self._reserved += est
+            self._inflight += 1
+            return est
 
-    def record(self, cost: float) -> None:
-        """Add an observed cost and update the rolling estimate."""
-        with self._lock:
-            self._running += cost
+    def settle(self, reserved: float, cost: float) -> None:
+        """Release a reservation and commit the observed cost; wake any waiters."""
+        if self.cap is None:
+            return
+        with self._cond:
+            self._reserved = max(0.0, self._reserved - reserved)
+            self._inflight = max(0, self._inflight - 1)
+            self._spent += cost
             if cost > 0:
                 self._estimate = max(cost, 0.001)
+                self._have_sample = True
+            self._cond.notify_all()
 
 
 def _budget_blocked_result(task: Task, config: RondoConfig, cap: float) -> tuple[TaskResult, DispatchUsage]:
@@ -277,15 +319,24 @@ def _dispatch_worker(
 
     Rondo-STD-110 C2: each thread calls dispatch_task_routed independently.
     RONDO-342: routed so per-task cloud models reach provider adapters.
-    RONDO-354: checks the shared budget gate BEFORE dispatch (never spends
-    past the cap), records actual cost after.
+    RONDO-354 + RONDO-366: atomically RESERVE budget before dispatch (skip if
+    over), then settle the actual cost after — reservation closes the
+    check-then-act overrun. settle() runs in finally so a raising dispatch still
+    refunds its reservation (never leaks budget).
     """
-    if gate is not None and gate.cap is not None and gate.over_budget():
-        return _budget_blocked_result(task, config, gate.cap)
-    tr, usage = dispatch_task_routed(task, config)
-    if gate is not None:
-        gate.record(tr.cost_usd or 0.0)
+    gated = gate is not None and gate.cap is not None
+    reserved = gate.try_admit() if gated else None
+    if gated and reserved is None:
+        return _budget_blocked_result(task, config, gate.cap)  # type: ignore[union-attr]
+    try:
+        tr, usage = dispatch_task_routed(task, config)
+    except BaseException:
+        if reserved is not None:
+            gate.settle(reserved, 0.0)  # type: ignore[union-attr]  -- refund on failure
+        raise
+    if reserved is not None:
+        gate.settle(reserved, tr.cost_usd or 0.0)  # type: ignore[union-attr]
     return tr, usage
 
 
-# -- sig: mgh-6201.cd.bd955f.1e5a.cefd75
+# -- sig: mgh-6201.cd.bd955f.1e5a.399461

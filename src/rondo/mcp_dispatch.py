@@ -899,10 +899,36 @@ def _rondo_run_file_inner(
     if background and not dry_run:
         return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
 
-    result_obj = _attach_route_warnings(normalize_envelope(dispatch_fn()), route_warnings)
-    result_str = json.dumps(result_obj, indent=2)
-    _idempotency_store(idempotency_key, result_str)
-    return result_str
+    return _dispatch_and_cache(idempotency_key, dispatch_fn, route_warnings)
+
+
+def _dispatch_and_cache(key: str, dispatch_fn: Any, route_warnings: Any) -> str:
+    """Run a dispatch under single-flight + cache the result — RONDO-360.
+
+    Two identical concurrent dispatches used to both miss the cache and both
+    PAY (the lookup→dispatch→store sequence was unlocked). Now same-key callers
+    serialize on key_lock and re-check the cache under it: only the first
+    dispatches, the rest reuse its result. Empty key (ineligible) = no locking.
+    """
+
+    def _run() -> str:
+        result_obj = _attach_route_warnings(normalize_envelope(dispatch_fn()), route_warnings)
+        result_str = json.dumps(result_obj, indent=2)
+        _idempotency_store(key, result_str)
+        return result_str
+
+    if not key:
+        return _run()
+
+    from rondo.idempotency import key_lock  # pylint: disable=import-outside-toplevel
+
+    with key_lock(key):
+        # -- re-check under the lock: a peer may have finished while we resolved
+        # -- routing, so we reuse its result instead of paying again.
+        recheck = get_cached_result(key)
+        if recheck is not None:
+            return recheck if isinstance(recheck, str) else json.dumps(recheck, indent=2)
+        return _run()
 
 
 def _execute_dispatch(

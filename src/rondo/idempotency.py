@@ -43,6 +43,8 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -57,6 +59,27 @@ _cache: dict[str, tuple[Any, float]] = {}
 _cache_lock = threading.Lock()
 # -- #241: file I/O lock prevents torn reads during atomic write+rename race
 _file_lock = threading.Lock()
+
+# -- RONDO-360: single-flight per-key locks. lookup and store were each locked
+# -- but the lookup→dispatch→store SEQUENCE was not — two identical concurrent
+# -- dispatches both missed and both PAID. A per-key lock serializes same-key
+# -- callers so only the first dispatches; the rest re-check and reuse it.
+_key_locks: dict[str, threading.Lock] = {}
+_key_locks_guard = threading.Lock()
+
+
+@contextmanager
+def key_lock(key: str) -> Iterator[None]:
+    """Single-flight lock for one idempotency key — RONDO-360.
+
+    Serializes same-key callers in-process so identical concurrent dispatches
+    don't both pay; different keys never block each other. In-process only
+    (cross-process dedup would need a file lock per key — rare, not built).
+    """
+    with _key_locks_guard:
+        lk = _key_locks.setdefault(key, threading.Lock())
+    with lk:
+        yield
 
 
 # -- RONDO-209 #246: compaction threshold — rewrite JSONL when it exceeds
@@ -298,4 +321,4 @@ class IdempotencyConfig:
     ttl_sec: int = DEFAULT_TTL_SEC
 
 
-# -- sig: mgh-6201.cd.bd955f.f1c0.f0c061
+# -- sig: mgh-6201.cd.bd955f.f5da.adf0ba

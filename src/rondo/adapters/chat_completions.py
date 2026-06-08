@@ -121,6 +121,22 @@ class ChatCompletionsAdapter(ProviderAdapter):
         """
         return any(fnmatch(model, pattern) for pattern in self.reasoning_models)
 
+    def _read_timeout(self, model: str, **kwargs: Any) -> int:
+        """Resolve this dispatch's HTTP read-timeout — RONDO-355 / REQ-109 req 212.
+
+        Was a hardcoded 120s that killed slow models (gpt-5.5/gemini) on long
+        prompts. Defaults PATIENT (a long ceiling is safe — fast models still
+        return in seconds; a short ceiling is the bug). COALESCE: per-dispatch
+        `read_timeout` kwarg → config [timeouts] → built-in thinking default.
+        """
+        from rondo.adapters.timeouts import resolve_read_timeout  # pylint: disable=import-outside-toplevel
+
+        return resolve_read_timeout(
+            thinking=True,
+            effort=str(kwargs.get("effort", "high")),
+            per_dispatch=kwargs.get("read_timeout"),
+        )
+
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt via Chat Completions API, return TaskResult.
 
@@ -175,6 +191,11 @@ class ChatCompletionsAdapter(ProviderAdapter):
             "User-Agent": "rondo/0.7",
         }
 
+        # -- RONDO-355: resolve the read timeout (was hardcoded 120 — killed
+        # -- gpt-5.5/gemini on long prompts live via USH while fast mistral
+        # -- squeaked under). Patient by default; config/per-dispatch override.
+        read_to = self._read_timeout(use_model, **kwargs)
+
         def _do_request() -> dict:
             """Inner request — called by retry_http."""
             req = urllib.request.Request(
@@ -183,7 +204,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
+            with urllib.request.urlopen(req, timeout=read_to) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
         try:
@@ -309,4 +330,4 @@ class ChatCompletionsAdapter(ProviderAdapter):
         return [self.default_model]
 
 
-# -- sig: mgh-6201.cd.bd955f.a109.d03101
+# -- sig: mgh-6201.cd.bd955f.7c49.97daf5

@@ -98,3 +98,4 @@ schedule is easy to reason about and patient enough that the separate
 | 0.1 | 2026-06-07 | 347 Retry-After honoring shipped; 348 outbound pacing specced. |
 | 0.2 | 2026-06-07 | 348 shipped (gate + floor), proven via canary, mistral wall documented. |
 | 0.3 | 2026-06-07 | 349: flat 3-then-5 schedule (Mark's), deleted redundant floor; rejected model-asking with rationale. |
+| 0.4 | 2026-06-08 | 355: read-timeout (separate from retry) — chat_completions + gemini adapters hardcoded 120s, ignoring resolve_read_timeout (RONDO-318); only anthropic was wired. Found LIVE via USH (gpt-5.5 + gemini blew 120s on a long prompt). Now patient by default (~600s), config + per-dispatch override; 4 living tests assert every adapter resolves it. |

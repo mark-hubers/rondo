@@ -85,4 +85,37 @@ class TestAdapterWiring:
         assert adapter.read_timeout_for("claude-opus-4-8", "max", timeouts_cfg={"thinking_max": 1200}) == 1200
 
 
-# -- sig: mgh-6201.cd.bd955f.5a1f.ab9e9b
+class TestAdaptersWireTheTimeout:
+    """ChatCompletions + Gemini adapters resolve the read timeout — RONDO-355.
+
+    They hardcoded 120s. Found LIVE via USH: gpt-5.5 and gemini blew it on a
+    long prompt while fast mistral squeaked under. The resolver (RONDO-318)
+    existed but only anthropic_api was wired.
+    """
+
+    def test_chat_completions_defaults_patient_not_120(self) -> None:
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="x")
+        assert adapter._read_timeout("gpt-5.5") >= 600, "chat adapter still hardcodes a short timeout"
+
+    def test_chat_completions_per_dispatch_override_wins(self) -> None:
+        from rondo.adapters.chat_completions import ChatCompletionsAdapter
+
+        adapter = ChatCompletionsAdapter(provider_name="openai", api_key="x")
+        assert adapter._read_timeout("gpt-5.5", read_timeout=42) == 42
+
+    def test_gemini_defaults_patient_not_120(self) -> None:
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="x")
+        assert adapter._read_timeout("gemini-2.5-pro") >= 600, "gemini adapter still hardcodes a short timeout"
+
+    def test_gemini_per_dispatch_override_wins(self) -> None:
+        from rondo.adapters.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter(api_key="x")
+        assert adapter._read_timeout("gemini-2.5-pro", read_timeout=30) == 30
+
+
+# -- sig: mgh-6201.cd.bd955f.5a1f.fb1779

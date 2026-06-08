@@ -51,6 +51,21 @@ class GeminiAdapter(ProviderAdapter):
         # -- RONDO-209 #247: default bumped so deep reviews aren't truncated
         self.max_output_tokens = max_output_tokens
 
+    def _read_timeout(self, model: str, **kwargs: Any) -> int:
+        """Resolve this dispatch's HTTP read-timeout — RONDO-355 / REQ-109 req 212.
+
+        Was a hardcoded 120s that killed gemini-pro on long prompts (USH, live).
+        Patient by default; COALESCE: per-dispatch `read_timeout` → config
+        [timeouts] → built-in thinking default.
+        """
+        from rondo.adapters.timeouts import resolve_read_timeout  # pylint: disable=import-outside-toplevel
+
+        return resolve_read_timeout(
+            thinking=True,
+            effort=str(kwargs.get("effort", "high")),
+            per_dispatch=kwargs.get("read_timeout"),
+        )
+
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Gemini generateContent API, return TaskResult.
 
@@ -93,6 +108,10 @@ class GeminiAdapter(ProviderAdapter):
             },
         }
 
+        # -- RONDO-355: resolve read timeout (was hardcoded 120 — killed
+        # -- gemini-pro on long prompts live via USH). Patient default.
+        read_to = self._read_timeout(use_model, **kwargs)
+
         def _do_request() -> dict:
             """Inner HTTP call — wrapped by retry_http."""
             req = urllib.request.Request(
@@ -104,7 +123,7 @@ class GeminiAdapter(ProviderAdapter):
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
+            with urllib.request.urlopen(req, timeout=read_to) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
         try:
@@ -220,4 +239,4 @@ class GeminiAdapter(ProviderAdapter):
         return [self.default_model]
 
 
-# -- sig: mgh-6201.cd.bd955f.a109.d03003
+# -- sig: mgh-6201.cd.bd955f.f3f3.b49e0e

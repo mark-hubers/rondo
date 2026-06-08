@@ -474,6 +474,16 @@ def sanitize_task_result(
     sanitized_tr = copy.deepcopy(task_result)
     all_detections: list[Detection] = []
 
+    # -- Scrub prompt_sent — RONDO-352 / STD-104 req 023 (MUST): the prompt is
+    # -- persisted to result files + spool via asdict(result); a secret in the
+    # -- prompt (e.g. an env var) must never reach those artifacts. This field
+    # -- was the one scrub gap (found by Cursor's deep review; 3 cloud AIs and
+    # -- the conventions suite all missed it).
+    if sanitized_tr.prompt_sent:
+        sr = sanitize_text(sanitized_tr.prompt_sent, config=config)
+        sanitized_tr.prompt_sent = sr.sanitized_text
+        all_detections.extend(sr.detections)
+
     # -- Scrub raw_output
     if sanitized_tr.raw_output:
         sr = sanitize_text(sanitized_tr.raw_output, config=config)
@@ -516,4 +526,4 @@ def _scrub_dict(
     return obj
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a1.92a1b2
+# -- sig: mgh-6201.cd.bd955f.707d.a29cfe

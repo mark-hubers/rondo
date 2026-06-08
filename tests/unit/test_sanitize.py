@@ -6,6 +6,7 @@ VER-001 verification matrix: secret detection, scrubbing, audit.
 """
 
 import json
+from pathlib import Path
 
 from rondo.sanitize import (
     DEFAULT_PATTERNS,
@@ -195,6 +196,23 @@ class TestScrubOrder:
         sanitized_tr, sr = sanitize_task_result(tr)
         assert "hunter2" not in json.dumps(sanitized_tr.parsed_result)
 
+    def test_sanitize_task_result_scrubs_prompt_sent(self):
+        """RONDO-352: prompt_sent gets scrubbed too.
+
+        It is persisted to result files + spool via asdict(result). MUST per
+        STD-104 req 023 / STD-100:311. Found by Cursor's deep review; 3 cloud
+        AIs and the conventions suite all missed it.
+        """
+        from rondo.engine import TaskResult
+
+        tr = TaskResult(
+            task_name="test",
+            prompt_sent="Use AWS key AKIAIOSFODNN7EXAMPLE to call the API",
+        )
+        sanitized_tr, sr = sanitize_task_result(tr)
+        assert "AKIAIOSFODNN7EXAMPLE" not in sanitized_tr.prompt_sent
+        assert sr.secrets_found > 0
+
     def test_original_not_mutated(self):
         """Original TaskResult is not modified (new copy returned)."""
         from rondo.engine import TaskResult
@@ -208,6 +226,31 @@ class TestScrubOrder:
         assert "sk-keep-this" in tr.raw_output
         ## Sanitized should not
         assert "sk-keep-this" not in sanitized_tr.raw_output
+
+
+# ──────────────────────────────────────────────────────────────────
+#  RONDO-352 — prompt_sent must not leak to persisted artifacts
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestPromptSentNoLeakToDisk:
+    """A secret in prompt_sent must not reach result files or the spool.
+
+    RONDO-352 / STD-104 req 023 (MUST). Unmocked end-to-end: sanitize (the
+    gate before every persist) → save_result → read the file off disk.
+    """
+
+    def test_save_result_file_has_no_prompt_secret(self, tmp_path) -> None:
+        from rondo.dispatch import save_result
+        from rondo.engine import DispatchUsage, TaskResult
+
+        planted = "AKIAIOSFODNN7EXAMPLE"  # -- canonical AWS example key (gitleaks-allowlisted)
+        tr = TaskResult(task_name="t", prompt_sent=f"call with aws key {planted}")
+        # -- the pipeline persists the SANITIZED result; mimic that gate
+        sanitized, _ = sanitize_task_result(tr)
+        path = save_result(sanitized, DispatchUsage(task_name="t"), str(tmp_path))
+        on_disk = Path(path).read_text(encoding="utf-8")
+        assert planted not in on_disk, "prompt_sent secret leaked to result file (STD-104 r023)"
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -525,4 +568,4 @@ class TestFalsePositiveGuards:
         assert "private_key_begin" not in pattern_hits
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a1.92a1b4
+# -- sig: mgh-6201.cd.bd955f.2f61.1239a2

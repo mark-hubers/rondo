@@ -10,6 +10,7 @@ without invoking real subprocesses. Threading behavior tested
 via controlled execution.
 """
 
+import threading
 import time
 from unittest.mock import patch
 
@@ -219,6 +220,52 @@ class TestResultCollection:
             assert len(result.usage) == 3
             usage_names = {u.task_name for u in result.usage}
             assert usage_names == {"t1", "t2", "t3"}
+
+
+# ──────────────────────────────────────────────────────────────────
+#  Budget cap in the parallel path — RONDO-354
+# ──────────────────────────────────────────────────────────────────
+
+
+class TestParallelBudgetCap:
+    """RONDO-354: the parallel path MUST enforce max_budget_usd.
+
+    Found by cursor-review's spec-aware concurrency lens: the budget cap that
+    IFS-101 r028, STD-107 r018, and STD-101 r212 all mark MUST was enforced
+    only in the sequential path — run_parallel spent with zero checks, so N
+    workers could overrun N x. This is the living guard against that.
+    """
+
+    def test_parallel_budget_cap_blocks_overrun(self) -> None:
+        """Over-budget tasks are NOT dispatched; they get ERR_BUDGET_EXCEEDED."""
+        paid = {"n": 0}
+        lock = threading.Lock()
+
+        def _paid_dispatch(task, config, **kwargs):
+            with lock:
+                paid["n"] += 1
+            return (
+                TaskResult(task_name=task.name, status="done", model="sonnet", cost_usd=0.01),
+                DispatchUsage(task_name=task.name, model="sonnet", cost_usd=0.01),
+            )
+
+        r = Round(name="budget", tasks=_make_tasks(6))
+        config = RondoConfig(workers=2, throttle_sec=0.0, max_budget_usd=0.025)
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_paid_dispatch):
+            result = run_parallel(r, config)
+
+        blocked = [t for t in result.task_results if t.error_code == "ERR_BUDGET_EXCEEDED"]
+        assert blocked, "parallel path did not enforce the budget cap (RONDO-354)"
+        assert paid["n"] < 6, f"all tasks dispatched despite cap — {paid['n']} paid calls"
+
+    def test_no_cap_dispatches_all(self) -> None:
+        """Regression: with no budget cap, every task still dispatches."""
+        r = Round(name="nocap", tasks=_make_tasks(5))
+        config = RondoConfig(workers=2, throttle_sec=0.0)  # -- max_budget_usd None
+        with patch("rondo.parallel.dispatch_task_routed", side_effect=_mock_dispatch):
+            result = run_parallel(r, config)
+        blocked = [t for t in result.task_results if t.error_code == "ERR_BUDGET_EXCEEDED"]
+        assert not blocked and len(result.task_results) == 5
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -614,4 +661,4 @@ class TestParallelDeep:
         assert len(conflicts) == 0
 
 
-# -- sig: mgh-6201.cd.bd955f.ec56.a8867b
+# -- sig: mgh-6201.cd.bd955f.ec56.d9bc34

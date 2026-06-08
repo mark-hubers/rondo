@@ -15,6 +15,7 @@ Import direction:
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
@@ -145,6 +146,8 @@ def _execute_parallel(
     task_results: list[TaskResult] = []
     usage_list: list[DispatchUsage] = []
     task_map = {t.name: t for t in tasks}
+    # -- RONDO-354: one shared budget gate for the whole round (cap from config).
+    gate = _BudgetGate(config.max_budget_usd)
 
     with ThreadPoolExecutor(max_workers=config.workers) as pool:
         # -- Submit tasks with throttle delay (Rondo-REQ-101 req 3, Rondo-STD-110 C3)
@@ -153,7 +156,7 @@ def _execute_parallel(
             task.status = "in_progress"
             if i > 0 and config.throttle_sec > 0:
                 time.sleep(config.throttle_sec)
-            future = pool.submit(_dispatch_worker, task, config)
+            future = pool.submit(_dispatch_worker, task, config, gate)
             futures[future] = task.name
 
         # -- Collect results as they complete (Rondo-REQ-101 req 4)
@@ -218,18 +221,71 @@ def _save_result_safe(
 # ──────────────────────────────────────────────────────────────────
 
 
+class _BudgetGate:
+    """Thread-safe budget enforcement for the parallel path — RONDO-354.
+
+    The sequential path enforced max_budget_usd but run_parallel did not, so N
+    workers could overrun N x — a violation of IFS-101 r028 / STD-107 r018 /
+    STD-101 r212 (all MUST). Each worker calls over_budget() BEFORE dispatch
+    (spec: check before dispatch, skip if over) and record() after, both under
+    one lock. cap=None disables the gate (no behavior change without a budget).
+    """
+
+    def __init__(self, cap: float | None) -> None:
+        self.cap = cap
+        self._lock = threading.Lock()
+        self._running = 0.0
+        self._estimate = 0.01  # -- conservative first-dispatch estimate
+
+    def over_budget(self) -> bool:
+        """Predictive pre-dispatch check: would the next call exceed the cap?"""
+        if self.cap is None:
+            return False
+        with self._lock:
+            return (self._running + self._estimate) >= self.cap
+
+    def record(self, cost: float) -> None:
+        """Add an observed cost and update the rolling estimate."""
+        with self._lock:
+            self._running += cost
+            if cost > 0:
+                self._estimate = max(cost, 0.001)
+
+
+def _budget_blocked_result(task: Task, config: RondoConfig, cap: float) -> tuple[TaskResult, DispatchUsage]:
+    """Result for a task skipped because the round budget cap was reached."""
+    return (
+        TaskResult(
+            task_name=task.name,
+            status="error",
+            error_code="ERR_BUDGET_EXCEEDED",
+            error_message=f"Round budget cap ${cap:.4f} reached — task not dispatched (RONDO-354)",
+            model=config.default_model,
+            auth_mode=config.auth,
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+        DispatchUsage(task_name=task.name, model=config.default_model),
+    )
+
+
 def _dispatch_worker(
     task: Task,
     config: RondoConfig,
+    gate: _BudgetGate | None = None,
 ) -> tuple[TaskResult, DispatchUsage]:
     """Worker function for ThreadPoolExecutor.
 
-    Rondo-STD-110 C2: Each thread calls dispatch_task_routed independently,
-    returns its own (TaskResult, DispatchUsage) tuple.
-    No shared mutable state.
+    Rondo-STD-110 C2: each thread calls dispatch_task_routed independently.
     RONDO-342: routed so per-task cloud models reach provider adapters.
+    RONDO-354: checks the shared budget gate BEFORE dispatch (never spends
+    past the cap), records actual cost after.
     """
-    return dispatch_task_routed(task, config)
+    if gate is not None and gate.cap is not None and gate.over_budget():
+        return _budget_blocked_result(task, config, gate.cap)
+    tr, usage = dispatch_task_routed(task, config)
+    if gate is not None:
+        gate.record(tr.cost_usd or 0.0)
+    return tr, usage
 
 
-# -- sig: mgh-6201.cd.bd955f.1e5a.3424d1
+# -- sig: mgh-6201.cd.bd955f.1e5a.cefd75

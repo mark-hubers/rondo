@@ -92,10 +92,14 @@ class AuditConfig:  # pylint: disable=too-many-instance-attributes
     archive_retention_months: int = 12
     # -- RONDO-211 (Finding #257): age threshold for reconcile_stuck_intents.
     # -- INTENTs younger than this are assumed in-flight on a peer process
-    # -- and NOT reconciled. Default 300s (5 min) — longer than any normal
-    # -- dispatch, short enough to catch true crashes quickly. Tests that
-    # -- simulate "already crashed" INTENTs should pass stuck_after_sec=0.
-    stuck_after_sec: int = 300
+    # -- and NOT reconciled.
+    # -- RONDO-368 (cursor #5, STD-110 req 017): MUST exceed the LONGEST a
+    # -- dispatch can legitimately run, or reconcile declares a still-alive
+    # -- dispatch "stuck" and its real OUTCOME becomes a duplicate (req 018).
+    # -- The cloud panel timeout is 600s (_CLOUD_PANEL_TIMEOUT_SEC); 900s gives
+    # -- a 300s margin over it. Was 300s — SHORTER than the timeout, the bug.
+    # -- Tests that simulate "already crashed" INTENTs pass stuck_after_sec=0.
+    stuck_after_sec: int = 900
 
     def __post_init__(self) -> None:
         """COALESCE: explicit dir → RONDO_TEST_DIR → ~/.rondo/audit."""
@@ -608,17 +612,28 @@ class AuditTrail:
         age_sec = (now - dispatched_at).total_seconds()
         return age_sec < threshold_sec
 
-    def _scan_intents_and_outcomes(self) -> tuple[dict[str, dict], set[str]]:
-        """RONDO-211: extracted JSONL scan to keep reconcile complexity low."""
+    def _scan_intents_and_outcomes(self) -> tuple[dict[str, dict], set[str], bool]:
+        """Scan the JSONL for INTENT/OUTCOME pairs — RONDO-211 + RONDO-368 (#6).
+
+        Returns (intents, outcomes, final_line_torn). final_line_torn is True when
+        the LAST non-empty line fails to parse — a signal that an append is in
+        flight (or the genuine OUTCOME landed torn), so the snapshot is unreliable
+        and the caller MUST NOT draw "stuck" conclusions from it (STD-110 req 018:
+        no duplicate OUTCOME). A torn line earlier in the file (followed by valid
+        lines) is old corruption and tolerated.
+        """
         intents: dict[str, dict] = {}
         outcomes: set[str] = set()
+        final_line_torn = False
         for line in self._jsonl_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             try:
                 rec = json.loads(line)
             except json.JSONDecodeError:
+                final_line_torn = True  # -- set on every bad line; last non-empty wins
                 continue
+            final_line_torn = False  # -- a later valid line clears an earlier tear
             dispatch_id = rec.get("dispatch_id", "")
             if not dispatch_id:
                 continue
@@ -626,7 +641,7 @@ class AuditTrail:
                 intents[dispatch_id] = rec
             else:
                 outcomes.add(dispatch_id)
-        return intents, outcomes
+        return intents, outcomes, final_line_torn
 
     def reconcile_stuck_intents(self, stuck_after_sec: int | None = None) -> int:
         """RONDO-147 (Finding #213): Find INTENT records without matching OUTCOME.
@@ -714,9 +729,17 @@ class AuditTrail:
         """Reconcile read-modify-write body — caller holds both locks (RONDO-359)."""
         now = datetime.now(UTC)
         try:
-            intents, outcomes = self._scan_intents_and_outcomes()
+            intents, outcomes, final_line_torn = self._scan_intents_and_outcomes()
         except OSError as exc:
             logger.warning("Reconcile read failed: %s", exc)
+            return 0
+
+        # -- RONDO-368 (#6): a torn final line means an append is in flight (or a
+        # -- genuine OUTCOME landed torn). The snapshot can't be trusted to say a
+        # -- dispatch is stuck — skip this round (reconcile retries next init)
+        # -- rather than double-write an OUTCOME (STD-110 req 018).
+        if final_line_torn:
+            logger.debug("Reconcile snapshot has a torn final line — skipping this round")
             return 0
 
         stuck_count = 0
@@ -763,4 +786,4 @@ class AuditTrail:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.2ce9.d5c124
+# -- sig: mgh-6201.cd.bd955f.2ce9.2c1a5f

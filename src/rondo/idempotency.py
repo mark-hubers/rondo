@@ -45,7 +45,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -64,22 +64,50 @@ _file_lock = threading.Lock()
 # -- but the lookup→dispatch→store SEQUENCE was not — two identical concurrent
 # -- dispatches both missed and both PAID. A per-key lock serializes same-key
 # -- callers so only the first dispatches; the rest re-check and reuse it.
-_key_locks: dict[str, threading.Lock] = {}
+# -- RONDO-369 #9: ref-count each entry and evict it when the last user leaves,
+# -- so the map only ever holds locks for keys with active in-flight callers —
+# -- bounded by concurrency, not by the count of distinct keys ever seen (the
+# -- long-lived MCP server saw a new SHA-256 key per unique prompt → unbounded
+# -- growth). Eviction at zero users (under the guard) can never pull a lock out
+# -- from under a waiting caller.
+
+
+@dataclass
+class _RefCountedLock:
+    """A key's lock plus how many callers are currently using it — RONDO-369 #9."""
+
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    users: int = 0
+
+
+_key_locks: dict[str, _RefCountedLock] = {}
 _key_locks_guard = threading.Lock()
 
 
 @contextmanager
 def key_lock(key: str) -> Iterator[None]:
-    """Single-flight lock for one idempotency key — RONDO-360.
+    """Single-flight lock for one idempotency key — RONDO-360 + RONDO-369 #9.
 
     Serializes same-key callers in-process so identical concurrent dispatches
     don't both pay; different keys never block each other. In-process only
-    (cross-process dedup would need a file lock per key — rare, not built).
+    (cross-process dedup would need a file lock per key — rare, not built). The
+    entry is ref-counted and removed once no caller holds it, so the map stays
+    bounded in the long-lived MCP server.
     """
     with _key_locks_guard:
-        lk = _key_locks.setdefault(key, threading.Lock())
-    with lk:
-        yield
+        entry = _key_locks.get(key)
+        if entry is None:
+            entry = _RefCountedLock()
+            _key_locks[key] = entry
+        entry.users += 1
+    try:
+        with entry.lock:
+            yield
+    finally:
+        with _key_locks_guard:
+            entry.users -= 1
+            if entry.users <= 0:
+                _key_locks.pop(key, None)
 
 
 # -- RONDO-209 #246: compaction threshold — rewrite JSONL when it exceeds
@@ -321,4 +349,4 @@ class IdempotencyConfig:
     ttl_sec: int = DEFAULT_TTL_SEC
 
 
-# -- sig: mgh-6201.cd.bd955f.f5da.adf0ba
+# -- sig: mgh-6201.cd.bd955f.f5da.1026e0

@@ -656,28 +656,59 @@ class AuditTrail:
         # -- + CLI) so two reconcilers never act on the same stale snapshot and
         # -- double-write a stuck OUTCOME. A peer already reconciling → skip
         # -- (idempotent housekeeping; one process doing it is enough).
+        with _reconcile_lock:
+            return self._reconcile_cross_process(stuck_after_sec)
+
+    def _reconcile_cross_process(self, stuck_after_sec: int) -> int:
+        """Reconcile holding a cross-process flock when available — RONDO-366 (#3/#4).
+
+        STD-110 req 019: where flock is unavailable, fall back to single-writer
+        mode (the caller already holds this process's _reconcile_lock) and WARN —
+        NEVER crash (Windows: no fcntl) and NEVER silently skip (NFS: flock
+        unsupported). A peer genuinely holding the lock → skip (idempotent).
+        """
+        try:
+            import fcntl  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            logger.warning("Reconcile flock unavailable (no fcntl, e.g. Windows) — single-writer fallback")
+            return self._reconcile_locked(stuck_after_sec)
+
+        lock_path = self._jsonl_path.with_name(self._jsonl_path.name + ".reconcile.lock")
+        try:
+            lock_f = lock_path.open("w", encoding="utf-8")
+        except OSError as exc:
+            logger.warning("Reconcile lock open failed (%s) — single-writer fallback", exc)
+            return self._reconcile_locked(stuck_after_sec)
+        try:
+            if not self._acquire_reconcile_flock(lock_f):
+                return 0  # -- a peer is reconciling; skip (idempotent)
+            return self._reconcile_locked(stuck_after_sec)
+        finally:
+            try:
+                fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+            except (OSError, ValueError):
+                pass
+            lock_f.close()
+
+    def _acquire_reconcile_flock(self, lock_f: Any) -> bool:
+        """Try the non-blocking reconcile flock — RONDO-366 (#4).
+
+        Returns True to PROCEED (lock held, or flock unsupported → single-writer
+        fallback), False to SKIP. Triages errno: EWOULDBLOCK/EAGAIN means a peer
+        holds it → skip; any other errno (NFS ENOLCK/EOPNOTSUPP) means flock is
+        unsupported → WARN and proceed rather than silently skip (STD-110 r019).
+        """
+        import errno  # pylint: disable=import-outside-toplevel
         import fcntl  # pylint: disable=import-outside-toplevel
 
-        with _reconcile_lock:
-            lock_path = self._jsonl_path.with_name(self._jsonl_path.name + ".reconcile.lock")
-            try:
-                lock_f = lock_path.open("w", encoding="utf-8")
-            except OSError as exc:
-                logger.warning("Reconcile lock open failed: %s", exc)
-                return 0
-            try:
-                try:
-                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except OSError:
-                    logger.debug("Reconcile in progress on a peer process; skipping")
-                    return 0
-                return self._reconcile_locked(stuck_after_sec)
-            finally:
-                try:
-                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-                except OSError:
-                    pass
-                lock_f.close()
+        try:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if exc.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
+                logger.debug("Reconcile in progress on a peer process; skipping")
+                return False
+            logger.warning("Reconcile flock unsupported (%s) — single-writer fallback", exc)
+        return True
 
     def _reconcile_locked(self, stuck_after_sec: int) -> int:
         """Reconcile read-modify-write body — caller holds both locks (RONDO-359)."""
@@ -732,4 +763,4 @@ class AuditTrail:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.2ce9.a06c70
+# -- sig: mgh-6201.cd.bd955f.2ce9.d5c124

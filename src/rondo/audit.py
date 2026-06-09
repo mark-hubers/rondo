@@ -47,6 +47,15 @@ logger = logging.getLogger(__name__)
 # -- (in reconcile_stuck_intents) serializes PROCESSES (MCP server + CLI).
 _reconcile_lock = threading.Lock()
 
+# -- RONDO-371 (cursor #10): auto-reconcile-on-init must run at most ONCE per
+# -- (process, audit file). A fresh AuditTrail is built PER TASK, so without this
+# -- a T-task parallel round fired T full-file reconcile scans serialized on
+# -- _reconcile_lock (O(T*N) + a hidden serialization point). This set records
+# -- which audit files this process has already auto-reconciled; explicit
+# -- reconcile_stuck_intents() calls are NOT gated.
+_auto_reconciled_files: set[str] = set()
+_auto_reconcile_guard = threading.Lock()
+
 # -- ──────────────────────────────────────────────────────────────
 # --  Configuration — STD-113 req 008
 # -- ──────────────────────────────────────────────────────────────
@@ -290,11 +299,28 @@ class AuditTrail:
         # -- RONDO-204 (Finding #232): auto-reconcile stuck intents on init.
         # -- MUST run AFTER _jsonl_path is set — reconcile reads the JSONL.
         # -- Any crashes from previous runs get marked as 'stuck' on startup.
-        if auto_reconcile and self._jsonl_path.exists():
+        # -- RONDO-371 (#10): only the FIRST AuditTrail for this file (per process)
+        # -- auto-reconciles, so a T-task round scans once, not T times.
+        if auto_reconcile and self._jsonl_path.exists() and self._claim_auto_reconcile():
             try:
                 self.reconcile_stuck_intents()
             except (OSError, TypeError, ValueError, AttributeError) as exc:
                 logger.debug("Auto-reconcile skipped on init: %s", exc)
+
+    def _claim_auto_reconcile(self) -> bool:
+        """Return True at most once per (process, audit file) — RONDO-371 (#10).
+
+        Collapses the per-task auto-reconcile storm in the parallel path: the
+        first AuditTrail built for a given jsonl this process reconciles; later
+        ones (one per worker) skip. Explicit reconcile_stuck_intents() calls are
+        NOT affected — this gates ONLY the on-init scan.
+        """
+        key = str(self._jsonl_path)
+        with _auto_reconcile_guard:
+            if key in _auto_reconciled_files:
+                return False
+            _auto_reconciled_files.add(key)
+            return True
 
     def record_intent(
         self,
@@ -786,4 +812,4 @@ class AuditTrail:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.2ce9.2c1a5f
+# -- sig: mgh-6201.cd.bd955f.2ce9.2b5ef9

@@ -27,12 +27,10 @@ deadlocks the suite.
 """
 
 import threading
-
 from unittest.mock import patch
 
 from rondo.config import RondoConfig
 from rondo.engine import DispatchUsage, Round, Task, TaskResult
-
 from rondo.parallel import run_parallel
 
 # -- Fixed, known cost per dispatched task (the task seam returns exactly this).
@@ -139,4 +137,4 @@ def test_over_budget_tasks_are_marked_budget_exceeded() -> None:
     assert all(tr.status == "error" for tr in blocked), "budget-refused tasks must be terminal errors, not charged"
 
 
-# -- sig: mgh-6201.cd.bd955f.8710.df7f83
+# -- sig: mgh-6201.cd.bd955f.8710.8dd34d

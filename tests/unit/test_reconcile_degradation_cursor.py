@@ -33,7 +33,6 @@ import errno
 import json
 import os
 import sys
-
 from unittest.mock import patch
 
 import pytest
@@ -190,4 +189,4 @@ def test_reconcile_skips_when_peer_holds_lock_ewouldblock(tmp_path) -> None:
     )
 
 
-# -- sig: mgh-6201.cd.bd955f.2392.ebbd14
+# -- sig: mgh-6201.cd.bd955f.2392.67d73c

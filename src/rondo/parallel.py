@@ -324,19 +324,22 @@ def _dispatch_worker(
     check-then-act overrun. settle() runs in finally so a raising dispatch still
     refunds its reservation (never leaks budget).
     """
-    gated = gate is not None and gate.cap is not None
-    reserved = gate.try_admit() if gated else None
-    if gated and reserved is None:
-        return _budget_blocked_result(task, config, gate.cap)  # type: ignore[union-attr]
+    # -- Narrow `gate` directly (not via a bool) so the type checker knows it's
+    # -- non-None where we call try_admit/settle — no type: ignore needed.
+    reserved: float | None = None
+    if gate is not None and gate.cap is not None:
+        reserved = gate.try_admit()
+        if reserved is None:
+            return _budget_blocked_result(task, config, gate.cap)
     try:
         tr, usage = dispatch_task_routed(task, config)
     except BaseException:
-        if reserved is not None:
-            gate.settle(reserved, 0.0)  # type: ignore[union-attr]  -- refund on failure
+        if gate is not None and reserved is not None:
+            gate.settle(reserved, 0.0)  # -- refund the reservation on failure
         raise
-    if reserved is not None:
-        gate.settle(reserved, tr.cost_usd or 0.0)  # type: ignore[union-attr]
+    if gate is not None and reserved is not None:
+        gate.settle(reserved, tr.cost_usd or 0.0)
     return tr, usage
 
 
-# -- sig: mgh-6201.cd.bd955f.1e5a.399461
+# -- sig: mgh-6201.cd.bd955f.1e5a.e530c9

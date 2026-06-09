@@ -249,10 +249,14 @@ class CircuitBreaker:
         self._global_lock = threading.Lock()
         # -- #236: persistent state file for cross-restart safety
         self._persist_path = persist_path if persist_path is not None else _default_breaker_path()
-        # -- RONDO-361 #5: mtime of the state file at last load. is_open() re-reads
-        # -- only when the file changed, so a peer process's later trip becomes
-        # -- visible to this LIVE instance (not just to instances built afterward).
-        self._persist_mtime: float = 0.0
+        # -- RONDO-361 #5/#7: (mtime, size) signature of the state file at last
+        # -- load. is_open() re-reads only when the signature changed, so a peer's
+        # -- later trip becomes visible to this LIVE instance. RONDO-368 #7: a
+        # -- bare mtime missed a same-tick peer write (coarse/NFS clocks); pairing
+        # -- it with file SIZE catches a trip that lands in the same mtime tick
+        # -- (a new/changed entry always changes the size). Guarded by _sig_lock.
+        self._sig_lock = threading.Lock()
+        self._persist_sig: tuple[float, int] = (0.0, -1)
         self._load_state()
 
     def _get_state(self, provider: str) -> CircuitBreakerState:
@@ -379,12 +383,19 @@ class CircuitBreaker:
                     "failure_count": float(max(s_failure, int(prev.get("failure_count", 0)))),
                 }
 
-    def _record_mtime(self) -> None:
-        """Remember the state file's mtime so we only reload when it changes — #5."""
+    def _persist_signature(self) -> tuple[float, int]:
+        """Return the state file's (mtime, size) — the reload-change signal — RONDO-368 #7."""
         try:
-            self._persist_mtime = self._persist_path.stat().st_mtime
+            st = self._persist_path.stat()
         except OSError:
-            self._persist_mtime = 0.0
+            return (0.0, -1)
+        return (st.st_mtime, st.st_size)
+
+    def _record_mtime(self) -> None:
+        """Remember the state file's (mtime, size) so we only reload on change — #5/#7."""
+        sig = self._persist_signature()
+        with self._sig_lock:
+            self._persist_sig = sig
 
     def _merge_disk_entry(self, provider: str, entry: object, now: float) -> None:
         """Merge one on-disk breaker entry into memory, FAIL-CLOSED — RONDO-361 #5.
@@ -434,17 +445,19 @@ class CircuitBreaker:
             logger.debug("Circuit breaker load failed (non-fatal): %s", exc)
 
     def _maybe_reload(self) -> None:
-        """Re-read disk state if a peer changed the file since our last load — #5.
+        """Re-read disk state if a peer changed the file since our last load — #5/#7.
 
-        One cheap stat() per call; full reparse only when mtime advanced. This is
-        what makes a peer process's trip visible to this already-running instance,
-        not just to instances constructed after the trip.
+        One cheap stat() per call; full reparse only when the (mtime, size)
+        signature changed. Pairing size with mtime (RONDO-368 #7) catches a peer
+        trip that lands in the SAME mtime tick on a coarse/NFS clock — a new entry
+        always grows the file even when the clock doesn't move.
         """
-        try:
-            current = self._persist_path.stat().st_mtime
-        except OSError:
+        current = self._persist_signature()
+        if current == (0.0, -1):  # -- stat failed (file gone) — nothing to reload
             return
-        if current != self._persist_mtime:
+        with self._sig_lock:
+            changed = current != self._persist_sig
+        if changed:
             self._load_state()
 
     def is_open(self, provider: str) -> bool:
@@ -522,4 +535,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.3a15.6c38d1
+# -- sig: mgh-6201.cd.bd955f.3a15.2cfdb3

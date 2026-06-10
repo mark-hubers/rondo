@@ -98,15 +98,18 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P5 — Structural (known, unscored by Cursor for honesty; bigger design calls — Mark decides scope)
 
-- [ ] **20. Fail-open sanitizer** — scrub exception still spools/saves UNsanitized result
+- [x] **20. Fail-open sanitizer** — scrub exception still spools/saves UNsanitized result
       (`dispatch.py:811-814`). Fail-closed option: on scrub failure, redact whole payload.
       MARK RULED 2026-06-10: FAIL-OPEN + LOUD — keep the data (golden rule: never lose data), but escalate: -WARNING- log + metrics flag + visible marking on the result. Implement as RONDO-388.
-- [ ] **21. Idempotency PIPE_BUF claim false for multi-KB results** (`idempotency.py:134`) — large
+      IMPLEMENTED (RONDO-388, ce4f449): fail-open + WARNING + metrics flag + context_data marking; bonus metrics-clobber fix.
+- [x] **21. Idempotency PIPE_BUF claim false for multi-KB results** (`idempotency.py:134`) — large
       JSONL appends are not atomic; torn-line guard exists on read, but fix the claim + consider chunk guard.
       MARK RULED 2026-06-10: ADD WRITE LOCK — flock around large idempotency JSONL appends for true atomicity. Implement as RONDO-389.
-- [ ] **22. Cross-process idempotency still check-then-act** — documented limitation; decide: accept
+      IMPLEMENTED (RONDO-389, 7bd45b1): flock around appends (audit pattern); PIPE_BUF lie retired; twins cleared.
+- [x] **22. Cross-process idempotency still check-then-act** — documented limitation; decide: accept
       (document loudly) or build file-lock single-flight.
       MARK RULED 2026-06-10: BUILD IT — cross-process per-key file-lock single-flight (lock lifecycle + stale-lock recovery). Implement as RONDO-390.
+      IMPLEMENTED (RONDO-390): cross_process_key_lock — per-key flock, kernel-managed release, two-real-process test proves one payment.
 
 ## P6 — Showcase
 

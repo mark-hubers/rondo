@@ -79,8 +79,9 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P4 — Lying-test burn-down (mutation sweep, scoped scores = LOWER bounds)
 
-- [ ] **14. spool.py — 24/58 caught (41%)** — re-check 34 survivors vs full suite; Cursor authors
+- [x] **14. spool.py — 24/58 caught (41%)** — re-check 34 survivors vs full suite; Cursor authors
       tests for real gaps.
+      DONE 2026-06-10 (RONDO-384): 22/58 -> 56/58 (97%). 44 Cursor tests + 2 Claude missing-dir. 2 accepted equivalents documented.
 - [ ] **15. envelope.py — 23/44 (52%)** — same treatment; envelope is the public contract surface.
 - [ ] **16. history.py — 17/25 (68%)** — same treatment.
 - [ ] **17. dispatch_parse.py — sweep pending** (fill in when done)

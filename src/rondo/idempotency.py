@@ -41,6 +41,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import threading
 import time
 from collections.abc import Iterator
@@ -195,7 +196,10 @@ def _append_cache_entry(path: Path, key: str, payload: dict[str, Any], cached_at
             "cached_at_wall": cached_at_wall,
         }
         line = json.dumps(entry, default=str) + "\n"
-        with open(path, "a", encoding="utf-8") as f:
+        # -- RONDO-393 (8.3 twin): cached entries carry result payloads —
+        # -- born 0o600 on first append (STD-110 r012)
+        append_fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        with os.fdopen(append_fd, "a", encoding="utf-8") as f:
             try:
                 import fcntl  # pylint: disable=import-outside-toplevel
 
@@ -209,6 +213,27 @@ def _append_cache_entry(path: Path, key: str, payload: dict[str, Any], cached_at
                 f.write(line)
     except (OSError, TypeError, ValueError) as exc:
         logger.debug("Idempotency JSONL append failed (non-fatal): %s", exc)
+
+
+def _rewrite_compacted(path: Path, fresh: dict[str, tuple[Any, float]]) -> None:
+    """Rewrite the cache JSONL with only live entries — atomic, born 0o600.
+
+    RONDO-393 (8.3 twin): cached entries carry result payloads; the compaction
+    tmp is created via mkstemp so no instant exposes wider perms (STD-110 r012).
+    Extracted from the two (locked/unlocked) compaction branches.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for k, (value, cached_at) in fresh.items():
+                f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
+        os.replace(tmp_name, path)
+    except OSError:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def _scan_cache_file(path: Path, ttl_sec: int) -> dict[str, tuple[Any, float]]:
@@ -277,22 +302,14 @@ def _compact_if_needed(path: Path) -> None:
                     return
 
                 fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
-                tmp_path = path.with_suffix(".tmp")
-                with open(tmp_path, "w", encoding="utf-8") as f:
-                    for k, (value, cached_at) in fresh.items():
-                        f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
-                os.replace(tmp_path, path)
+                _rewrite_compacted(path, fresh)
                 logger.debug("Idempotency JSONL compacted: %d live entries", len(fresh))
 
                 fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         except ImportError:
             # -- Windows: no fcntl, fall back to unlocked compaction (benign)
             fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
-            tmp_path = path.with_suffix(".tmp")
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                for k, (value, cached_at) in fresh.items():
-                    f.write(json.dumps({"key": k, "data": value, "cached_at_wall": cached_at}, default=str) + "\n")
-            os.replace(tmp_path, path)
+            _rewrite_compacted(path, fresh)
             logger.debug("Idempotency JSONL compacted (no lock): %d live entries", len(fresh))
     except (OSError, TypeError, ValueError) as exc:
         logger.debug("Idempotency compaction failed (non-fatal): %s", exc)

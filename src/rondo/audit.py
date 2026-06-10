@@ -28,6 +28,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import threading
 import time
 import uuid
@@ -130,19 +131,23 @@ def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
     Crash-safe: reader never sees a partial file. Either the old file
     exists (write not started or failed) or the new file exists (write
     completed). Never both, never torn.
+
+    RONDO-393 (ROAD-TO-8 8.3, STD-110 r012): the temp is born 0o600 via
+    mkstemp — no instant exposes wider perms, and os.replace carries the
+    restrictive mode to the final file (audit prompt/result artifacts).
     """
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
     try:
-        tmp_path.write_text(content, encoding=encoding)
+        with os.fdopen(fd, "w", encoding=encoding) as fh:
+            fh.write(content)
         # -- os.replace is atomic on POSIX and Windows (Python docs)
-        os.replace(str(tmp_path), str(path))
+        os.replace(tmp_name, str(path))
     except OSError:
         # -- Clean up tmp on failure
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except OSError:
-                pass
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
         raise
 
 
@@ -629,7 +634,10 @@ class AuditTrail:
         self._maybe_rotate()
 
         line = json.dumps(record.to_dict()) + "\n"
-        with self._jsonl_path.open("a", encoding="utf-8") as f:
+        # -- RONDO-393 (8.3, STD-110 r012): O_CREAT with mode 0o600 — the JSONL
+        # -- is born restrictive on first append (umask can only narrow it).
+        fd = os.open(self._jsonl_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as f:
             try:
                 import fcntl  # pylint: disable=import-outside-toplevel
 

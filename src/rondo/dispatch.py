@@ -244,11 +244,22 @@ def save_result(
         if callable(data[key]):
             data[key] = str(data[key])
 
-    # -- Write with restrictive permissions
+    # -- Write with restrictive permissions — RONDO-393 (8.3, STD-110 r012):
+    # -- born 0o600 via mkstemp + atomic replace; the old write_text-then-chmod
+    # -- left a window where the full payload sat at umask perms.
     safe_name = re.sub(r"[^\w\-.]", "_", result.task_name)
     filepath = out_dir / f"task-{safe_name}.json"
-    filepath.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
-    filepath.chmod(0o600)
+    fd, tmp_name = tempfile.mkstemp(dir=out_dir, prefix=f"task-{safe_name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(data, indent=2, default=str))
+        os.replace(tmp_name, filepath)
+    except OSError:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
     return str(filepath)
 

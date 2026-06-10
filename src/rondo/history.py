@@ -12,6 +12,7 @@ Import direction:
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,7 +50,9 @@ def log_dispatch(record: DispatchRecord, history_dir: str) -> None:
     filepath = out_dir / f"history-{date_str}.jsonl"
 
     line = json.dumps(asdict(record), default=str)
-    with open(filepath, "a", encoding="utf-8") as f:
+    # -- RONDO-393 (8.3 twin): born 0o600 on first append (STD-110 r012)
+    fd = os.open(filepath, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    with os.fdopen(fd, "a", encoding="utf-8") as f:
         f.write(line + "\n")
 
 

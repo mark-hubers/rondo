@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,8 +39,6 @@ def resolve_retry_dir() -> str:
     RONDO-314: promoted from the CLI layer so the nightly watchdog and
     any other caller share ONE resolution rule.
     """
-    import os  # pylint: disable=import-outside-toplevel
-
     test_dir = os.environ.get("RONDO_TEST_DIR")
     return os.path.join(test_dir, "retry") if test_dir else "~/.rondo/retry"
 
@@ -149,8 +149,12 @@ def sweep_retry_queue(
             payload["dead_letter_reason"] = reason
             payload["dead_lettered_at"] = now.isoformat()
             target = dead_dir / path.name
-            target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-            target.chmod(0o600)
+            # -- RONDO-393 (8.3 twin): born 0o600 via mkstemp — the old
+            # -- write_text-then-chmod left the full payload at umask perms
+            fd, tmp_name = tempfile.mkstemp(dir=dead_dir, prefix=path.name + ".", suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload, indent=2))
+            os.replace(tmp_name, target)
             path.unlink()
             if reason == "expired":
                 report.dead_lettered_expired += 1

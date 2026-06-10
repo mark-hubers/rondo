@@ -22,7 +22,10 @@ from datetime import UTC, datetime
 
 from rondo.config import RondoConfig
 from rondo.dispatch import save_result
-from rondo.dispatch_routing import dispatch_task_routed
+from rondo.dispatch_routing import (  # -- parse_model via the routing layer (layering registry keeps parallel off the providers edge)
+    dispatch_task_routed,
+    parse_model,
+)
 from rondo.engine import (
     DispatchUsage,
     Round,
@@ -252,60 +255,67 @@ class _BudgetGate:
     def __init__(self, cap: float | None) -> None:
         self.cap = cap
         self._cond = threading.Condition()
-        self._spent = 0.0  # -- committed actual cost
-        self._reserved = 0.0  # -- in-flight reservations (admitted, not yet settled)
-        self._estimate = 0.0  # -- per-task cost estimate; 0.0 == no sample yet
-        self._inflight = 0  # -- admitted-but-unsettled count
-        self._have_sample = False
+        self._spent = 0.0  # -- committed actual cost (GLOBAL across classes)
+        self._reserved = 0.0  # -- in-flight reservations (GLOBAL across classes)
+        # -- RONDO-395 (8.4): estimates/samples/probes are PER CLASS (provider
+        # -- class string). One global estimate let a free class's $0 success
+        # -- zero the estimate paid classes admitted against — mixed rounds
+        # -- under-enforced exactly the case round files ship as a feature.
+        self._estimates: dict[str, float] = {}  # -- class → MAX-KEEP estimate
+        self._sampled: set[str] = set()  # -- classes with a settled sample
+        self._inflight: dict[str, int] = {}  # -- class → admitted-but-unsettled
 
-    def try_admit(self) -> float | None:
-        """Reserve budget for one dispatch, or refuse. Returns reserved amount, or None.
+    def try_admit(self, class_key: str) -> float | None:
+        """Reserve budget for one dispatch of `class_key`, or refuse.
 
         None == refused (would exceed cap): the caller must NOT dispatch. A float
-        (possibly 0.0 for the cold-start probe) == admitted; the caller MUST pass
-        it back to settle() exactly once.
+        (possibly 0.0 for the class's cold-start probe) == admitted; the caller
+        MUST pass it back to settle() exactly once with the same class_key.
         """
         if self.cap is None:
             return 0.0
         with self._cond:
-            # -- Cold start: let one probe run alone so we learn the real cost
-            # -- before fanning out; peers wait for it rather than overrun blind.
+            # -- Cold start PER CLASS: the first task of an unsampled class
+            # -- probes alone (its peers wait); other classes are unaffected.
             # -- RONDO-373 #1a: NO fallthrough on timeout — settle() always fires
-            # -- (worker try/finally), so the loop re-checks until the probe
-            # -- settles (sample recorded) or fails (inflight drops to 0 and the
-            # -- next caller becomes the new probe). The timeout is only a
-            # -- spurious-wakeup guard, never an admit-blind escape hatch.
-            while not self._have_sample and self._inflight > 0:
+            # -- (worker try/finally), so the loop re-checks until this class's
+            # -- probe settles or fails (its inflight drops to 0 and the next
+            # -- caller of the class becomes the new probe). The timeout is only
+            # -- a spurious-wakeup guard, never an admit-blind escape hatch.
+            while class_key not in self._sampled and self._inflight.get(class_key, 0) > 0:
                 self._cond.wait(timeout=_GATE_PROBE_WAIT_SEC)
-            est = self._estimate if self._have_sample else 0.0
+            est = self._estimates.get(class_key, 0.0) if class_key in self._sampled else 0.0
+            # -- Cap accounting stays GLOBAL: one cap per round, all classes.
             if self._spent + self._reserved + est > self.cap:
                 return None
             self._reserved += est
-            self._inflight += 1
+            self._inflight[class_key] = self._inflight.get(class_key, 0) + 1
             return est
 
-    def settle(self, reserved: float, cost: float, ok: bool = True) -> None:
+    def settle(self, class_key: str, reserved: float, cost: float, ok: bool = True) -> None:
         """Release a reservation, commit the observed cost, wake waiters.
 
-        Sampling rules (RONDO-373 #1b — the zero-cost path must not serialize):
-          cost > 0          → sample it (real money is real data, any status)
-          cost == 0 and ok  → FREE-path sample (Claude max-auth): estimate 0.0,
-                              so the whole round fans out — $0 can't exceed a cap
+        Sampling rules (RONDO-373 #1b + RONDO-395 per-class):
+          cost > 0          → sample for THIS class, MAX-KEEP (a later cheaper
+                              sample never lowers admission pressure)
+          cost == 0 and ok  → FREE-path sample for THIS class only (Claude
+                              max-auth): the free class fans out at est 0.0
+                              without touching any paid class's estimate
           cost == 0, not ok → no sample (failed probe teaches nothing; the next
-                              admitted caller becomes the new probe)
+                              admitted caller of the class becomes the new probe)
         """
         if self.cap is None:
             return
         with self._cond:
             self._reserved = max(0.0, self._reserved - reserved)
-            self._inflight = max(0, self._inflight - 1)
+            self._inflight[class_key] = max(0, self._inflight.get(class_key, 0) - 1)
             self._spent += cost
             if cost > 0:
-                self._estimate = max(cost, 0.001)
-                self._have_sample = True
+                self._estimates[class_key] = max(cost, 0.001, self._estimates.get(class_key, 0.0))
+                self._sampled.add(class_key)
             elif ok:
-                self._estimate = 0.0
-                self._have_sample = True
+                self._estimates.setdefault(class_key, 0.0)
+                self._sampled.add(class_key)
             self._cond.notify_all()
 
 
@@ -341,9 +351,12 @@ def _dispatch_worker(
     """
     # -- Narrow `gate` directly (not via a bool) so the type checker knows it's
     # -- non-None where we call try_admit/settle — no type: ignore needed.
+    # -- RONDO-395 (8.4): admission is keyed by the task's provider class so a
+    # -- free class's $0 sample can't blind-admit paid classes (mixed rounds).
+    class_key = _provider_class(task, config)
     reserved: float | None = None
     if gate is not None and gate.cap is not None:
-        reserved = gate.try_admit()
+        reserved = gate.try_admit(class_key)
         if reserved is None:
             return _budget_blocked_result(task, config, gate.cap)
     try:
@@ -351,13 +364,25 @@ def _dispatch_worker(
     except BaseException:
         if gate is not None and reserved is not None:
             # -- refund the reservation; ok=False → a failed probe teaches nothing
-            gate.settle(reserved, 0.0, ok=False)
+            gate.settle(class_key, reserved, 0.0, ok=False)
         raise
     if gate is not None and reserved is not None:
         # -- RONDO-373 #1b: done/partial results are valid cost samples (a $0
         # -- success = the free max-auth path); error/blocked at $0 are not.
-        gate.settle(reserved, tr.cost_usd or 0.0, ok=tr.status in ("done", "partial"))
+        gate.settle(class_key, reserved, tr.cost_usd or 0.0, ok=tr.status in ("done", "partial"))
     return tr, usage
+
+
+def _provider_class(task: Task, config: RondoConfig) -> str:
+    """Provider class for budget-estimate keying — RONDO-395 (8.4).
+
+    The provider prefix of the task's model ("gemini", "openai", "local", ...);
+    bare Claude models have no prefix → class "claude". Cost regimes follow the
+    provider/auth class, not the individual model — close enough for admission
+    estimates while staying coarse enough to sample quickly.
+    """
+    provider, _ = parse_model(task.model or config.default_model or "")
+    return provider or "claude"
 
 
 # -- sig: mgh-6201.cd.bd955f.1e5a.240ffa

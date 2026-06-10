@@ -65,6 +65,12 @@ _AUTO_RECONCILE_INTERVAL_SEC = 300.0  # -- 5 min: cheap O(N) scan, bounded stale
 _auto_reconciled_files: dict[str, float] = {}  # -- jsonl path → monotonic last-claim
 _auto_reconcile_guard = threading.Lock()
 
+# -- RONDO-398 (8.6): while the reconciling THREAD holds LOCK_EX on the audit
+# -- JSONL itself, its own synthetic-outcome appends must not re-flock the same
+# -- file (flock is per-open-file-description — a second fd in the same process
+# -- self-deadlocks). Thread-local so concurrent appender threads still lock.
+_reconcile_jsonl_held = threading.local()
+
 # -- ──────────────────────────────────────────────────────────────
 # --  Configuration — STD-113 req 008
 # -- ──────────────────────────────────────────────────────────────
@@ -649,6 +655,14 @@ class AuditTrail:
         # -- is born restrictive on first append (umask can only narrow it).
         fd = os.open(self._jsonl_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
         with os.fdopen(fd, "a", encoding="utf-8") as f:
+            # -- RONDO-398 (8.6): the reconciling thread already holds LOCK_EX
+            # -- on this file — re-flocking a second fd self-deadlocks (flock is
+            # -- per-open-file-description). Its synthetic appends write under
+            # -- the exclusivity it already owns; all other threads lock as usual.
+            if getattr(_reconcile_jsonl_held, "held", False):
+                f.write(line)
+                f.flush()
+                return
             try:
                 import fcntl  # pylint: disable=import-outside-toplevel
 
@@ -766,7 +780,7 @@ class AuditTrail:
         try:
             if not self._acquire_reconcile_flock(lock_f):
                 return 0  # -- a peer is reconciling; skip (idempotent)
-            return self._reconcile_locked(stuck_after_sec)
+            return self._reconcile_with_jsonl_flock(stuck_after_sec)
         finally:
             try:
                 fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
@@ -793,6 +807,43 @@ class AuditTrail:
                 return False
             logger.warning("Reconcile flock unsupported (%s) — single-writer fallback", exc)
         return True
+
+    def _reconcile_with_jsonl_flock(self, stuck_after_sec: int) -> int:
+        """RONDO-398 (8.6, STD-110 r016 literal): scan+write under the AUDIT file's lock.
+
+        The sidecar serializes reconciler-vs-reconciler; this holds LOCK_EX on
+        the audit JSONL itself — the same lock _append_jsonl takes — so a real
+        OUTCOME can no longer land between reconcile's scan and its synthetic
+        stuck write (the double-OUTCOME interleave). The thread-local flag lets
+        this thread's own synthetic appends skip re-flocking (self-deadlock:
+        flock is per-open-file-description). Degradation: flock failure warns
+        and proceeds single-writer, never crashes (r019 family).
+        """
+        try:
+            import fcntl  # pylint: disable=import-outside-toplevel
+        except ImportError:  # pragma: no cover -- Windows; pinned by degradation rails
+            return self._reconcile_locked(stuck_after_sec)
+        try:
+            jsonl_f = self._jsonl_path.open("a+", encoding="utf-8")
+        except OSError as exc:
+            logger.warning("Reconcile audit-file lock open failed (%s) — single-writer fallback", exc)
+            return self._reconcile_locked(stuck_after_sec)
+        try:
+            try:
+                fcntl.flock(jsonl_f.fileno(), fcntl.LOCK_EX)
+            except OSError as exc:
+                logger.warning("Reconcile audit-file flock unsupported (%s) — single-writer fallback", exc)
+            _reconcile_jsonl_held.held = True
+            try:
+                return self._reconcile_locked(stuck_after_sec)
+            finally:
+                _reconcile_jsonl_held.held = False
+        finally:
+            try:
+                fcntl.flock(jsonl_f.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+            jsonl_f.close()
 
     def _reconcile_locked(self, stuck_after_sec: int) -> int:
         """Reconcile read-modify-write body — caller holds both locks (RONDO-359)."""

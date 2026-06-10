@@ -96,10 +96,15 @@ _BARE_MIN_VERSION = (2, 1, 81)
 
 
 def _attach_metrics(result: TaskResult, config: RondoConfig) -> None:
-    """Attach metrics to result — ALWAYS-ON, every path."""
+    """Attach metrics to result — ALWAYS-ON, every path.
+
+    RONDO-388: MERGE, never replace — per-result flags set earlier in the
+    pipeline (sanitize_failed, stream_reattempts) must survive; the wholesale
+    `result.metrics = report.to_dict()` silently clobbered them.
+    """
     try:
         report = compute_metrics(audit_dir=config.audit_dir)
-        result.metrics = report.to_dict()
+        result.metrics = {**report.to_dict(), **result.metrics}
     except (ImportError, OSError, TypeError):
         pass
 
@@ -811,7 +816,18 @@ def _finalize_dispatch(
     try:
         result, _sr = sanitize_task_result(result, config=None)
     except (TypeError, AttributeError) as exc:
-        logger.debug("Sanitize failed (non-fatal): %s", exc)
+        # -- RONDO-388 (Mark's ruling, checklist 20): FAIL-OPEN BUT LOUD.
+        # -- Golden rule — never lose data: the result still persists below,
+        # -- UNSCRUBBED. But silence was the bug: escalate to WARNING, flag it
+        # -- machine-readably, and mark the result so every consumer can see it.
+        logger.warning(
+            "-WARNING- sanitize FAILED — result for '%s' persisted UNSCRUBBED (%s: %s); review stored artifacts for secrets",
+            result.task_name,
+            type(exc).__name__,
+            exc,
+        )
+        result.metrics["sanitize_failed"] = True
+        result.context_data["sanitize_error"] = f"{type(exc).__name__}: {exc}"
 
     # -- STD-113: record audit OUTCOME (sanitized raw_output + auto-rating)
     if audit_trail and audit_record:
@@ -1148,4 +1164,4 @@ def _log_to_history(
         logger.debug("History logging failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.e969.eb3c5a
+# -- sig: mgh-6201.cd.bd955f.e969.492e19

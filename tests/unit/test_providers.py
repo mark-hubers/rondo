@@ -1414,17 +1414,21 @@ class TestStreamingDispatch:
 
 
 class TestDisconnectAutoRetry:
-    """RONDO-334 (SOP-106): a disconnect result gets ONE automatic re-attempt.
+    """RONDO-334 re-attempt mechanics, behind the RONDO-378 opt-in gate.
 
     retry_http only retries on EXCEPTIONS — RONDO-323's disconnect path
     deliberately RETURNS (preserving partials), so it never retried. One
     in-dispatch re-attempt; if both attempts drop, keep the LONGER partial.
+    RONDO-378 (REQ-109 r213 MUST: never silent spend): the re-attempt is now
+    OPT-IN, default OFF — this class enables it explicitly to pin the
+    mechanics; the default-off contract lives in test_stream_reattempt_cursor.
     """
 
     def _adapter(self):  # noqa: ANN202
         from rondo.adapters.anthropic_api import AnthropicAPIAdapter
 
-        return AnthropicAPIAdapter(api_key="sk-test-not-real")  # noqa: S106
+        # -- RONDO-378: opt IN — this class tests the re-attempt mechanics.
+        return AnthropicAPIAdapter(api_key="sk-test-not-real", stream_reattempt=True)  # noqa: S106
 
     def _patch_attempts(self, monkeypatch, results):  # noqa: ANN001, ANN202
         """Make retry_http return queued results (each call = one attempt)."""
@@ -1604,4 +1608,4 @@ class TestLearnedRoutingFallback:
         assert recommend_model("never-seen-task-xyz") == "sonnet"
 
 
-# -- sig: mgh-6201.cd.bd955f.2c31.857d5f
+# -- sig: mgh-6201.cd.bd955f.2c31.9eef8d

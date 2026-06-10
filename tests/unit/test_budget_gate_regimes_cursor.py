@@ -188,8 +188,7 @@ def test_zero_cost_round_runs_in_parallel() -> None:
 
     done = [tr for tr in result.task_results if tr.status == "done"]
     assert len(done) == _ZERO_WORKERS, (
-        f"$0 tasks must always complete: only {len(done)}/{_ZERO_WORKERS} done "
-        f"under a budget cap (finding #1b)"
+        f"$0 tasks must always complete: only {len(done)}/{_ZERO_WORKERS} done under a budget cap (finding #1b)"
     )
     assert tracker.peak >= 2, (
         f"zero-cost serialization: peak concurrency was {tracker.peak}, expected >= 2 — "
@@ -223,4 +222,4 @@ def test_failed_probe_neither_poisons_admission_nor_overruns() -> None:
     )
 
 
-# -- sig: mgh-6201.cd.bd955f.0f57.27983f
+# -- sig: mgh-6201.cd.bd955f.0f57.06ade6

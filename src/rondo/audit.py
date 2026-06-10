@@ -29,6 +29,7 @@ import json
 import logging
 import os
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -48,12 +49,19 @@ logger = logging.getLogger(__name__)
 _reconcile_lock = threading.Lock()
 
 # -- RONDO-371 (cursor #10): auto-reconcile-on-init must run at most ONCE per
-# -- (process, audit file). A fresh AuditTrail is built PER TASK, so without this
-# -- a T-task parallel round fired T full-file reconcile scans serialized on
-# -- _reconcile_lock (O(T*N) + a hidden serialization point). This set records
-# -- which audit files this process has already auto-reconciled; explicit
-# -- reconcile_stuck_intents() calls are NOT gated.
-_auto_reconciled_files: set[str] = set()
+# -- (process, audit file) PER INTERVAL. A fresh AuditTrail is built PER TASK,
+# -- so without the gate a T-task parallel round fired T full-file reconcile
+# -- scans serialized on _reconcile_lock (O(T*N) + a hidden serialization point).
+# -- RONDO-374 (cursor holistic #3): the gate was once-per-process-LIFETIME,
+# -- which silently stopped crash forensics in the long-lived MCP server — a
+# -- dispatch crashing AFTER startup left a stuck INTENT nothing would ever
+# -- reconcile until restart. Now time-based: the map records WHEN each audit
+# -- file was last auto-reconciled; after _AUTO_RECONCILE_INTERVAL_SEC a new
+# -- construction re-claims and scans again. Storm protection holds (a round's
+# -- burst of constructions lands within one interval → one scan); explicit
+# -- reconcile_stuck_intents() calls are NEVER gated.
+_AUTO_RECONCILE_INTERVAL_SEC = 300.0  # -- 5 min: cheap O(N) scan, bounded staleness
+_auto_reconciled_files: dict[str, float] = {}  # -- jsonl path → monotonic last-claim
 _auto_reconcile_guard = threading.Lock()
 
 # -- ──────────────────────────────────────────────────────────────
@@ -308,18 +316,24 @@ class AuditTrail:
                 logger.debug("Auto-reconcile skipped on init: %s", exc)
 
     def _claim_auto_reconcile(self) -> bool:
-        """Return True at most once per (process, audit file) — RONDO-371 (#10).
+        """True at most once per (process, audit file) per INTERVAL — RONDO-371/374.
 
-        Collapses the per-task auto-reconcile storm in the parallel path: the
-        first AuditTrail built for a given jsonl this process reconciles; later
-        ones (one per worker) skip. Explicit reconcile_stuck_intents() calls are
-        NOT affected — this gates ONLY the on-init scan.
+        Collapses the per-task auto-reconcile storm in the parallel path (a
+        round's burst of constructions lands inside one interval → one scan),
+        WITHOUT the RONDO-371 lifetime gate that silently stopped crash
+        forensics in the long-lived MCP server (cursor holistic #3): after
+        _AUTO_RECONCILE_INTERVAL_SEC, the next construction re-claims and scans
+        again, so post-startup crashes still get their stuck OUTCOME. Explicit
+        reconcile_stuck_intents() calls are NEVER gated. Monotonic clock —
+        immune to NTP steps.
         """
         key = str(self._jsonl_path)
+        now = time.monotonic()
         with _auto_reconcile_guard:
-            if key in _auto_reconciled_files:
+            last = _auto_reconciled_files.get(key)
+            if last is not None and (now - last) < _AUTO_RECONCILE_INTERVAL_SEC:
                 return False
-            _auto_reconciled_files.add(key)
+            _auto_reconciled_files[key] = now
             return True
 
     def record_intent(
@@ -822,4 +836,4 @@ class AuditTrail:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.2ce9.7d36ca
+# -- sig: mgh-6201.cd.bd955f.2ce9.cb512f

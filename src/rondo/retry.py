@@ -221,7 +221,10 @@ class CircuitBreakerState:
     """Per-provider circuit breaker state."""
 
     failure_count: int = 0
-    open_until: float = 0.0  # -- monotonic timestamp when circuit reopens
+    # -- WALL-CLOCK (time.time()) so it survives restart/persist (#236). NOT
+    # -- monotonic — an NTP step can mis-time a cooldown; accepted trade-off
+    # -- (documented, RONDO-374 fixed this comment which lied "monotonic").
+    open_until: float = 0.0  # -- wall-clock timestamp when circuit reopens
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -555,4 +558,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.3a15.910385
+# -- sig: mgh-6201.cd.bd955f.3a15.adcfb3

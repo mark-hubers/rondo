@@ -23,7 +23,10 @@ from typing import Any
 # -- Re-exported here for backward compat with all existing callers.
 from rondo.adapters.anthropic_api import AnthropicAPIAdapter
 from rondo.adapters.auth import load_api_key
-from rondo.adapters.chat_completions import ChatCompletionsAdapter
+from rondo.adapters.chat_completions import (
+    ChatCompletionsAdapter,
+    compute_cost_usd,  # noqa: F401  -- RONDO-394 re-export: single pricing truth for mcp layers (layering lock keeps adapters edge here)
+)
 from rondo.adapters.gemini import GeminiAdapter
 from rondo.adapters.ollama import OllamaAdapter
 from rondo.engine import TaskResult

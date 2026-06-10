@@ -78,10 +78,15 @@ class TestInlinePlanHostContract:
         ## collision probability negligible)
         assert len(tokens) == 3, f"tokens collided: {tokens}"
 
-    def test_schema_version_bumped_to_2(self) -> None:
+    def test_schema_version_bumped_for_host_fields(self) -> None:
+        """The version pin tracks the CURRENT schema — bump-on-any-addition.
+
+        RONDO-294 bumped 1->2 for the host fields; RONDO-394 (8.2) bumped
+        2->3 for guarantees_scope/not_covered/dispatch_id correlation.
+        """
         plan = _build_inline_plan(prompt="p", done_when="d", project="")
-        assert plan["schema_version"] == "2"
-        assert PLAN_SCHEMA_VERSION == "2"
+        assert plan["schema_version"] == "3"
+        assert PLAN_SCHEMA_VERSION == "3"
 
     def test_inline_plan_preserves_existing_fields(self) -> None:
         """RONDO-294 is additive — no existing field was removed."""

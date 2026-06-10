@@ -27,12 +27,28 @@ from rondo.config import DEFAULT_CONTEXT_LIMIT, MODEL_CONTEXT_LIMITS
 from rondo.envelope import build_error_envelope
 from rondo.providers import is_claude_model, is_legacy_ollama_model, parse_model
 
-# -- RONDO-146 (Finding #207): plan schema version
-# -- Bump when plan response format changes in a non-backward-compatible way
-# -- RONDO-294: schema bumped to "2" — added _host_instruction + execution_token.
-# -- Both fields are additive; consumers on schema "1" ignore unknown fields.
-PLAN_SCHEMA_VERSION = "2"
+# -- RONDO-146 (Finding #207): plan schema version.
+# -- RULE (fixed by RONDO-394, was self-contradicting): bump on ANY field
+# -- addition — consumers ignore unknown fields, but the version is how they
+# -- DISCOVER a capability is present. Precedent: RONDO-294 bumped 1→2 for the
+# -- additive _host_instruction + execution_token.
+# -- RONDO-294: "2" — _host_instruction + execution_token.
+# -- RONDO-394 (8.2): "3" — guarantees_scope/not_covered scope honesty +
+# -- dispatch_id audit correlation on advisory plans.
+PLAN_SCHEMA_VERSION = "3"
 _EXECUTION_MODES = {"inline", "subprocess", "agent"}
+
+# -- RONDO-394 (8.2): what an ADVISORY plan honestly does NOT cover — rondo
+# -- never executes the work (the host does), so these guarantees are
+# -- impossible by construction. Declared, never silently half-faked.
+_ADVISORY_NOT_COVERED = [
+    "budget",
+    "circuit_breaker",
+    "cost_tracking",
+    "result_audit",
+    "output_sanitization",
+    "idempotency",
+]
 
 # -- RONDO-294: natural-language execution instruction embedded in every inline plan.
 # -- Defense in depth: even WITHOUT a Caliber hook rewriting the plan, an AI that
@@ -114,6 +130,9 @@ def _build_inline_plan(prompt: str, done_when: str, project: str) -> dict:
         ## RONDO-294: additive fields — old schema-1 consumers ignore unknown keys.
         "_host_instruction": _HOST_EXECUTION_INSTRUCTION,
         "execution_token": _make_execution_token(),
+        # -- RONDO-394 (8.2): scope honesty — advisory, with the not-covered set explicit.
+        "guarantees_scope": "advisory",
+        "not_covered": list(_ADVISORY_NOT_COVERED),
     }
 
 
@@ -130,6 +149,9 @@ def _build_agent_plan(prompt: str, done_when: str, project: str, model: str) -> 
         "project": project,
         "reason": "execution=agent requested host Agent plan",
         "note": "Host should spawn an Agent with this model and prompt.",
+        # -- RONDO-394 (8.2): scope honesty — advisory, with the not-covered set explicit.
+        "guarantees_scope": "advisory",
+        "not_covered": list(_ADVISORY_NOT_COVERED),
     }
 
 
@@ -142,6 +164,9 @@ def _build_subprocess_plan(model: str, reason: str) -> dict:
         "model": model or "sonnet",
         "reason": reason,
         "_bare": False,  # -- keep Max plan OAuth path
+        # -- RONDO-394 (8.2): present-and-explicit on EVERY builder — absence
+        # -- would be ambiguous (old plan vs advisory). Subprocess = guarded.
+        "guarantees_scope": "guarded",
     }
 
 

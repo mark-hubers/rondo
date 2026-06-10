@@ -820,10 +820,8 @@ def _rondo_run_file_inner(
         log_event("WARNING", "input validation failed", component="mcp_dispatch", error=err[:200])
         return err
 
-    # -- RONDO-202 (Finding #227): idempotency cache — short-circuit duplicates
-    idempotency_key, cached = _idempotency_lookup(prompt, model, execution, dry_run, background)
-    if cached is not None:
-        return cached
+    # -- RONDO-202 (Finding #227): idempotency lookup happens AFTER routing now
+    # -- (RONDO-394 moved it below the advisory return — see that comment).
 
     # -- Base engine routing (provider prefixes/background/:new/context checks)
     engine = resolve_dispatch_engine(
@@ -870,7 +868,24 @@ def _rondo_run_file_inner(
         return route_error
 
     if engine["engine"] in ("inline", "agent"):
+        # -- RONDO-394 (8.2): the advisory path goes UNDER the machinery —
+        # -- estimate-gated budget at issuance, audit INTENT + advisory
+        # -- OUTCOME (the plan IS a dispatch event), dispatch_id correlation.
+        refusal = _advisory_budget_refusal(engine, prompt, model, max_budget)
+        if refusal is not None:
+            return refusal
+        _audit_advisory_plan(engine, prompt, model)
         return json.dumps(engine, indent=2)
+
+    # -- RONDO-394 (8.2, design review §7): idempotency lookup moved BELOW the
+    # -- advisory return — the key was computed from the RAW execution arg, so
+    # -- a cached SUBPROCESS result could be served to an inline caller
+    # -- (execution="" resolves differently with/without a session). Guarded
+    # -- paths keep the fast-path lookup; advisory paths never touch the cache
+    # -- (fresh execution_token + dispatch_id per plan is the contract).
+    idempotency_key, cached = _idempotency_lookup(prompt, model, execution, dry_run, background)
+    if cached is not None:
+        return cached
 
     # -- HTTP adapter or subprocess: proceed with dispatch
 
@@ -902,6 +917,92 @@ def _rondo_run_file_inner(
         return _start_background_dispatch(file_path, prompt, dispatch_fn, _session)
 
     return _dispatch_and_cache(idempotency_key, dispatch_fn, route_warnings)
+
+
+def _advisory_budget_refusal(plan: dict, prompt: str, model: str, max_budget: float) -> str | None:
+    """RONDO-394 (8.2, design review §4): estimate-gated budget at plan ISSUANCE.
+
+    Full budget tracking of host-executed work is impossible by construction
+    (rondo never runs it, never sees actuals) — that is DECLARED in the plan's
+    not_covered. But when the caller passes max_budget, refusing to even issue
+    a plan whose token-estimate cost already exceeds it is a real, cheap gate.
+    Returns the refusal envelope JSON, or None to proceed. Estimate failure →
+    no gate (never fake a guarantee), logged at debug.
+    """
+    if max_budget <= 0:
+        return None
+    try:
+        # -- Local import: adapters layer must not be a hard dependency of routing.
+        # -- via providers (the layer that owns the adapters edge) — layering lock
+        from rondo.providers import compute_cost_usd  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+
+        plan_model = model or str(plan.get("model", ""))
+        est_cost = compute_cost_usd(plan_model, estimate_token_count(prompt), _ADVISORY_OUTPUT_TOKEN_BUDGET)
+    except (ImportError, TypeError, ValueError) as exc:
+        logger.debug("Advisory budget estimate unavailable (%s) — plan not gated", exc)
+        return None
+    if est_cost <= max_budget:
+        return None
+    return json.dumps(
+        build_error_envelope(
+            error_code="ERR_BUDGET_EXCEEDED",
+            error_message=(
+                f"advisory plan refused at issuance: estimated cost ${est_cost:.4f} exceeds "
+                f"max_budget ${max_budget:.6f} (estimate-gated; actuals of host-executed work are not tracked)"
+            ),
+            context={"model": model, "engine": str(plan.get("engine", ""))},
+        ),
+        indent=2,
+    )
+
+
+# -- RONDO-394: assumed output budget for the issuance estimate (tokens).
+_ADVISORY_OUTPUT_TOKEN_BUDGET = 2000
+
+
+def _audit_advisory_plan(plan: dict, prompt: str, model: str) -> None:
+    """RONDO-394 (8.2): an advisory plan IS a dispatch event — put it on the audit trail.
+
+    Order (design review §6): record INTENT → inject its dispatch_id into the
+    plan (Caliber Stop-hook token ↔ audit record correlation) → record the
+    paired OUTCOME with the honest status "advisory" (rondo never observes the
+    host-side execution; this is "plan returned", not a fake completion).
+    Sanitize-on-persist only: record_intent/record_outcome scrub their stored
+    copies; the RETURNED plan keeps the raw prompt for the authorized host.
+    Fail-open + loud (STD-113 §20): an audit failure never blocks the plan.
+    """
+    engine_kind = str(plan.get("engine", ""))
+    try:
+        trail = AuditTrail(config=AuditConfig(), auto_reconcile=False)
+        record = trail.record_intent(
+            task_name=f"advisory-{engine_kind}",
+            round_name="advisory",
+            model=model or str(plan.get("model", "")),
+            prompt=prompt,
+            engine=engine_kind,
+        )
+        plan["dispatch_id"] = record.dispatch_id
+        trail.record_outcome(
+            dispatch_id=record.dispatch_id,
+            task_name=f"advisory-{engine_kind}",
+            round_name="advisory",
+            model=model or str(plan.get("model", "")),
+            status="advisory",
+            exit_code=0,
+            cost_usd=0.0,
+            duration_sec=0.0,
+            raw_output=json.dumps(plan, indent=2),
+            engine=engine_kind,
+            # -- design review watch-out C: a benign note so forensics rules
+            # -- never read this non-done status as an unexplained failure.
+            blocked_reason="advisory plan returned to host (delegated execution; no result observed)",
+        )
+    except Exception as exc:  # noqa: BLE001  -- STD-113 §20: audit failure never blocks dispatch
+        logger.warning(
+            "-WARNING- advisory audit write FAILED (%s: %s) — plan still returned (fail-open, STD-113 §20)",
+            type(exc).__name__,
+            exc,
+        )
 
 
 def _dispatch_and_cache(key: str, dispatch_fn: Any, route_warnings: Any) -> str:

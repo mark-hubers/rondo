@@ -243,6 +243,12 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
     # -- scoring so a model great at one task isn't blended into one score.
     task_type: str = ""
 
+    # -- RONDO-394 (8.2): which dispatch engine produced this record
+    # -- ("inline"/"agent" for advisory plans, "" for guarded paths). Honest
+    # -- home for the engine kind — task_type stays reserved for affinity
+    # -- scoring (design review 2026-06-10). Append-only field.
+    engine: str = ""
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict — STD-113 req 007."""
         return {
@@ -267,6 +273,7 @@ class AuditRecord:  # pylint: disable=too-many-instance-attributes
             "json_valid": self.json_valid,
             "fields_complete": self.fields_complete,
             "task_type": self.task_type,
+            "engine": self.engine,
             # -- STD-113 reqs 021-026 (RONDO-301): forensic fields
             "error_message": self.error_message,
             "stderr_snippet": self.stderr_snippet,
@@ -349,6 +356,7 @@ class AuditTrail:
         model: str,
         prompt: str,
         task_type: str = "",
+        engine: str = "",
     ) -> AuditRecord:
         """Phase 1: record dispatch intent BEFORE subprocess — STD-113 req 001.
 
@@ -379,6 +387,7 @@ class AuditTrail:
             status="INTENT",
             dispatched_at=datetime.now(UTC).isoformat(),
             task_type=task_type,
+            engine=engine,
         )
 
         # -- STD-113 req 004: save prompt to file
@@ -422,6 +431,7 @@ class AuditTrail:
         stderr: str = "",
         blocked_reason: str = "",
         project: str = "",
+        engine: str = "",
     ) -> None:
         """Phase 2: record dispatch outcome AFTER subprocess — STD-113 req 002.
 
@@ -462,6 +472,7 @@ class AuditTrail:
             stderr_snippet=_forensic_snippet(stderr),
             blocked_reason=_forensic_snippet(blocked_reason),
             project=_resolve_project(project),
+            engine=engine,
         )
 
         # -- STD-113 req 005: save result to file

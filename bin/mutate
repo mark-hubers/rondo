@@ -12,6 +12,17 @@
 ##
 ## -- Scope it to the file you changed + its tests — running pytest once per
 ## -- mutant is slow on the whole suite. Exit 1 if any mutant survives.
+##
+## -- WHILE A RUN IS ACTIVE (RONDO-384/385 hard lessons):
+## --   * The working tree IS a mutant: the target file on disk is ast.unparse
+## --     output (comments/SPDX/signature stripped). NEVER run bin/build,
+## --     conventions, or read the file for triage mid-run — read source via
+## --     `git show HEAD:<file>` instead. False header/signature failures and
+## --     a half-read mutant both look exactly like real findings.
+## --   * Surprising verdicts get ONE hand-replication before belief: apply the
+## --     mutant manually, run pytest directly. The gate has lied twice (no-op
+## --     return-None mutants RONDO-364; pyc-stale bytecode RONDO-385) and both
+## --     times hand-replication convicted it.
 
 setopt ERR_EXIT NO_UNSET PIPE_FAIL
 REPO="${0:a:h:h}"

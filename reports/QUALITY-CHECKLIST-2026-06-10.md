@@ -82,24 +82,31 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 - [x] **14. spool.py — 24/58 caught (41%)** — re-check 34 survivors vs full suite; Cursor authors
       tests for real gaps.
       DONE 2026-06-10 (RONDO-384): 22/58 -> 56/58 (97%). 44 Cursor tests + 2 Claude missing-dir. 2 accepted equivalents documented.
-- [ ] **15. envelope.py — 23/44 (52%)** — same treatment; envelope is the public contract surface.
-- [ ] **16. history.py — 17/25 (68%)** — same treatment.
+- [x] **15. envelope.py — 23/44 (52%)** — same treatment; envelope is the public contract surface.
+      DONE 2026-06-10 (RONDO-386): 23/44 -> 43/44 (98%), 61 Cursor tests; 1 hand-proven equivalent accepted.
+- [x] **16. history.py — 17/25 (68%)** — same treatment.
+      DONE 2026-06-10 (RONDO-386): 14/25 -> 25/25 (100%) — first perfect module. Cursor tests + labeled Claude residue top-up.
 - [ ] **17. dispatch_parse.py — sweep pending** (fill in when done)
 - [x] **18. engine.py — sweep pending** (fill in when done)
       MEASURED 2026-06-10: engine.py 30/94 caught (32%) vs test_engine.py scoped — survivor triage queued with items 14-16.
-- [ ] **19. sanitize.py residue** — entropy calc + extra_patterns boolop survivors (beyond item 9).
-- [ ] **19b. bin/mutate wart** — `ast.unparse` mutants strip SPDX/signature comments, so conventions/
+- [x] **19. sanitize.py residue** — entropy calc + extra_patterns boolop survivors (beyond item 9).
+      DONE 2026-06-10 (RONDO-387): 28/36 -> 35/36 (97%); 12 Cursor entropy/extra-patterns tests; lone survivor = repr=False cosmetic (documented).
+- [x] **19b. bin/mutate wart** — `ast.unparse` mutants strip SPDX/signature comments, so conventions/
       builds running mid-sweep see false failures. Either re-prepend the original header onto mutants,
       or document "never run build during a sweep" in bin/mutate usage.
+      DONE 2026-06-10: pyc-staleness FIXED (RONDO-385 purge); header-strip + mid-sweep rules documented in bin/mutate header (read via git show; never build mid-sweep; hand-replicate surprising verdicts).
 
 ## P5 — Structural (known, unscored by Cursor for honesty; bigger design calls — Mark decides scope)
 
 - [ ] **20. Fail-open sanitizer** — scrub exception still spools/saves UNsanitized result
       (`dispatch.py:811-814`). Fail-closed option: on scrub failure, redact whole payload.
+      MARK RULED 2026-06-10: FAIL-OPEN + LOUD — keep the data (golden rule: never lose data), but escalate: -WARNING- log + metrics flag + visible marking on the result. Implement as RONDO-388.
 - [ ] **21. Idempotency PIPE_BUF claim false for multi-KB results** (`idempotency.py:134`) — large
       JSONL appends are not atomic; torn-line guard exists on read, but fix the claim + consider chunk guard.
+      MARK RULED 2026-06-10: ADD WRITE LOCK — flock around large idempotency JSONL appends for true atomicity. Implement as RONDO-389.
 - [ ] **22. Cross-process idempotency still check-then-act** — documented limitation; decide: accept
       (document loudly) or build file-lock single-flight.
+      MARK RULED 2026-06-10: BUILD IT — cross-process per-key file-lock single-flight (lock lifecycle + stale-lock recovery). Implement as RONDO-390.
 
 ## P6 — Showcase
 

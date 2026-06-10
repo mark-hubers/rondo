@@ -102,10 +102,12 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P6 — Showcase
 
-- [ ] **23. New example: budget-guarded parallel round** — showcases RONDO-366 gate (cap honored, probe,
+- [x] **23. New example: budget-guarded parallel round** — showcases RONDO-366 gate (cap honored, probe,
       ERR_BUDGET_EXCEEDED surfacing). Runs hermetically in build like all examples.
-- [ ] **24. New example: resilience tour** — breaker trip → cooldown → recovery + retry/Retry-After +
+      DONE 2026-06-10 (RONDO-383): budget_guarded_parallel.py — RONDO-373 gate demo, hermetic 3/3.
+- [x] **24. New example: resilience tour** — breaker trip → cooldown → recovery + retry/Retry-After +
       idempotency dedup in one runnable story. The "why rondo" demo.
+      DONE 2026-06-10 (RONDO-383): resilience_tour.py — live-verified -PASS-; exposed+fixed the Retry-After 'exactly' comment lie (it's a floor).
 
 ## Done this session
 - [x] **0. cursor-review wrapper lied -PASS- on empty review** — empty-body guard added (~/bin/cursor-review).

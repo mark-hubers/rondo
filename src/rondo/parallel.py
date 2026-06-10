@@ -221,9 +221,12 @@ def _save_result_safe(
 # ──────────────────────────────────────────────────────────────────
 
 
-# -- RONDO-366: backstop wait while a cold-start probe settles. settle() always
-# -- fires (worker uses try/finally), so this timeout is only a safety net
-# -- against a wedged probe — never the normal path.
+# -- RONDO-366/373: re-check interval while a cold-start probe settles. settle()
+# -- always fires (worker uses try/finally), so waiters NEVER fall through on
+# -- this timeout — they just re-check the loop condition (spurious-wakeup
+# -- guard). RONDO-373 (cursor holistic #1a): the old code BROKE out of the wait
+# -- after one interval and admitted with est=0.0, so any probe slower than 30s
+# -- let every waiter overrun the cap blind. Real dispatches run minutes.
 _GATE_PROBE_WAIT_SEC = 30.0
 
 
@@ -270,9 +273,13 @@ class _BudgetGate:
         with self._cond:
             # -- Cold start: let one probe run alone so we learn the real cost
             # -- before fanning out; peers wait for it rather than overrun blind.
+            # -- RONDO-373 #1a: NO fallthrough on timeout — settle() always fires
+            # -- (worker try/finally), so the loop re-checks until the probe
+            # -- settles (sample recorded) or fails (inflight drops to 0 and the
+            # -- next caller becomes the new probe). The timeout is only a
+            # -- spurious-wakeup guard, never an admit-blind escape hatch.
             while not self._have_sample and self._inflight > 0:
-                if not self._cond.wait(timeout=_GATE_PROBE_WAIT_SEC):
-                    break  # -- probe wedged — fall through rather than hang forever
+                self._cond.wait(timeout=_GATE_PROBE_WAIT_SEC)
             est = self._estimate if self._have_sample else 0.0
             if self._spent + self._reserved + est > self.cap:
                 return None
@@ -280,8 +287,16 @@ class _BudgetGate:
             self._inflight += 1
             return est
 
-    def settle(self, reserved: float, cost: float) -> None:
-        """Release a reservation and commit the observed cost; wake any waiters."""
+    def settle(self, reserved: float, cost: float, ok: bool = True) -> None:
+        """Release a reservation, commit the observed cost, wake waiters.
+
+        Sampling rules (RONDO-373 #1b — the zero-cost path must not serialize):
+          cost > 0          → sample it (real money is real data, any status)
+          cost == 0 and ok  → FREE-path sample (Claude max-auth): estimate 0.0,
+                              so the whole round fans out — $0 can't exceed a cap
+          cost == 0, not ok → no sample (failed probe teaches nothing; the next
+                              admitted caller becomes the new probe)
+        """
         if self.cap is None:
             return
         with self._cond:
@@ -290,6 +305,9 @@ class _BudgetGate:
             self._spent += cost
             if cost > 0:
                 self._estimate = max(cost, 0.001)
+                self._have_sample = True
+            elif ok:
+                self._estimate = 0.0
                 self._have_sample = True
             self._cond.notify_all()
 
@@ -335,11 +353,14 @@ def _dispatch_worker(
         tr, usage = dispatch_task_routed(task, config)
     except BaseException:
         if gate is not None and reserved is not None:
-            gate.settle(reserved, 0.0)  # -- refund the reservation on failure
+            # -- refund the reservation; ok=False → a failed probe teaches nothing
+            gate.settle(reserved, 0.0, ok=False)
         raise
     if gate is not None and reserved is not None:
-        gate.settle(reserved, tr.cost_usd or 0.0)
+        # -- RONDO-373 #1b: done/partial results are valid cost samples (a $0
+        # -- success = the free max-auth path); error/blocked at $0 are not.
+        gate.settle(reserved, tr.cost_usd or 0.0, ok=tr.status in ("done", "partial"))
     return tr, usage
 
 
-# -- sig: mgh-6201.cd.bd955f.1e5a.e530c9
+# -- sig: mgh-6201.cd.bd955f.1e5a.08f214

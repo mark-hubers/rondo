@@ -25,7 +25,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -1069,22 +1069,9 @@ def _parse_and_build_result(
     STD-113: records audit outcome. STD-114: sanitizes stored result.
     """
     events, usage = parse_stream_json_events(stdout.split("\n"), task_name=task.name)
-    usage = DispatchUsage(
-        task_name=task.name,
-        model=model,
-        cost_usd=usage.cost_usd,
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-        cache_read_tokens=usage.cache_read_tokens,
-        cache_create_tokens=usage.cache_create_tokens,
-        duration_ms=usage.duration_ms,
-        duration_api_ms=usage.duration_api_ms,
-        num_turns=usage.num_turns,
-        context_window=usage.context_window,
-        rate_limit_status=usage.rate_limit_status,
-        is_using_overage=usage.is_using_overage,
-        rate_limit_resets_at=usage.rate_limit_resets_at,
-    )
+    # -- RONDO-382 (checklist 13): dataclasses.replace beats the field-by-field
+    # -- rebuild that drifted between here and dispatch_parse (R0801 pair).
+    usage = replace(usage, task_name=task.name, model=model)
 
     # -- Rondo-REQ-100 req 079: prefer StructuredOutput over text JSON parsing
     assistant_text = _collect_assistant_text(events)
@@ -1161,4 +1148,4 @@ def _log_to_history(
         logger.debug("History logging failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.e969.b2b512
+# -- sig: mgh-6201.cd.bd955f.e969.eb3c5a

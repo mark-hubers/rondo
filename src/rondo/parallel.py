@@ -30,8 +30,8 @@ from rondo.engine import (
     Task,
     TaskResult,
     calculate_round_status,
+    finalize_if_pre_gate_blocked,
     run_gates,
-    should_proceed,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,17 +90,10 @@ def run_parallel(
         result.duration_sec = time.monotonic() - start_time
         return result
 
-    # -- Phase 1: Pre-gates (same contract as sequential)
-    if round_def.pre_gates:
-        result.pre_gate_results = run_gates(round_def.pre_gates)
-        if not should_proceed(result.pre_gate_results):
-            result.status = "skipped"
-            failed = [g for g in result.pre_gate_results if not g.passed and g.blocking]
-            names = ", ".join(g.gate_name for g in failed)
-            result.summary = f"Blocked by pre-gate: {names}"
-            result.completed_at = datetime.now(UTC).isoformat()
-            result.duration_sec = time.monotonic() - start_time
-            return result
+    # -- Phase 1: Pre-gates — same contract as sequential BY CONSTRUCTION now:
+    # -- both paths call the one engine helper (RONDO-382, checklist 13).
+    if finalize_if_pre_gate_blocked(round_def, result, start_time):
+        return result
 
     # -- Phase 2: Parallel dispatch (Rondo-REQ-101 reqs 1-4, 8)
     task_results, usage_list = _execute_parallel(round_def.tasks, config)
@@ -367,4 +360,4 @@ def _dispatch_worker(
     return tr, usage
 
 
-# -- sig: mgh-6201.cd.bd955f.1e5a.0ce26b
+# -- sig: mgh-6201.cd.bd955f.1e5a.240ffa

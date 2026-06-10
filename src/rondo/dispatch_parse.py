@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from typing import Any
 
 from rondo.engine import DispatchUsage
@@ -121,18 +122,10 @@ def parse_stream_json_events(
         # -- rate_limit_event → DispatchUsage rate limit fields (Rondo-IFS-100 req 2)
         if event_type == "rate_limit_event":
             info = event.get("rate_limit_info", {})
-            usage = DispatchUsage(
-                task_name=usage.task_name,
-                model=usage.model,
-                cost_usd=usage.cost_usd,
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-                cache_read_tokens=usage.cache_read_tokens,
-                cache_create_tokens=usage.cache_create_tokens,
-                duration_ms=usage.duration_ms,
-                duration_api_ms=usage.duration_api_ms,
-                num_turns=usage.num_turns,
-                context_window=usage.context_window,
+            # -- RONDO-382 (checklist 13): dataclasses.replace beats the
+            # -- field-by-field rebuild that drifted vs dispatch.py (R0801 pair).
+            usage = replace(
+                usage,
                 rate_limit_status=info.get("status", "unknown"),
                 is_using_overage=info.get("isUsingOverage", False),
                 rate_limit_resets_at=info.get("resetsAt", 0),
@@ -267,4 +260,4 @@ def extract_modified_files(raw_output: str) -> list[str]:
     return result
 
 
-# -- sig: mgh-6201.cd.bd955f.e4a1.b2c3d4
+# -- sig: mgh-6201.cd.bd955f.5884.1584b7

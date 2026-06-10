@@ -351,6 +351,30 @@ def should_proceed(gate_results: list[GateResult]) -> bool:
     return True
 
 
+def finalize_if_pre_gate_blocked(round_def: Round, result: RoundResult, start_time: float) -> bool:
+    """Run pre-gates; finalize `result` as skipped when blocked — RONDO-382.
+
+    Returns True when a blocking pre-gate failed (caller returns `result`),
+    False to proceed. Extracted from runner/parallel (checklist item 13 R0801
+    pair) — both execution paths MUST share the exact pre-gate contract
+    (Rondo-REQ-100 req 6), so it lives here next to run_gates/should_proceed.
+    """
+    import time  # pylint: disable=import-outside-toplevel
+    from datetime import UTC, datetime  # pylint: disable=import-outside-toplevel
+
+    if not round_def.pre_gates:
+        return False
+    result.pre_gate_results = run_gates(round_def.pre_gates)
+    if should_proceed(result.pre_gate_results):
+        return False
+    result.status = "skipped"
+    failed = [g for g in result.pre_gate_results if not g.passed and g.blocking]
+    result.summary = "Blocked by pre-gate: " + ", ".join(g.gate_name for g in failed)
+    result.completed_at = datetime.now(UTC).isoformat()
+    result.duration_sec = time.monotonic() - start_time
+    return True
+
+
 # ──────────────────────────────────────────────────────────────────
 #  State management (Rondo-REQ-100 reqs 8-9)
 # ──────────────────────────────────────────────────────────────────
@@ -679,4 +703,4 @@ def load_phases_file(filepath: str, *, allow_python: bool = False) -> list[Round
     return result
 
 
-# -- sig: mgh-6201.cd.bd955f.773b.af473b
+# -- sig: mgh-6201.cd.bd955f.773b.5b324e

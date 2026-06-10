@@ -31,8 +31,8 @@ from rondo.engine import (
     Task,
     TaskResult,
     calculate_round_status,
+    finalize_if_pre_gate_blocked,
     run_gates,
-    should_proceed,
     validate_round,
 )
 from rondo.notify import notify_round_complete
@@ -184,17 +184,9 @@ def run_sequential(round_def: Round, config: RondoConfig) -> RoundResult:
     # -- STD-110 req 004-005: file conflict detection (advisory)
     _warn_file_conflicts(round_def.tasks)
 
-    # -- Phase 1: Pre-gates (Rondo-REQ-100 req 6)
-    if round_def.pre_gates:
-        result.pre_gate_results = run_gates(round_def.pre_gates)
-        if not should_proceed(result.pre_gate_results):
-            result.status = "skipped"
-            failed = [g for g in result.pre_gate_results if not g.passed and g.blocking]
-            names = ", ".join(g.gate_name for g in failed)
-            result.summary = f"Blocked by pre-gate: {names}"
-            result.completed_at = datetime.now(UTC).isoformat()
-            result.duration_sec = time.monotonic() - start_time
-            return result
+    # -- Phase 1: Pre-gates (Rondo-REQ-100 req 6) — shared with parallel (RONDO-382)
+    if finalize_if_pre_gate_blocked(round_def, result, start_time):
+        return result
 
     # -- Phase 2: Dispatch tasks sequentially (with circuit breaker — REQ-100 reqs 057-059)
     consecutive_errors = 0
@@ -486,4 +478,4 @@ def _build_summary_dict(result: RoundResult) -> dict:
     }
 
 
-# -- sig: mgh-6201.cd.bd955f.34cd.35e2e7
+# -- sig: mgh-6201.cd.bd955f.34cd.739cc2

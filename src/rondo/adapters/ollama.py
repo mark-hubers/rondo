@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -34,11 +33,23 @@ class OllamaAdapter(ProviderAdapter):
         self.endpoint = endpoint or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
-        """Send prompt to Ollama API, return TaskResult."""
-        task_name = kwargs.get("task_name", f"ollama-{model}")
-        start = time.monotonic()
+        """Send prompt to Ollama API, return TaskResult.
 
-        try:
+        RONDO-381 (cursor holistic #6b, checklist item 12): ollama was the lone
+        HTTP adapter with NO reliability primitives — bare urlopen, no
+        retry_http, no circuit breaker, no empty-response gate. Local servers
+        hang and die like any other; only the COST is special ($0). Now wired
+        through the same shared skeleton as every cloud adapter.
+        """
+        from rondo.adapters.http_skeleton import (  # pylint: disable=import-outside-toplevel
+            HttpDispatchPlan,
+            dispatch_via_http,
+        )
+
+        task_name = kwargs.get("task_name", f"ollama-{model}")
+
+        def _do_request() -> dict:
+            """Inner HTTP call — wrapped by retry_http (via the skeleton)."""
             data = json.dumps(
                 {
                     "model": model,
@@ -46,34 +57,27 @@ class OllamaAdapter(ProviderAdapter):
                     "stream": False,
                 }
             ).encode("utf-8")
-
             req = urllib.request.Request(
                 f"{self.endpoint}/api/generate",
                 data=data,
                 headers={"Content-Type": "application/json"},
             )
             with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310
-                result = json.loads(resp.read().decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8"))
 
-            duration = time.monotonic() - start
-            return TaskResult(
+        return dispatch_via_http(
+            HttpDispatchPlan(
+                provider="ollama",
+                label="Ollama",
                 task_name=task_name,
-                status="done",
-                raw_output=result.get("response", ""),
                 model=model,
-                duration_sec=duration,
+                do_request=_do_request,
+                extract_text=lambda result: result.get("response", ""),
+                extract_tokens=None,  # -- local = $0; no cost computation
                 auth_mode="local",
+                requires_key=False,  # -- Ollama has no API key
             )
-        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
-            duration = time.monotonic() - start
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code="ERR_PROVIDER",
-                error_message=f"Ollama error: {exc}",
-                model=model,
-                duration_sec=duration,
-            )
+        )
 
     def health(self) -> bool:
         """Check if Ollama is running."""
@@ -93,4 +97,4 @@ class OllamaAdapter(ProviderAdapter):
             return []
 
 
-# -- sig: mgh-6201.cd.bd955f.a109.d03002
+# -- sig: mgh-6201.cd.bd955f.455b.695d79

@@ -20,15 +20,13 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import urllib.error
 import urllib.request
 from fnmatch import fnmatch
 from typing import Any
 
-from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
+from rondo.engine import TaskResult
 from rondo.provider_base import ProviderAdapter
-from rondo.retry import get_circuit_breaker, retry_http
 
 logger = logging.getLogger(__name__)
 
@@ -141,34 +139,17 @@ class ChatCompletionsAdapter(ProviderAdapter):
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt via Chat Completions API, return TaskResult.
 
-        RONDO-145 (Finding #211): wraps HTTP call in retry_http() with
-        exponential backoff. Circuit breaker trips after 5 failures.
+        RONDO-381: reliability pipeline (key gate, breaker, retry_http, empty
+        gate, cost, HTTPError triage with redacted body) lives in the shared
+        http_skeleton — this adapter supplies only its request + parsing.
         """
+        from rondo.adapters.http_skeleton import (  # pylint: disable=import-outside-toplevel
+            HttpDispatchPlan,
+            dispatch_via_http,
+        )
+
         task_name = kwargs.get("task_name", f"{self.provider_name}-{model}")
         use_model = model or self.default_model
-        start = time.monotonic()
-
-        if not self.api_key:
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_AUTH,
-                error_message=f"No API key for {self.provider_name}",
-                model=use_model,
-                duration_sec=0.0,
-            )
-
-        # -- RONDO-145: circuit breaker check
-        breaker = get_circuit_breaker()
-        if breaker.is_open(self.provider_name):
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_PROVIDER_DOWN,
-                error_message=f"{self.provider_name} circuit breaker OPEN — cooldown active",
-                model=use_model,
-                duration_sec=0.0,
-            )
 
         url = f"{self.base_url}/chat/completions"
         payload: dict[str, Any] = {
@@ -198,7 +179,7 @@ class ChatCompletionsAdapter(ProviderAdapter):
         read_to = self._read_timeout(use_model, **kwargs)
 
         def _do_request() -> dict:
-            """Inner request — called by retry_http."""
+            """Inner request — called by retry_http (via the skeleton)."""
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
@@ -208,93 +189,28 @@ class ChatCompletionsAdapter(ProviderAdapter):
             with urllib.request.urlopen(req, timeout=read_to) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
-        try:
-            # -- RONDO-145: retry on transient errors (5xx, 429, network)
-            result = retry_http(_do_request, provider_name=self.provider_name)
-            breaker.record_success(self.provider_name)
-            duration = time.monotonic() - start
-
-            # -- Extract response text
+        def _extract_text(result: dict[str, Any]) -> str:
             choices = result.get("choices", [])
-            text = choices[0]["message"]["content"] if choices else ""
+            return choices[0]["message"]["content"] if choices else ""
 
-            # -- REQ-109 req 070: empty response = error
-            if not text:
-                return TaskResult(
-                    task_name=task_name,
-                    status="error",
-                    error_code=ERR_EMPTY_RESPONSE,
-                    error_message=f"{self.provider_name} returned empty response body",
-                    model=use_model,
-                    duration_sec=duration,
-                )
-
-            # -- RONDO-202 (Finding #221): extract real token usage + compute cost
+        def _extract_tokens(result: dict[str, Any]) -> tuple[int, int]:
+            # -- RONDO-202 #221: real token usage (completion_tokens already
+            # -- includes reasoning tokens on OpenAI-compatible APIs)
             usage = result.get("usage", {}) or {}
-            input_tokens = int(usage.get("prompt_tokens", 0) or 0)
-            output_tokens = int(usage.get("completion_tokens", 0) or 0)
-            cost = compute_cost_usd(use_model, input_tokens, output_tokens)
+            return int(usage.get("prompt_tokens", 0) or 0), int(usage.get("completion_tokens", 0) or 0)
 
-            return TaskResult(
+        return dispatch_via_http(
+            HttpDispatchPlan(
+                provider=self.provider_name,
+                label=self.provider_name,
                 task_name=task_name,
-                status="done",
-                raw_output=text,
                 model=use_model,
-                duration_sec=duration,
-                auth_mode="api",
-                cost_usd=cost,
+                do_request=_do_request,
+                extract_text=_extract_text,
+                extract_tokens=_extract_tokens,
+                api_key=self.api_key,
             )
-        except urllib.error.HTTPError as exc:
-            # -- REQ-109 req 068: distinct error codes by HTTP status
-            duration = time.monotonic() - start
-            if exc.code in (401, 403):
-                error_code = ERR_AUTH
-                # -- REQ-109 req 069: invalidate cached key on auth failure
-                from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
-
-                invalidate_key(self.provider_name)
-            elif exc.code == 429:
-                error_code = ERR_RATE_LIMIT
-                # -- RONDO-145: record transient failure for circuit breaker
-                breaker.record_failure(self.provider_name)
-            elif exc.code >= 500:
-                error_code = ERR_PROVIDER_DOWN
-                # -- RONDO-145: record server error for circuit breaker
-                breaker.record_failure(self.provider_name)
-            else:
-                error_code = ERR_PROVIDER
-            # -- RONDO-287 (Finding #270): include response body snippet on 4xx/5xx for
-            # -- debugging. Without this, a bad model name or malformed payload shows
-            # -- only "HTTP 400: Bad Request" and the real cause is invisible.
-            body_snippet = ""
-            try:
-                body_bytes = exc.read() or b""
-                body_snippet = body_bytes.decode("utf-8", errors="replace")[:500]
-            except (OSError, AttributeError):
-                body_snippet = ""
-            err_msg = f"{self.provider_name} HTTP {exc.code}: {exc.reason}"
-            if body_snippet:
-                err_msg = f"{err_msg} | body: {body_snippet}"
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=error_code,
-                error_message=err_msg,
-                model=use_model,
-                duration_sec=duration,
-            )
-        except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError) as exc:
-            duration = time.monotonic() - start
-            # -- RONDO-145: network/transient failures count against breaker
-            breaker.record_failure(self.provider_name)
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_PROVIDER,
-                error_message=f"{self.provider_name} error: {exc}",
-                model=use_model,
-                duration_sec=duration,
-            )
+        )
 
     def health(self) -> bool:
         """Check if API endpoint is reachable — REQ-109 req 071.
@@ -336,4 +252,4 @@ class ChatCompletionsAdapter(ProviderAdapter):
         return [self.default_model]
 
 
-# -- sig: mgh-6201.cd.bd955f.7c49.aea5b5
+# -- sig: mgh-6201.cd.bd955f.7c49.e79b4a

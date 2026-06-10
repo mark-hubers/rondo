@@ -1431,8 +1431,14 @@ class TestDisconnectAutoRetry:
         return AnthropicAPIAdapter(api_key="sk-test-not-real", stream_reattempt=True)  # noqa: S106
 
     def _patch_attempts(self, monkeypatch, results):  # noqa: ANN001, ANN202
-        """Make retry_http return queued results (each call = one attempt)."""
+        """Make retry_http return queued results (each call = one attempt).
+
+        RONDO-381 harness re-point: the FIRST attempt flows through the shared
+        http_skeleton; the opt-in SECOND attempt calls the adapter module's
+        retry_http. Patch BOTH seams — assertions unchanged.
+        """
         import rondo.adapters.anthropic_api as api
+        import rondo.adapters.http_skeleton as skel
 
         calls = {"n": 0}
 
@@ -1441,6 +1447,7 @@ class TestDisconnectAutoRetry:
             return results[calls["n"] - 1]
 
         monkeypatch.setattr(api, "retry_http", fake_retry_http)
+        monkeypatch.setattr(skel, "retry_http", fake_retry_http)
         return calls
 
     @staticmethod
@@ -1608,4 +1615,4 @@ class TestLearnedRoutingFallback:
         assert recommend_model("never-seen-task-xyz") == "sonnet"
 
 
-# -- sig: mgh-6201.cd.bd955f.2c31.9eef8d
+# -- sig: mgh-6201.cd.bd955f.2c31.758fe5

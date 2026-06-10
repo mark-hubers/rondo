@@ -103,8 +103,15 @@ def _wire_attempts(monkeypatch: pytest.MonkeyPatch, results: list[dict[str, Any]
         calls["n"] += 1
         return results[min(calls["n"] - 1, len(results) - 1)]
 
+    # -- RONDO-381 harness re-point: the FIRST attempt + breaker now flow through
+    # -- the shared http_skeleton; the opt-in SECOND attempt still calls the
+    # -- adapter module's retry_http. Patch BOTH seams — assertions unchanged.
+    import rondo.adapters.http_skeleton as skel  # noqa: PLC0415
+
     monkeypatch.setattr(api, "retry_http", fake_retry_http)
-    monkeypatch.setattr(api, "get_circuit_breaker", lambda: _FakeBreaker())
+    monkeypatch.setattr(api, "get_circuit_breaker", lambda: _FakeBreaker(), raising=False)
+    monkeypatch.setattr(skel, "retry_http", fake_retry_http)
+    monkeypatch.setattr(skel, "get_circuit_breaker", lambda: _FakeBreaker())
     return calls
 
 
@@ -187,4 +194,4 @@ def test_clean_success_makes_one_request_in_both_modes(monkeypatch: pytest.Monke
     assert tr_on.status == "done"
 
 
-# -- sig: mgh-6201.cd.bd955f.b655.7df84b
+# -- sig: mgh-6201.cd.bd955f.b655.3eda67

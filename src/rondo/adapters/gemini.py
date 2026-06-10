@@ -19,14 +19,12 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import urllib.error
 import urllib.request
 from typing import Any
 
-from rondo.engine import ERR_AUTH, ERR_EMPTY_RESPONSE, ERR_PROVIDER, ERR_PROVIDER_DOWN, ERR_RATE_LIMIT, TaskResult
+from rondo.engine import TaskResult
 from rondo.provider_base import ProviderAdapter
-from rondo.retry import get_circuit_breaker, retry_http
 
 logger = logging.getLogger(__name__)
 
@@ -72,33 +70,16 @@ class GeminiAdapter(ProviderAdapter):
         RONDO-204 (Finding #234): wraps HTTP call in retry_http + circuit breaker
         for consistency with ChatCompletionsAdapter.
         """
+        from rondo.adapters.http_skeleton import (  # pylint: disable=import-outside-toplevel
+            HttpDispatchPlan,
+            dispatch_via_http,
+        )
+
         task_name = kwargs.get("task_name", f"gemini-{model}")
         use_model = model or self.default_model
-        start = time.monotonic()
 
-        if not self.api_key:
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_AUTH,
-                error_message="No API key for Gemini",
-                model=use_model,
-                duration_sec=0.0,
-            )
-
-        # -- RONDO-204: circuit breaker check
-        breaker = get_circuit_breaker()
-        if breaker.is_open("gemini"):
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_PROVIDER_DOWN,
-                error_message="gemini circuit breaker OPEN — cooldown active",
-                model=use_model,
-                duration_sec=0.0,
-            )
-
-        # -- Gemini API: key in URL, not header
+        # -- Gemini API: key in URL, not header (the skeleton REDACTS it from
+        # -- any error-body snippet — RONDO-216 C4, now shared by all adapters)
         url = f"{self.base_url}/models/{use_model}:generateContent?key={self.api_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -113,7 +94,7 @@ class GeminiAdapter(ProviderAdapter):
         read_to = self._read_timeout(use_model, **kwargs)
 
         def _do_request() -> dict:
-            """Inner HTTP call — wrapped by retry_http."""
+            """Inner HTTP call — wrapped by retry_http (via the skeleton)."""
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
@@ -126,105 +107,36 @@ class GeminiAdapter(ProviderAdapter):
             with urllib.request.urlopen(req, timeout=read_to) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
-        try:
-            result = retry_http(_do_request, provider_name="gemini")
-            breaker.record_success("gemini")
-            duration = time.monotonic() - start
-
-            # -- Extract response text (Gemini's unique structure)
+        def _extract_text(result: dict) -> str:
+            # -- Gemini's unique nesting; absent path = empty (req 070 gate)
             try:
-                text = result["candidates"][0]["content"]["parts"][0]["text"]
+                return result["candidates"][0]["content"]["parts"][0]["text"]
             except (KeyError, IndexError):
-                text = ""
+                return ""
 
-            # -- REQ-109 req 070: empty response = error
-            if not text:
-                return TaskResult(
-                    task_name=task_name,
-                    status="error",
-                    error_code=ERR_EMPTY_RESPONSE,
-                    error_message="Gemini returned empty response body",
-                    model=use_model,
-                    duration_sec=duration,
-                )
-
-            # -- RONDO-214 C-1: compute real cost from token counts (was 0.0)
-            from rondo.adapters.chat_completions import compute_cost_usd  # pylint: disable=import-outside-toplevel
-
+        def _extract_tokens(result: dict) -> tuple[int, int]:
             usage = result.get("usageMetadata", {})
-            input_tokens = usage.get("promptTokenCount", 0)
             # -- RONDO-380 (cursor holistic #9): Gemini 2.5 bills THINKING tokens
             # -- as output but reports them in a separate thoughtsTokenCount —
             # -- excluding them undercounted cost on exactly the expensive
             # -- thinking runs and fed the budget gate (RONDO-373) low numbers.
-            output_tokens = usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0)
-            cost = compute_cost_usd(use_model, input_tokens, output_tokens)
+            return (
+                usage.get("promptTokenCount", 0),
+                usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0),
+            )
 
-            return TaskResult(
+        return dispatch_via_http(
+            HttpDispatchPlan(
+                provider="gemini",
+                label="Gemini",
                 task_name=task_name,
-                status="done",
-                raw_output=text,
                 model=use_model,
-                duration_sec=duration,
-                auth_mode="api",
-                cost_usd=cost,
+                do_request=_do_request,
+                extract_text=_extract_text,
+                extract_tokens=_extract_tokens,
+                api_key=self.api_key,
             )
-        except urllib.error.HTTPError as exc:
-            # -- REQ-109 req 068: distinct error codes by HTTP status
-            duration = time.monotonic() - start
-            if exc.code in (401, 403):
-                error_code = ERR_AUTH
-                # -- REQ-109 req 069: invalidate cached key on auth failure
-                from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
-
-                invalidate_key("gemini")
-            elif exc.code == 429:
-                error_code = ERR_RATE_LIMIT
-                breaker.record_failure("gemini")
-            elif exc.code >= 500:
-                error_code = ERR_PROVIDER_DOWN
-                breaker.record_failure("gemini")
-            else:
-                error_code = ERR_PROVIDER
-            # -- RONDO-287 (Finding #270): include response body snippet on 4xx/5xx.
-            # -- Gemini's 404 "model not found" body has the real cause; without it
-            # -- the error is just "HTTP 404: Not Found" which is useless for debug.
-            # -- RONDO-216 C4: also redact API key from body (Gemini key is in URL).
-            body_snippet = ""
-            try:
-                body_bytes = exc.read() or b""
-                body_snippet = body_bytes.decode("utf-8", errors="replace")[:500]
-                if self.api_key and self.api_key in body_snippet:
-                    body_snippet = body_snippet.replace(self.api_key, "[REDACTED]")
-            except (OSError, AttributeError):
-                body_snippet = ""
-            err_msg = f"Gemini HTTP {exc.code}: {exc.reason}"
-            if body_snippet:
-                err_msg = f"{err_msg} | body: {body_snippet}"
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=error_code,
-                error_message=err_msg,
-                model=use_model,
-                duration_sec=duration,
-            )
-        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
-            duration = time.monotonic() - start
-            breaker.record_failure("gemini")
-            # -- RONDO-216 C4 (Cursor finding): redact API key from exception text.
-            # -- URLError/OSError can include the full URL with ?key=SECRET.
-            err_text = str(exc)
-            if self.api_key and self.api_key in err_text:
-                err_text = err_text.replace(self.api_key, "[REDACTED]")
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_PROVIDER,
-                error_message=f"Gemini error: {err_text}",
-                model=use_model,
-                duration_sec=duration,
-            )
+        )
 
     def health(self) -> bool:
         """Check if Gemini API is reachable."""
@@ -243,4 +155,4 @@ class GeminiAdapter(ProviderAdapter):
         return [self.default_model]
 
 
-# -- sig: mgh-6201.cd.bd955f.f3f3.37e5db
+# -- sig: mgh-6201.cd.bd955f.f3f3.0d860f

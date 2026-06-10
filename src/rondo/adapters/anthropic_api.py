@@ -35,23 +35,17 @@ from __future__ import annotations
 import http.client
 import json
 import logging
-import time
 import urllib.error
 import urllib.request
 from fnmatch import fnmatch
 from typing import Any
 
 from rondo.engine import (
-    ERR_AUTH,
-    ERR_EMPTY_RESPONSE,
-    ERR_PROVIDER,
-    ERR_PROVIDER_DOWN,
-    ERR_RATE_LIMIT,
     ERR_STREAM_DISCONNECT,
     TaskResult,
 )
 from rondo.provider_base import ProviderAdapter
-from rondo.retry import get_circuit_breaker, retry_http
+from rondo.retry import retry_http
 
 logger = logging.getLogger(__name__)
 
@@ -213,31 +207,13 @@ class AnthropicAPIAdapter(ProviderAdapter):
         RONDO-204 (Finding #234): wraps HTTP call in retry_http + circuit breaker
         for consistency with ChatCompletionsAdapter + Gemini.
         """
+        from rondo.adapters.http_skeleton import (  # pylint: disable=import-outside-toplevel
+            HttpDispatchPlan,
+            dispatch_via_http,
+        )
+
         task_name = kwargs.get("task_name", f"anthropic-{model}")
         use_model = model or self.default_model
-        start = time.monotonic()
-
-        if not self.api_key:
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_AUTH,
-                error_message="No API key for Anthropic",
-                model=use_model,
-                duration_sec=0.0,
-            )
-
-        # -- RONDO-204: circuit breaker check
-        breaker = get_circuit_breaker()
-        if breaker.is_open("anthropic"):
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=ERR_PROVIDER_DOWN,
-                error_message="anthropic circuit breaker OPEN — cooldown active",
-                model=use_model,
-                duration_sec=0.0,
-            )
 
         # -- REQ-109 req 212 (RONDO-318): read-timeout is config-driven.
         # -- COALESCE: per-dispatch timeout_sec → [timeouts] config → defaults
@@ -302,133 +278,74 @@ class AnthropicAPIAdapter(ProviderAdapter):
             with urllib.request.urlopen(req, timeout=http_timeout) as resp:  # nosec B310
                 return json.loads(resp.read().decode("utf-8"))
 
-        try:
-            result = retry_http(_do_request, provider_name="anthropic")
-            # -- RONDO-334: retry_http only retries on EXCEPTIONS; a mid-stream
-            # -- disconnect RETURNS (RONDO-323 preserves the partial). RONDO-378:
-            # -- the re-attempt is OPT-IN (REQ-109 r213 — never silent spend).
-            result, reattempted = self._maybe_reattempt(
-                result, _do_request, bool(kwargs.get("stream_reattempt", self.stream_reattempt))
-            )
-            breaker.record_success("anthropic")
-            duration = time.monotonic() - start
-
-            # -- Extract text from Anthropic's response format
+        def _extract_text(result: dict[str, Any]) -> str:
             text = ""
             for block in result.get("content", []):
                 if block.get("type") == "text":
                     text += block.get("text", "")
+            return text
 
+        def _post_retry(result: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+            # -- RONDO-334: retry_http only retries on EXCEPTIONS; a mid-stream
+            # -- disconnect RETURNS (RONDO-323 preserves the partial). RONDO-378:
+            # -- the re-attempt is OPT-IN (REQ-109 r213 — never silent spend).
+            return self._maybe_reattempt(
+                result, _do_request, bool(kwargs.get("stream_reattempt", self.stream_reattempt))
+            )
+
+        def _early_result(result: dict[str, Any], text: str, duration: float, reattempted: bool) -> TaskResult | None:
             # -- REQ-109 req 215 (RONDO-323): mid-stream disconnect — partial
             # -- content PRESERVED in raw_output, classified transient so the
             # -- retry path can re-dispatch. Checked BEFORE the empty-response
             # -- gate: a zero-text disconnect is a disconnect, not "empty".
-            if result.get("disconnect_error"):
-                return TaskResult(
-                    task_name=task_name,
-                    status="error",
-                    error_code=ERR_STREAM_DISCONNECT,
-                    error_message=(
-                        f"SSE stream disconnected after {duration:.0f}s with "
-                        f"{len(text)} chars accumulated ({result['disconnect_error']}) — "
-                        f"partial output preserved; ~30-min connection ceiling suspected "
-                        f"for very long thinking runs (REQ-109 req 215)"
-                        + (" — after one opt-in re-attempt (RONDO-378)" if reattempted else "")
-                    ),
-                    raw_output=text,
-                    model=use_model,
-                    duration_sec=duration,
-                    auth_mode="api",
-                    metrics={"stream_reattempts": 1} if reattempted else {},
-                )
-
-            # -- REQ-109 req 070: empty response = error
-            if not text:
-                return TaskResult(
-                    task_name=task_name,
-                    status="error",
-                    error_code=ERR_EMPTY_RESPONSE,
-                    error_message=(
-                        f"Anthropic returned empty response body "
-                        f"(stop_reason={result.get('stop_reason')!r} — if 'max_tokens', "
-                        f"thinking consumed the output budget; consider streaming, REQ-109 Q1)"
-                    ),
-                    model=use_model,
-                    duration_sec=duration,
-                )
-
-            # -- RONDO-214 C-1: compute real cost from token counts (was 0.0)
-            from rondo.adapters.chat_completions import compute_cost_usd  # pylint: disable=import-outside-toplevel
-
-            usage = result.get("usage", {})
-            input_tokens = usage.get("input_tokens", 0)
-            output_tokens = usage.get("output_tokens", 0)
-            cost = compute_cost_usd(use_model, input_tokens, output_tokens)
-
+            if not result.get("disconnect_error"):
+                return None
             return TaskResult(
                 task_name=task_name,
-                status="done",
+                status="error",
+                error_code=ERR_STREAM_DISCONNECT,
+                error_message=(
+                    f"SSE stream disconnected after {duration:.0f}s with "
+                    f"{len(text)} chars accumulated ({result['disconnect_error']}) — "
+                    f"partial output preserved; ~30-min connection ceiling suspected "
+                    f"for very long thinking runs (REQ-109 req 215)"
+                    + (" — after one opt-in re-attempt (RONDO-378)" if reattempted else "")
+                ),
                 raw_output=text,
                 model=use_model,
                 duration_sec=duration,
                 auth_mode="api",
-                cost_usd=cost,
-                # -- RONDO-378: an opt-in re-attempt is surfaced, never silent (r213)
                 metrics={"stream_reattempts": 1} if reattempted else {},
             )
-        except urllib.error.HTTPError as exc:
-            # -- REQ-109 req 068: distinct error codes by HTTP status
-            duration = time.monotonic() - start
-            if exc.code in (401, 403):
-                error_code = ERR_AUTH
-                # -- REQ-109 req 069: invalidate cached key on auth failure
-                from rondo.adapters.auth import invalidate_key  # pylint: disable=import-outside-toplevel
 
-                invalidate_key("anthropic")
-            elif exc.code == 429:
-                error_code = ERR_RATE_LIMIT
-                breaker.record_failure("anthropic")
-            elif exc.code >= 500:
-                error_code = ERR_PROVIDER_DOWN
-                breaker.record_failure("anthropic")
-            else:
-                error_code = ERR_PROVIDER
-            # -- STD-108 reqs 011-014 (RONDO-296): include response body snippet.
-            # -- Port of RONDO-287 (Finding #270) pattern from gemini/chat_completions —
-            # -- this was the ONE adapter missing it. The 400 body names the exact
-            # -- cause (e.g. "temperature may only be set to 1 when thinking is
-            # -- enabled"); without it diagnosis is archaeology. Best-effort: a
-            # -- failed read falls back to the status line (req 014).
-            body_snippet = ""
-            try:
-                body_bytes = exc.read() or b""
-                body_snippet = body_bytes.decode("utf-8", errors="replace")[:500]
-                if self.api_key and self.api_key in body_snippet:
-                    body_snippet = body_snippet.replace(self.api_key, "[REDACTED]")
-            except (OSError, AttributeError):
-                body_snippet = ""
-            err_msg = f"Anthropic HTTP {exc.code}: {exc.reason}"
-            if body_snippet:
-                err_msg = f"{err_msg} | body: {body_snippet}"
-            return TaskResult(
-                task_name=task_name,
-                status="error",
-                error_code=error_code,
-                error_message=err_msg,
-                model=use_model,
-                duration_sec=duration,
+        def _empty_message(result: dict[str, Any]) -> str:
+            return (
+                f"Anthropic returned empty response body "
+                f"(stop_reason={result.get('stop_reason')!r} — if 'max_tokens', "
+                f"thinking consumed the output budget; consider streaming, REQ-109 Q1)"
             )
-        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
-            duration = time.monotonic() - start
-            breaker.record_failure("anthropic")
-            return TaskResult(
+
+        def _extract_tokens(result: dict[str, Any]) -> tuple[int, int]:
+            # -- RONDO-214 C-1: real token counts (Anthropic's output_tokens
+            # -- already includes thinking tokens)
+            usage = result.get("usage", {})
+            return usage.get("input_tokens", 0), usage.get("output_tokens", 0)
+
+        return dispatch_via_http(
+            HttpDispatchPlan(
+                provider="anthropic",
+                label="Anthropic",
                 task_name=task_name,
-                status="error",
-                error_code=ERR_PROVIDER,
-                error_message=f"Anthropic error: {exc}",
                 model=use_model,
-                duration_sec=duration,
+                do_request=_do_request,
+                extract_text=_extract_text,
+                extract_tokens=_extract_tokens,
+                api_key=self.api_key,
+                post_retry=_post_retry,
+                early_result=_early_result,
+                empty_message=_empty_message,
             )
+        )
 
     def health(self) -> bool:
         """Check if Anthropic API is reachable — REQ-109 req 072.
@@ -471,4 +388,4 @@ class AnthropicAPIAdapter(ProviderAdapter):
         return ["claude-opus-4-8", "claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
 
 
-# -- sig: mgh-6201.cd.bd955f.94f4.2b7492
+# -- sig: mgh-6201.cd.bd955f.94f4.f49e55

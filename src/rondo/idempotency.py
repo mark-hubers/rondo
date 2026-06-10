@@ -129,12 +129,15 @@ def _default_cache_file() -> Path:
 
 
 def _append_cache_entry(path: Path, key: str, payload: dict[str, Any], cached_at_wall: float) -> None:
-    """Append a single cache entry as one JSONL line — #246.
+    """Append a single cache entry as one JSONL line, under flock — #246 + RONDO-389.
 
-    POSIX guarantees that a single write() < PIPE_BUF (typically 4KB) is
-    atomic. JSON lines are typically <1KB each so append() is race-safe.
-    This replaces the previous read-modify-write pattern that could lose
-    entries under concurrent cross-process access.
+    RONDO-389 (Mark's ruling, checklist 21): the old comment claimed PIPE_BUF
+    atomicity — FALSE for entries beyond ~4-8KB (real task results routinely
+    are). Large concurrent appends could interleave and tear lines. Now an
+    exclusive flock guards write+flush (the proven audit._append_jsonl
+    pattern); where flock is unavailable (Windows / odd FS) we degrade to a
+    best-effort write WITH a warning — the read side's torn-line tolerance
+    remains the final backstop.
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -143,12 +146,19 @@ def _append_cache_entry(path: Path, key: str, payload: dict[str, Any], cached_at
             "data": payload,
             "cached_at_wall": cached_at_wall,
         }
-        # -- Use mode='a' + single newline-terminated write for atomic append.
-        # -- open() with 'a' guarantees O_APPEND semantics on POSIX, so even
-        # -- concurrent writers won't interleave within a single line.
         line = json.dumps(entry, default=str) + "\n"
         with open(path, "a", encoding="utf-8") as f:
-            f.write(line)
+            try:
+                import fcntl  # pylint: disable=import-outside-toplevel
+
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                f.write(line)
+                f.flush()
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except (ImportError, OSError) as lock_exc:
+                # -- Windows or lock failure: best-effort write, loudly.
+                logger.warning("Idempotency append without lock (best-effort): %s", lock_exc)
+                f.write(line)
     except (OSError, TypeError, ValueError) as exc:
         logger.debug("Idempotency JSONL append failed (non-fatal): %s", exc)
 
@@ -349,4 +359,4 @@ class IdempotencyConfig:
     ttl_sec: int = DEFAULT_TTL_SEC
 
 
-# -- sig: mgh-6201.cd.bd955f.f5da.1026e0
+# -- sig: mgh-6201.cd.bd955f.f5da.bcae41

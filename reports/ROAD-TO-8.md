@@ -55,11 +55,12 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
       garbage→default), timeout = WARN + proceed unlocked; sweep_stale_key_locks (7d TTL,
       flock-probe before unlink, held files immortal) rides compaction. Judge 5/5;
       RONDO-390 two-process rails green.
-- [ ] **8.6 Reconcile flock ON the audit file** (R6, LOW-MED, STD-110 r016 literal) —
-      scan+write under the same lock _append_jsonl uses, replacing/augmenting the sidecar.
-- [ ] **8.7 http_skeleton success-path catch widening** (R8, LOW) — TypeError/ValueError
-      from token math on a successful response → error result, all callers, not just the
-      parallel collector.
+- [x] **8.6 Reconcile flock ON the audit file** (R6, LOW-MED, STD-110 r016 literal) — DONE
+      RONDO-398 (f81b4c0): LOCK_EX on the JSONL across scan+write (sidecar semantics kept);
+      thread-local flag kills the self-deadlock on synthetic appends. Judge 4/4.
+- [x] **8.7 http_skeleton success-path catch widening** (R8, LOW) — DONE RONDO-397
+      (30b022c): TypeError/ValueError → ERR_PROVIDER result + breaker + redaction; labeled
+      top-up pins no-bare-Exception creep. Judge 7/7.
 - [~] **8.8 bin/mutate --timeout-per-mutant** (item-17 debt) — CODE DONE RONDO-392 (hang =
       CAUGHT; TDD 4 RED→GREEN incl. real-hang contract test). REMAINING: re-measure
       dispatch_parse with --timeout-per-mutant in an idle window (sweeps own the tree).

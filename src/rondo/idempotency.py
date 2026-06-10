@@ -117,17 +117,71 @@ def _key_lock_file(key: str) -> Path:
     return _default_cache_file().parent / "idempotency-locks" / f"{digest}.lock"
 
 
+# -- RONDO-396 (8.5): bounded cross-process acquire. The RONDO-390 blocking
+# -- LOCK_EX could stall an interactive caller for a peer's 30-min dispatch.
+_XPROC_WAIT_ENV = "RONDO_XPROC_LOCK_WAIT_SEC"
+_XPROC_WAIT_DEFAULT_SEC = 3.0
+_XPROC_RETRY_INTERVAL_SEC = 0.05
+
+
+def _xproc_wait_budget() -> float:
+    """Wait budget for the cross-process lock — env knob, garbage-safe.
+
+    RONDO_XPROC_LOCK_WAIT_SEC: 0 = no wait (immediate unlocked fallthrough
+    under contention); unset/negative/garbage → the 3s default.
+    """
+    raw = os.environ.get(_XPROC_WAIT_ENV, "").strip()
+    if not raw:
+        return _XPROC_WAIT_DEFAULT_SEC
+    try:
+        val = float(raw)
+    except ValueError:
+        return _XPROC_WAIT_DEFAULT_SEC
+    return val if val >= 0 else _XPROC_WAIT_DEFAULT_SEC
+
+
+def _try_flock_bounded(lock_f: Any, budget_sec: float) -> bool:
+    """LOCK_NB retry loop up to budget_sec. True = lock held.
+
+    RONDO-396 (8.5): never stalls past the budget — on timeout the caller
+    proceeds WITHOUT the cross-process lock (in-process single-flight still
+    holds; worst case = the old rare cross-process double-pay, never a
+    stalled MCP server). Non-contention errnos (NFS etc.) warn + proceed.
+    """
+    import errno  # pylint: disable=import-outside-toplevel
+    import fcntl  # pylint: disable=import-outside-toplevel
+
+    deadline = time.monotonic() + budget_sec
+    while True:
+        try:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except OSError as exc:
+            if exc.errno not in (errno.EWOULDBLOCK, errno.EAGAIN):
+                logger.warning("Cross-process key lock flock failed (%s) — proceeding without it", exc)
+                return False
+            if time.monotonic() >= deadline:
+                logger.warning(
+                    "-WARNING- cross-process key lock still held by a peer after the %.1fs bounded wait — "
+                    "proceeding WITHOUT it (in-process single-flight holds; worst case = rare double-pay)",
+                    budget_sec,
+                )
+                return False
+            time.sleep(_XPROC_RETRY_INTERVAL_SEC)
+
+
 @contextmanager
 def cross_process_key_lock(key: str) -> Iterator[None]:
-    """Cross-process single-flight for one idempotency key — RONDO-390 (Mark's ruling).
+    """Cross-process single-flight for one idempotency key — RONDO-390 + RONDO-396.
 
     Exclusive flock on a per-key lock file: two PROCESSES dispatching the same
     prompt serialize — only the first pays; the second re-checks the shared
-    JSONL cache and reuses the result. BLOCKING acquire (the peer's dispatch is
-    bounded by its own timeouts). flock releases automatically on process death
-    (kernel-managed) — no stale-lock recovery code to get wrong. Lock files are
-    tiny and NEVER unlinked while potentially held (unlink races re-lock a dead
-    inode); one persists per recently-active unique key.
+    JSONL cache and reuses the result. BOUNDED acquire (RONDO-396, 8.5): a
+    LOCK_NB retry loop up to RONDO_XPROC_LOCK_WAIT_SEC (default 3s; 0 = no
+    wait) — on timeout, WARN and proceed unlocked rather than stall an
+    interactive caller behind a peer's 30-minute dispatch. flock releases
+    automatically on process death (kernel-managed). Live lock files are never
+    unlinked (see sweep_stale_key_locks for the TTL hygiene path).
     Degradation (r019 family): no fcntl (Windows) or an unsupported FS — WARN
     and proceed with in-process single-flight only, never crash.
     """
@@ -145,18 +199,58 @@ def cross_process_key_lock(key: str) -> Iterator[None]:
         logger.warning("Cross-process key lock open failed (%s) — in-process single-flight only", exc)
         yield
         return
+    acquired = False
     try:
-        try:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-        except OSError as exc:
-            logger.warning("Cross-process key lock flock failed (%s) — proceeding without it", exc)
+        acquired = _try_flock_bounded(lock_f, _xproc_wait_budget())
         yield
     finally:
-        try:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
+        if acquired:
+            try:
+                fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
         lock_f.close()
+
+
+def sweep_stale_key_locks(ttl_sec: float = 7 * 86400.0) -> int:
+    """TTL hygiene for idempotency-locks/ — RONDO-396 (8.5). Returns count removed.
+
+    Unlinks a lock file ONLY when (a) its mtime is older than ttl_sec AND
+    (b) a LOCK_EX|LOCK_NB probe SUCCEEDS — provably unheld at that instant.
+    A held file survives regardless of age (unlinking a held lock re-locks a
+    dead inode for the holder's peers). Honesty note: a peer that has OPENED
+    the file but not yet flocked when we unlink can still land on the dead
+    inode — that window degrades to the old rare double-pay, never corruption.
+    Runs opportunistically from compaction; callable directly.
+    """
+    try:
+        import fcntl  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        return 0
+    locks_dir = _default_cache_file().parent / "idempotency-locks"
+    if not locks_dir.is_dir():
+        return 0
+    removed = 0
+    now = time.time()
+    for path in locks_dir.glob("*.lock"):
+        try:
+            if now - path.stat().st_mtime <= ttl_sec:
+                continue
+            with open(path, "a+", encoding="utf-8") as probe_f:
+                try:
+                    fcntl.flock(probe_f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    continue  # -- held by a live peer (or unsupported FS) → never unlink
+                try:
+                    path.unlink()
+                    removed += 1
+                finally:
+                    fcntl.flock(probe_f.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            continue  # -- raced away / unreadable → leave it for the next sweep
+    if removed:
+        logger.debug("Swept %d stale idempotency lock file(s)", removed)
+    return removed
 
 
 # -- RONDO-209 #246: compaction threshold — rewrite JSONL when it exceeds
@@ -304,6 +398,9 @@ def _compact_if_needed(path: Path) -> None:
                 fresh = _scan_cache_file(path, ttl_sec=DEFAULT_TTL_SEC)
                 _rewrite_compacted(path, fresh)
                 logger.debug("Idempotency JSONL compacted: %d live entries", len(fresh))
+                # -- RONDO-396 (8.5): opportunistic lock-file TTL hygiene rides
+                # -- the compaction cadence (flock-probe safe, see the sweep).
+                sweep_stale_key_locks()
 
                 fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
         except ImportError:

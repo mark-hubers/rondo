@@ -86,7 +86,8 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
       DONE 2026-06-10 (RONDO-386): 23/44 -> 43/44 (98%), 61 Cursor tests; 1 hand-proven equivalent accepted.
 - [x] **16. history.py — 17/25 (68%)** — same treatment.
       DONE 2026-06-10 (RONDO-386): 14/25 -> 25/25 (100%) — first perfect module. Cursor tests + labeled Claude residue top-up.
-- [ ] **17. dispatch_parse.py — sweep pending** (fill in when done)
+- [x] **17. dispatch_parse.py — sweep pending** (fill in when done)
+      CLOSED-AS-IMPRACTICAL 2026-06-10: measurement vs test_dispatch.py ran 6h+ — some mutants HANG the suite (broken parse hits real timeout paths) instead of failing fast. Honest close: no number rather than a fake one. Future fix queued: bin/mutate needs a --timeout-per-mutant (hang = caught); re-measure then.
 - [x] **18. engine.py — sweep pending** (fill in when done)
       MEASURED 2026-06-10: engine.py 30/94 caught (32%) vs test_engine.py scoped — survivor triage queued with items 14-16.
 - [x] **19. sanitize.py residue** — entropy calc + extra_patterns boolop survivors (beyond item 9).

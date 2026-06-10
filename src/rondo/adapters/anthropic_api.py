@@ -423,8 +423,13 @@ class AnthropicAPIAdapter(ProviderAdapter):
             with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                 return resp.status < 500
         except urllib.error.HTTPError as exc:
-            # -- 405 Method Not Allowed = API is reachable (HEAD not supported)
-            # -- 401/403 = reachable but bad key — still "up"
+            # -- RONDO-375 (cursor holistic #4): mirror the RONDO-357 contract —
+            # -- a dead/invalid KEY (401/403) is NOT healthy; green health over
+            # -- broken auth is dishonest (next dispatch dies ERR_AUTH). An
+            # -- endpoint quirk (405 on HEAD, 404, 429) is still reachable with
+            # -- a good key. This adapter was the missed copy-paste twin.
+            if exc.code in (401, 403):
+                return False
             return exc.code < 500
         except (urllib.error.URLError, OSError):
             return False
@@ -438,4 +443,4 @@ class AnthropicAPIAdapter(ProviderAdapter):
         return ["claude-opus-4-8", "claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
 
 
-# -- sig: mgh-6201.cd.bd955f.a109.d03004
+# -- sig: mgh-6201.cd.bd955f.94f4.0d3eb3

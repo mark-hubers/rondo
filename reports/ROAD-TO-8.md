@@ -46,17 +46,15 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
       killed); twins fixed: history append, idempotency append+compaction (deduped into
       _rewrite_compacted), retry-queue dead-letter. Breaker persist triaged non-sensitive.
       Judge 6/6 (Cursor, incl. no-op-chmod mechanism pin).
-- [ ] **8.4 Budget gate: per-provider estimates** (R4, MED) — one global estimate
-      under-enforces mixed free+paid rounds (free sample drives est to 0, paid tasks admit
-      uncapped). Estimate map keyed by provider/auth-class; admission uses the estimate for
-      THE TASK being admitted; estimate updates keep a per-class max-decay, not last-write.
-- [ ] **8.5 Cross-process lock: bounded wait + lock-file hygiene** (R5, MED) — blocking
-      acquire can stall an interactive caller for a peer's 30-min dispatch: bounded
-      LOCK_NB retry window (~2-5s default, configurable), on timeout proceed WITHOUT the
-      cross-process lock + WARN (in-process single-flight still holds; worst case = the old
-      rare double-pay, never a stalled server). Lock-dir hygiene: TTL sweep of stale lock
-      FILES during idempotency compaction using flock-probe (only unlink files we can
-      LOCK_NB → provably unheld → safe against the unlink-inode race).
+- [x] **8.4 Budget gate: per-provider estimates** (R4, MED) — DONE RONDO-395 (97fd118):
+      per-class estimates/samples/probes with GLOBAL cap accounting; MAX-KEEP updates;
+      $0-success scoped to its own class; worker derives class from provider prefix.
+      Judge 7/7 RED→GREEN; RONDO-373 regime rails green.
+- [x] **8.5 Cross-process lock: bounded wait + lock-file hygiene** (R5, MED) — DONE
+      RONDO-396 (21473d7): LOCK_NB retry to RONDO_XPROC_LOCK_WAIT_SEC (3s default, 0=off,
+      garbage→default), timeout = WARN + proceed unlocked; sweep_stale_key_locks (7d TTL,
+      flock-probe before unlink, held files immortal) rides compaction. Judge 5/5;
+      RONDO-390 two-process rails green.
 - [ ] **8.6 Reconcile flock ON the audit file** (R6, LOW-MED, STD-110 r016 literal) —
       scan+write under the same lock _append_jsonl uses, replacing/augmenting the sidecar.
 - [ ] **8.7 http_skeleton success-path catch widening** (R8, LOW) — TypeError/ValueError
@@ -68,9 +66,9 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
 
 ## P2 — Spec honesty + proof
 
-- [ ] **8.9 STD-115 scope honesty** (R7, LOW) — 8.1 builds the quarantine bricks; document
-      which STD-115 MUSTs are now real vs still DESIGNED-NOT-BUILT (scope-honesty section in
-      SECURITY.md). No silent spec-vs-code gaps.
+- [x] **8.9 STD-115 scope honesty** (R7, LOW) — DONE (098d3ff): SECURITY.md "Spec scope
+      honesty" section — BUILT (quarantine store, withholding, advisory scope marking, each
+      with judge) vs DESIGNED-NOT-BUILT (lifecycle reqs 001-021), consumer warning explicit.
 - [ ] **8.10 ⛳ Mid-point deep review** — Cursor hostile pass over 8.1-8.5 diffs
       specifically (fresh eyes on the new quarantine + lock code BEFORE the re-score).
 - [ ] **8.11 ⛳ Full re-score** (same instrument/prompt lineage) — target ≥7.5. Record.

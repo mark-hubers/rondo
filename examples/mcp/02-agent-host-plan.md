@@ -13,10 +13,16 @@ rondo_run(
 )
 ```
 
-Expected shape (plan):
+Expected shape (plan, schema "3" — RONDO-394):
 - `engine="agent"`
 - `kind="agent_dispatch_plan"`
 - `status="plan"`
+- `schema_version="3"`, `dispatch_id="dsp_..."` (audited: INTENT + advisory
+  OUTCOME written before return)
+- `guarantees_scope="advisory"` + the `not_covered` list — an agent plan is
+  host-executed; rondo declares what it cannot guarantee instead of silently
+  not covering it. Subprocess plans carry `guarantees_scope="guarded"` —
+  consumers can never mistake one for the other.
 
 Host behavior:
 1. Spawn Agent with `model` from plan.

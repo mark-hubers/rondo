@@ -501,8 +501,16 @@ class AuditTrail:
         config.archive_retention_months.
 
         Returns number of lines archived (0 if nothing to rotate).
+
+        RONDO-372 twin-grep: the fcntl import is GUARDED — on Windows rotation
+        runs single-writer with a WARNING instead of crashing every append once
+        the size threshold trips (STD-110 r019; twin of retry/_reconcile fixes).
         """
-        import fcntl  # pylint: disable=import-outside-toplevel
+        try:
+            import fcntl as _fcntl  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            _fcntl = None  # type: ignore[assignment]
+            logger.warning("Audit rotate flock unavailable (no fcntl, e.g. Windows) — single-writer rotation")
 
         with self._rotate_lock:
             # -- #251: cross-process exclusive lock via .rotate.lock sentinel file
@@ -510,14 +518,15 @@ class AuditTrail:
             try:
                 self._audit_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                 with open(lock_path, "a+", encoding="utf-8") as lock_f:
-                    try:
-                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-                    except OSError as lock_exc:
-                        # -- RONDO-216 C3: ABORT rotation if lock fails.
-                        # -- Without the lock, read+archive+unlink is a race.
-                        # -- Was "non-fatal continue" — changed to abort.
-                        logger.warning("Audit rotate ABORTED — file lock failed: %s", lock_exc)
-                        return 0
+                    if _fcntl is not None:
+                        try:
+                            _fcntl.flock(lock_f.fileno(), _fcntl.LOCK_EX)
+                        except OSError as lock_exc:
+                            # -- RONDO-216 C3: ABORT rotation if lock fails.
+                            # -- Without the lock, read+archive+unlink is a race.
+                            # -- Was "non-fatal continue" — changed to abort.
+                            logger.warning("Audit rotate ABORTED — file lock failed: %s", lock_exc)
+                            return 0
 
                     # -- All operations below run with both thread + process lock held
                     if not self._jsonl_path.exists():
@@ -540,10 +549,11 @@ class AuditTrail:
                     # -- RONDO-204 (Finding #229): prune old archives
                     self._prune_old_archives(archive_dir)
 
-                    try:
-                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-                    except OSError:
-                        pass
+                    if _fcntl is not None:
+                        try:
+                            _fcntl.flock(lock_f.fileno(), _fcntl.LOCK_UN)
+                        except OSError:
+                            pass
                     return line_count
             except OSError as exc:
                 logger.debug("Audit rotate failed (non-fatal): %s", exc)
@@ -812,4 +822,4 @@ class AuditTrail:
             logger.debug("Rotation check failed (non-fatal): %s", exc)
 
 
-# -- sig: mgh-6201.cd.bd955f.2ce9.2b5ef9
+# -- sig: mgh-6201.cd.bd955f.2ce9.7d36ca

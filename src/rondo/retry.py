@@ -282,16 +282,25 @@ class CircuitBreaker:
         even if still valid on disk — the ONLY way an entry is deliberately
         cleared (reset). The normal merge never deletes, so it can't clobber a
         peer's live cooldown; reset is the explicit, intentional exception.
+
+        RONDO-372 (cursor holistic #2): the import is GUARDED — on Windows
+        (no fcntl) a breaker transition MUST NOT crash (STD-110 r019). Falls
+        back to single-writer persist with a WARNING: tmp+os.replace stays
+        atomic; only the cross-process merge lock is lost. Exact twin of the
+        RONDO-367 audit-reconcile fix.
         """
-        import fcntl  # pylint: disable=import-outside-toplevel
+        try:
+            import fcntl  # pylint: disable=import-outside-toplevel
+        except ImportError:
+            logger.warning("Breaker persist flock unavailable (no fcntl, e.g. Windows) — single-writer persist")
+            self._persist_payload(force_drop)
+            return
 
         try:
-            now = time.time()
-            self._persist_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-
             # -- #246: merge with existing on-disk state to avoid losing
             # -- entries written by other processes. Hold an exclusive lock
             # -- from read through write to make the merge atomic cross-process.
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             lock_path = self._persist_path.with_suffix(".lock")
             with open(lock_path, "a+", encoding="utf-8") as lock_f:
                 try:
@@ -302,26 +311,37 @@ class CircuitBreaker:
                     # -- Was "non-fatal continue" — changed to abort.
                     logger.warning("Breaker persist ABORTED — file lock failed: %s", lock_exc)
                     return
-
-                # -- Read still-valid peer entries, then merge our in-memory states
-                # -- on top (extracted to keep this method under the complexity lock).
-                payload = self._read_existing_payload(now)
-                self._apply_memory_states(payload, now)
-                # -- RONDO-361 #1: explicit clears (reset) are the ONLY deletions.
-                for provider in force_drop or ():
-                    payload.pop(provider, None)
-
-                # -- Atomic write via tmp+replace (lock still held)
-                tmp_path = self._persist_path.with_suffix(".tmp")
-                tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-                os.replace(tmp_path, self._persist_path)
-                # -- RONDO-361 #5: our own write is "seen" — don't reload it back.
-                self._record_mtime()
-
                 try:
-                    fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-                except OSError:
-                    pass
+                    self._persist_payload(force_drop)
+                finally:
+                    try:
+                        fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+                    except OSError:
+                        pass
+        except (OSError, TypeError, ValueError) as exc:
+            logger.debug("Circuit breaker persist failed (non-fatal): %s", exc)
+
+    def _persist_payload(self, force_drop: set[str] | None) -> None:
+        """Read-merge-write the breaker state file — persist body (RONDO-372).
+
+        Caller holds the cross-process flock when available; without fcntl
+        (Windows) this runs single-writer — tmp+os.replace is still atomic.
+        Non-fatal on I/O errors, like every persist path in this class.
+        """
+        try:
+            now = time.time()
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            payload = self._read_existing_payload(now)
+            self._apply_memory_states(payload, now)
+            # -- RONDO-361 #1: explicit clears (reset) are the ONLY deletions.
+            for provider in force_drop or ():
+                payload.pop(provider, None)
+            # -- Atomic write via tmp+replace.
+            tmp_path = self._persist_path.with_suffix(".tmp")
+            tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            os.replace(tmp_path, self._persist_path)
+            # -- RONDO-361 #5: our own write is "seen" — don't reload it back.
+            self._record_mtime()
         except (OSError, TypeError, ValueError) as exc:
             logger.debug("Circuit breaker persist failed (non-fatal): %s", exc)
 
@@ -535,4 +555,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.3a15.2cfdb3
+# -- sig: mgh-6201.cd.bd955f.3a15.910385

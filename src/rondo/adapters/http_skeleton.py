@@ -220,8 +220,13 @@ def dispatch_via_http(plan: HttpDispatchPlan) -> TaskResult:
         return _done_result(plan, text, result, duration, metrics)
     except urllib.error.HTTPError as exc:
         return _http_error_result(plan, exc, time.monotonic() - start)
-    except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError) as exc:
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         # -- network/parse failures count against the breaker (RONDO-145)
+        # -- RONDO-397 (8.7): TypeError/ValueError added — token/cost math on a
+        # -- malformed-but-200 usage block (or a plan callback tripping on an
+        # -- unexpected shape) must become an error RESULT for every caller,
+        # -- not a crash only the parallel collector survives. Deliberately NOT
+        # -- a bare Exception: a truly novel provider bug should crash loudly.
         get_circuit_breaker().record_failure(plan.provider)
         # -- RONDO-216 C4: URLError/OSError text can carry the full URL with
         # -- ?key=SECRET (key-in-URL providers) — redact for EVERY adapter.

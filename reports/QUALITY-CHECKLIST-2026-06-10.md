@@ -51,8 +51,9 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
       stats AFTER `read_text`; peer write between them makes sig describe unread bytes → missed reload.
       Fix: stat before read, or derive sig from the read bytes.
       DONE 2026-06-10 (RONDO-379, e3595f6): signature captured BEFORE read; mid-window peer write now forces one converging reload. Cursor test 1 RED -> 2 GREEN.
-- [ ] **8. Gemini thinking-token cost undercount** (cursor #9, LOW-MED, ✓v) — `gemini.py:156` ignores
+- [x] **8. Gemini thinking-token cost undercount** (cursor #9, LOW-MED, ✓v) — `gemini.py:156` ignores
       `thoughtsTokenCount` → budget gate fed low numbers on exactly the expensive runs.
+      DONE 2026-06-10 (RONDO-380, 3ecf58b): output = candidates + thoughts. Cursor test 1 RED -> 2 GREEN. No twins (OpenAI/Anthropic totals already include reasoning).
 - [x] **9. `_scrub_dict` nested scrub untested** (mutation gate, security-reachable, ✓v) —
       `sanitize.py:521-526` return-None mutants survive; every task's parsed_result flows through it.
       Cursor test: nested dict/list secret actually scrubbed.
@@ -63,13 +64,15 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P3 — DRY / architecture debt
 
-- [ ] **11. Adapter dispatch() triplication** (cursor #6 — REFUTED my gemini↔ollama read) —
+- [x] **11. Adapter dispatch() triplication** (cursor #6 — REFUTED my gemini↔ollama read) —
       gemini/chat_completions/anthropic triplicate the dispatch skeleton + HTTPError→breaker block;
       drift bugs #4 and the redaction gap (gemini redacts body, chat_completions doesn't) came from it.
       Extract shared skeleton into ProviderAdapter/factory. BIG refactor — do AFTER P0-P2 (locks green).
-- [ ] **12. ollama adapter missing reliability primitives** (cursor #6b) — no retry_http, no breaker,
+      DONE 2026-06-10 (RONDO-381, 67404d8): http_skeleton.py — one 10-step pipeline, 4 adapters ported, dup blocks 7 -> 2, key-redaction unified. 174/174 adapter+judge tests.
+- [x] **12. ollama adapter missing reliability primitives** (cursor #6b) — no retry_http, no breaker,
       no cost. Local = free, but breaker/retry still apply (ollama can hang/die). Wire it into the
       shared skeleton from #11.
+      DONE 2026-06-10 (RONDO-381): ollama wired through the skeleton (+3 lines = breaker + retry + empty gate). Cursor judge 4 RED -> 5 GREEN.
 - [ ] **13. Smaller dup pairs** (pylint R0801): runner↔parallel, mcp_server↔mcp_dispatch,
       dispatch↔dispatch_parse — assess each: extract or document why distinct.
 
@@ -80,7 +83,8 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 - [ ] **15. envelope.py — 23/44 (52%)** — same treatment; envelope is the public contract surface.
 - [ ] **16. history.py — 17/25 (68%)** — same treatment.
 - [ ] **17. dispatch_parse.py — sweep pending** (fill in when done)
-- [ ] **18. engine.py — sweep pending** (fill in when done)
+- [x] **18. engine.py — sweep pending** (fill in when done)
+      MEASURED 2026-06-10: engine.py 30/94 caught (32%) vs test_engine.py scoped — survivor triage queued with items 14-16.
 - [ ] **19. sanitize.py residue** — entropy calc + extra_patterns boolop survivors (beyond item 9).
 - [ ] **19b. bin/mutate wart** — `ast.unparse` mutants strip SPDX/signature comments, so conventions/
       builds running mid-sweep see false failures. Either re-prepend the original header onto mutants,

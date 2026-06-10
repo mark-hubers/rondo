@@ -148,12 +148,28 @@ def generate_mutants(source: str) -> list[tuple[Mutant, str]]:
     return out
 
 
+def _purge_bytecode_cache(path: Path) -> None:
+    """Delete the module's __pycache__ — RONDO-385 (the gate's pyc-staleness bug).
+
+    CPython validates .pyc files by SOURCE SIZE + WHOLE-SECOND mtime. Same-size
+    mutants (== -> !=, 0 -> 1) written within the same second as the previous
+    one reuse the PREVIOUS mutant's bytecode — the gate then "tests" stale code
+    and misreports survivors in BOTH directions (proven live: a hand-applied
+    mutant the gate called SURVIVED was instantly caught by pytest). Purging the
+    package __pycache__ before every run forces a recompile of the truth.
+    """
+    import shutil  # pylint: disable=import-outside-toplevel
+
+    shutil.rmtree(path.parent / "__pycache__", ignore_errors=True)
+
+
 def run_mutation_gate(file_path: str, run_tests: Callable[[], bool]) -> list[MutationOutcome]:
     """Mutate `file_path` one site at a time; record which mutants tests CATCH.
 
     `run_tests()` returns True when the suite FAILS (mutant caught). The
     original file is ALWAYS restored — even if run_tests raises — so a crash
-    never leaves mutated code on disk.
+    never leaves mutated code on disk. Bytecode caches are purged around every
+    mutant (RONDO-385) so each run compiles exactly the mutant on disk.
     """
     path = Path(file_path)
     original = path.read_text(encoding="utf-8")
@@ -161,9 +177,11 @@ def run_mutation_gate(file_path: str, run_tests: Callable[[], bool]) -> list[Mut
     try:
         for mutant, mutated in generate_mutants(original):
             path.write_text(mutated, encoding="utf-8")
+            _purge_bytecode_cache(path)
             outcomes.append(MutationOutcome(mutant=mutant, caught=bool(run_tests())))
     finally:
         path.write_text(original, encoding="utf-8")
+        _purge_bytecode_cache(path)
     return outcomes
 
 

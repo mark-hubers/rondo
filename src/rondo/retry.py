@@ -456,8 +456,14 @@ class CircuitBreaker:
         try:
             if not self._persist_path.exists():
                 return
-            raw = self._persist_path.read_text(encoding="utf-8")
+            # -- RONDO-379 (cursor holistic #7): capture the signature BEFORE the
+            # -- read. A peer write landing mid-window then leaves a STALE
+            # -- recorded sig (describing the pre-write file), so the next
+            # -- _maybe_reload sees a change and reloads — one redundant reload
+            # -- that converges. The old order (stat AFTER read) recorded a sig
+            # -- for bytes never parsed, MASKING the peer's trip instead.
             self._record_mtime()
+            raw = self._persist_path.read_text(encoding="utf-8")
             data = json.loads(raw)
             if not isinstance(data, dict):
                 return
@@ -558,4 +564,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.3a15.adcfb3
+# -- sig: mgh-6201.cd.bd955f.3a15.43aa76

@@ -26,6 +26,7 @@ subject without import cycles. Operators are deliberately small and semantic:
 from __future__ import annotations
 
 import ast
+import subprocess  # nosec B404 -- project policy: subprocess is core (pyproject skips B404)
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -185,19 +186,33 @@ def run_mutation_gate(file_path: str, run_tests: Callable[[], bool]) -> list[Mut
     return outcomes
 
 
-def _pytest_runner(tests: str) -> Callable[[], bool]:
+def _pytest_runner(tests: str, timeout_sec: int = 0) -> Callable[[], bool]:
     """Build a run_tests() that runs pytest on `tests` in a fresh subprocess.
 
     Subprocess (not in-process) so each mutated source is imported fresh —
     no module caching masking the mutation. Returns True when pytest FAILS.
+
+    RONDO-392 (8.8, item-17 debt): timeout_sec > 0 bounds each mutant's test
+    run; a TimeoutExpired (hung suite) counts as CAUGHT — a mutant that hangs
+    the tests has visibly broken the code; that is detection, not survival.
+    timeout_sec=0 keeps the historical unbounded behavior.
     """
-    import subprocess  # nosec B404 -- project policy: subprocess is core (pyproject skips B404)  # pylint: disable=import-outside-toplevel
 
     def _run() -> bool:
         cmd = [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", *tests.split()]
         # -- nosec B603: no shell, fixed argv, pytest target is a developer-supplied
         # -- path/expr run locally — same accepted pattern as dispatch.py.
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603
+        try:
+            proc = subprocess.run(  # nosec B603
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout_sec if timeout_sec > 0 else None,
+            )
+        except subprocess.TimeoutExpired:
+            sys.stdout.write(f"-CAUGHT- mutant run exceeded {timeout_sec}s (hang = caught)\n")
+            return True
         return proc.returncode != 0
 
     return _run
@@ -226,8 +241,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Mutation gate: prove tests fail when code is wrong.")
     parser.add_argument("source", help="source .py file to mutate")
     parser.add_argument("--tests", required=True, help="pytest target(s) to run per mutant (path or -k expr)")
+    parser.add_argument(
+        "--timeout-per-mutant",
+        type=int,
+        default=0,
+        metavar="SEC",
+        help="kill a mutant's test run after SEC seconds and count it CAUGHT (hang = caught); 0 = unbounded (RONDO-392)",
+    )
     args = parser.parse_args(argv)
-    outcomes = run_mutation_gate(args.source, _pytest_runner(args.tests))
+    outcomes = run_mutation_gate(args.source, _pytest_runner(args.tests, timeout_sec=args.timeout_per_mutant))
     return _report(args.source, outcomes)
 
 

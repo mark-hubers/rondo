@@ -109,4 +109,79 @@ class TestRunMutationGate:
         assert mod.read_text(encoding="utf-8") == original, "mutated code left on disk after crash"
 
 
+class TestTimeoutPerMutant:
+    """RONDO-392 (ROAD-TO-8 8.8): --timeout-per-mutant — a hanging suite is a CAUGHT mutant.
+
+    Item-17 debt: dispatch.py mutants made test_dispatch.py hang 6h+. A mutant
+    that hangs the tests has visibly broken the code — that is detection, not
+    survival. timeout_sec=0 keeps today's unbounded behavior (backward compat).
+    """
+
+    def test_timeout_expired_counts_as_caught(self, monkeypatch) -> None:
+        """TimeoutExpired from the pytest subprocess → runner returns True (caught)."""
+        import subprocess
+
+        from rondo import mutate as mutate_mod
+
+        def _fake_run(cmd, **kwargs):  # noqa: ANN001, ANN003
+            raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout", 1))
+
+        monkeypatch.setattr(mutate_mod.subprocess, "run", _fake_run)
+        runner = mutate_mod._pytest_runner("tests/whatever.py", timeout_sec=1)
+        assert runner() is True, "a hung (timed-out) suite must count as a CAUGHT mutant"
+
+    def test_timeout_zero_passes_no_timeout_to_subprocess(self, monkeypatch) -> None:
+        """timeout_sec=0 (default) → subprocess.run receives timeout=None (unbounded, today's behavior)."""
+        from rondo import mutate as mutate_mod
+
+        seen: dict = {}
+
+        def _fake_run(cmd, **kwargs):  # noqa: ANN001, ANN003
+            seen.update(kwargs)
+
+            class _P:
+                returncode = 1
+
+            return _P()
+
+        monkeypatch.setattr(mutate_mod.subprocess, "run", _fake_run)
+        runner = mutate_mod._pytest_runner("tests/whatever.py")
+        assert runner() is True
+        assert seen.get("timeout") is None, "timeout_sec=0 must mean NO subprocess timeout"
+
+    def test_real_hang_is_killed_and_caught(self, tmp_path) -> None:
+        """UNMOCKED contract test: a genuinely sleeping pytest target is killed at the timeout and reported caught."""
+        import time
+
+        from rondo.mutate import _pytest_runner
+
+        hang_test = tmp_path / "test_hang_canary.py"
+        hang_test.write_text(
+            "import time\n\n\ndef test_sleeps_forever():\n    time.sleep(30)\n",
+            encoding="utf-8",
+        )
+        runner = _pytest_runner(str(hang_test), timeout_sec=2)
+        start = time.monotonic()
+        caught = runner()
+        elapsed = time.monotonic() - start
+        assert caught is True, "a hanging mutant run must be reported as caught"
+        assert elapsed < 15, f"the hung subprocess must be killed near the timeout, took {elapsed:.1f}s"
+
+    def test_cli_flag_threads_through_to_runner(self, monkeypatch, tmp_path) -> None:
+        """--timeout-per-mutant N reaches _pytest_runner (dead-flag lock: the flag does something)."""
+        from rondo import mutate as mutate_mod
+
+        captured: dict = {}
+
+        def _fake_runner(tests, timeout_sec=0):  # noqa: ANN001
+            captured["timeout_sec"] = timeout_sec
+            return lambda: True
+
+        monkeypatch.setattr(mutate_mod, "_pytest_runner", _fake_runner)
+        src = tmp_path / "m.py"
+        src.write_text("def f():\n    return 1\n", encoding="utf-8")
+        mutate_mod.main([str(src), "--tests", "tests/x.py", "--timeout-per-mutant", "120"])
+        assert captured.get("timeout_sec") == 120, "--timeout-per-mutant must thread through to the pytest runner"
+
+
 # -- sig: mgh-6201.cd.bd955f.a7e0.adb14f

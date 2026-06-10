@@ -22,6 +22,7 @@ import re
 import select
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -791,6 +792,50 @@ def _write_audit_outcome(
         logger.debug("Audit outcome failed (non-fatal): %s", exc)
 
 
+_QUARANTINE_STUB = "[QUARANTINED: sanitize failed — see quarantine store]"
+
+
+def _quarantine_scrub_failure(result: TaskResult, exc: Exception) -> None:
+    """RONDO-391 (ROAD-TO-8 8.1): quarantine an unscrubbed result, redact in place.
+
+    STD-114 r006 (MUST scrub before persisting) vs the golden rule (never lose
+    data): quarantine satisfies both. The raw payload goes to a locked-down
+    store (mkstemp → file born 0o600; <RONDO_TEST_DIR>/quarantine/ in tests,
+    ~/.rondo/quarantine/ in prod), then the in-flight result is REDACTED in
+    place so audit OUTCOME, spool, result files, and history only ever see the
+    stub. If the quarantine write itself fails, redaction still happens —
+    dropping one result's text beats persisting secrets — logged at ERROR.
+    """
+    error_detail = f"{type(exc).__name__}: {exc}"
+    qpath = ""
+    try:
+        test_dir = os.environ.get("RONDO_TEST_DIR")
+        qdir = os.path.join(test_dir, "quarantine") if test_dir else os.path.expanduser("~/.rondo/quarantine")
+        os.makedirs(qdir, mode=0o700, exist_ok=True)
+        fd, qpath = tempfile.mkstemp(dir=qdir, prefix="quarantine-", suffix=".json")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump({"sanitize_error": error_detail, "result": asdict(result)}, fh, indent=2, default=str)
+    except (OSError, TypeError, ValueError) as write_exc:
+        logger.error(
+            "-ERROR- quarantine write FAILED for '%s' (%s) — unscrubbed payload DROPPED from all stores (redaction wins over retention)",
+            result.task_name,
+            write_exc,
+        )
+        qpath = ""
+    result.raw_output = _QUARANTINE_STUB
+    result.parsed_result = None
+    result.stderr = ""
+    result.metrics["sanitize_failed"] = True
+    result.context_data["sanitize_error"] = error_detail
+    result.context_data["quarantine_file"] = qpath
+    logger.warning(
+        "-WARNING- sanitize FAILED for '%s' (%s) — raw result QUARANTINED to %s and WITHHELD from audit/spool/history",
+        result.task_name,
+        error_detail,
+        qpath or "[quarantine write failed — payload dropped]",
+    )
+
+
 def _finalize_dispatch(
     result: TaskResult,
     usage: DispatchUsage,
@@ -815,19 +860,12 @@ def _finalize_dispatch(
     # -- STD-114: SANITIZE FIRST — before any persistence (RONDO-140 / Finding #204)
     try:
         result, _sr = sanitize_task_result(result, config=None)
-    except (TypeError, AttributeError) as exc:
-        # -- RONDO-388 (Mark's ruling, checklist 20): FAIL-OPEN BUT LOUD.
-        # -- Golden rule — never lose data: the result still persists below,
-        # -- UNSCRUBBED. But silence was the bug: escalate to WARNING, flag it
-        # -- machine-readably, and mark the result so every consumer can see it.
-        logger.warning(
-            "-WARNING- sanitize FAILED — result for '%s' persisted UNSCRUBBED (%s: %s); review stored artifacts for secrets",
-            result.task_name,
-            type(exc).__name__,
-            exc,
-        )
-        result.metrics["sanitize_failed"] = True
-        result.context_data["sanitize_error"] = f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001  -- STD-114 r006 boundary, see helper
+        # -- RONDO-391 (ROAD-TO-8 8.1, amending the RONDO-388 ruling): ANY scrub
+        # -- failure (incl. RecursionError/re.error the old narrow except missed)
+        # -- QUARANTINES the raw payload — never-lose-data preserved in a
+        # -- locked-down store, while audit/result/spool/history get a stub.
+        _quarantine_scrub_failure(result, exc)
 
     # -- STD-113: record audit OUTCOME (sanitized raw_output + auto-rating)
     if audit_trail and audit_record:

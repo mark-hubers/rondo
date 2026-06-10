@@ -15,7 +15,12 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
 
 ## P0 — The two named block-ons for 7
 
-- [ ] **8.1 Quarantine on scrub failure** (R1, HIGH, STD-114 r006 MUST)
+- [x] **8.1 Quarantine on scrub failure** (R1, HIGH, STD-114 r006 MUST) — DONE RONDO-391:
+      `_quarantine_scrub_failure` in dispatch.py (mkstemp → 0o600, RONDO_TEST_DIR-aware,
+      redact-in-place wins even if the quarantine write fails); except widened to Exception;
+      twin fixed in mcp_dispatch.py defensive sanitize (was narrow + leaked parsed/stderr);
+      judge tests/unit/test_sanitize_quarantine_cursor.py 5/5 RED→GREEN; RONDO-388's
+      persist-raw pin reconciled with documented amendment.
       RULING AMENDMENT (Mark 2026-06-10 "do all that needed to get to 8"): fail-open+loud
       becomes QUARANTINE — still never-lose-data, but a failed-scrub result goes to a
       locked-down quarantine store (~/.rondo/quarantine/, dir+files 0o600-family) and is

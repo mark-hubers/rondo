@@ -298,9 +298,11 @@ def _dispatch_via_provider_or_claude(
             try:
                 sanitized_tr, _report = sanitize_task_result(tr, config=None)
                 return sanitized_tr
-            except (TypeError, AttributeError):
-                # -- Defensive: if even sanitize fails, scrub raw_output manually
+            except Exception:  # noqa: BLE001  -- RONDO-391 twin: RecursionError/re.error must redact, not escape
+                # -- Defensive: if even sanitize fails, scrub ALL payload fields
                 tr.raw_output = "[REDACTED:sanitize_failed]"
+                tr.parsed_result = None
+                tr.stderr = ""
                 return tr
 
     provider, resolved_model = get_provider_with_fallback(model)

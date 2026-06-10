@@ -13,6 +13,13 @@ make the failure LOUD and machine-detectable:
   (b) ``result.metrics["sanitize_failed"] is True``,
   (c) ``result.context_data["sanitize_error"]`` carrying the exception detail.
 
+AMENDED by RONDO-391 (ROAD-TO-8 item 8.1, Mark 2026-06-10): persistence of the
+RAW payload moved from in-band (the returned/stored result) to the QUARANTINE
+store — see ``test_sanitize_quarantine_cursor.py`` for the superseding pins.
+The LOUD contract (warning + flag + context marking) is unchanged and still
+pinned here. Only the persist-raw assertion in test 1 was updated to the
+quarantine stub; the reconciliation is documented in the RONDO-391 commit.
+
 These tests drive ONLY the finalize path with a pre-built ``TaskResult``
 (no live dispatch). Tests for (a)/(b)/(c) MUST FAIL on current code.
 
@@ -47,7 +54,12 @@ def _build_config(tmp_path) -> RondoConfig:
 
 
 def test_failopen_does_not_raise_and_persists(tmp_path) -> None:
-    """(a) When the sanitizer bombs, finalize must NOT raise and must return the result."""
+    """(a) When the sanitizer bombs, finalize must NOT raise and must return the result.
+
+    RONDO-391 amendment: the raw payload now persists in the QUARANTINE store
+    (never-lose-data kept), so the RETURNED result carries the redaction stub —
+    not the original text. The original persist-raw assertion was superseded.
+    """
     result = _build_result()
     usage = DispatchUsage(task_name=result.task_name, model=result.model)
     config = _build_config(tmp_path)
@@ -55,8 +67,10 @@ def test_failopen_does_not_raise_and_persists(tmp_path) -> None:
     with mock.patch(_SANITIZE_TARGET, side_effect=TypeError("boom")):
         finalized, _usage = finalize_dispatch(result, usage, config, None, None)
 
-    assert finalized is result, "fail-open must still return the (unscrubbed) result"
-    assert finalized.raw_output == "some output with a value", "data must be preserved (golden rule)"
+    assert finalized is result, "fail-open must still return the (redacted-in-place) result"
+    # -- RONDO-391: raw text lives in quarantine now; the in-band result is the stub
+    assert "quarantin" in str(finalized.raw_output).lower(), "raw_output must be the quarantine redaction stub"
+    assert "some output with a value" not in str(finalized.raw_output), "original text must be withheld in-band"
 
 
 def test_failopen_logs_warning(tmp_path, caplog) -> None:

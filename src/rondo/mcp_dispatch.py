@@ -903,12 +903,16 @@ def _rondo_run_file_inner(
 
 
 def _dispatch_and_cache(key: str, dispatch_fn: Any, route_warnings: Any) -> str:
-    """Run a dispatch under single-flight + cache the result — RONDO-360.
+    """Run a dispatch under single-flight + cache the result — RONDO-360/390.
 
     Two identical concurrent dispatches used to both miss the cache and both
-    PAY (the lookup→dispatch→store sequence was unlocked). Now same-key callers
-    serialize on key_lock and re-check the cache under it: only the first
-    dispatches, the rest reuse its result. Empty key (ineligible) = no locking.
+    PAY (the lookup→dispatch→store sequence was unlocked). RONDO-360: same-key
+    THREADS serialize on key_lock. RONDO-390 (Mark's ruling, checklist 22):
+    same-key PROCESSES serialize on cross_process_key_lock (per-key flock) —
+    the in-process lock goes first so only one thread per process contends on
+    the file lock. The re-check under both locks covers both layers: a peer
+    process's store lands in the shared JSONL before it releases its flock.
+    Empty key (ineligible) = no locking.
     """
 
     def _run() -> str:
@@ -920,11 +924,11 @@ def _dispatch_and_cache(key: str, dispatch_fn: Any, route_warnings: Any) -> str:
     if not key:
         return _run()
 
-    from rondo.idempotency import key_lock  # pylint: disable=import-outside-toplevel
+    from rondo.idempotency import cross_process_key_lock, key_lock  # pylint: disable=import-outside-toplevel
 
-    with key_lock(key):
-        # -- re-check under the lock: a peer may have finished while we resolved
-        # -- routing, so we reuse its result instead of paying again.
+    with key_lock(key), cross_process_key_lock(key):
+        # -- re-check under the locks: a peer (thread OR process) may have
+        # -- finished while we resolved routing — reuse instead of paying again.
         recheck = get_cached_result(key)
         if recheck is not None:
             return recheck if isinstance(recheck, str) else json.dumps(recheck, indent=2)
@@ -1135,4 +1139,5 @@ def rondo_run_status(dispatch_id: str = "", brief: bool = False, heartbeat: bool
 # --  MCP server setup (stdio transport)
 # -- ──────────────────────────────────────────────────────────────
 
-# -- sig: mgh-6201.cd.bd955f.7648.d15fa7
+
+# -- sig: mgh-6201.cd.bd955f.41eb.bc8ae6

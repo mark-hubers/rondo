@@ -89,10 +89,10 @@ def key_lock(key: str) -> Iterator[None]:
     """Single-flight lock for one idempotency key — RONDO-360 + RONDO-369 #9.
 
     Serializes same-key callers in-process so identical concurrent dispatches
-    don't both pay; different keys never block each other. In-process only
-    (cross-process dedup would need a file lock per key — rare, not built). The
-    entry is ref-counted and removed once no caller holds it, so the map stays
-    bounded in the long-lived MCP server.
+    don't both pay; different keys never block each other. In-process layer
+    only — the cross-PROCESS layer is cross_process_key_lock (RONDO-390),
+    stacked by _dispatch_and_cache. The entry is ref-counted and removed once
+    no caller holds it, so the map stays bounded in the long-lived MCP server.
     """
     with _key_locks_guard:
         entry = _key_locks.get(key)
@@ -108,6 +108,54 @@ def key_lock(key: str) -> Iterator[None]:
             entry.users -= 1
             if entry.users <= 0:
                 _key_locks.pop(key, None)
+
+
+def _key_lock_file(key: str) -> Path:
+    """Per-key cross-process lock file under the cache dir — RONDO-390."""
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
+    return _default_cache_file().parent / "idempotency-locks" / f"{digest}.lock"
+
+
+@contextmanager
+def cross_process_key_lock(key: str) -> Iterator[None]:
+    """Cross-process single-flight for one idempotency key — RONDO-390 (Mark's ruling).
+
+    Exclusive flock on a per-key lock file: two PROCESSES dispatching the same
+    prompt serialize — only the first pays; the second re-checks the shared
+    JSONL cache and reuses the result. BLOCKING acquire (the peer's dispatch is
+    bounded by its own timeouts). flock releases automatically on process death
+    (kernel-managed) — no stale-lock recovery code to get wrong. Lock files are
+    tiny and NEVER unlinked while potentially held (unlink races re-lock a dead
+    inode); one persists per recently-active unique key.
+    Degradation (r019 family): no fcntl (Windows) or an unsupported FS — WARN
+    and proceed with in-process single-flight only, never crash.
+    """
+    try:
+        import fcntl  # pylint: disable=import-outside-toplevel
+    except ImportError:
+        logger.warning("Cross-process key lock unavailable (no fcntl, e.g. Windows) — in-process single-flight only")
+        yield
+        return
+    lock_path = _key_lock_file(key)
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        lock_f = open(lock_path, "a+", encoding="utf-8")  # noqa: SIM115 -- held across yield
+    except OSError as exc:
+        logger.warning("Cross-process key lock open failed (%s) — in-process single-flight only", exc)
+        yield
+        return
+    try:
+        try:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
+        except OSError as exc:
+            logger.warning("Cross-process key lock flock failed (%s) — proceeding without it", exc)
+        yield
+    finally:
+        try:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        lock_f.close()
 
 
 # -- RONDO-209 #246: compaction threshold — rewrite JSONL when it exceeds
@@ -359,4 +407,4 @@ class IdempotencyConfig:
     ttl_sec: int = DEFAULT_TTL_SEC
 
 
-# -- sig: mgh-6201.cd.bd955f.f5da.bcae41
+# -- sig: mgh-6201.cd.bd955f.f5da.126f00

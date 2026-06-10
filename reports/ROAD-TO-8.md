@@ -30,20 +30,22 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
       custom pattern) crash finalize or sail through WITH raw data. This also lays the first
       real bricks of STD-115 (PENDING state). Mark may VETO the amendment → revert to loud
       fail-open and accept the 7-ceiling.
-- [ ] **8.2 Inline/agent path under the machinery** (R2, HIGH, the soft center)
-      Today inline/agent routing returns instructions and skips budget/breaker/audit/
-      sanitize/idempotency ENTIRELY. Two-part fix: (a) record audit INTENT/OUTCOME around
-      advisory plans (the plan IS a dispatch event) + sanitize the plan payload; (b) the
-      envelope honestly declares scope: guarantees_scope="advisory" on inline/agent results
-      so no consumer can mistake them for guarded executions. Full budget/breaker coverage
-      of host-executed work is impossible by construction (rondo never runs it) — SAY SO in
-      the envelope rather than silently not covering it. Cursor design-review before code.
+- [x] **8.2 Inline/agent path under the machinery** (R2, HIGH, the soft center) — DONE
+      RONDO-394, design Cursor-reviewed first (design-review-20260610-item82.md): audit
+      INTENT + advisory OUTCOME at the choke point, dispatch_id in the plan (Caliber
+      correlation), sanitize-on-persist-only, guarantees_scope on ALL builders
+      (advisory/guarded) + not_covered floor, schema 2→3, estimate-gated budget at
+      issuance, fail-open+loud. BONUS pre-existing bug fixed: raw-execution idempotency
+      key could serve a cached subprocess result to an inline caller (lookup moved below
+      advisory return). Judge 9/9 RED→GREEN. Declined: plans-per-minute limiter.
 
 ## P1 — MUSTs + holes that compound (the 7→8 meat)
 
-- [ ] **8.3 Audit artifacts 0o600** (R3, MED-HIGH, STD-110 r012 MUST) — atomic_write +
-      audit jsonl append + prompt/result files: mkstemp-style birth at 0o600 (spool is the
-      model); fix save_result's chmod-after-write window too.
+- [x] **8.3 Audit artifacts 0o600** (R3, MED-HIGH, STD-110 r012 MUST) — DONE RONDO-393:
+      atomic_write→mkstemp; _append_jsonl O_CREAT 0o600; save_result mkstemp (chmod window
+      killed); twins fixed: history append, idempotency append+compaction (deduped into
+      _rewrite_compacted), retry-queue dead-letter. Breaker persist triaged non-sensitive.
+      Judge 6/6 (Cursor, incl. no-op-chmod mechanism pin).
 - [ ] **8.4 Budget gate: per-provider estimates** (R4, MED) — one global estimate
       under-enforces mixed free+paid rounds (free sample drives est to 0, paid tasks admit
       uncapped). Estimate map keyed by provider/auth-class; admission uses the estimate for
@@ -60,8 +62,9 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
 - [ ] **8.7 http_skeleton success-path catch widening** (R8, LOW) — TypeError/ValueError
       from token math on a successful response → error result, all callers, not just the
       parallel collector.
-- [ ] **8.8 bin/mutate --timeout-per-mutant** (item-17 debt) — hang = CAUGHT; then
-      re-measure dispatch_parse properly and record the real number.
+- [~] **8.8 bin/mutate --timeout-per-mutant** (item-17 debt) — CODE DONE RONDO-392 (hang =
+      CAUGHT; TDD 4 RED→GREEN incl. real-hang contract test). REMAINING: re-measure
+      dispatch_parse with --timeout-per-mutant in an idle window (sweeps own the tree).
 
 ## P2 — Spec honesty + proof
 

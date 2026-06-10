@@ -14,6 +14,37 @@
 | **Subprocess hygiene** | No `shell=True` anywhere (conventions-locked); child env constructed explicitly; `CLAUDECODE` always stripped | `tests/conventions/` |
 | **Config file** | World-writable config is refused; TOML parsed with stdlib `tomllib` (no code execution) | `tests/unit/test_config.py` |
 
+## Spec scope honesty — STD-115 (result quarantine): what is REAL vs DESIGNED
+
+STD-115 (`specs/Rondo-STD-115-result-quarantine.md`) describes a full result-
+lifecycle quarantine (PENDING→VERIFIED→TRUSTED/REJECTED). Honesty requires
+saying which parts exist in code TODAY (RONDO-391/394, 2026-06-10) and which
+are design-only. No silent spec-vs-code gaps.
+
+**BUILT and tested:**
+
+| Capability | Where | Proven by |
+|------------|-------|-----------|
+| Quarantine STORE: failed-scrub results land in `~/.rondo/quarantine/` (files born 0o600), withheld from audit/spool/result/history, stub + flag + reference returned | `dispatch.py _quarantine_scrub_failure` | `tests/unit/test_sanitize_quarantine_cursor.py` |
+| Results that cannot be verified safe never reach normal stores (the r006 inversion is closed) | same | same |
+| Advisory results carry explicit scope (`guarantees_scope="advisory"` + `not_covered`) so consumers can't mistake them for guarded executions | `dispatch_routing.py` builders | `tests/unit/test_advisory_path_machinery_cursor.py` |
+
+**DESIGNED, NOT BUILT** (the STD-115 state machine itself):
+
+- reqs 001-006: PENDING/VERIFIED/TRUSTED/REJECTED lifecycle — no state field,
+  no transitions exist in code.
+- reqs 007-011: per-type verification criteria (Caliber gates, structure
+  checks) — not implemented.
+- reqs 012-015: approval/auto-approval bootstrap — not implemented.
+- reqs 016-018: overnight PENDING + morning-report integration — not
+  implemented.
+- reqs 019-021: rejection-feeds-learning — not implemented.
+
+The quarantine store above is the first real brick (a place unverifiable
+results go that is NOT the trusted path); the lifecycle remains roadmap.
+Consumers MUST NOT assume STD-115 lifecycle guarantees from this codebase
+until this section says otherwise.
+
 ## Known assumptions (read before deploying anywhere shared)
 
 - **MCP server has no authentication** — it assumes a LOCAL, single-user

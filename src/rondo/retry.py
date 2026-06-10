@@ -189,8 +189,9 @@ def retry_http(
                 # -- secrets.randbelow is deterministic-safe; scale to [0.85, 1.15)
                 jitter_factor = 0.85 + (secrets.randbelow(300) / 1000.0)
                 sleep_for *= jitter_factor
-            # -- RONDO-347: a server Retry-After (429) overrides the schedule —
-            # -- wait exactly what the provider asks, capped so it can't hang us.
+            # -- RONDO-347: a server Retry-After (429) FLOORS the wait — never
+            # -- retry sooner than asked; the patient schedule may wait longer,
+            # -- capped (max_delay_sec) so a hostile header can't hang us.
             asked = _retry_after_sec(exc)
             if asked is not None:
                 sleep_for = max(sleep_for, asked)
@@ -564,4 +565,4 @@ def get_circuit_breaker() -> CircuitBreaker:
     return _GLOBAL_BREAKER
 
 
-# -- sig: mgh-6201.cd.bd955f.3a15.43aa76
+# -- sig: mgh-6201.cd.bd955f.3a15.1d9524

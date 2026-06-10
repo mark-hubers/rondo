@@ -16,13 +16,11 @@ from pathlib import Path
 
 META_RE = re.compile(r"^\s*#\s*rondo-meta:\s*(.+?)\s*$")
 MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-EXPECTED_EXAMPLE_COUNT = 90  # -- RONDO-320: +doctor cli (89 was RONDO-317)
+EXPECTED_EXAMPLE_COUNT = 92  # -- RONDO-383: +resilience_tour +budget_guarded_parallel (90 was RONDO-320)
 
 
 def _collect_example_files(examples_dir: Path) -> list[Path]:
-    api_files = sorted(
-        p for p in (examples_dir / "api").glob("*.py") if p.name != "example_dispatch.py"
-    )
+    api_files = sorted(p for p in (examples_dir / "api").glob("*.py") if p.name != "example_dispatch.py")
     round_files = sorted(
         [
             *list((examples_dir / "rounds").glob("*.py")),
@@ -110,9 +108,7 @@ def generate_index(examples_dir: Path) -> tuple[str, list[str], list[str]]:
     ]
     for idx, row in enumerate(rows, start=1):
         example, directory, mode, provider, category, value = row
-        lines.append(
-            f"| {idx} | `{example}` | {directory} | {mode} | {provider} | {category} | {value} |"
-        )
+        lines.append(f"| {idx} | `{example}` | {directory} | {mode} | {provider} | {category} | {value} |")
     lines.append("")
     return "\n".join(lines), missing_meta, bad_meta
 
@@ -172,3 +168,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# -- sig: mgh-6201.cd.bd955f.08eb.70aa52

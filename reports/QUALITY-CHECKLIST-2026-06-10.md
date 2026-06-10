@@ -73,8 +73,9 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
       no cost. Local = free, but breaker/retry still apply (ollama can hang/die). Wire it into the
       shared skeleton from #11.
       DONE 2026-06-10 (RONDO-381): ollama wired through the skeleton (+3 lines = breaker + retry + empty gate). Cursor judge 4 RED -> 5 GREEN.
-- [ ] **13. Smaller dup pairs** (pylint R0801): runner↔parallel, mcp_server↔mcp_dispatch,
+- [x] **13. Smaller dup pairs** (pylint R0801): runner↔parallel, mcp_server↔mcp_dispatch,
       dispatch↔dispatch_parse — assess each: extract or document why distinct.
+      DONE 2026-06-10 (RONDO-382, 520c9ee): pre-gate contract shared via engine helper; dataclasses.replace at both usage sites; MCP pass-through KEPT (front-door signature). Dup scan 7 -> 1.
 
 ## P4 — Lying-test burn-down (mutation sweep, scoped scores = LOWER bounds)
 

@@ -144,6 +144,7 @@ class AnthropicAPIAdapter(ProviderAdapter):
         base_url: str = "https://api.anthropic.com/v1",
         effort: str = "high",  # -- REQ-109 req 205: adapter-level effort default
         thinking_models: list[str] | None = None,  # -- REQ-109 req 200: pattern override
+        stream_reattempt: bool = False,  # -- RONDO-378: opt-in disconnect re-attempt (r213)
     ) -> None:
         self.api_key = api_key
         self.default_model = default_model
@@ -151,6 +152,10 @@ class AnthropicAPIAdapter(ProviderAdapter):
         self.max_tokens = max_tokens
         self.base_url = base_url.rstrip("/")
         self.effort = effort
+        # -- RONDO-378 (REQ-109 r213 MUST "never silent spend"): the RONDO-334
+        # -- automatic disconnect re-attempt is now OPT-IN, default OFF. The
+        # -- deliberate retry belongs to the caller (rondo retry) by choice.
+        self.stream_reattempt = stream_reattempt
         self.thinking_models: list[str] = (
             list(thinking_models) if thinking_models is not None else list(DEFAULT_THINKING_MODEL_PATTERNS)
         )
@@ -180,6 +185,27 @@ class AnthropicAPIAdapter(ProviderAdapter):
             per_dispatch=per_dispatch,
             timeouts_cfg=timeouts_cfg,
         )
+
+    def _maybe_reattempt(self, result: dict[str, Any], do_request: Any, opt_in: bool) -> tuple[dict[str, Any], bool]:
+        """Disconnect handling: opt-in re-attempt or honest no-retry — RONDO-378.
+
+        REQ-109 r213 (MUST): "One visible retry BY CHOICE, never silent spend."
+        Default (opt_in False) returns the partial untouched — the caller
+        retries deliberately via `rondo retry`. Opt-in fires ONE extra attempt
+        (RONDO-334 semantics: keep whichever partial accumulated more) and the
+        caller surfaces it in the result envelope. Returns (result, reattempted).
+        """
+        if not result.get("disconnect_error"):
+            return result, False
+        if not opt_in:
+            logger.warning(
+                "-WARNING- stream disconnected — NOT re-attempting (REQ-109 r213: "
+                "opt in via stream_reattempt=True, or retry by choice with rondo retry)"
+            )
+            return result, False
+        logger.warning("-WARNING- stream disconnected — opt-in re-attempt firing (RONDO-334/378)")
+        second = retry_http(do_request, provider_name="anthropic")
+        return _best_of_disconnects(result, second), True
 
     def dispatch(self, prompt: str, model: str, **kwargs: Any) -> TaskResult:
         """Send prompt to Anthropic Messages API, return TaskResult.
@@ -278,14 +304,12 @@ class AnthropicAPIAdapter(ProviderAdapter):
 
         try:
             result = retry_http(_do_request, provider_name="anthropic")
-            # -- RONDO-334 (SOP-106): retry_http only retries on EXCEPTIONS;
-            # -- a mid-stream disconnect RETURNS (RONDO-323 preserves the
-            # -- partial), so it never retried. ONE automatic re-attempt;
-            # -- if both drop, keep whichever partial accumulated more.
-            if result.get("disconnect_error"):
-                logger.warning("-WARNING- stream disconnected — one automatic re-attempt (RONDO-334)")
-                second = retry_http(_do_request, provider_name="anthropic")
-                result = _best_of_disconnects(result, second)
+            # -- RONDO-334: retry_http only retries on EXCEPTIONS; a mid-stream
+            # -- disconnect RETURNS (RONDO-323 preserves the partial). RONDO-378:
+            # -- the re-attempt is OPT-IN (REQ-109 r213 — never silent spend).
+            result, reattempted = self._maybe_reattempt(
+                result, _do_request, bool(kwargs.get("stream_reattempt", self.stream_reattempt))
+            )
             breaker.record_success("anthropic")
             duration = time.monotonic() - start
 
@@ -309,11 +333,13 @@ class AnthropicAPIAdapter(ProviderAdapter):
                         f"{len(text)} chars accumulated ({result['disconnect_error']}) — "
                         f"partial output preserved; ~30-min connection ceiling suspected "
                         f"for very long thinking runs (REQ-109 req 215)"
+                        + (" — after one opt-in re-attempt (RONDO-378)" if reattempted else "")
                     ),
                     raw_output=text,
                     model=use_model,
                     duration_sec=duration,
                     auth_mode="api",
+                    metrics={"stream_reattempts": 1} if reattempted else {},
                 )
 
             # -- REQ-109 req 070: empty response = error
@@ -347,6 +373,8 @@ class AnthropicAPIAdapter(ProviderAdapter):
                 duration_sec=duration,
                 auth_mode="api",
                 cost_usd=cost,
+                # -- RONDO-378: an opt-in re-attempt is surfaced, never silent (r213)
+                metrics={"stream_reattempts": 1} if reattempted else {},
             )
         except urllib.error.HTTPError as exc:
             # -- REQ-109 req 068: distinct error codes by HTTP status
@@ -443,4 +471,4 @@ class AnthropicAPIAdapter(ProviderAdapter):
         return ["claude-opus-4-8", "claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"]
 
 
-# -- sig: mgh-6201.cd.bd955f.94f4.0d3eb3
+# -- sig: mgh-6201.cd.bd955f.94f4.2b7492

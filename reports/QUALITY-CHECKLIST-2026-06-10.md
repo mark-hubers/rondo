@@ -10,12 +10,14 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P0 — Release blockers (Cursor would block on these)
 
-- [ ] **1. Budget gate fails in production regimes** (cursor #1, HIGH, ✓v) — `parallel.py`
+- [x] **1. Budget gate fails in production regimes** (cursor #1, HIGH, ✓v) — `parallel.py`
       (a) probe wait 30s < real dispatch latency → all waiters fall through with est=0.0 → overrun;
       (b) `settle()` samples only `cost > 0` — Claude max-auth path costs 0 → `_have_sample` never
       flips → round silently serializes one-task-at-a-time. The RONDO-366 test used instant $1 mocks
       so it lies about this. Fix: sample on EVERY settle (cost>=0); probe wait must not fall back to
       est=0 (block or re-probe); Cursor test must cover slow + zero-cost regimes.
+      DONE 2026-06-10 (RONDO-373, 532ea62): no-fallthrough wait + settle(ok) sampling ($0 success IS
+      a sample). Cursor regime tests 2 RED → 3 GREEN; 40 regression green; twin-grep clean.
 - [x] **2. Breaker `_save_state` crashes Windows** (cursor #2, HIGH, ✓v) — `retry.py:286`
       unguarded `import fcntl` before try; `except` lacks ImportError. First breaker transition on
       Windows = hard crash in adapter error path. EXACT twin of the RONDO-367 audit fix. STD-110 r019.
@@ -26,18 +28,21 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P1 — High-value correctness
 
-- [ ] **3. MCP server stops crash-forensics after startup** (cursor #3, MED-HIGH, ✓v by design review)
+- [x] **3. MCP server stops crash-forensics after startup** (cursor #3, MED-HIGH, ✓v by design review)
       — `audit.py` RONDO-371 gate is once-per-PROCESS; long-lived MCP server never reconciles again.
       Fix: time-based re-claim (e.g. once per N minutes) or per-round gate, not process-lifetime.
-- [ ] **4. anthropic health lies on dead key** (cursor #4, MED, ✓v) — `anthropic_api.py:428` returns
+      DONE 2026-06-10 (RONDO-374, 0c5494e): time-based re-claim (_AUTO_RECONCILE_INTERVAL_SEC=300, monotonic); storm rail held. Cursor test 1 RED -> 2 GREEN.
+- [x] **4. anthropic health lies on dead key** (cursor #4, MED, ✓v) — `anthropic_api.py:428` returns
       healthy on 401/403. RONDO-357 fixed chat_completions only — twin missed. Align + one test per adapter.
+      DONE 2026-06-10 (RONDO-375, fa64091): mirrors RONDO-357 contract (401/403 unhealthy; 404/405/429 reachable). Cursor test 4 RED -> 14 GREEN.
 - [ ] **5. Silent double-spend re-attempt** (cursor #5, MED, ✓v; nuance: logged but not "by choice")
       — `anthropic_api.py:285` disconnect → silent second `retry_http` (up to 5 attempts) vs
       REQ-109 r213 MUST "never silent spend". Fix: config-gate it (default off or single attempt),
       surface in result envelope.
-- [ ] **6. Parallel round dies on unlisted exception type** (cursor #8, MED, ✓v) — `parallel.py:187`
+- [x] **6. Parallel round dies on unlisted exception type** (cursor #8, MED, ✓v) — `parallel.py:187`
       collector catches (OSError, ValueError, RuntimeError) only; worker KeyError/TypeError kills the
       whole round, violating REQ-101 r8 isolation. Fix: catch Exception in collector (log + error result).
+      DONE 2026-06-10 (RONDO-376, 5df8e21): collector catches Exception (KI/SystemExit stay fatal). Cursor test 2 RED -> 3 GREEN.
 
 ## P2 — Correctness, smaller blast radius
 
@@ -49,8 +54,9 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 - [ ] **9. `_scrub_dict` nested scrub untested** (mutation gate, security-reachable, ✓v) —
       `sanitize.py:521-526` return-None mutants survive; every task's parsed_result flows through it.
       Cursor test: nested dict/list secret actually scrubbed.
-- [ ] **10. open_until docstring says monotonic, code is wall-clock** (cursor #10, LOW, known/accepted)
+- [x] **10. open_until docstring says monotonic, code is wall-clock** (cursor #10, LOW, known/accepted)
       — fix the docstring (cheap honesty win), don't re-litigate the design.
+      DONE 2026-06-10 (RONDO-374 rider): comment now states wall-clock + NTP trade-off.
 
 ## P3 — DRY / architecture debt
 

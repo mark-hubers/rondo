@@ -22,6 +22,7 @@ import asyncio
 import json
 import logging
 import os
+import tempfile
 import threading
 import uuid
 from pathlib import Path
@@ -111,8 +112,12 @@ def _save_background_result(dispatch_id: str, result: dict) -> None:
     try:
         retry_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         retry_path = retry_dir / f"{dispatch_id}.json"
-        retry_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
-        retry_path.chmod(0o600)  # -- STD-110 S5: restrictive permissions
+        # -- RONDO-399 (mid-point #5, RONDO-393 twin): born 0o600 via mkstemp —
+        # -- the write_text-then-chmod window left the full payload at umask.
+        fd, tmp_name = tempfile.mkstemp(dir=retry_dir, prefix=f"{dispatch_id}.", suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(result, indent=2, default=str))
+        os.replace(tmp_name, retry_path)
         # -- Prune old retry files (keep max 50)
         retry_files = sorted(retry_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
         for old_file in retry_files[:-50]:
@@ -928,6 +933,13 @@ def _advisory_budget_refusal(plan: dict, prompt: str, model: str, max_budget: fl
     a plan whose token-estimate cost already exceeds it is a real, cheap gate.
     Returns the refusal envelope JSON, or None to proceed. Estimate failure →
     no gate (never fake a guarantee), logged at debug.
+
+    INTENTIONALLY CONSERVATIVE (mid-point #7): the estimate uses API pricing
+    even though host execution is often subscription-auth ($0 to rondo) — a
+    tiny max_budget can refuse work that would have been free. Wrong-side
+    refusals are the accepted trade: a caller who sets max_budget on an
+    advisory plan is asking for the strict reading; omit max_budget to skip
+    the gate entirely.
     """
     if max_budget <= 0:
         return None
@@ -943,13 +955,19 @@ def _advisory_budget_refusal(plan: dict, prompt: str, model: str, max_budget: fl
         return None
     if est_cost <= max_budget:
         return None
+    refusal_message = (
+        f"advisory plan refused at issuance: estimated cost ${est_cost:.4f} exceeds "
+        f"max_budget ${max_budget:.6f} (estimate-gated; actuals of host-executed work are not tracked)"
+    )
+    # -- RONDO-399 (mid-point #8): a budget refusal is a real enforcement
+    # -- event — it gets an audit trace like an issued plan does.
+    _audit_advisory_plan(
+        plan, prompt, model, status="refused", error_code="ERR_BUDGET_EXCEEDED", error_message=refusal_message
+    )
     return json.dumps(
         build_error_envelope(
             error_code="ERR_BUDGET_EXCEEDED",
-            error_message=(
-                f"advisory plan refused at issuance: estimated cost ${est_cost:.4f} exceeds "
-                f"max_budget ${max_budget:.6f} (estimate-gated; actuals of host-executed work are not tracked)"
-            ),
+            error_message=refusal_message,
             context={"model": model, "engine": str(plan.get("engine", ""))},
         ),
         indent=2,
@@ -960,18 +978,29 @@ def _advisory_budget_refusal(plan: dict, prompt: str, model: str, max_budget: fl
 _ADVISORY_OUTPUT_TOKEN_BUDGET = 2000
 
 
-def _audit_advisory_plan(plan: dict, prompt: str, model: str) -> None:
+def _audit_advisory_plan(
+    plan: dict,
+    prompt: str,
+    model: str,
+    *,
+    status: str = "advisory",
+    error_code: str | None = None,
+    error_message: str = "",
+) -> None:
     """RONDO-394 (8.2): an advisory plan IS a dispatch event — put it on the audit trail.
 
     Order (design review §6): record INTENT → inject its dispatch_id into the
     plan (Caliber Stop-hook token ↔ audit record correlation) → record the
     paired OUTCOME with the honest status "advisory" (rondo never observes the
     host-side execution; this is "plan returned", not a fake completion).
+    RONDO-399 (mid-point #8): status="refused" records a budget-gate refusal
+    the same way — a refusal is an enforcement event, not a non-event.
     Sanitize-on-persist only: record_intent/record_outcome scrub their stored
     copies; the RETURNED plan keeps the raw prompt for the authorized host.
     Fail-open + loud (STD-113 §20): an audit failure never blocks the plan.
     """
     engine_kind = str(plan.get("engine", ""))
+    issued = status == "advisory"
     try:
         trail = AuditTrail(config=AuditConfig(), auto_reconcile=False)
         record = trail.record_intent(
@@ -987,15 +1016,21 @@ def _audit_advisory_plan(plan: dict, prompt: str, model: str) -> None:
             task_name=f"advisory-{engine_kind}",
             round_name="advisory",
             model=model or str(plan.get("model", "")),
-            status="advisory",
-            exit_code=0,
+            status=status,
+            exit_code=0 if issued else 1,
+            error_code=error_code,
+            error_message=error_message,
             cost_usd=0.0,
             duration_sec=0.0,
-            raw_output=json.dumps(plan, indent=2),
+            raw_output=json.dumps(plan, indent=2) if issued else "",
             engine=engine_kind,
             # -- design review watch-out C: a benign note so forensics rules
             # -- never read this non-done status as an unexplained failure.
-            blocked_reason="advisory plan returned to host (delegated execution; no result observed)",
+            blocked_reason=(
+                "advisory plan returned to host (delegated execution; no result observed)"
+                if issued
+                else "advisory plan refused at issuance by the estimate budget gate"
+            ),
         )
     except Exception as exc:  # noqa: BLE001  -- STD-113 §20: audit failure never blocks dispatch
         logger.warning(

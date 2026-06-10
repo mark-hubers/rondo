@@ -196,6 +196,12 @@ def _pytest_runner(tests: str, timeout_sec: int = 0) -> Callable[[], bool]:
     run; a TimeoutExpired (hung suite) counts as CAUGHT — a mutant that hangs
     the tests has visibly broken the code; that is detection, not survival.
     timeout_sec=0 keeps the historical unbounded behavior.
+
+    OPERATOR CONTRACT (mid-point #10): choose timeout_sec WELL ABOVE the
+    UNMUTATED suite's runtime (rule of thumb: 5-10x baseline). A timeout on a
+    merely-slow suite is scored "caught" — that inflates the kill rate, so a
+    too-tight timeout lies in the safe-looking direction. Time the baseline
+    first; the -CAUGHT- timeout lines in the output make audit possible.
     """
 
     def _run() -> bool:

@@ -276,13 +276,20 @@ class _BudgetGate:
             return 0.0
         with self._cond:
             # -- Cold start PER CLASS: the first task of an unsampled class
-            # -- probes alone (its peers wait); other classes are unaffected.
+            # -- probes alone (its peers wait); SAMPLED classes are unaffected.
+            # -- RONDO-399 (mid-point #3): at most ONE blind probe round-wide —
+            # -- without the any() leg, K unsampled classes each reserved est 0
+            # -- concurrently (0+0+0 > cap is false), re-opening a (K-1)×probe
+            # -- blind-admit window. One blind dispatch at a time was the
+            # -- original gate's invariant; per-class estimates keep it.
             # -- RONDO-373 #1a: NO fallthrough on timeout — settle() always fires
             # -- (worker try/finally), so the loop re-checks until this class's
             # -- probe settles or fails (its inflight drops to 0 and the next
             # -- caller of the class becomes the new probe). The timeout is only
             # -- a spurious-wakeup guard, never an admit-blind escape hatch.
-            while class_key not in self._sampled and self._inflight.get(class_key, 0) > 0:
+            while class_key not in self._sampled and any(
+                count > 0 for cls, count in self._inflight.items() if cls not in self._sampled
+            ):
                 self._cond.wait(timeout=_GATE_PROBE_WAIT_SEC)
             est = self._estimates.get(class_key, 0.0) if class_key in self._sampled else 0.0
             # -- Cap accounting stays GLOBAL: one cap per round, all classes.

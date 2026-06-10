@@ -70,8 +70,23 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
 - [x] **8.9 STD-115 scope honesty** (R7, LOW) — DONE (098d3ff): SECURITY.md "Spec scope
       honesty" section — BUILT (quarantine store, withholding, advisory scope marking, each
       with judge) vs DESIGNED-NOT-BUILT (lifecycle reqs 001-021), consumer warning explicit.
-- [ ] **8.10 ⛳ Mid-point deep review** — Cursor hostile pass over 8.1-8.5 diffs
-      specifically (fresh eyes on the new quarantine + lock code BEFORE the re-score).
+- [x] **8.10 ⛳ Mid-point deep review** — DONE (reports/cursor-reviews/
+      midpoint-review-20260610-road-to-8.md): 11 findings, 1 blocker. Disposition
+      (RONDO-399):
+      - FIXED: #1 HIGH prompt_sent left raw by quarantine redaction (the blocker —
+        re-opened STD-104 r023 on the fail path); #2 RecursionError in the quarantine
+        WRITE escaped before redaction; #3 K-probe blind-admit window (one blind probe
+        round-wide restored); #5 _save_background_result chmod window; #8 refused plans
+        now audited (status="refused"); #9 matrix cell output born 0o600.
+      - DOCUMENTED (accepted trade): #7 estimate gate intentionally conservative
+        (can refuse free work — strict reading when max_budget is set); #10 mutate
+        timeout must be >> baseline (operator contract in docstring).
+      - ACKNOWLEDGED, kept as-is with rationale: #4 idempotency lookup stays
+        post-routing — correctness (no cross-mode cache serve) over fast-path latency;
+        routing is pure CPU, and a route error preempting a cached result is MORE
+        honest, not less. #6 TypeError/ValueError still count against the breaker —
+        a malformed-but-200 payload IS a provider-degradation signal (judge-pinned);
+        revisit if false trips appear. #11 advisory audit IO volume — watch item.
 - [ ] **8.11 ⛳ Full re-score** (same instrument/prompt lineage) — target ≥7.5. Record.
 - [ ] **8.12 The privateness floor — MARK'S DECISION** — both reviews said the score is
       partly capped by private/unproven status. 8/10 likely requires the publish step

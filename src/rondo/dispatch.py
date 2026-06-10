@@ -826,16 +826,25 @@ def _quarantine_scrub_failure(result: TaskResult, exc: Exception) -> None:
         fd, qpath = tempfile.mkstemp(dir=qdir, prefix="quarantine-", suffix=".json")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump({"sanitize_error": error_detail, "result": asdict(result)}, fh, indent=2, default=str)
-    except (OSError, TypeError, ValueError) as write_exc:
+    except Exception as write_exc:  # noqa: BLE001  -- redaction below MUST run (mid-point review #2)
+        # -- The same RecursionError that defeated sanitize would recurse again
+        # -- in asdict/json.dump here — (OSError, TypeError, ValueError) let it
+        # -- escape BEFORE redaction, leaving the result raw. Any write failure
+        # -- drops the payload; redaction wins over retention.
         logger.error(
-            "-ERROR- quarantine write FAILED for '%s' (%s) — unscrubbed payload DROPPED from all stores (redaction wins over retention)",
+            "-ERROR- quarantine write FAILED for '%s' (%s: %s) — unscrubbed payload DROPPED from all stores (redaction wins over retention)",
             result.task_name,
+            type(write_exc).__name__,
             write_exc,
         )
         qpath = ""
+    # -- Redact EVERY field sanitize_task_result scrubs (mid-point review #1:
+    # -- prompt_sent was left raw — a secret in the prompt reached spool/
+    # -- history/envelope on the fail path, re-opening the STD-104 r023 hole).
     result.raw_output = _QUARANTINE_STUB
     result.parsed_result = None
     result.stderr = ""
+    result.prompt_sent = _QUARANTINE_STUB
     result.metrics["sanitize_failed"] = True
     result.context_data["sanitize_error"] = error_detail
     result.context_data["quarantine_file"] = qpath

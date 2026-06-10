@@ -195,4 +195,67 @@ def test_clean_path_creates_no_quarantine(tmp_path, caplog, monkeypatch) -> None
     assert not warnings, "no quarantine/sanitize WARNING should be logged on the happy path"
 
 
+# -- Claude top-ups (labeled, RONDO-399): pins for mid-point review findings
+# -- #1 and #2 (reports/cursor-reviews/midpoint-review-20260610-road-to-8.md).
+
+
+def test_prompt_sent_is_redacted_too(tmp_path, monkeypatch) -> None:
+    """Mid-point #1 (HIGH): prompt_sent is in sanitize's scrub set — it must be stubbed.
+
+    The original redaction stubbed raw_output/parsed_result/stderr but left
+    prompt_sent raw, so a secret in the PROMPT reached spool/history/envelope
+    on the fail path (re-opening STD-104 r023). Every field sanitize scrubs
+    must be redacted on scrub failure.
+    """
+    monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+    result = _build_result()
+    result.prompt_sent = f"prompt with secret {_SECRET_RAW}"
+    usage = DispatchUsage(task_name=result.task_name, model=result.model)
+    config = _build_config(tmp_path, spool=True)
+
+    with mock.patch(_SANITIZE_TARGET, side_effect=TypeError("boom")):
+        finalized, _usage = finalize_dispatch(result, usage, config, None, None)
+
+    assert _SECRET_RAW not in str(finalized.prompt_sent), "prompt_sent must be redacted on scrub failure"
+    assert "quarantin" in str(finalized.prompt_sent).lower(), "prompt_sent should carry the quarantine stub"
+    # -- the quarantine store still preserves the original (never-lose-data)
+    files = _quarantine_files(tmp_path)
+    assert files and _SECRET_RAW in files[0].read_text(encoding="utf-8")
+    # -- and the spool write (asdict includes prompt_sent) must not leak it
+    spool_dir = tmp_path / "spool"
+    leaked = [
+        f
+        for f in spool_dir.rglob("*")
+        if f.is_file() and _SECRET_RAW in f.read_text(encoding="utf-8", errors="replace")
+    ]
+    assert not leaked, f"spool must not contain the raw prompt, found in: {leaked}"
+
+
+def test_redaction_survives_quarantine_write_recursionerror(tmp_path, monkeypatch) -> None:
+    """Mid-point #2 (MED): a RecursionError in the quarantine WRITE must not defeat redaction.
+
+    The same deeply-nested structure that crashed sanitize recurses again in
+    json.dump inside the quarantine writer; the old narrow write-except let it
+    escape BEFORE the redaction lines ran — finalize crashed with the result
+    still raw. Redaction must win even when the quarantine write itself dies.
+    """
+    monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))
+    result = _build_result()
+    usage = DispatchUsage(task_name=result.task_name, model=result.model)
+    config = _build_config(tmp_path)
+
+    def _recursing_dump(*_args: object, **_kwargs: object) -> None:
+        raise RecursionError("maximum recursion depth exceeded in json.dump")
+
+    with (
+        mock.patch(_SANITIZE_TARGET, side_effect=RecursionError("too deep")),
+        mock.patch("rondo.dispatch.json.dump", _recursing_dump),
+    ):
+        finalized, _usage = finalize_dispatch(result, usage, config, None, None)
+
+    assert _SECRET_RAW not in str(finalized.raw_output), "redaction must run even when the quarantine write fails"
+    assert finalized.metrics.get("sanitize_failed") is True
+    assert finalized.context_data.get("quarantine_file") == "", "failed write must record an empty quarantine ref"
+
+
 # -- sig: mgh-6201.cd.bd955f.4d4e.c45c7f

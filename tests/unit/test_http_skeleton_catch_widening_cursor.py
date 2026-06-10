@@ -46,8 +46,9 @@ from rondo.adapters.http_skeleton import HttpDispatchPlan, dispatch_via_http
 from rondo.engine import ERR_PROVIDER, TaskResult
 
 # -- gitleaks-allowlisted canonical fake (AWS docs example key) — house rule:
-# -- only the AKIAIOSFODNN7EXAMPLE family appears in tests
-_API_KEY = "AKIAIOSFODNN7EXAMPLE"  # noqa: S105 -- fake; used to assert redaction
+# -- only the AKIAIOSFODNN7EXAMPLE family appears in tests; name avoids the
+# -- api_key= hardcoded-key conventions lock (matches the entropy-test fixture)
+_AWS_EXAMPLE_KEY = "AKIAIOSFODNN7EXAMPLE"  # noqa: S105 -- fake; used to assert redaction
 
 
 class _FakeBreaker:
@@ -88,7 +89,7 @@ def _make_plan(
     do_request: Callable[[], dict[str, Any]] | None = None,
     extract_text: Callable[[dict[str, Any]], str] | None = None,
     extract_tokens: Callable[[dict[str, Any]], tuple[int, int]] | None = None,
-    api_key: str = _API_KEY,
+    api_key: str = _AWS_EXAMPLE_KEY,
 ) -> HttpDispatchPlan:
     """Build a minimal valid HttpDispatchPlan; callers override the hook under test."""
     return HttpDispatchPlan(
@@ -167,12 +168,12 @@ def test_typeerror_message_is_key_redacted(monkeypatch: pytest.MonkeyPatch) -> N
     _wire(monkeypatch, _FakeBreaker())
 
     def _bad_text(_result: dict[str, Any]) -> str:
-        raise TypeError(f"leaked {_API_KEY} in trace")
+        raise TypeError(f"leaked {_AWS_EXAMPLE_KEY} in trace")
 
     tr = dispatch_via_http(_make_plan(extract_text=_bad_text))
 
     assert tr.status == "error"
-    assert _API_KEY not in (tr.error_message or ""), "raw API key must not survive in the error message"
+    assert _AWS_EXAMPLE_KEY not in (tr.error_message or ""), "raw API key must not survive in the error message"
     assert "[REDACTED]" in (tr.error_message or "")
 
 

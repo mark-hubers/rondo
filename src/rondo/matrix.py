@@ -26,6 +26,7 @@ import json
 import logging
 import os
 import statistics
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -224,6 +225,25 @@ def _load_or_init_manifest(spec: MatrixSpec, out_dir: Path, cells: list[dict[str
     return manifest
 
 
+def _write_cell_output(out_dir: Path, safe_stem: str, output: str) -> None:
+    """Per-cell output file, born 0o600 — RONDO-399 (mid-point #9, RONDO-393 twin).
+
+    Raw model output never sits an instant at umask perms: mkstemp births the
+    temp restrictive, os.replace carries the mode to {safe_stem}.txt.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=out_dir, prefix=f"{safe_stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(output)
+        os.replace(tmp_name, out_dir / f"{safe_stem}.txt")
+    except OSError:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
 def run_matrix(
     spec: MatrixSpec,
     *,
@@ -283,7 +303,7 @@ def run_matrix(
             group = _group_key(cell)
             stem = f"{code_by_group[group]}-r{cell['replicate']}" if spec.blind else cell["key"].replace("|", "_")
             safe_stem = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in stem)
-            (out_dir / f"{safe_stem}.txt").write_text(str(result.get("output", "")), encoding="utf-8")
+            _write_cell_output(out_dir, safe_stem, str(result.get("output", "")))
             record["file"] = f"{safe_stem}.txt"
         except (OSError, ValueError, TypeError, RuntimeError) as exc:
             # -- req 023: one cell's failure never aborts the run

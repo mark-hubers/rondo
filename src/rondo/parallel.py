@@ -184,8 +184,12 @@ def _collect_future(
     """Collect result from a completed future. Converts exceptions to error results."""
     try:
         return future.result()
-    except (OSError, ValueError, RuntimeError) as exc:
-        # -- Rondo-STD-110 C7: exception in thread → error result, not crash
+    except Exception as exc:  # noqa: BLE001  -- isolation boundary, see below
+        # -- Rondo-STD-110 C7 + REQ-101 r8: ANY task exception → error result,
+        # -- not a crashed round. RONDO-376 (cursor holistic #8): the old narrow
+        # -- (OSError, ValueError, RuntimeError) let a KeyError/TypeError from
+        # -- one task's routing kill ALL tasks' results. Exception (not
+        # -- BaseException): KeyboardInterrupt/SystemExit stay fatal on purpose.
         logger.warning("Thread exception for task %s: %s", task_name, exc)
         return (
             TaskResult(
@@ -363,4 +367,4 @@ def _dispatch_worker(
     return tr, usage
 
 
-# -- sig: mgh-6201.cd.bd955f.1e5a.08f214
+# -- sig: mgh-6201.cd.bd955f.1e5a.0ce26b

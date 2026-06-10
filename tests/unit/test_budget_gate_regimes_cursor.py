@@ -32,10 +32,9 @@ import threading
 import time
 from unittest.mock import patch
 
+import rondo.parallel as parallel
 from rondo.config import RondoConfig
 from rondo.engine import DispatchUsage, Round, Task, TaskResult
-
-import rondo.parallel as parallel
 from rondo.parallel import run_parallel
 
 # -- Slow-probe regime: the probe dispatch (0.6s) is far slower than the wait

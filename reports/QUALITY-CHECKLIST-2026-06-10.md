@@ -24,7 +24,7 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
       DONE 2026-06-10 (RONDO-372): guarded import + single-writer `_persist_payload` fallback; Cursor
       test 3 RED → 3 GREEN. **Twin-grep found a THIRD twin Cursor missed: `audit.py rotate()`** —
       also fixed (guarded `_fcntl`, conditional lock), Cursor rotate test stash-proven 2 RED → 2 GREEN.
-      Awaiting full build (held until mutation sweep releases the tree) + commit.
+      Committed: RONDO-372 (1a7f716), build 2304 green.
 
 ## P1 — High-value correctness
 
@@ -35,10 +35,11 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 - [x] **4. anthropic health lies on dead key** (cursor #4, MED, ✓v) — `anthropic_api.py:428` returns
       healthy on 401/403. RONDO-357 fixed chat_completions only — twin missed. Align + one test per adapter.
       DONE 2026-06-10 (RONDO-375, fa64091): mirrors RONDO-357 contract (401/403 unhealthy; 404/405/429 reachable). Cursor test 4 RED -> 14 GREEN.
-- [ ] **5. Silent double-spend re-attempt** (cursor #5, MED, ✓v; nuance: logged but not "by choice")
+- [x] **5. Silent double-spend re-attempt** (cursor #5, MED, ✓v; nuance: logged but not "by choice")
       — `anthropic_api.py:285` disconnect → silent second `retry_http` (up to 5 attempts) vs
       REQ-109 r213 MUST "never silent spend". Fix: config-gate it (default off or single attempt),
       surface in result envelope.
+      DONE 2026-06-10 (RONDO-378, b73a71a + fixup): opt-in stream_reattempt (default OFF per r213), surfaced via metrics. Cursor test 2 RED -> 3 GREEN. Old RONDO-334 tests updated — they pinned the violation.
 - [x] **6. Parallel round dies on unlisted exception type** (cursor #8, MED, ✓v) — `parallel.py:187`
       collector catches (OSError, ValueError, RuntimeError) only; worker KeyError/TypeError kills the
       whole round, violating REQ-101 r8 isolation. Fix: catch Exception in collector (log + error result).
@@ -46,14 +47,16 @@ Legend: `[ ]` open · `[x]` done · severity from the hostile review · ✓v = c
 
 ## P2 — Correctness, smaller blast radius
 
-- [ ] **7. Breaker load-path signature TOCTOU** (cursor #7, MED, ✓v) — `retry.py:437` `_record_mtime()`
+- [x] **7. Breaker load-path signature TOCTOU** (cursor #7, MED, ✓v) — `retry.py:437` `_record_mtime()`
       stats AFTER `read_text`; peer write between them makes sig describe unread bytes → missed reload.
       Fix: stat before read, or derive sig from the read bytes.
+      DONE 2026-06-10 (RONDO-379, e3595f6): signature captured BEFORE read; mid-window peer write now forces one converging reload. Cursor test 1 RED -> 2 GREEN.
 - [ ] **8. Gemini thinking-token cost undercount** (cursor #9, LOW-MED, ✓v) — `gemini.py:156` ignores
       `thoughtsTokenCount` → budget gate fed low numbers on exactly the expensive runs.
-- [ ] **9. `_scrub_dict` nested scrub untested** (mutation gate, security-reachable, ✓v) —
+- [x] **9. `_scrub_dict` nested scrub untested** (mutation gate, security-reachable, ✓v) —
       `sanitize.py:521-526` return-None mutants survive; every task's parsed_result flows through it.
       Cursor test: nested dict/list secret actually scrubbed.
+      DONE 2026-06-10 (RONDO-377, f9a5690): Cursor test 4/4; bin/mutate 27/36 -> 30/36, all four _scrub_dict survivors killed.
 - [x] **10. open_until docstring says monotonic, code is wall-clock** (cursor #10, LOW, known/accepted)
       — fix the docstring (cheap honesty win), don't re-litigate the design.
       DONE 2026-06-10 (RONDO-374 rider): comment now states wall-clock + NTP trade-off.

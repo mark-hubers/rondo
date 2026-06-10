@@ -153,7 +153,11 @@ class GeminiAdapter(ProviderAdapter):
 
             usage = result.get("usageMetadata", {})
             input_tokens = usage.get("promptTokenCount", 0)
-            output_tokens = usage.get("candidatesTokenCount", 0)
+            # -- RONDO-380 (cursor holistic #9): Gemini 2.5 bills THINKING tokens
+            # -- as output but reports them in a separate thoughtsTokenCount —
+            # -- excluding them undercounted cost on exactly the expensive
+            # -- thinking runs and fed the budget gate (RONDO-373) low numbers.
+            output_tokens = usage.get("candidatesTokenCount", 0) + usage.get("thoughtsTokenCount", 0)
             cost = compute_cost_usd(use_model, input_tokens, output_tokens)
 
             return TaskResult(
@@ -239,4 +243,4 @@ class GeminiAdapter(ProviderAdapter):
         return [self.default_model]
 
 
-# -- sig: mgh-6201.cd.bd955f.f3f3.b49e0e
+# -- sig: mgh-6201.cd.bd955f.f3f3.37e5db

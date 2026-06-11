@@ -172,6 +172,35 @@ def test_r021_envelope_carries_verification(tmp_path) -> None:
     assert len(ver.get("checked_files", [])) > 0
 
 
+def test_r023_verify_block_placeholder_substitution(tmp_path) -> None:
+    """RONDO-412: {{inputs.X}} inside a verify block IS substituted before the check.
+
+    Labeled Claude test — closes REQ-115's documented v1 gap so the flagship
+    pipeline (which verifies {{inputs.workspace}}/file) actually works.
+    """
+    yaml_content = textwrap.dedent("""\
+        name: test
+        budget_usd: 1.0
+        steps:
+          - name: step1
+            prompt: "do it"
+            verify:
+              files: ["{{inputs.ws}}/made.txt"]
+    """)
+    p = tmp_path / "pipe.yaml"
+    p.write_text(yaml_content)
+    pipeline = load_pipeline(p)
+    target = tmp_path / "made.txt"
+
+    def mock_dispatch(prompt, model):
+        target.write_text("real")
+        return {"status": "done", "raw_output": "done", "cost_usd": 0.01}
+
+    res = run_pipeline(pipeline, inputs={"ws": str(tmp_path)}, dispatch=mock_dispatch)
+    assert res["steps"][0]["status"] == "done"
+    assert res["steps"][0]["verification"]["ok"] is True
+
+
 def test_r022_no_verify_no_regression(tmp_path) -> None:
     """Rondo-REQ-115 r022: a step without verify behaves exactly as before."""
     yaml_content = textwrap.dedent("""\

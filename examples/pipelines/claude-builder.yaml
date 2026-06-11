@@ -30,6 +30,8 @@ steps:
       python3 -c "import sys; sys.path.insert(0,'{{inputs.workspace}}'); import todo; todo.add_task('x'); print(todo.list_tasks())"
       Set passed=true ONLY if that command actually ran clean; on any error
       set passed=false and list the error in issues.
+    verify:
+      files: ["{{inputs.workspace}}/todo.py"]
 
   - name: cli_interface
     model: "sonnet"
@@ -71,6 +73,9 @@ steps:
       Use tmp_path/monkeypatch so tests never touch the real todos.json.
       VERIFY by running: python3 -m pytest {{inputs.workspace}}/test_todo.py -q
       passed=true ONLY if pytest exited 0; report the test count in result.
+    verify:
+      files: ["{{inputs.workspace}}/test_todo.py"]
+      cmd: ["python3", "-m", "pytest", "{{inputs.workspace}}/test_todo.py", "-q"]
 
   - name: hostile_self_review
     model: "sonnet"

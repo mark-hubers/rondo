@@ -394,12 +394,45 @@ def _self_reported_failure(step: PipelineStep, raw_output: str) -> str:
     return ""
 
 
-def _run_verification(step: PipelineStep) -> dict[str, Any]:
+def _resolve_verify(step: PipelineStep, inputs: dict[str, str], outputs: dict[str, tuple[str, bool]]) -> dict[str, Any]:
+    """RONDO-412: substitute {{inputs.X}}/{{steps.X.output}} inside the verify block.
+
+    Closes REQ-115's documented v1 gap — the flagship verifies
+    {{inputs.workspace}}/file and must resolve it like any other placeholder.
+    Single-pass, same engine as _resolve_prompt (no re-expansion).
+    """
+
+    def _sub(text: str) -> str:
+        def _one(match: re.Match[str]) -> str:
+            token = match.group(1)
+            if token.startswith("inputs."):
+                return inputs.get(token[len("inputs.") :], match.group(0))
+            parts = token.split(".")
+            return outputs[parts[1]][0] if len(parts) > 1 and parts[1] in outputs else match.group(0)
+
+        return _PLACEHOLDER.sub(_one, text)
+
+    verify = dict(step.verify or {})
+    verify["files"] = [_sub(f) for f in verify.get("files", [])]
+    if verify.get("cmd"):
+        verify["cmd"] = [_sub(c) for c in verify["cmd"]]
+    return verify
+
+
+def _run_verification(
+    step: PipelineStep, inputs: dict[str, str], outputs: dict[str, tuple[str, bool]]
+) -> dict[str, Any]:
     """REQ-115 r020: rondo observes the world ITSELF (shared core in rondo.verify)."""
-    return run_verification(step.verify or {}, cwd=step.add_dir)
+    return run_verification(_resolve_verify(step, inputs, outputs), cwd=step.add_dir)
 
 
-def _run_step(step: PipelineStep, prompt: str, dispatch: DispatchFn) -> dict[str, Any]:
+def _run_step(
+    step: PipelineStep,
+    prompt: str,
+    dispatch: DispatchFn,
+    inputs: dict[str, str],
+    outputs: dict[str, tuple[str, bool]],
+) -> dict[str, Any]:
     """Dispatch one step with retries + contract + self-report gates — reqs 005/022."""
     record: dict[str, Any] = {"name": step.name, "status": "error", "raw_output": "", "cost_usd": 0.0, "error": ""}
     for attempt in range(step.retries + 1):
@@ -419,7 +452,7 @@ def _run_step(step: PipelineStep, prompt: str, dispatch: DispatchFn) -> dict[str
             continue  # -- a contract failure is retryable too (req 022)
         if step.verify is not None:
             # -- REQ-115 r020: rondo's OWN observation outranks every claim above
-            verification = _run_verification(step)
+            verification = _run_verification(step, inputs, outputs)
             record["verification"] = verification
             if not verification["ok"]:
                 record["error"] = verification["error"]
@@ -477,7 +510,7 @@ def run_pipeline(
             status = "error"
             pipeline_error = str(exc)
             break
-        record = _run_step(step, prompt, dispatch)
+        record = _run_step(step, prompt, dispatch, inputs, outputs)
         records.append(record)
         spent += record["cost_usd"]
         high_cost = max(high_cost, record["cost_usd"])

@@ -51,8 +51,10 @@ Owner: Mark Hubers. **Nothing goes public/GitHub without Mark's explicit word.**
 | Verification map | `specs/Rondo-VER-100-verification.md` |
 
 ## Mark (accessibility — CRITICAL)
-- Usher Syndrome Type 2: legally blind + deaf. **No blue links** — use
-  `→ LINK: url` in code blocks. High contrast. Short paragraphs. Terminal over GUI.
+- Mark has Usher Syndrome Type 2 (openly disclosed — see "Why It's Built
+  This Way" in README.md; it is rondo's design spec, not a footnote).
+- **No blue links** — use `→ LINK: url` in code blocks. High contrast.
+  Short paragraphs. Terminal over GUI. Warn before anything opens a window.
 - Types fast, spelling suffers: read intent, show "Got it:" + clean version, never
   slow him down. Plain-English parentheses after jargon.
 - The frozen original lives at `~/git/mhubers/ace2/rondo/` (POINTER.md there).

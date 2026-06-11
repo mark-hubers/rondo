@@ -130,6 +130,17 @@ commits bb36129/cf32913/554ec2f), all judges RED→GREEN, build 6/6.
       (GitHub go, PyPI name, CI incl. Windows runner — which would also EXECUTE our Windows
       fixes for the first time). Nothing goes public without Mark's explicit word; this item
       exists so the cap is never forgotten in scoring talk.
+      **PREP DONE 2026-06-10 (Mark's ruling: open USH disclosure — "not shy"):**
+      - README "Why It's Built This Way" — the accessibility origin story in Mark's
+        framing, as design spec not footnote. This makes CLAUDE.md's history a non-issue:
+        **NO history rewrite needed, ever** — nothing touched, nothing to explain.
+      - Deep public-safety scan CLEAN: full-history gitleaks → 13 hits, all provably fake
+        sanitize-test fixtures, hand-inspected + allowlisted in .gitleaksignore (a
+        stranger's scan now returns zero). No email/PII/key-fragments anywhere.
+        SESSION-HISTORY.md audited: no personal info, publishable (Mark's taste call).
+      - REMAINING when Mark says GO: create PRIVATE GitHub repo → push → stranger-lens
+        review there → PyPI name pick (rondo-ai / rondo-dispatch) → CHANGELOG + SemVer →
+        CI matrix → flip public. Reversible at every step until the flip.
 
 ---
 **Honesty note on "better than 90% of solo GitHub projects":** on the dimensions a hostile

@@ -221,6 +221,31 @@ The examples are used as test fixtures (`tests/integration/test_api_examples.py`
 
 ---
 
+## Why It's Built This Way
+
+Rondo was built by Mark Hubers, who is legally blind and deaf (Usher
+Syndrome Type 2 — a 5-10 degree window of central vision, hearing that
+works in quiet rooms only). That isn't a footnote; it's the design spec.
+
+When you can't glance at a screen to check what happened, software has to
+PROVE what happened:
+
+- **Terminal-first, no GUI surprises** — an unexpected window is an
+  invisible window.
+- **Loud `-PASS-` / `-ERROR-` / `-WARNING-` prefixes, high contrast** —
+  built for narrow-field scanning, useful to everyone at 2 AM.
+- **Audit-everything, never lose data** — you can't visually re-scan a
+  wall of scrollback; the JSONL trail has to be the memory.
+- **Honesty engineering** — error envelopes on every failure, partial
+  results preserved, mutation-tested tests, AIs cross-checking AIs with
+  mechanical referees. Trust built on proof, because trust built on
+  watching was never an option.
+
+Accessibility constraints made the design stricter, and the strictness is
+what makes it dependable for everyone else.
+
+---
+
 ## Documentation Map
 
 - Quick start and core usage: `docs/GETTING-STARTED.md`

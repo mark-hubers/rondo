@@ -34,7 +34,19 @@ import yaml
 logger = logging.getLogger(__name__)
 
 _TOP_FIELDS = {"name", "budget_usd", "steps"}
-_STEP_FIELDS = {"name", "prompt", "model", "expect", "on_fail", "retries", "tools", "max_turns", "add_dir", "timeout"}
+_STEP_FIELDS = {
+    "name",
+    "prompt",
+    "model",
+    "expect",
+    "on_fail",
+    "retries",
+    "tools",
+    "max_turns",
+    "add_dir",
+    "timeout",
+    "verify",
+}
 _ON_FAIL = {"stop", "continue"}
 _MAX_RETRIES = 2
 _PLACEHOLDER = re.compile(r"\{\{\s*([^{}\s]+)\s*\}\}")
@@ -64,6 +76,8 @@ class PipelineStep:
     max_turns: int = 0
     add_dir: str = ""
     timeout: int = 0  # -- per-step dispatch timeout seconds; 0 = dispatch default
+    # -- RONDO-409 (REQ-115): rondo-checked postconditions — the anti-lying layer
+    verify: dict[str, Any] | None = None
 
 
 @dataclass
@@ -128,6 +142,30 @@ def _validate_step_options(raw_step: dict, name: str) -> tuple[str, int, int, in
     return on_fail, retries, max_turns, timeout, expect
 
 
+_VERIFY_FIELDS = {"files", "cmd", "expect_exit", "within_sec"}
+
+
+def _validate_verify(verify: Any, name: str) -> dict[str, Any] | None:
+    """REQ-115 reqs 001/003: verify block shape — cmd is an argv LIST, never a shell string."""
+    if verify is None:
+        return None
+    if not isinstance(verify, dict) or not set(verify) <= _VERIFY_FIELDS or not verify:
+        raise PipelineError(f"step '{name}': verify must use only {sorted(_VERIFY_FIELDS)}")
+    files = verify.get("files", [])
+    if not isinstance(files, list) or not all(isinstance(f, str) for f in files):
+        raise PipelineError(f"step '{name}': verify.files must be a list of paths")
+    cmd = verify.get("cmd")
+    if cmd is not None and (not isinstance(cmd, list) or not all(isinstance(c, str) for c in cmd)):
+        raise PipelineError(f"step '{name}': verify.cmd must be an argv LIST (never a shell string)")
+    expect_exit = verify.get("expect_exit", 0)
+    if not isinstance(expect_exit, int):
+        raise PipelineError(f"step '{name}': verify.expect_exit must be an int")
+    within = verify.get("within_sec", 120)
+    if not isinstance(within, int) or within <= 0:
+        raise PipelineError(f"step '{name}': verify.within_sec must be a positive int")
+    return {"files": files, "cmd": cmd, "expect_exit": expect_exit, "within_sec": within}
+
+
 def _validate_step(raw_step: Any, index: int, prior_names: set[str]) -> PipelineStep:
     """Validate one step mapping — reqs 002-004."""
     if not isinstance(raw_step, dict):
@@ -149,6 +187,7 @@ def _validate_step(raw_step: Any, index: int, prior_names: set[str]) -> Pipeline
         max_turns=max_turns,
         add_dir=str(raw_step.get("add_dir", "") or ""),
         timeout=timeout,
+        verify=_validate_verify(raw_step.get("verify"), name),
     )
 
 
@@ -373,6 +412,49 @@ def _self_reported_failure(step: PipelineStep, raw_output: str) -> str:
     return ""
 
 
+def _run_verification(step: PipelineStep) -> dict[str, Any]:
+    """REQ-115 r020: rondo observes the world ITSELF — files + verify cmd.
+
+    The model's success claim cannot override this. Returns
+    {"ok", "exit_code", "checked_files", "error"} with sha256 evidence.
+    """
+    import hashlib  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+    import subprocess  # noqa: PLC0415  # nosec B404 -- locally-authored argv, shell=False  # pylint: disable=import-outside-toplevel
+
+    verify = step.verify or {}
+    result: dict[str, Any] = {"ok": True, "exit_code": None, "checked_files": [], "error": ""}
+    for path_str in verify.get("files", []):
+        path = Path(path_str)
+        if not path.is_file():
+            result["ok"] = False
+            result["error"] = f"ERR_VERIFICATION: declared file missing: {path_str}"
+            result["checked_files"].append({"path": path_str, "exists": False})
+            continue
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+        result["checked_files"].append({"path": path_str, "exists": True, "sha256_16": digest})
+    cmd = verify.get("cmd")
+    if result["ok"] and cmd:
+        try:
+            proc = subprocess.run(  # nosec B603 -- argv list from the LOCAL plan author, never the model
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=verify.get("within_sec", 120),
+                cwd=step.add_dir or None,
+            )
+            result["exit_code"] = proc.returncode
+            if proc.returncode != verify.get("expect_exit", 0):
+                result["ok"] = False
+                result["error"] = (
+                    f"ERR_VERIFICATION: verify cmd exited {proc.returncode}, expected {verify.get('expect_exit', 0)}"
+                )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            result["ok"] = False
+            result["error"] = f"ERR_VERIFICATION: verify cmd failed to run: {exc}"
+    return result
+
+
 def _run_step(step: PipelineStep, prompt: str, dispatch: DispatchFn) -> dict[str, Any]:
     """Dispatch one step with retries + contract + self-report gates — reqs 005/022."""
     record: dict[str, Any] = {"name": step.name, "status": "error", "raw_output": "", "cost_usd": 0.0, "error": ""}
@@ -391,6 +473,13 @@ def _run_step(step: PipelineStep, prompt: str, dispatch: DispatchFn) -> dict[str
         if contract_err:
             record["error"] = contract_err
             continue  # -- a contract failure is retryable too (req 022)
+        if step.verify is not None:
+            # -- REQ-115 r020: rondo's OWN observation outranks every claim above
+            verification = _run_verification(step)
+            record["verification"] = verification
+            if not verification["ok"]:
+                record["error"] = verification["error"]
+                continue  # -- verification failure is retryable like the rest
         record["status"] = "done"
         record["error"] = ""
         if parsed is not None:

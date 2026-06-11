@@ -64,6 +64,9 @@ tests against the generated code. The pipeline proves its own output.
 ## Honest limits
 
 * **v1 is sequential:** No DAGs or loops yet.
-* **Shallow validation:** `expect` checks key presence, not deep types.
+* **Shallow validation:** `expect` checks key presence, not deep types — but
+  `verify:` (REQ-115) goes further: rondo ITSELF checks declared files exist
+  and runs a declared command, so a step's success claim cannot override
+  rondo's own observation. Free-text answers remain advisory (honest limit).
 * **Estimates vs actuals:** `--plan` estimates are heuristics; the hard
   ceiling is enforced on actuals. (See `specs/Rondo-REQ-114-prompt-pipelines.md`.)

@@ -61,9 +61,12 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
 - [x] **8.7 http_skeleton success-path catch widening** (R8, LOW) — DONE RONDO-397
       (30b022c): TypeError/ValueError → ERR_PROVIDER result + breaker + redaction; labeled
       top-up pins no-bare-Exception creep. Judge 7/7.
-- [~] **8.8 bin/mutate --timeout-per-mutant** (item-17 debt) — CODE DONE RONDO-392 (hang =
-      CAUGHT; TDD 4 RED→GREEN incl. real-hang contract test). REMAINING: re-measure
-      dispatch_parse with --timeout-per-mutant in an idle window (sweeps own the tree).
+- [x] **8.8 bin/mutate --timeout-per-mutant + dispatch_parse measured** — CODE RONDO-392;
+      MEASURED RONDO-405: first honest sweep 31/61 (51%, one mutant HUNG and was caught at
+      60s — item-17's exact failure mode, now bounded); labeled top-up suite (gate as the
+      mechanical referee) drove it to **59/61 = 97%**, the 2 survivors documented provable
+      equivalents (dead max() guard arm). ERROR_RECOVERY transient flags now value-pinned —
+      coverage executed that table on every run but asserted nothing.
 
 ## P2 — Spec honesty + proof
 

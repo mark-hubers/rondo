@@ -40,8 +40,30 @@ guess was RED-replicated before trust (caught one vacuously-passing test); every
 documented in module docstrings, never silent. Authoring prompts preserved in
 reports/authoring-prompts/2026-06-10/.
 
+### THE PROMPT-CODING CAMPAIGN (late evening, RONDO-406/407 — Mark's redirect)
+Mark's correction (verbatim intent): the REAL power is prompt coding CLAUDE CODE ITSELF —
+external step-at-a-time control with did-it-or-didn't gating, because CLAUDE.md/memory
+instructions drift after a few steps. Built: REQ-114 spec + rondo.pipeline engine (YAML
+prompt programs: explicit {{steps.NAME.output}} wiring, expect contracts, hard budget,
+plan/apply, injectable dispatch; 13 gemini-authored judges RED→GREEN from module-not-
+exists); `rondo pipeline` CLI; passed=false gate (the model's own admission blocks
+advancement); per-step tools/max_turns/add_dir/timeout grants.
+
+**THE FLAGSHIP RAN LIVE**: claude-builder.yaml drove 10 separate Claude Code subprocesses
+(Max plan) to build a todo CLI + test suite from an EMPTY dir — 10/10 steps verified,
+**54/54 tests pass when the runner re-runs them INDEPENDENTLY**, $2.70 plan-quota audited
+(artifacts: reports/claude-builder-2026-06-10/). Four prior attempts each stopped by a
+DIFFERENT gate on a real event (turn limit, budget ceiling $1.69+est>$2.00 with 6 verified
+steps preserved, dispatch timeout ×2, contract) — each became a tested knob. Two real
+pre-existing bugs found by dogfooding: tier resolution required CLI/MCP startup (Python
+API got literal "low" → 404, fixed self-initializing); provider-divergent smart-return
+shapes (gemini merges keys top-level, gpt fills result — two-layer contract check).
+Cloud flagship #2: code-refine.yaml (4 providers, done $0.0977; honest 11/16 generated-
+test note = the semantic-drift disease verify-in-step prevents). docs/PROMPT-CODING.md;
+README leads with prompt coding; examples 92→94.
+
 ### State at save
-- All committed through RONDO-405; bin/build 6/6 green; no git remote exists (publish = 8.12).
+- All committed through 752243c (~85 commits today); bin/build 6/6 green; no git remote exists (publish = 8.12).
 - OPEN: round-2 re-score (instrument = Cursor, quota-dead till 6/15; alternatives: spend
   limit, or rondo cloud panel with an instrument-change note); 8.12 publish fork (MARK'S).
 

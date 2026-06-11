@@ -209,18 +209,24 @@ def _check_inputs_resolvable(spec: PipelineSpec, inputs: dict[str, str]) -> None
 
 def _resolve_prompt(step: PipelineStep, inputs: dict[str, str], outputs: dict[str, tuple[str, bool]]) -> str:
     """Substitute placeholders explicitly — req 024. Failed-step refs abort (req 021)."""
-    resolved = step.prompt
-    for domain, key in _placeholders(step.prompt):
-        if domain == "inputs":
-            resolved = resolved.replace("{{inputs." + key + "}}", inputs[key])
-        else:
-            output, ok = outputs[key]
-            if not ok:
-                raise PipelineError(
-                    f"step '{step.name}' references step '{key}' which FAILED — refusing to substitute its output"
-                )
-            resolved = resolved.replace("{{steps." + key + ".output}}", output)
-    return resolved
+    # -- RONDO-411 (hostile review F2): SINGLE-PASS substitution. The old
+    # -- iterative .replace let an INPUT value containing a {{steps.X.output}}
+    # -- token get re-expanded by a later steps-pass (order-dependent
+    # -- injection). One regex pass with a lookup means a substituted value is
+    # -- never re-scanned for placeholders.
+    for _domain, key in _placeholders(step.prompt):
+        if (key in outputs) and not outputs[key][1]:
+            raise PipelineError(
+                f"step '{step.name}' references step '{key}' which FAILED — refusing to substitute its output"
+            )
+
+    def _sub(match: re.Match[str]) -> str:
+        token = match.group(1)
+        if token.startswith("inputs."):
+            return inputs[token[len("inputs.") :]]
+        return outputs[token.split(".")[1]][0]  # -- steps.NAME.output
+
+    return _PLACEHOLDER.sub(_sub, step.prompt)
 
 
 def _contract_error(step: PipelineStep, raw_output: str) -> tuple[dict[str, Any] | None, str]:
@@ -349,6 +355,30 @@ def _dispatch_step(dispatch: DispatchFn, prompt: str, step: PipelineStep) -> dic
         return dispatch(prompt, step.model)
 
 
+def _all_json_objects(raw: str) -> list[dict]:
+    """Every top-level JSON object in text — for fail-closed scans (RONDO-411 F3).
+
+    extract_json_object returns only the LAST; the anti-lying gate must see
+    them ALL so an appended fake-success cannot bury an admitted failure.
+    """
+    objects: list[dict] = []
+    decoder = json.JSONDecoder()
+    idx = 0
+    while True:
+        start = raw.find("{", idx)
+        if start == -1:
+            break
+        try:
+            parsed, end = decoder.raw_decode(raw, start)
+        except ValueError:
+            idx = start + 1
+            continue
+        if isinstance(parsed, dict):
+            objects.append(parsed)
+        idx = max(end, start + 1)
+    return objects
+
+
 def _self_reported_failure(step: PipelineStep, raw_output: str) -> str:
     """RONDO-407: honor the model's OWN passed=false admission as step failure.
 
@@ -357,10 +387,10 @@ def _self_reported_failure(step: PipelineStep, raw_output: str) -> str:
     and reports honestly; the engine refuses to advance past a step that
     says it did not succeed. Empty string == no self-reported failure.
     """
-    parsed = extract_json_object(raw_output)
-    if isinstance(parsed, dict) and parsed.get("passed") is False:
-        detail = parsed.get("issues") or parsed.get("result") or "no detail given"
-        return f"ERR_STEP_REPORTED_FAILURE: step '{step.name}' reported passed=false: {str(detail)[:300]}"
+    for parsed in _all_json_objects(raw_output):
+        if parsed.get("passed") is False:
+            detail = parsed.get("issues") or parsed.get("result") or "no detail given"
+            return f"ERR_STEP_REPORTED_FAILURE: step '{step.name}' reported passed=false: {str(detail)[:300]}"
     return ""
 
 

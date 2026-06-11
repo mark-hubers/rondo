@@ -160,6 +160,20 @@ def extract_json_object(raw: str) -> dict[str, Any] | None:
     return last
 
 
+_SAFE_DISPATCH_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _is_safe_dispatch_id(dispatch_id: str) -> bool:
+    """RONDO-411 (hostile review F1, HIGH): reject path-bearing dispatch_ids.
+
+    rondo_verify is a PUBLIC tool/API — an unvalidated dispatch_id let
+    '../../x' resolve to an arbitrary .verifyspec.json (then its cmd runs).
+    Real dispatch_ids are 'dsp_'+hex; this allows that shape and nothing with
+    separators, dots, or NULs.
+    """
+    return bool(_SAFE_DISPATCH_ID.fullmatch(dispatch_id))
+
+
 def _load_persisted_verify(dispatch_id: str) -> dict[str, Any] | None:
     """Req 002: the verify block PERSISTED at plan issuance — tamper-proof source.
 
@@ -167,6 +181,8 @@ def _load_persisted_verify(dispatch_id: str) -> dict[str, Any] | None:
     (never model output), and the sanitizer's [PATH] redaction inside the
     scrubbed plan copy corrupted argv paths (found live by the judge suite).
     """
+    if not _is_safe_dispatch_id(dispatch_id):
+        return None
     from rondo.audit import resolve_audit_dir  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
 
     spec_path = resolve_audit_dir() / f"{dispatch_id}.verifyspec.json"

@@ -58,6 +58,38 @@ DEFAULT_TTL_SEC = 300
 # -- Module-level cache + lock (in-memory fast path)
 _cache: dict[str, tuple[Any, float]] = {}
 _cache_lock = threading.Lock()
+
+# -- RONDO-400 (R2-1): the in-memory layer is BOUNDED. One tuple holds a full
+# -- result payload per unique key; with eviction only on same-key re-lookup,
+# -- the long-lived MCP server grew forever (the in-memory twin of the
+# -- RONDO-369/396 disk/lock leaks). Oldest-out by cached_at; eviction is
+# -- never a correctness loss for dict/dataclass results — the JSONL layer
+# -- re-promotes on lookup. KNOWN NUANCE: non-serializable results are
+# -- memory-ONLY (by design), so for those eviction before TTL forfeits the
+# -- dedupe — worst case the old rare double-pay, never wrong data.
+_MAX_MEMORY_ENTRIES = 512
+
+
+def _prune_memory_locked(protect: str | None = None) -> None:
+    """Sweep TTL-expired entries, then oldest-out to the bound. Caller holds _cache_lock.
+
+    O(n log n) worst case with n <= ~bound — trivial at 512. Runs on every
+    insert/promote so expired-but-never-re-read entries cannot linger.
+    `protect` is the just-inserted/promoted key: it is never the bound-eviction
+    victim (a promote carries its ORIGINAL cached_at — oldest in the dict — and
+    would otherwise be evicted by its own promotion). TTL still applies to it.
+    """
+    now = time.time()
+    for key in [k for k, (_v, at) in _cache.items() if now - at > DEFAULT_TTL_SEC]:
+        del _cache[key]
+    overflow = len(_cache) - _MAX_MEMORY_ENTRIES
+    if overflow > 0:
+        oldest_first = sorted(_cache.items(), key=lambda kv: kv[1][1])
+        victims = [key for key, _ in oldest_first if key != protect][:overflow]
+        for key in victims:
+            del _cache[key]
+
+
 # -- #241: file I/O lock prevents torn reads during atomic write+rename race
 _file_lock = threading.Lock()
 
@@ -466,6 +498,7 @@ def get_cached_result(key: str, ttl_sec: int = DEFAULT_TTL_SEC) -> Any | None:
     # -- Promote to in-memory so next read is fast
     with _cache_lock:
         _cache[key] = (value, cached_at_wall)
+        _prune_memory_locked(protect=key)  # -- RONDO-400: bound holds on the promote path too
     return value
 
 
@@ -478,6 +511,7 @@ def cache_result(key: str, result: Any) -> None:
     now = time.time()
     with _cache_lock:
         _cache[key] = (result, now)
+        _prune_memory_locked(protect=key)  # -- RONDO-400: expired sweep + oldest-out bound
 
     # -- #246 cross-process layer: append-only, race-safe
     payload = _serialize_result(result)

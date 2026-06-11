@@ -876,10 +876,14 @@ def _rondo_run_file_inner(
         # -- RONDO-394 (8.2): the advisory path goes UNDER the machinery —
         # -- estimate-gated budget at issuance, audit INTENT + advisory
         # -- OUTCOME (the plan IS a dispatch event), dispatch_id correlation.
-        refusal = _advisory_budget_refusal(engine, prompt, model, max_budget)
+        # -- RONDO-403 (R2-7): plan_only is a pure PREVIEW — the gate still
+        # -- applies (a side-effect-free refusal is useful) but NOTHING is
+        # -- audited or persisted and no dispatch_id is minted.
+        refusal = _advisory_budget_refusal(engine, prompt, model, max_budget, audit=not plan_only)
         if refusal is not None:
             return refusal
-        _audit_advisory_plan(engine, prompt, model)
+        if not plan_only:
+            _audit_advisory_plan(engine, prompt, model)
         return json.dumps(engine, indent=2)
 
     # -- RONDO-394 (8.2, design review §7): idempotency lookup moved BELOW the
@@ -924,7 +928,9 @@ def _rondo_run_file_inner(
     return _dispatch_and_cache(idempotency_key, dispatch_fn, route_warnings)
 
 
-def _advisory_budget_refusal(plan: dict, prompt: str, model: str, max_budget: float) -> str | None:
+def _advisory_budget_refusal(
+    plan: dict, prompt: str, model: str, max_budget: float, *, audit: bool = True
+) -> str | None:
     """RONDO-394 (8.2, design review §4): estimate-gated budget at plan ISSUANCE.
 
     Full budget tracking of host-executed work is impossible by construction
@@ -961,9 +967,11 @@ def _advisory_budget_refusal(plan: dict, prompt: str, model: str, max_budget: fl
     )
     # -- RONDO-399 (mid-point #8): a budget refusal is a real enforcement
     # -- event — it gets an audit trace like an issued plan does.
-    _audit_advisory_plan(
-        plan, prompt, model, status="refused", error_code="ERR_BUDGET_EXCEEDED", error_message=refusal_message
-    )
+    # -- RONDO-403 (R2-7): unless this is a plan_only PREVIEW (zero side effects).
+    if audit:
+        _audit_advisory_plan(
+            plan, prompt, model, status="refused", error_code="ERR_BUDGET_EXCEEDED", error_message=refusal_message
+        )
     return json.dumps(
         build_error_envelope(
             error_code="ERR_BUDGET_EXCEEDED",

@@ -381,15 +381,18 @@ def _dispatch_worker(
 
 
 def _provider_class(task: Task, config: RondoConfig) -> str:
-    """Provider class for budget-estimate keying — RONDO-395 (8.4).
+    """Provider class for budget-estimate keying — RONDO-395 (8.4) + RONDO-403 (R2-6).
 
     The provider prefix of the task's model ("gemini", "openai", "local", ...);
-    bare Claude models have no prefix → class "claude". Cost regimes follow the
-    provider/auth class, not the individual model — close enough for admission
-    estimates while staying coarse enough to sample quickly.
+    bare Claude models have no prefix and are AUTH-QUALIFIED: "claude-max"
+    (subscription, $0 to rondo) vs "claude-api" (paid) — one shared "claude"
+    class let a free max-auth sample blind-admit paid api-auth tasks (the
+    re-score #5 residue). Adapter-internal auth fallback MID-dispatch stays
+    invisible to the gate by construction (the cost lands as that class's
+    sample on settle — MAX-KEEP absorbs it from the next admit on).
     """
     provider, _ = parse_model(task.model or config.default_model or "")
-    return provider or "claude"
+    return provider or f"claude-{config.auth or 'max'}"
 
 
 # -- sig: mgh-6201.cd.bd955f.1e5a.240ffa

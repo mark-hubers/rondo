@@ -150,6 +150,7 @@ def create_mcp_server() -> Any:
         json_schema: str = "",
         execution: str = "",
         plan_only: bool = False,
+        verify: str = "",
         ctx: Any = None,
     ) -> str:
         # -- U-47: capture session for background progress notifications
@@ -177,6 +178,7 @@ def create_mcp_server() -> Any:
             json_schema=json_schema,
             execution=execution,
             plan_only=plan_only,
+            verify=verify,
         )
 
     @mcp.tool(
@@ -305,6 +307,15 @@ def create_mcp_server() -> Any:
     )
     def _retry(dispatch_id: str, model: str = "") -> str:
         return rondo_retry(dispatch_id=dispatch_id, model=model)
+
+    @mcp.tool(
+        name="rondo_verify",
+        description="REQ-115: verify a dispatched plan's declared postconditions (files/cmd) — rondo checks the work ITSELF and records verified/failed_verification in the audit trail. Pass the dispatch_id.",
+    )
+    def _verify(dispatch_id: str) -> str:
+        from rondo.verify import rondo_verify as _rv  # pylint: disable=import-outside-toplevel
+
+        return json.dumps(_rv(dispatch_id), indent=2)
 
     @mcp.tool(
         name="rondo_spool_consume",

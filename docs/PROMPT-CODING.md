@@ -67,6 +67,9 @@ tests against the generated code. The pipeline proves its own output.
 * **Shallow validation:** `expect` checks key presence, not deep types — but
   `verify:` (REQ-115) goes further: rondo ITSELF checks declared files exist
   and runs a declared command, so a step's success claim cannot override
-  rondo's own observation. Free-text answers remain advisory (honest limit).
+  rondo's own observation. For inline plans the same loop closes via
+  `rondo_verify(dispatch_id)` (MCP tool + API): rondo re-checks the declared
+  postconditions and records verified/failed_verification in the audit
+  trail. Free-text answers remain advisory (honest limit).
 * **Estimates vs actuals:** `--plan` estimates are heuristics; the hard
   ceiling is enforced on actuals. (See `specs/Rondo-REQ-114-prompt-pipelines.md`.)

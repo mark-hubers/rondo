@@ -6,7 +6,7 @@ hands. This is the anti-lying layer.*
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-06-11 | **Status:** DESIGNED
+**Created:** 2026-06-11 | **Status:** BUILT (all MUSTs; placeholder substitution inside verify blocks = known v1 gap)
 **Classification:** open
 **Version:** 0.1
 **Owner:** Mark G. Hubers
@@ -50,7 +50,7 @@ tool calls; cross-machine verification.
 | 002 | The verify block is authored LOCALLY (YAML/caller arg). It is persisted at plan-issuance time in the dispatch's audit result record so `rondo_verify(dispatch_id)` later runs EXACTLY what was declared — the model never sees a way to alter it | MUST | Tamper test |
 | 003 | `cmd` rejects shell strings: a string instead of a list is a definition error (`shell=False` execution only, REQ-100 subprocess hygiene) | MUST | Safety test |
 
-### rondo_verify — the loop closer — **DESIGNED, not yet built** (next sprint; engine-side verification landed first)
+### rondo_verify — the loop closer — **BUILT 2026-06-11 (RONDO-410)**
 
 | # | Requirement | Priority | Verification |
 |---|-------------|----------|--------------|
@@ -67,7 +67,7 @@ tool calls; cross-machine verification.
 | 021 | The step record carries `verification`: {checked_files, cmd, exit_code, ok} so the envelope shows BOTH the model's claim and rondo's observation | MUST | Envelope test |
 | 022 | Steps WITHOUT a verify block behave exactly as v1.1 (no regression; verification is opt-in per step) | MUST | Rail test |
 
-### Spec honesty — req 030 pending with rondo_verify; req 031 BUILT
+### Spec honesty — **BUILT** (r030 in STD-113 §8; r031 in docs)
 
 | # | Requirement | Priority | Verification |
 |---|-------------|----------|--------------|

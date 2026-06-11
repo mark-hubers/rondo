@@ -18,7 +18,7 @@
         "step": 3,
         "name": "RESULT",
         "what": "Get back TaskResult with status, raw_output, cost, duration",
-        "example": "result.extract_json() → dict  |  result.extract_code_blocks() → [(lang, code)]"
+        "example": "result.extract_json() \u2192 dict  |  result.extract_code_blocks() \u2192 [(lang, code)]"
       }
     ]
   },
@@ -30,7 +30,7 @@
         "flag": "heartbeat=True",
         "tokens": "~10",
         "response": "{\"s\":\"w\",\"d\":2,\"e\":0,\"p\":1}",
-        "use_when": "Tight polling loop — just checking 'still running?'",
+        "use_when": "Tight polling loop \u2014 just checking 'still running?'",
         "status_codes": {
           "w": "working",
           "d": "done",
@@ -42,14 +42,14 @@
         "flag": "brief=True",
         "tokens": "~40",
         "response": "{\"status\":\"running\",\"done_count\":2,\"error_count\":0,\"pending_count\":1}",
-        "use_when": "Normal polling — want readable status + counts"
+        "use_when": "Normal polling \u2014 want readable status + counts"
       },
       {
         "name": "full",
         "flag": "(default)",
         "tokens": "~300+",
         "response": "Full JSON with task results, raw_output, cost, duration",
-        "use_when": "Task is done — get the actual results"
+        "use_when": "Task is done \u2014 get the actual results"
       }
     ]
   },
@@ -83,7 +83,7 @@
     {
       "name": "One-off inline task (no round file)",
       "task": "rondo_run(prompt=\"Search for new trials\", dry_run=False, model=\"haiku\")",
-      "run": "Returns result directly — no polling needed for sync dispatch."
+      "run": "Returns result directly \u2014 no polling needed for sync dispatch."
     },
     {
       "name": "Dispatch to Gemini instead of Claude",
@@ -95,7 +95,7 @@
       "name": "Multi-provider parallel review (get consensus)",
       "task": "rondo_multi_review(prompt='Review this PR for security issues.', providers='[\"gemini\", \"grok\", \"mistral\"]', tier='high', dry_run=False)  # bare names resolve via tier; or pass explicit like 'gemini:gemini-pro-latest'",
       "run": "Returns list of per-provider results. Each has provider, status, raw_output.",
-      "note": "Use for cross-validation — catches issues one model might miss."
+      "note": "Use for cross-validation \u2014 catches issues one model might miss."
     },
     {
       "name": "Check provider health before dispatching",
@@ -209,7 +209,7 @@
     {
       "name": "rondo_diff",
       "category": "analysis",
-      "description": "Compare results — what's new",
+      "description": "Compare results \u2014 what's new",
       "stability": "stable"
     },
     {
@@ -227,13 +227,13 @@
     {
       "name": "rondo_chain",
       "category": "advanced",
-      "description": "Pipeline: step N output → step N+1 input",
+      "description": "Pipeline: step N output \u2192 step N+1 input",
       "stability": "beta"
     },
     {
       "name": "rondo_benchmark",
       "category": "advanced",
-      "description": "Same prompt → N models → ranked",
+      "description": "Same prompt \u2192 N models \u2192 ranked",
       "stability": "beta"
     },
     {
@@ -245,7 +245,7 @@
     {
       "name": "rondo_multi_review",
       "category": "cloud",
-      "description": "Send same prompt to N providers in parallel — returns per-provider results + merged findings. Accepts bare provider names ([\"gemini\", \"grok\"]) resolved via tier, or explicit [\"gemini:gemini-pro-latest\"]. Default tier=high.",
+      "description": "Send same prompt to N providers in parallel \u2014 returns per-provider results + merged findings. Accepts bare provider names ([\"gemini\", \"grok\"]) resolved via tier, or explicit [\"gemini:gemini-pro-latest\"]. Default tier=high.",
       "stability": "beta"
     },
     {
@@ -283,6 +283,12 @@
       "category": "monitor",
       "description": "Watchdog sweep: drift + retry-queue + 7d reliability vs 95% target. refresh=true re-pulls catalogs. Never notifies.",
       "stability": "stable"
+    },
+    {
+      "name": "rondo_verify",
+      "category": "dispatch",
+      "description": "REQ-115 verified execution: rondo checks a dispatch's declared postconditions (files/cmd) itself",
+      "stability": "experimental"
     }
   ],
   "providers": [
@@ -384,7 +390,7 @@
     },
     {
       "name": "anthropic",
-      "description": "Anthropic API directly (not Claude Code subprocess) — for API key billing, cost caps",
+      "description": "Anthropic API directly (not Claude Code subprocess) \u2014 for API key billing, cost caps",
       "models": [
         "claude-sonnet-4-6",
         "claude-opus-4-6",
@@ -414,7 +420,7 @@
         "gemma",
         "deepseek"
       ],
-      "auth": "None — runs locally",
+      "auth": "None \u2014 runs locally",
       "routing": "Use 'local:' prefix OR auto-detected from model name (llama, qwen, etc.)",
       "endpoint": "http://localhost:11434",
       "examples": [
@@ -471,7 +477,7 @@
       ]
     },
     "history": {
-      "description": "Dispatch telemetry — cost, duration, model, status",
+      "description": "Dispatch telemetry \u2014 cost, duration, model, status",
       "storage": "JSONL (one file per day)",
       "queries": [
         "by_model",
@@ -523,11 +529,11 @@
         "mistral",
         "anthropic"
       ],
-      "routing": "Use provider:model syntax — 'gemini:gemini-flash-latest', 'grok:grok-4.3', 'mistral:large'; OpenAI optional",
-      "tiers": "provider:high → best_model, provider:default → default_model, provider:low → cheap_model (from config)",
+      "routing": "Use provider:model syntax \u2014 'gemini:gemini-flash-latest', 'grok:grok-4.3', 'mistral:large'; OpenAI optional",
+      "tiers": "provider:high \u2192 best_model, provider:default \u2192 default_model, provider:low \u2192 cheap_model (from config)",
       "fallback": "If primary provider is down, auto-routes to fallback= from config.toml",
       "multi_provider": "rondo_cloud() dispatches sequentially to N providers; default trio preference Gemini + Grok (+ Mistral for security)",
-      "check": "rondo providers — show all configured providers with health status + latency"
+      "check": "rondo providers \u2014 show all configured providers with health status + latency"
     },
     "provider_health": {
       "description": "Per-provider health checks with 5-min TTL cache (REQ-109 reqs 017-019)",
@@ -549,7 +555,7 @@
       "blind": "group codes sealed with SHA-256; report shows codes until reveal; reveal verifies the seal",
       "honesty_rules": "self-ratings reported but labeled UNCALIBRATED and never ranked on; replicates report mean +/- stdev with a noisy flag",
       "resume": "re-running the same YAML skips done cells; error cells retry",
-      "notes": "RONDO-317: judge scoring — judge: provider:model + judge_rubric (required); one external scorer rates every cell, costed into the same budget; report gains a judge column.",
+      "notes": "RONDO-317: judge scoring \u2014 judge: provider:model + judge_rubric (required); one external scorer rates every cell, costed into the same budget; report gains a judge column.",
       "commands": [
         "judge: \"openai:gpt-5.4-mini\" + judge_rubric in matrix YAML"
       ]
@@ -683,7 +689,7 @@
       "name": "max_budget_usd",
       "type": "float",
       "default": null,
-      "description": "Cost cap per task in USD (only works with auth:'api', not auth:'max' — Max plan has no per-token billing)"
+      "description": "Cost cap per task in USD (only works with auth:'api', not auth:'max' \u2014 Max plan has no per-token billing)"
     },
     {
       "name": "task_timeout_sec",
@@ -771,12 +777,12 @@
       "auto_fn": {
         "type": "callable",
         "default": null,
-        "description": "Python function returning (bool, str) — alternative to three-field contract for non-AI tasks"
+        "description": "Python function returning (bool, str) \u2014 alternative to three-field contract for non-AI tasks"
       },
       "model": {
         "type": "string",
         "default": null,
-        "description": "Model hint — COALESCE: task.model → config.default_model → 'sonnet'"
+        "description": "Model hint \u2014 COALESCE: task.model \u2192 config.default_model \u2192 'sonnet'"
       },
       "mode": {
         "type": "string",
@@ -785,7 +791,7 @@
           "auto"
         ],
         "default": "interactive",
-        "description": "Task mode — 'interactive' dispatches to Claude, 'auto' calls auto_fn"
+        "description": "Task mode \u2014 'interactive' dispatches to Claude, 'auto' calls auto_fn"
       }
     },
     "note": "Interactive tasks need instruction + done_when. Auto tasks need auto_fn."
@@ -803,7 +809,7 @@
       },
       "check_fn": {
         "type": "callable",
-        "description": "Function returning (bool, str) — (passed, detail). Takes NO arguments. Capture context via closure."
+        "description": "Function returning (bool, str) \u2014 (passed, detail). Takes NO arguments. Capture context via closure."
       },
       "blocking": {
         "type": "boolean",
@@ -874,16 +880,16 @@
       "code": "rondo run scan.py --project ~/my-project"
     }
   ],
-  "example_round_file": "\"\"\"Example Rondo round file — copy this to get started.\n\nUsage:\n    rondo run this_file.py --dry-run      # preview\n    rondo run this_file.py                # execute\n    rondo run this_file.py --model haiku  # use haiku\n\"\"\"\n\nfrom rondo.engine import Round, Task\n\n\ndef build_round() -> Round:\n    \"\"\"Define the tasks for this round.\"\"\"\n    return Round(\n        name=\"my-round\",\n        tasks=[\n            Task(\n                name=\"review-code\",\n                description=\"Review Python code for issues\",\n                instruction=\"\"\"Review the code in src/ for:\n1. Security issues\n2. Performance problems\n3. Missing error handling\n\nReport findings as a numbered list.\"\"\",\n                context_files=[\"src/main.py\", \"src/utils.py\"],\n                done_when=\"All files reviewed. Findings listed.\",\n            ),\n            Task(\n                name=\"check-tests\",\n                description=\"Verify test coverage\",\n                instruction=\"Run pytest and report coverage gaps.\",\n                done_when=\"Test results shown. Coverage gaps identified.\",\n                model=\"haiku\",  # -- cheaper model for simple task\n            ),\n        ],\n    )\n",
+  "example_round_file": "\"\"\"Example Rondo round file \u2014 copy this to get started.\n\nUsage:\n    rondo run this_file.py --dry-run      # preview\n    rondo run this_file.py                # execute\n    rondo run this_file.py --model haiku  # use haiku\n\"\"\"\n\nfrom rondo.engine import Round, Task\n\n\ndef build_round() -> Round:\n    \"\"\"Define the tasks for this round.\"\"\"\n    return Round(\n        name=\"my-round\",\n        tasks=[\n            Task(\n                name=\"review-code\",\n                description=\"Review Python code for issues\",\n                instruction=\"\"\"Review the code in src/ for:\n1. Security issues\n2. Performance problems\n3. Missing error handling\n\nReport findings as a numbered list.\"\"\",\n                context_files=[\"src/main.py\", \"src/utils.py\"],\n                done_when=\"All files reviewed. Findings listed.\",\n            ),\n            Task(\n                name=\"check-tests\",\n                description=\"Verify test coverage\",\n                instruction=\"Run pytest and report coverage gaps.\",\n                done_when=\"Test results shown. Coverage gaps identified.\",\n                model=\"haiku\",  # -- cheaper model for simple task\n            ),\n        ],\n    )\n",
   "important": {
     "model_parameter": "Do NOT specify model= unless you need a DIFFERENT model than your current session. Omitting model= uses your current session model with zero overhead. Specifying a different model spawns a new process (slower).",
     "dry_run": "Always use dry_run=True first to preview what will be dispatched.",
-    "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') — $0 cost, ~2 seconds.",
+    "local_models": "For cheap/fast tasks (review, classify, scan), use local Ollama models (e.g. model='llama3.1:8b') \u2014 $0 cost, ~2 seconds.",
     "cloud_providers": "Prefer Gemini + Grok + Mistral (core trio). Syntax: 'gemini:gemini-flash-latest', 'grok:grok-4.3', 'mistral:large' or tier 'mistral:high'. OpenAI is optional, not a default. Keys: ~/.rondo/config.toml or env.",
     "multi_provider": "Default multi-review pairs: Gemini + Grok (mid); security adds Mistral; reasoning uses Gemini 2.5 Pro + Mistral Large. rondo_cloud() and rondo_multi_review() run providers sequentially. Override with [routing.multi_review] in config.",
     "health_fallback": "Providers with health checks auto-fallback when down. Configure fallback= in [providers.<name>] section of config.toml. Check status with: rondo providers"
   },
-  "description": "AI dispatch layer — route tasks to any AI provider (Claude, Gemini, Grok, Mistral, Anthropic API, OpenAI, Ollama) and get structured results back. Supports single-provider dispatch, multi-provider sequential review (rondo_cloud / rondo_multi_review), and automatic health-based fallback.",
+  "description": "AI dispatch layer \u2014 route tasks to any AI provider (Claude, Gemini, Grok, Mistral, Anthropic API, OpenAI, Ollama) and get structured results back. Supports single-provider dispatch, multi-provider sequential review (rondo_cloud / rondo_multi_review), and automatic health-based fallback.",
   "deployment": "Per-user, local infrastructure. Each user runs their own instance via Claude Code MCP stdio. No shared/multi-tenant mode.",
   "install": "uv tool install --editable ~/git/mhubers/ace2/rondo"
 }

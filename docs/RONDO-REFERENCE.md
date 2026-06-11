@@ -91,7 +91,7 @@ GEMINI_API_KEY   ace.ai-key.gemini   op://AI Keys/gemini/password
 
 ---
 
-## MCP Tools (25)
+## MCP Tools (26)
 
 Claude Code discovers these automatically when the Rondo MCP server is registered.
 Also exposes `rondo://help` resource for AI agent discovery (version, commands, schemas).

@@ -98,6 +98,7 @@ Derived from `src/rondo/mcp_server.py` (`create_mcp_server()`).
 | rondo_run | Run AI tasks (file_path or prompt) |
 | rondo_run_status | Query background task status (heartbeat/brief/full) |
 | rondo_retry | Retry a failed dispatch |
+| rondo_verify | REQ-115 verified execution: rondo checks declared postconditions itself |
 | rondo_cloud | Dispatch to cloud provider (HTTP adapter) |
 | rondo_chain | Chain sequential AI tasks |
 | rondo_benchmark | Benchmark a prompt across models |

@@ -181,6 +181,7 @@ class TestImportLayering:
             "providers",
             "ai_help",
             "_version",
+            "verify",  # -- RONDO-410 (REQ-115): the rondo_verify MCP tool
         },
         "mcp_compose.py": {
             "mcp_dispatch",
@@ -223,6 +224,7 @@ class TestImportLayering:
             "sanitize",
             "smart_return",  # -- REQ-111: template injection in provider dispatch
             "envelope",  # -- RONDO-274: shared error/result envelope normalization
+            "verify",  # -- RONDO-410 (REQ-115): verify blocks ride advisory plans
             "dispatch_routing",  # -- RONDO-279: extracted routing logic
             "round_loader",  # -- RONDO-291 (Finding #271): lazy-imported in _rondo_run_file_inner
         },

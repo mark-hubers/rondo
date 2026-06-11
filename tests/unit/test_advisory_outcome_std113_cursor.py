@@ -86,6 +86,14 @@ def test_spec_amendment_states() -> None:
     assert "two states" not in content, "spec must not contain the outdated phrase 'two states'"
 
 
+def test_spec_lists_verification_statuses() -> None:
+    """Labeled Claude pin (RONDO-410, REQ-115 r030): STD-113 names verified/failed_verification."""
+    spec_path = Path(__file__).resolve().parents[2] / "specs" / "Rondo-STD-113-dispatch-audit-trail.md"
+    content = spec_path.read_text(encoding="utf-8").lower()
+    assert "failed_verification" in content
+    assert "| `verified` |" in spec_path.read_text(encoding="utf-8")
+
+
 def test_done_outcome_permits_empty_error_message(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """(d) Rail: a done OUTCOME still permits empty error_message."""
     monkeypatch.setenv("RONDO_TEST_DIR", str(tmp_path))

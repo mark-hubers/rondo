@@ -156,6 +156,8 @@ The terminal status vocabulary is OPEN and currently comprises:
 | `stuck` | Synthetic OUTCOME written by reconcile for a crashed dispatch (req 017) |
 | `advisory` | RONDO-394: an inline/agent plan was returned to the host — delegated execution, the result is never observed by rondo. The OUTCOME's error_message carries the delegation note (req 021 applies to ALL non-`done` statuses, including this one). |
 | `refused` | RONDO-399: an advisory plan was refused at issuance by the estimate budget gate (error_code `ERR_BUDGET_EXCEEDED`). |
+| `verified` | RONDO-410 (REQ-115): rondo ITSELF checked the dispatch's declared postconditions (files/cmd) and they held. |
+| `failed_verification` | RONDO-410 (REQ-115): rondo's own check of the declared postconditions FAILED — overrides any success claim by the model. |
 
 An `INTENT` record with no corresponding OUTCOME indicates a crash or timeout
 during dispatch — detectable, and reconciled to `stuck` (req 017).

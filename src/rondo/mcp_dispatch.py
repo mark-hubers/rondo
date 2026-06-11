@@ -61,6 +61,7 @@ from rondo.providers import (
 )
 from rondo.sanitize import sanitize_task_result
 from rondo.structured_log import bind_request_id, log_event  # noqa: E402
+from rondo.verify import VerifyBlockError, validate_verify_block
 
 logger = logging.getLogger(__name__)
 
@@ -646,6 +647,7 @@ def rondo_run_file(
     json_schema: str = "",
     execution: str = "",
     plan_only: bool = False,
+    verify: str = "",
 ) -> str:
     """Run a round file or inline prompt — MCP dispatch tool.
 
@@ -695,6 +697,7 @@ def rondo_run_file(
             json_schema=json_schema,
             execution=execution,
             plan_only=plan_only,
+            verify=verify,
         )
 
 
@@ -818,6 +821,7 @@ def _rondo_run_file_inner(
     json_schema: str = "",
     execution: str = "",
     plan_only: bool = False,
+    verify: str = "",
 ) -> str:
     """Inner dispatch body — extracted for complexity budget. RONDO-202."""
     file_path, project, err = _validate_run_inputs(file_path, project, prompt)
@@ -879,6 +883,21 @@ def _rondo_run_file_inner(
         # -- RONDO-403 (R2-7): plan_only is a pure PREVIEW — the gate still
         # -- applies (a side-effect-free refusal is useful) but NOTHING is
         # -- audited or persisted and no dispatch_id is minted.
+        if verify:
+            # -- RONDO-410 (REQ-115 r001/r002): a LOCALLY-authored verify block
+            # -- rides the plan and is persisted with it — rondo_verify later
+            # -- checks EXACTLY this block; the model has no write path to it.
+            try:
+                engine["verify"] = validate_verify_block(json.loads(verify), "rondo_run verify")
+            except (json.JSONDecodeError, VerifyBlockError) as exc:
+                return json.dumps(
+                    build_error_envelope(
+                        error_code="ERR_INVALID_INPUT",
+                        error_message=f"invalid verify block: {exc}",
+                        context={"engine": str(engine.get("engine", ""))},
+                    ),
+                    indent=2,
+                )
         refusal = _advisory_budget_refusal(engine, prompt, model, max_budget, audit=not plan_only)
         if refusal is not None:
             return refusal
@@ -1019,6 +1038,20 @@ def _audit_advisory_plan(
             engine=engine_kind,
         )
         plan["dispatch_id"] = record.dispatch_id
+        if plan.get("verify"):
+            # -- RONDO-410 (REQ-115 r002): the verify spec is persisted
+            # -- SEPARATELY and UNSCRUBBED — it is locally authored (never
+            # -- model output), and the sanitizer's [PATH] redaction inside
+            # -- the plan copy would corrupt argv paths (found by the judge).
+            from rondo.audit import (  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+                atomic_write,
+                resolve_audit_dir,
+            )
+
+            atomic_write(
+                resolve_audit_dir() / f"{record.dispatch_id}.verifyspec.json",
+                json.dumps(plan["verify"], indent=2),
+            )
         trail.record_outcome(
             dispatch_id=record.dispatch_id,
             task_name=f"advisory-{engine_kind}",

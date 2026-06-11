@@ -88,6 +88,15 @@ def _get_tenant_for_audit() -> str:
     return get_sanitized_tenant()
 
 
+def resolve_audit_dir() -> Path:
+    """Public accessor for the resolved audit directory — RONDO-410 (REQ-115).
+
+    rondo_verify locates persisted plans/evidence here without reaching into
+    AuditTrail privates.
+    """
+    return Path(_default_audit_dir()).expanduser()
+
+
 def _default_audit_dir() -> str:
     """Resolve audit dir: RONDO_TEST_DIR (test isolation) → ~/.rondo/audit/{tenant}.
 

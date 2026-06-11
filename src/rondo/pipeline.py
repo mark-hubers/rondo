@@ -31,6 +31,8 @@ from typing import Any
 
 import yaml
 
+from rondo.verify import VerifyBlockError, extract_json_object, run_verification, validate_verify_block
+
 logger = logging.getLogger(__name__)
 
 _TOP_FIELDS = {"name", "budget_usd", "steps"}
@@ -142,28 +144,12 @@ def _validate_step_options(raw_step: dict, name: str) -> tuple[str, int, int, in
     return on_fail, retries, max_turns, timeout, expect
 
 
-_VERIFY_FIELDS = {"files", "cmd", "expect_exit", "within_sec"}
-
-
-def _validate_verify(verify: Any, name: str) -> dict[str, Any] | None:
-    """REQ-115 reqs 001/003: verify block shape — cmd is an argv LIST, never a shell string."""
-    if verify is None:
-        return None
-    if not isinstance(verify, dict) or not set(verify) <= _VERIFY_FIELDS or not verify:
-        raise PipelineError(f"step '{name}': verify must use only {sorted(_VERIFY_FIELDS)}")
-    files = verify.get("files", [])
-    if not isinstance(files, list) or not all(isinstance(f, str) for f in files):
-        raise PipelineError(f"step '{name}': verify.files must be a list of paths")
-    cmd = verify.get("cmd")
-    if cmd is not None and (not isinstance(cmd, list) or not all(isinstance(c, str) for c in cmd)):
-        raise PipelineError(f"step '{name}': verify.cmd must be an argv LIST (never a shell string)")
-    expect_exit = verify.get("expect_exit", 0)
-    if not isinstance(expect_exit, int):
-        raise PipelineError(f"step '{name}': verify.expect_exit must be an int")
-    within = verify.get("within_sec", 120)
-    if not isinstance(within, int) or within <= 0:
-        raise PipelineError(f"step '{name}': verify.within_sec must be a positive int")
-    return {"files": files, "cmd": cmd, "expect_exit": expect_exit, "within_sec": within}
+def _validate_verify(verify, name):  # noqa: ANN001, ANN201
+    """Thin wrapper: shared validation lives in rondo.verify (RONDO-410 DRY)."""
+    try:
+        return validate_verify_block(verify, f"step '{name}'")
+    except VerifyBlockError as exc:
+        raise PipelineError(str(exc)) from exc
 
 
 def _validate_step(raw_step: Any, index: int, prior_names: set[str]) -> PipelineStep:
@@ -237,40 +223,6 @@ def _resolve_prompt(step: PipelineStep, inputs: dict[str, str], outputs: dict[st
     return resolved
 
 
-def _extract_json(raw: str) -> dict[str, Any] | None:
-    """Best-effort JSON object extraction for contract checks (req 005)."""
-    text = raw.strip()
-    try:
-        parsed = json.loads(text)
-        return parsed if isinstance(parsed, dict) else None
-    except (json.JSONDecodeError, ValueError):
-        pass
-    fenced = re.findall(r"```(?:json)?\s*\n(.*?)\n\s*```", raw, re.DOTALL)
-    for block in reversed(fenced):
-        try:
-            parsed = json.loads(block.strip())
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    decoder = json.JSONDecoder()
-    last: dict[str, Any] | None = None
-    idx = 0
-    while True:
-        start = raw.find("{", idx)
-        if start == -1:
-            break
-        try:
-            parsed, end = decoder.raw_decode(raw, start)
-        except ValueError:
-            idx = start + 1
-            continue
-        if isinstance(parsed, dict):
-            last = parsed
-        idx = max(end, start + 1)
-    return last
-
-
 def _contract_error(step: PipelineStep, raw_output: str) -> tuple[dict[str, Any] | None, str]:
     """Check expect.required — returns (effective_parsed, error_text). Empty error == pass.
 
@@ -284,7 +236,7 @@ def _contract_error(step: PipelineStep, raw_output: str) -> tuple[dict[str, Any]
     if not step.expect:
         return None, ""
     required = step.expect["required"]
-    parsed = _extract_json(raw_output)
+    parsed = extract_json_object(raw_output)
     if parsed is None:
         return (
             None,
@@ -346,7 +298,7 @@ def unwrap_smart_return(raw_output: str) -> str:
     merges requested keys into the wrapper top level; gpt fills "result"),
     so the engine never guesses; contracts check BOTH (see _contract_error).
     """
-    parsed = _extract_json(raw_output)
+    parsed = extract_json_object(raw_output)
     if isinstance(parsed, dict) and "result" in parsed and ("passed" in parsed or "confidence" in parsed):
         inner = parsed["result"]
         return inner if isinstance(inner, str) else json.dumps(inner)
@@ -405,7 +357,7 @@ def _self_reported_failure(step: PipelineStep, raw_output: str) -> str:
     and reports honestly; the engine refuses to advance past a step that
     says it did not succeed. Empty string == no self-reported failure.
     """
-    parsed = _extract_json(raw_output)
+    parsed = extract_json_object(raw_output)
     if isinstance(parsed, dict) and parsed.get("passed") is False:
         detail = parsed.get("issues") or parsed.get("result") or "no detail given"
         return f"ERR_STEP_REPORTED_FAILURE: step '{step.name}' reported passed=false: {str(detail)[:300]}"
@@ -413,46 +365,8 @@ def _self_reported_failure(step: PipelineStep, raw_output: str) -> str:
 
 
 def _run_verification(step: PipelineStep) -> dict[str, Any]:
-    """REQ-115 r020: rondo observes the world ITSELF — files + verify cmd.
-
-    The model's success claim cannot override this. Returns
-    {"ok", "exit_code", "checked_files", "error"} with sha256 evidence.
-    """
-    import hashlib  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-    import subprocess  # noqa: PLC0415  # nosec B404 -- locally-authored argv, shell=False  # pylint: disable=import-outside-toplevel
-
-    verify = step.verify or {}
-    result: dict[str, Any] = {"ok": True, "exit_code": None, "checked_files": [], "error": ""}
-    for path_str in verify.get("files", []):
-        path = Path(path_str)
-        if not path.is_file():
-            result["ok"] = False
-            result["error"] = f"ERR_VERIFICATION: declared file missing: {path_str}"
-            result["checked_files"].append({"path": path_str, "exists": False})
-            continue
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
-        result["checked_files"].append({"path": path_str, "exists": True, "sha256_16": digest})
-    cmd = verify.get("cmd")
-    if result["ok"] and cmd:
-        try:
-            proc = subprocess.run(  # nosec B603 -- argv list from the LOCAL plan author, never the model
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=verify.get("within_sec", 120),
-                cwd=step.add_dir or None,
-            )
-            result["exit_code"] = proc.returncode
-            if proc.returncode != verify.get("expect_exit", 0):
-                result["ok"] = False
-                result["error"] = (
-                    f"ERR_VERIFICATION: verify cmd exited {proc.returncode}, expected {verify.get('expect_exit', 0)}"
-                )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            result["ok"] = False
-            result["error"] = f"ERR_VERIFICATION: verify cmd failed to run: {exc}"
-    return result
+    """REQ-115 r020: rondo observes the world ITSELF (shared core in rondo.verify)."""
+    return run_verification(step.verify or {}, cwd=step.add_dir)
 
 
 def _run_step(step: PipelineStep, prompt: str, dispatch: DispatchFn) -> dict[str, Any]:

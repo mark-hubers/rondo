@@ -28,6 +28,7 @@ from __future__ import annotations
 import ast
 import subprocess  # nosec B404 -- project policy: subprocess is core (pyproject skips B404)
 import sys
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -255,8 +256,37 @@ def main(argv: list[str] | None = None) -> int:
         help="kill a mutant's test run after SEC seconds and count it CAUGHT (hang = caught); 0 = unbounded (RONDO-392)",
     )
     args = parser.parse_args(argv)
-    outcomes = run_mutation_gate(args.source, _pytest_runner(args.tests, timeout_sec=args.timeout_per_mutant))
+    runner = _pytest_runner(args.tests, timeout_sec=args.timeout_per_mutant)
+    # -- RONDO-404 (R2-8): the gate verifies ITSELF before sweeping. A suite
+    # -- that is RED on CLEAN code marks every mutant caught — fake 100%.
+    baseline_start = time.monotonic()
+    if runner():
+        sys.stdout.write(
+            "-ERROR- baseline RED: the test suite FAILS on UNMUTATED code — every mutant would "
+            "score 'caught' and the kill rate would be a lie. Fix the suite first.\n"
+        )
+        return 2
+    _warn_if_timeout_tight(timeout_sec=args.timeout_per_mutant, baseline_sec=time.monotonic() - baseline_start)
+    outcomes = run_mutation_gate(args.source, runner)
     return _report(args.source, outcomes)
+
+
+def _warn_if_timeout_tight(*, timeout_sec: int, baseline_sec: float) -> bool:
+    """RONDO-404: warn when the per-mutant timeout is under 3x the clean-suite runtime.
+
+    A too-tight timeout scores merely-slow runs as CAUGHT — inflation in the
+    safe-looking direction (the mid-point #10 operator contract, now measured
+    instead of docs-only). Advisory, never blocking: the operator may know the
+    mutants genuinely hang early. Returns True when the warning fired.
+    """
+    if timeout_sec <= 0 or timeout_sec >= 3 * baseline_sec:
+        return False
+    sys.stdout.write(
+        f"-WARNING- --timeout-per-mutant {timeout_sec}s is under 3x the clean-suite baseline "
+        f"({baseline_sec:.1f}s) — slow-but-honest runs may be scored CAUGHT, inflating the kill rate. "
+        f"Consider >= {int(3 * baseline_sec) + 1}s.\n"
+    )
+    return True
 
 
 if __name__ == "__main__":  # pragma: no cover

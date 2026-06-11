@@ -168,20 +168,80 @@ class TestTimeoutPerMutant:
         assert elapsed < 15, f"the hung subprocess must be killed near the timeout, took {elapsed:.1f}s"
 
     def test_cli_flag_threads_through_to_runner(self, monkeypatch, tmp_path) -> None:
-        """--timeout-per-mutant N reaches _pytest_runner (dead-flag lock: the flag does something)."""
+        """--timeout-per-mutant N reaches _pytest_runner (dead-flag lock: the flag does something).
+
+        RONDO-404 amendment: the fake runner now passes the baseline check
+        (False = tests green on clean code) before the sweep "catches" mutants.
+        """
         from rondo import mutate as mutate_mod
 
         captured: dict = {}
 
         def _fake_runner(tests, timeout_sec=0):  # noqa: ANN001
             captured["timeout_sec"] = timeout_sec
-            return lambda: True
+            calls = {"n": 0}
+
+            def _run() -> bool:
+                calls["n"] += 1
+                return calls["n"] > 1  # -- baseline (1st call) green; mutants caught after
+
+            return _run
 
         monkeypatch.setattr(mutate_mod, "_pytest_runner", _fake_runner)
         src = tmp_path / "m.py"
         src.write_text("def f():\n    return 1\n", encoding="utf-8")
         mutate_mod.main([str(src), "--tests", "tests/x.py", "--timeout-per-mutant", "120"])
         assert captured.get("timeout_sec") == 120, "--timeout-per-mutant must thread through to the pytest runner"
+
+
+class TestBaselineGuard:
+    """RONDO-404 (ROAD-TO-8 R2-8, re-score #9): the gate verifies ITSELF first.
+
+    A suite that is RED on CLEAN code marks every mutant "caught" — a fake
+    100% kill rate. And a timeout below ~3x the clean-suite runtime scores
+    slow-but-honest runs as caught, inflating in the safe-looking direction.
+    Baseline run first: RED baseline = hard abort; tight timeout = -WARNING-.
+    """
+
+    def test_red_baseline_aborts_the_sweep(self, monkeypatch, tmp_path, capsys) -> None:
+        """Tests failing on CLEAN code → exit 2, -ERROR-, and NO sweep runs."""
+        from rondo import mutate as mutate_mod
+
+        def _fake_runner(tests, timeout_sec=0):  # noqa: ANN001
+            return lambda: True  # -- True == pytest FAILED, even on clean code
+
+        sweep_ran = {"v": False}
+
+        def _no_sweep(*_a, **_k):  # noqa: ANN002, ANN003
+            sweep_ran["v"] = True
+            return []
+
+        monkeypatch.setattr(mutate_mod, "_pytest_runner", _fake_runner)
+        monkeypatch.setattr(mutate_mod, "run_mutation_gate", _no_sweep)
+        src = tmp_path / "m.py"
+        src.write_text("def f():\n    return 1\n", encoding="utf-8")
+
+        rc = mutate_mod.main([str(src), "--tests", "tests/x.py"])
+
+        assert rc == 2, "a RED baseline must abort with exit 2 (results would be lies)"
+        assert "-ERROR-" in capsys.readouterr().out
+        assert sweep_ran["v"] is False, "the sweep must NOT run on a RED baseline"
+
+    def test_tight_timeout_warns(self, capsys) -> None:
+        """Timeout < 3x baseline runtime → -WARNING- (inflation in the safe-looking direction)."""
+        from rondo.mutate import _warn_if_timeout_tight
+
+        warned = _warn_if_timeout_tight(timeout_sec=10, baseline_sec=5.0)
+        assert warned is True
+        assert "-WARNING-" in capsys.readouterr().out
+
+    def test_ample_timeout_is_quiet(self, capsys) -> None:
+        """Timeout >= 3x baseline (or disabled) → no warning."""
+        from rondo.mutate import _warn_if_timeout_tight
+
+        assert _warn_if_timeout_tight(timeout_sec=60, baseline_sec=5.0) is False
+        assert _warn_if_timeout_tight(timeout_sec=0, baseline_sec=5.0) is False
+        assert capsys.readouterr().out == ""
 
 
 # -- sig: mgh-6201.cd.bd955f.a7e0.adb14f

@@ -500,6 +500,20 @@ def sanitize_task_result(
     if sanitized_tr.parsed_result is not None:
         sanitized_tr.parsed_result = _scrub_dict(sanitized_tr.parsed_result, config=config, detections=all_detections)
 
+    # -- RONDO-401 (R2-2, STD-114 r006): the SYMMETRIC secret-bearing fields —
+    # -- error_message routinely carries provider/subprocess error text (the
+    # -- URLError ?key=SECRET class); context_data and command_sent are caller/
+    # -- env-derived. All three reach spool/history via asdict(result), so they
+    # -- belong in the scrub set like prompt_sent (RONDO-352) before them.
+    if sanitized_tr.error_message:
+        sr = sanitize_text(sanitized_tr.error_message, config=config)
+        sanitized_tr.error_message = sr.sanitized_text
+        all_detections.extend(sr.detections)
+    if sanitized_tr.command_sent:
+        sanitized_tr.command_sent = _scrub_dict(sanitized_tr.command_sent, config=config, detections=all_detections)
+    if sanitized_tr.context_data:
+        sanitized_tr.context_data = _scrub_dict(sanitized_tr.context_data, config=config, detections=all_detections)
+
     return sanitized_tr, SanitizeResult(
         original_text="",
         sanitized_text="",

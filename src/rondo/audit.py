@@ -577,7 +577,10 @@ class AuditTrail:
                     timestamp = datetime.now(UTC).strftime("%Y-%m")
                     archive_path = archive_dir / f"{timestamp}.jsonl"
                     # -- Append if archive already exists (multiple rotations in same month)
-                    with archive_path.open("a", encoding="utf-8") as f:
+                    # -- RONDO-401 (R2-2 rider, STD-110 r012): born 0o600 — the
+                    # -- archive holds the same audit records as the live JSONL.
+                    archive_fd = os.open(archive_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+                    with os.fdopen(archive_fd, "a", encoding="utf-8") as f:
                         f.write(content + "\n")
                     self._jsonl_path.unlink()
                     logger.info("Rotated %d audit records to %s", line_count, archive_path)

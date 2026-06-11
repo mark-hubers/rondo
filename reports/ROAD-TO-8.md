@@ -94,17 +94,25 @@ Legend: `[ ]` open · `[x]` done · (R#) = re-score finding number
 
 ## ROUND 2 — the 7 → 7.5+ items (re-score findings, same workflow)
 
-- [ ] **R2-1 In-memory idempotency `_cache` unbounded** (MED-HIGH) — the in-memory twin of
+NOTE: Cursor hit its monthly Pro+ usage limit mid-round (resets 6/15). The
+independent-author role moved to GEMINI-2.5-PRO dispatched through rondo's own
+rondo_run (separation of duties kept with a DIFFERENT vendor; ~\$0.02 total,
+audit-logged). Twice, gemini's returned test fixtures came back with the fake
+key ALREADY SCRUBBED to [REDACTED:...] — rondo's own sanitize pipeline scrubbing
+its own dispatch results mid-authoring. R2-1..R2-4 DONE (RONDO-400/401/402,
+commits bb36129/cf32913/554ec2f), all judges RED→GREEN, build 6/6.
+
+- [x] **R2-1 In-memory idempotency `_cache` unbounded** (MED-HIGH) — the in-memory twin of
       the RONDO-369/396 leaks: one tuple holding a FULL result payload per unique prompt,
       forever, on the long-lived MCP server; eviction only on same-key re-lookup. Sweep
       expired entries (size/age bound), mirror the ref-count discipline.
-- [ ] **R2-2 Scrub set incomplete for spool/history** (MED) — error_message, context_data,
+- [x] **R2-2 Scrub set incomplete for spool/history** (MED) — error_message, context_data,
       command_sent reach spool + history RAW (STD-114 r006 MUST); audit forensic-scrubs
       error_message but spool/history don't. Bring the symmetric fields into
       sanitize_task_result (or scrub at the spool/history write boundary).
-- [ ] **R2-3 Matrix cell outputs unsanitized** (MED) — perms fixed (RONDO-399), content
+- [x] **R2-3 Matrix cell outputs unsanitized** (MED) — perms fixed (RONDO-399), content
       not: raw model output verbatim in {stem}.txt. Scrub before _write_cell_output.
-- [ ] **R2-4 Advisory OUTCOME vs STD-113** (LOW-MED) — req 021 MUST: non-done OUTCOME must
+- [x] **R2-4 Advisory OUTCOME vs STD-113** (LOW-MED) — req 021 MUST: non-done OUTCOME must
       persist error_message (advisory passes ""); §8 still says two states. Fix BOTH
       sides: pass a real error_message/explanation on advisory/refused outcomes AND amend
       STD-113 §8 to the de-facto open status vocabulary (spec-honesty, like 8.9).

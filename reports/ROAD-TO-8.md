@@ -119,6 +119,14 @@ commits bb36129/cf32913/554ec2f), all judges RED→GREEN, build 6/6.
       persist error_message (advisory passes ""); §8 still says two states. Fix BOTH
       sides: pass a real error_message/explanation on advisory/refused outcomes AND amend
       STD-113 §8 to the de-facto open status vocabulary (spec-honesty, like 8.9).
+- [x] **PROMPT-CODING CAMPAIGN (RONDO-406/407, Mark's order 2026-06-10 late)** — the
+      thesis feature built + demonstrated LIVE: REQ-114 pipeline engine (gemini-authored
+      judges 13/13), `rondo pipeline` CLI, and the Claude-driver flagship: rondo drove 10
+      Claude Code subprocesses to build a todo app + 54-test suite from nothing, one
+      verified step at a time, 54/54 INDEPENDENTLY re-verified by the runner. Every
+      guardrail fired on a real event first (turn limit, budget ceiling, timeout, contract,
+      passed=false gate). Artifacts: reports/claude-builder-2026-06-10/. This is the
+      publish-launch centerpiece.
 - [ ] **R2-5 ⛳ Re-score ROUND 2** — target ≥7.5 on the merits.
       Acknowledged-not-fixed carryovers (priced LOW by the reviewer): claude
       subscription-vs-API one-class residue (#5), breaker attribution on local bugs (#6),

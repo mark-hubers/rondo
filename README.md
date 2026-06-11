@@ -55,6 +55,10 @@ Fastest onboarding path: `docs/GETTING-STARTED-WOW.md`.
 ## Signature Capabilities (June 2026)
 
 ```bash
+rondo pipeline build.yaml --plan        # PROMPT CODING (REQ-114): declared steps, typed
+                                        # outputs, hard budget — plan free, then apply.
+                                        # The flagship drives CLAUDE CODE ITSELF one
+                                        # verified step at a time (docs/PROMPT-CODING.md)
 rondo matrix run exp.yaml --dry-run     # model × effort × context experiment grids:
                                         # budgeted, blind-scorable, resumable (REQ-113)
 rondo providers --refresh --drift       # catch retired models BEFORE dispatches 404
@@ -248,6 +252,7 @@ what makes it dependable for everyone else.
 
 ## Documentation Map
 
+- Prompt coding (the thesis): `docs/PROMPT-CODING.md`
 - Quick start and core usage: `docs/GETTING-STARTED.md`
 - Error/result envelope contract: `docs/ERROR-ENVELOPE-CONTRACT.md`
 - Full reference: `docs/RONDO-REFERENCE.md`

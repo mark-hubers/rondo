@@ -61,6 +61,23 @@ THIRD provider -> strengthen tests -> final polish -> JSON summary.
 The runner (`examples/api/code_refine_pipeline.py`) EXECUTES the generated
 tests against the generated code. The pipeline proves its own output.
 
+## Scope guard — one or two things per step
+
+rondo's core discipline is small asks: a step that bundles ten tasks has ten
+places to fudge; a step that asks for one has none. The scope guard
+(REQ-116) scores each step's prompt and:
+
+* **warns by default** — a fat step logs a `-WARNING-` and carries
+  `scope_warning` in the envelope (visible, never blocking);
+* **blocks in strict mode** — `strict_scope: true` makes a fat step a
+  load-time error, naming the step and its signals;
+* **exempts the genuine wide step** — `allow_broad: true` opts a step out
+  (a review pass over many files is legitimately broad).
+
+`--plan` shows each step's `scope_score` so you see fat steps before any
+spend. It is a heuristic (surface signals, not meaning) — hence warn-default
+and the override.
+
 ## Honest limits
 
 * **v1 is sequential:** No DAGs or loops yet.

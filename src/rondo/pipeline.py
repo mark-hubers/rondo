@@ -31,11 +31,12 @@ from typing import Any
 
 import yaml
 
+from rondo.scope import is_over_threshold, scope_score
 from rondo.verify import VerifyBlockError, extract_json_object, run_verification, validate_verify_block
 
 logger = logging.getLogger(__name__)
 
-_TOP_FIELDS = {"name", "budget_usd", "steps"}
+_TOP_FIELDS = {"name", "budget_usd", "steps", "strict_scope"}
 _STEP_FIELDS = {
     "name",
     "prompt",
@@ -48,6 +49,7 @@ _STEP_FIELDS = {
     "add_dir",
     "timeout",
     "verify",
+    "allow_broad",
 }
 _ON_FAIL = {"stop", "continue"}
 _MAX_RETRIES = 2
@@ -80,6 +82,8 @@ class PipelineStep:
     timeout: int = 0  # -- per-step dispatch timeout seconds; 0 = dispatch default
     # -- RONDO-409 (REQ-115): rondo-checked postconditions — the anti-lying layer
     verify: dict[str, Any] | None = None
+    # -- RONDO-413 (REQ-116): exempt a genuinely-broad step from the scope guard
+    allow_broad: bool = False
 
 
 @dataclass
@@ -89,6 +93,7 @@ class PipelineSpec:
     name: str
     budget_usd: float
     steps: list[PipelineStep] = field(default_factory=list)
+    strict_scope: bool = False  # -- RONDO-413 (REQ-116): block fat steps at load
 
 
 def _placeholders(prompt: str) -> list[tuple[str, str]]:
@@ -174,6 +179,7 @@ def _validate_step(raw_step: Any, index: int, prior_names: set[str]) -> Pipeline
         add_dir=str(raw_step.get("add_dir", "") or ""),
         timeout=timeout,
         verify=_validate_verify(raw_step.get("verify"), name),
+        allow_broad=bool(raw_step.get("allow_broad", False)),
     )
 
 
@@ -196,7 +202,22 @@ def load_pipeline(path: str | Path) -> PipelineSpec:
         step = _validate_step(raw_step, i, seen)
         seen.add(step.name)
         steps.append(step)
-    return PipelineSpec(name=str(raw["name"]), budget_usd=float(raw["budget_usd"]), steps=steps)
+    spec = PipelineSpec(
+        name=str(raw["name"]),
+        budget_usd=float(raw["budget_usd"]),
+        steps=steps,
+        strict_scope=bool(raw.get("strict_scope", False)),
+    )
+    if spec.strict_scope:
+        # -- RONDO-413 (REQ-116 r011): in strict mode a fat step is a load error
+        for step in spec.steps:
+            if not step.allow_broad and is_over_threshold(step.prompt):
+                sig = scope_score(step.prompt)["signals"]
+                raise PipelineError(
+                    f"step '{step.name}': scope too broad for strict_scope (signals: {sig}) — "
+                    f"split it into one-or-two-thing steps, or set allow_broad: true"
+                )
+    return spec
 
 
 def _check_inputs_resolvable(spec: PipelineSpec, inputs: dict[str, str]) -> None:
@@ -283,6 +304,9 @@ def _build_plan(spec: PipelineSpec, inputs: dict[str, str]) -> dict[str, Any]:
                 "model": step.model or "(config default)",
                 "prompt_preview": preview[:300],
                 "estimated_cost_usd": round(est, 6),
+                # -- RONDO-413 (REQ-116 r013): surface the scope score so a fat
+                # -- step is visible in --plan BEFORE any spend.
+                "scope_score": scope_score(step.prompt)["score"],
             }
         )
     return {
@@ -435,6 +459,17 @@ def _run_step(
 ) -> dict[str, Any]:
     """Dispatch one step with retries + contract + self-report gates — reqs 005/022."""
     record: dict[str, Any] = {"name": step.name, "status": "error", "raw_output": "", "cost_usd": 0.0, "error": ""}
+    # -- RONDO-413 (REQ-116 r012): warn-by-default on a fat ask (never blocks
+    # -- here; strict_scope blocks at load). The nudge toward one-or-two things.
+    if not step.allow_broad and is_over_threshold(step.prompt):
+        scope = scope_score(step.prompt)
+        record["scope_warning"] = scope
+        logger.warning(
+            "-WARNING- step '%s' looks broad (scope %s): %s — consider splitting into one-or-two-thing steps",
+            step.name,
+            scope["score"],
+            scope["signals"],
+        )
     for attempt in range(step.retries + 1):
         result = _dispatch_step(dispatch, prompt, step)
         record["raw_output"] = str(result.get("raw_output", ""))

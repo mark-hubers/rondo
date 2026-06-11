@@ -1615,4 +1615,28 @@ class TestLearnedRoutingFallback:
         assert recommend_model("never-seen-task-xyz") == "sonnet"
 
 
+class TestTierResolutionSelfInitializes:
+    """Tier resolution must self-initialize from config on first use.
+
+    RONDO-406 (found LIVE by the flagship pipeline's first run): the Python
+    API path never called load_providers_config — tiers only resolved after
+    CLI/MCP startup rituals. gemini:low 404'd as literal model "low".
+    """
+
+    def test_parse_model_resolves_tier_without_startup_call(self, monkeypatch) -> None:
+        """parse_model('gemini:low') resolves cheap_model with NO prior load call."""
+        import rondo.providers as prov
+
+        monkeypatch.setattr(prov, "_providers_config", {}, raising=True)
+        monkeypatch.setattr(prov, "_providers_loaded", False, raising=True)
+        monkeypatch.setattr(
+            "rondo.config.get_rondo_config",
+            lambda: {"providers": {"gemini": {"cheap_model": "gemini-flash-lite-latest"}}},
+        )
+
+        provider, model = prov.parse_model("gemini:low")
+        assert provider == "gemini"
+        assert model == "gemini-flash-lite-latest", "tier must self-resolve from config without a startup ritual"
+
+
 # -- sig: mgh-6201.cd.bd955f.2c31.758fe5

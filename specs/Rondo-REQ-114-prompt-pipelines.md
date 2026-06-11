@@ -1,0 +1,107 @@
+# Rondo-REQ-114: Prompt Pipelines — prompt programs with plan/apply discipline
+
+*A prompt program is code: declared steps, typed outputs, hard budgets, a plan
+before any spend, and an audit trail after. This is what Rondo is FOR.*
+
+**Product:** Rondo
+**Category:** REQ
+**Created:** 2026-06-10 | **Status:** DESIGNED
+**Classification:** open
+**Version:** 0.1
+**Owner:** Mark G. Hubers
+**Depends on:** REQ-100 (Core), REQ-109 (Providers), REQ-111 (Smart Dispatch), STD-105 (cost), STD-113 (Audit), STD-114 (Sanitization), REQ-113 (matrix — placeholder/budget precedents)
+**Author:** Mark Hubers — HubersTech
+
+---
+
+## 1. Purpose & Scope
+
+**What this spec does (plain English):** Rondo's thesis is PROMPT CODING —
+prompts treated like programs, not chat. Today the building blocks exist
+(rounds, schemas, budgets, dry-run, audit) but multi-step composition is a
+thin demo: `rondo_chain` blindly appends step N's output to step N+1's
+prompt, has no per-step contracts, no budget ceiling, discards raw outputs,
+and lets a FAILED step's empty output flow silently onward. This spec defines
+the real thing: a declarative pipeline — named steps, explicit data wiring,
+typed step outputs, per-step models, one hard budget, plan-before-apply —
+executed through the SAME guarded dispatch path as everything else (audit,
+sanitize, envelopes, quarantine all apply per step automatically).
+
+Mental model: **Terraform for prompts.** `plan` shows every step, model, and
+cost estimate before a cent is spent; `apply` runs it with a hard ceiling;
+the state (every step's full output + cost + status) is preserved and audited.
+
+**IN scope:** pipeline YAML definition + loader, named-step output wiring via
+placeholders, per-step model/contract/failure policy, pipeline budget,
+plan mode, sequential execution engine, result envelope, runnable flagship
+example, CLI subcommand.
+**OUT of scope (v1):** parallel step graphs (DAGs), loops/conditionals,
+MCP tool wiring (rides CLI/API first), .py pipeline files (YAML only — the
+round-trust lesson), streaming step output.
+
+---
+
+## 2. Requirements
+
+*All requirements use MUST/SHOULD priority per CORE-STD-012.*
+
+### Definition & loading
+
+| # | Requirement | Priority | Verification |
+|---|-------------|----------|--------------|
+| 001 | Pipeline file is YAML (safe_load only): `name`, `budget_usd`, `steps[]`; unknown top-level or step fields REJECTED with a clear error | MUST | Loader test |
+| 002 | Step fields: `name` (unique, identifier-safe), `prompt`, `model` (default config default), `expect` (optional output contract), `on_fail` (`stop` default \| `continue`), `retries` (0 default, max 2) | MUST | Loader test |
+| 003 | `prompt` supports `{{inputs.X}}` (caller-supplied) and `{{steps.NAME.output}}` (prior step) placeholders; any UNRESOLVED placeholder at load/run time ABORTS — a template must never be dispatched as content (REQ-113 req 005 lesson) | MUST | Placeholder test |
+| 004 | A step may only reference steps DECLARED BEFORE it (no forward/self references) — rejected at load | MUST | Wiring test |
+| 005 | `expect` contract (v1): `required` (list of top-level JSON keys). Step raw output is parsed via the house result-JSON extractor; missing key(s) or unparseable JSON = step FAILURE with `ERR_CONTRACT` detail naming the missing keys | MUST | Contract test |
+
+### Budget & plan (the Terraform discipline)
+
+| # | Requirement | Priority | Verification |
+|---|-------------|----------|--------------|
+| 010 | `budget_usd` is a HARD pipeline ceiling: before each step, if spent-so-far + the step's estimate exceeds it, the pipeline STOPS with `ERR_BUDGET_EXCEEDED`, prior step results preserved (partials are results — never discarded) | MUST | Budget test |
+| 011 | Plan mode dispatches NOTHING and emits: every step in order, its model, resolved prompt PREVIEW (placeholders shown symbolically for not-yet-run steps), per-step cost estimate, pipeline total estimate vs budget | MUST | Plan test |
+| 012 | Plan mode has zero side effects (no audit records, no files) — same purity as RONDO-403 plan_only | MUST | Plan-purity test |
+
+### Execution
+
+| # | Requirement | Priority | Verification |
+|---|-------------|----------|--------------|
+| 020 | Steps run SEQUENTIALLY through the guarded dispatch entry (`rondo_run_file`) so every step gets audit INTENT/OUTCOME, sanitize, envelopes, quarantine — pipelines add NO unguarded path | MUST | Seam test |
+| 021 | Step failure honors `on_fail`: `stop` (default) ends the pipeline with status `partial`; `continue` marks the step failed and proceeds — but a later step referencing the FAILED step's output ABORTS (no silent empty-string flow; the rondo_chain disease) | MUST | Failure test |
+| 022 | `retries: N` re-dispatches a failed step up to N times (contract failures included); each retry is a separate audited dispatch | MUST | Retry test |
+| 023 | Result envelope: pipeline `status` (`done`/`partial`/`error`), per-step records with FULL raw output, parsed output (when `expect` present), cost, duration, status, error detail; `total_cost_usd` | MUST | Envelope test |
+| 024 | Step outputs pass between steps EXPLICITLY via placeholders only — never auto-appended (deterministic wiring; what the prompt says is what the model sees) | MUST | Wiring test |
+| 025 | The engine accepts an injectable dispatch callable (tests are hermetic; production default = real guarded path) — the matrix pattern | MUST | Seam test |
+
+### Surface
+
+| # | Requirement | Priority | Verification |
+|---|-------------|----------|--------------|
+| 030 | CLI: `rondo pipeline <file.yaml> [--plan] [--input K=V ...]`; exit 0 done, 1 partial/error, 2 invalid definition | MUST | CLI test |
+| 031 | Python API: `load_pipeline(path)` + `run_pipeline(spec, inputs=..., dispatch=..., plan=...)` exported from `rondo.pipeline` | MUST | API test |
+| 032 | A runnable flagship example ships WITH this feature (examples ARE docs): a real multi-step pipeline doing real work, live-verified with logged cost | MUST | Example + index |
+
+---
+
+## 3. The flagship: release-notes assembly line
+
+The proving pipeline (`examples/pipelines/release-notes.yaml`): 9 steps over
+rondo's own `git log` — classify commits → select highlights → draft notes →
+HOSTILE REVIEW by a different provider → revise → fact-check every claim
+against the commit data → strip unverified claims → style pass → TL;DR
+header. Multi-provider by design (each role goes to the model class suited
+to it); budget-capped; every intermediate visible in the result envelope.
+Output: a CHANGELOG draft the publish step (ROAD-TO-8 8.12) actually needs.
+Dogfood: rondo documents rondo, with one AI's claims checked by another.
+
+---
+
+## 4. Honest limits (declared, not hidden)
+
+- v1 is sequential — no DAG parallelism (parallel rounds exist for fan-out;
+  pipelines are for DATA-DEPENDENT step sequences).
+- `expect.required` checks key presence, not deep types/values — deep
+  validation is the caller's step (a fact-check step IS the deep validator).
+- Cost estimates are admission heuristics (STD-105), not quotes; the hard
+  ceiling is enforced on actuals as they land.

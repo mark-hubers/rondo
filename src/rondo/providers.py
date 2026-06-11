@@ -136,7 +136,14 @@ def resolve_tier(provider: str, tier: str) -> str:
     REQ-109 req 042: gemini:high → [providers.gemini].best_model
     REQ-109 req 043: exact model name beats tier (caller checks first).
     Returns empty string if provider/tier not configured.
+
+    RONDO-406 (found LIVE by the flagship pipeline's first run): the config
+    cache only loaded at CLI/MCP STARTUP — plain Python-API callers got an
+    empty cache and 'gemini:low' was sent literally as model "low" (404).
+    Tier resolution now self-initializes (load is one-shot + lock-guarded,
+    so this is a no-op everywhere a startup already loaded it).
     """
+    load_providers_config()
     provider_cfg = _providers_config.get(provider, {})
     config_key = _TIER_MAP.get(tier, "")
     if config_key:

@@ -1,0 +1,20 @@
+MID-POINT HOSTILE DEEP REVIEW (ROAD-TO-8 item 8.10 — read reports/ROAD-TO-8.md first). Read-only; do NOT modify any file. You are reviewing the NEW code added since your 6/10 re-score (reports/cursor-reviews/review-20260610-164750.md), BEFORE the full re-score. Fresh eyes on fresh code — the quarantine, advisory-machinery, perms, budget-class, and lock changes specifically.
+
+SCOPE — review these diffs (git log 957bd9f..HEAD, files):
+1. src/rondo/dispatch.py — _quarantine_scrub_failure + the widened except (RONDO-391) + save_result mkstemp (RONDO-393)
+2. src/rondo/mcp_dispatch.py — _advisory_budget_refusal, _audit_advisory_plan, the moved idempotency lookup (RONDO-394), defensive sanitize widening (RONDO-391 twin)
+3. src/rondo/dispatch_routing.py + src/rondo/audit.py — schema 3, scope fields, engine field, atomic_write mkstemp, _append_jsonl O_CREAT (RONDO-393/394)
+4. src/rondo/parallel.py — per-class _BudgetGate (RONDO-395)
+5. src/rondo/idempotency.py — bounded _try_flock_bounded, sweep_stale_key_locks, _rewrite_compacted (RONDO-393/396)
+6. src/rondo/adapters/http_skeleton.py — TypeError/ValueError widening (RONDO-397)
+7. src/rondo/mutate.py — --timeout-per-mutant (RONDO-392)
+
+ATTACK ANGLES (be hostile; cite file:line for every finding):
+- Quarantine: can a scrub failure still leak raw payload to ANY store (audit OUTCOME raw_output, spool asdict, history record, result file, returned envelope fields beyond raw_output/parsed_result/stderr — e.g. prompt_sent, context_data, error_message)? Is the quarantine file itself complete (never-lose-data) — does asdict capture everything? Quarantine-write failure path: anything persisted raw?
+- Advisory machinery: ordering bugs at the choke point (refusal before audit — is a REFUSED plan auditable/should it be?); does the moved idempotency lookup change behavior for background dispatches or error paths in a way old tests don't pin; can the estimate gate be wrong-side (refuse free work / admit paid)? AuditTrail constructed fresh per advisory plan — cost of init/auto_reconcile=False correct? Double audit when host later dispatches via rondo_run for real?
+- Per-class gate: races in the new per-class probe logic (two classes, interleaved settles, waiter wakeups); MAX-KEEP interaction with the $0 free sample (setdefault vs max); _inflight dict cleanup (unbounded class keys?); refusal when est exists but class unsampled?
+- Bounded lock: TOCTOU between probe loop and deadline; the sweep's unlink-while-probe-held order — is the documented double-pay degradation the WORST case or can it corrupt the cache; sweep riding compaction while holding the compact lock (deadlock with a key lock?).
+- Perms: any remaining artifact born wide (think: notify files, retry round files, matrix, forensics bundle, quarantine dir itself); os.replace across filesystems (EXDEV) behavior in atomic_write/mkstemp paths.
+- Cross-cutting: did any change weaken an EXISTING guarantee (idempotency fast path latency now after routing — cache-hit path got slower/changed semantics?); complexity/duplication smells; missing tests you would still demand.
+
+OUTPUT: a numbered findings list — severity (HIGH/MED/LOW), file:line, what breaks, a one-line fix sketch. End with a verdict line: "BLOCKERS: N — ready for re-score: yes/no". Save nothing; just answer. Honesty over politeness; zero findings is a valid answer ONLY if you actually looked.

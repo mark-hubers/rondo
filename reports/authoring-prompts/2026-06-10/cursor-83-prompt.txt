@@ -1,0 +1,27 @@
+Author REGRESSION TESTS for ROAD-TO-8 item 8.3 (read reports/ROAD-TO-8.md): audit artifacts must be born 0o600 (STD-110 r012 MUST). Your re-score (review-20260610-164750.md finding R3) flagged this.
+
+TODAY'S HOLES (verified at these exact sites):
+1. src/rondo/audit.py:127 atomic_write — tmp_path.write_text() births the temp at umask (typically 0o644) and os.replace carries those perms to the final file. Affects audit prompt files (audit.py:385) and audit result files (audit.py:474).
+2. src/rondo/audit.py:632 _append_jsonl — self._jsonl_path.open("a") CREATES the JSONL at umask on the first append.
+3. src/rondo/dispatch.py:250-251 save_result — write_text() THEN chmod(0o600): a window where the FULL payload sits at umask. Final perms are right; birth perms are not.
+
+THE CONTRACT (mirror spool.py:165's mkstemp pattern — files BORN 0o600, never chmod-after-write):
+  (a) atomic_write: the final file is 0o600 AND no instant during the write exposes wider perms (temp born 0o600).
+  (b) The audit JSONL file, when created by the first append, is 0o600.
+  (c) save_result's file is born 0o600 — no write-then-chmod window. (Testing the window directly is racy; instead pin the MECHANISM: monkeypatch os.umask? NO — simplest robust pin: set a permissive umask (0o000) for the test via os.umask save/restore, call the writer, assert the file is 0o600 anyway. Under umask 0 a umask-dependent open would yield 0o666/0o644 — kills the current code; born-0o600 (mkstemp or os.open with mode 0o600) passes regardless of umask.)
+  (d) POSIX-only assertions: pytest.skip on non-posix.
+  (e) Existing behavior preserved: atomic_write is still atomic (os.replace), append still appends (two appends → two lines), save_result content unchanged.
+
+YOUR TESTS — tests/unit/test_audit_artifact_perms_cursor.py:
+1. test_atomic_write_file_born_0600: umask(0o000) → atomic_write(tmp file) → stat mode & 0o777 == 0o600. MUST FAIL today.
+2. test_atomic_write_tmp_never_wider: under umask 0, monkeypatch os.replace to capture the tmp path BEFORE the rename and assert the tmp's mode & 0o777 == 0o600 (then perform the real replace so behavior holds). MUST FAIL today.
+3. test_audit_jsonl_created_0600: umask(0o000) → AuditTrail record INTENT (or call _append_jsonl via the public record path) into a fresh tmp audit dir → the .jsonl file mode & 0o777 == 0o600. MUST FAIL today.
+4. test_save_result_born_0600_no_window: umask(0o000) → save_result(...) → final file 0o600. PLUS the mechanism pin: monkeypatch Path.chmod to record calls — the implementation must NOT rely on a post-write chmod for the payload file (born right instead). MUST FAIL today (current code = write_text then chmod; under umask 0 the pre-chmod birth is 0o666 — your assert on the chmod-records-or-birth mechanism should kill it; if you find chmod makes the FINAL mode pass, pin the mechanism not just the final mode).
+5. test_atomic_write_still_atomic_and_correct: content round-trips; tmp file gone after success; old content survives when the write raises (monkeypatch to force OSError mid-write).
+6. test_append_jsonl_still_appends: two records → two parseable JSONL lines.
+Always restore umask in finally / use a fixture. RONDO_TEST_DIR is set by conftest autouse — rely on tmp_path-based dirs you pass explicitly.
+
+HARD CONSTRAINTS:
+- Do NOT modify ANY file under src/. Tests only. One new file.
+- Each test fn: -> None return hint + docstring. Two SPDX lines at top. Module docstring contains VER-001. Pure pytest + unittest.mock + monkeypatch.
+- Run your new file and report which tests FAIL (expected: 1,2,3 fail; 4 fails on mechanism; 5,6 pass).

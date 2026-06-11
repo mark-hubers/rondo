@@ -1,0 +1,16 @@
+Author REGRESSION TESTS for ROAD-TO-8 item R2-3 (read reports/ROAD-TO-8.md, ROUND 2): matrix cell outputs are 0o600 but UNSANITIZED. Your re-score finding #3 (review-20260610-184904.md).
+
+TODAY'S DISEASE: src/rondo/matrix.py — _write_cell_output writes raw result.get("output") verbatim to {stem}.txt. A secret echoed by a matrix model lands on disk unscrubbed (STD-114 r006 MUST: scrub before writing model output to result files).
+
+THE NEW CONTRACT:
+  (a) Cell output text is scrubbed (sanitize_text or equivalent single-truth scrubber from rondo.sanitize) BEFORE the 0o600 write. Secret absent from the file; [REDACTED marker present where it was.
+  (b) Scrub failure follows house rules: degrade loudly, never crash the cell (the cell-isolation contract req 023 stays intact); on scrub failure the output is WITHHELD (stub written), not persisted raw — consistent with the RONDO-391 quarantine ruling.
+  (c) Clean rail: normal output text round-trips unchanged (no [REDACTED in clean text), file still 0o600, manifest/record fields unchanged.
+
+YOUR TESTS — tests/unit/test_matrix_output_sanitize_cursor.py:
+Find the existing matrix tests (tests/unit/test_matrix*.py) and reuse their harness — run_matrix takes an injected dispatch callable, so plant the secret in the fake dispatcher's "output". Use the AKIAIOSFODNN7EXAMPLE fixture family ONLY (constant named like _AWS_EXAMPLE_KEY — never *api_key* =, the conventions lock matches that).
+1. KILL: fake dispatcher returns output containing the secret → the written {stem}.txt does NOT contain it and DOES contain [REDACTED. MUST FAIL today.
+2. Scrub-failure withholding: monkeypatch the scrubber matrix uses to raise → cell file contains a stub (no raw secret), cell record still completes (no crash, run continues). MUST FAIL today.
+3. Clean rail: ordinary output unchanged in content; file mode & 0o777 == 0o600 (POSIX-skip).
+
+HARD CONSTRAINTS: no src/ edits; one new test file; -> None hints + docstrings; two SPDX lines; VER-001 in module docstring. Run it; report the RED list (expect 1,2 RED; 3 pass).

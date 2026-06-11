@@ -1,0 +1,19 @@
+DESIGN REVIEW (no code changes — read-only, answer in text) for ROAD-TO-8 item 8.2 (read reports/ROAD-TO-8.md): put the inline/agent advisory path under the machinery.
+
+TODAY'S BEHAVIOR: src/rondo/mcp_dispatch.py:872-873 — when routing resolves engine "inline" or "agent", rondo_run returns `json.dumps(engine)` immediately. The plan dicts (src/rondo/dispatch_routing.py _build_inline_plan / _build_agent_plan) carry the raw caller prompt + routing metadata. This return bypasses: audit INTENT/OUTCOME, sanitize, budget gate, circuit breaker, idempotency cache STORE (lookup at line 824 did run, and the key includes execution mode). Your re-score (review-20260610-164750.md, finding R2) called this the soft center: a whole dispatch class invisible to the audit trail.
+
+PROPOSED DESIGN — critique it, find the holes, propose better where wrong:
+
+(1) AUDIT: at the single choke point (mcp_dispatch.py:872), before returning the plan: record audit INTENT (dispatch_id, task/prompt summary, model, engine kind) and immediately record OUTCOME with an honest advisory status (e.g. status="plan", exit_code 0, raw_output = the plan's scrubbed JSON). Rationale: the plan IS a dispatch event; rondo never learns the host-side execution result, so the OUTCOME honestly records "advisory plan returned", not a fake completion. Question: is INTENT+immediate-OUTCOME the right STD-113 shape, or should it be a distinct event kind?
+
+(2) SANITIZE: scrub ONLY the persisted copy (what goes into the audit record). The RETURNED plan keeps the raw prompt — the host needs it verbatim to execute. Reading: STD-114 r006 governs persistence, not the in-flight return to the authorized caller. Agree/disagree?
+
+(3) SCOPE HONESTY in the returned plan: add "guarantees_scope": "advisory" plus an explicit "not_covered": ["budget", "circuit_breaker", "cost_tracking", "result_audit"] field to both plan builders, and bump/keep PLAN_SCHEMA_VERSION appropriately (additive fields — old consumers ignore unknown keys; does this need a version bump per the schema's own rules?). The envelope must make it impossible for a consumer to mistake an advisory plan for a guarded execution.
+
+(4) NOT COVERED BY CONSTRUCTION: budget/breaker cannot apply — rondo never executes the work and never sees tokens/cost. We declare this rather than half-fake it. Agree, or is there a cheap real guarantee we're missing (e.g. counting plan ISSUANCE against any limiter)?
+
+(5) Failure semantics: if the audit write fails, the plan should still be returned (advisory path must not break on bookkeeping), logged loud. Agree?
+
+ALSO ANSWER: (6) dispatch_id — should the returned plan carry the audit dispatch_id so the Caliber Stop-hook token verification could later be correlated? (7) Any interaction with the idempotency cache store you'd change — should advisory plans be cached, or is bypass-correct (plans are free)? (8) What would your judge tests pin — list the 5-7 assertions you'd write.
+
+Keep the answer concrete and ordered (1)-(8). Cite file:line for anything you reference. Do NOT modify any files.

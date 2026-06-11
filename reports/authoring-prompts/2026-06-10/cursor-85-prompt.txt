@@ -1,0 +1,22 @@
+Author REGRESSION TESTS for ROAD-TO-8 item 8.5 (read reports/ROAD-TO-8.md): cross-process key lock — bounded wait + lock-file TTL hygiene. Your re-score finding R5.
+
+TODAY'S BEHAVIOR (src/rondo/idempotency.py:119-158 cross_process_key_lock): fcntl.flock(fd, LOCK_EX) BLOCKS UNBOUNDED. If process A holds the key lock through a 30-minute dispatch, process B's MCP server thread stalls the entire wait — an interactive caller freezes with no feedback. Also: lock files under idempotency-locks/ are never cleaned (one per unique key forever; tiny but unbounded count).
+
+THE NEW CONTRACT:
+  (a) BOUNDED ACQUIRE: try LOCK_EX|LOCK_NB in a retry loop with small sleeps, up to a wait budget (default ~3s, configurable via env RONDO_XPROC_LOCK_WAIT_SEC — 0 disables waiting entirely=immediate fallthrough, negative/garbage → default). On success → proceed locked (current behavior).
+  (b) TIMEOUT → PROCEED UNLOCKED + WARN: on exhausting the budget, log -WARNING- (mentions the bounded wait + that in-process single-flight still holds; worst case = rare cross-process double-pay) and yield WITHOUT the lock. NEVER stall past the budget, NEVER raise.
+  (c) Degradation rails unchanged: no fcntl (Windows) → warn + yield; open failure → warn + yield (already pinned in tests/unit/test_cross_process_lock_cursor.py — don't break).
+  (d) TTL SWEEP with flock-probe safety: during idempotency compaction (_compact... find it — the >1MB JSONL rewrite path), stale lock FILES older than a TTL (mtime, e.g. 7 days) in idempotency-locks/ are unlinked ONLY after a successful LOCK_EX|LOCK_NB probe on that file (provably unheld at unlink time — never unlink a held lock file: peers re-lock a dead inode). Probe-locked file young → left alone. Probe-fails (EWOULDBLOCK) → left alone regardless of age.
+  (e) Holding path unchanged: when the lock IS acquired within budget, release/close semantics identical to today.
+
+YOUR TESTS — tests/unit/test_xproc_lock_bounded_cursor.py:
+1. Bounded wait KILL: hold the lock from a SECOND REAL PROCESS (subprocess running python -c that flocks the key's lock file and sleeps; mirror the two-process pattern in tests/unit/test_cross_process_lock_cursor.py) with RONDO_XPROC_LOCK_WAIT_SEC=1; enter cross_process_key_lock under a wall-clock timer: must yield within ~1s+slack (<2.5s), with a WARNING logged. On TODAY's code this blocks until the peer exits (give the peer a 4s sleep; today = ~4s elapsed → assert <2.5s kills it). MUST FAIL today.
+2. Acquired-fast path: no contention → enters promptly, NO warning, lock actually held (peer LOCK_NB probe from a subprocess fails while inside the context).
+3. Env knob: RONDO_XPROC_LOCK_WAIT_SEC=0 → immediate unlocked fallthrough under contention (elapsed < 0.5s), warning logged. Garbage value ("banana") → default used (don't time 3s — just assert it doesn't crash and still yields; keep practical).
+4. TTL sweep unlinks ONLY stale+unheld: create 3 lock files in the locks dir: (i) old mtime (os.utime to 8 days ago) + unheld → swept; (ii) old mtime + HELD by a live subprocess → survives; (iii) fresh mtime + unheld → survives. Trigger the sweep via the compaction path (or the public function the implementation exposes for it — name it in your test; if you must guess, sweep_stale_key_locks(ttl_sec=...) in rondo.idempotency). MUST FAIL today (no sweep exists).
+5. Release-on-exit unchanged: after the context exits, a subprocess LOCK_NB probe succeeds.
+
+HARD CONSTRAINTS:
+- Do NOT modify ANY file under src/. Tests only. One new file.
+- Each test fn: -> None return hint + docstring. Two SPDX lines. Module docstring contains VER-001. subprocess for real peers (sys.executable, hermetic, no live AI), caplog for warnings, monkeypatch.setenv for knobs. Total file runtime < 15s.
+- Run the file; report which tests FAIL today (expect 1, 3-contention, 4 RED; 2, 5 may pass).

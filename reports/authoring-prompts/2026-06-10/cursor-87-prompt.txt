@@ -1,0 +1,22 @@
+Author REGRESSION TESTS for ROAD-TO-8 item 8.7 (read reports/ROAD-TO-8.md): http_skeleton success-path catch widening. Your re-score finding R8.
+
+TODAY'S HOLE (verified): src/rondo/adapters/http_skeleton.py line ~223 — the success-path exception tuple is (URLError, OSError, JSONDecodeError, KeyError). A TypeError or ValueError raised AFTER a successful HTTP response — e.g. token math / cost computation on a malformed-but-200 usage block (usage fields as strings/None), or an extract_text/early_result callback tripping on an unexpected shape — ESCAPES the adapter and crashes the CALLER instead of becoming an error TaskResult. The parallel collector catches it; direct/sequential callers do not.
+
+THE NEW CONTRACT:
+  (a) TypeError and ValueError from the post-response pipeline (extract_text, early_result, empty_message, _done_result token/cost math) are caught at the same boundary and produce a status="error" TaskResult with error_code ERR_PROVIDER (same envelope as today's URLError branch), breaker record_failure fired, key-redaction applied to the message.
+  (b) Clean rail unchanged: well-formed responses still produce done results with correct metrics; HTTPError branch unchanged; the EXISTING four exception types still produce error results (don't regress).
+  (c) No new exception types beyond TypeError/ValueError (no bare-Exception creep at this boundary — provider bugs should still crash loudly in dev if they're truly novel).
+
+YOUR TESTS — tests/unit/test_http_skeleton_catch_widening_cursor.py:
+Find how existing tests build an HttpDispatchPlan and stub the urlopen seam (tests/unit/test_http_skeleton*.py or the adapter tests that exercise dispatch_via_http) and reuse that harness.
+1. TypeError KILL: a 200 response whose extract_text (or usage math via a plan whose extract_usage/extra metrics path does int ops on a string) raises TypeError → dispatch_via_http RETURNS an error TaskResult (status="error", error_code=ERR_PROVIDER), does NOT raise. MUST FAIL today (TypeError propagates).
+2. ValueError KILL: same shape with ValueError (e.g. int("not-a-number") inside a plan callback) → error result, not a raise. MUST FAIL today.
+3. Breaker pin: the TypeError path calls record_failure on the circuit breaker for plan.provider (assert via monkeypatched get_circuit_breaker or breaker state).
+4. Redaction pin: when the raised TypeError message contains the plan's api_key, the returned error_message has it [REDACTED].
+5. Clean rail: a well-formed 200 still returns status="done" with text + metrics (no behavior change).
+6. Existing-types rail: a URLError still produces the same ERR_PROVIDER error result (no regression).
+
+HARD CONSTRAINTS:
+- Do NOT modify ANY file under src/. Tests only. One new file.
+- Each test fn: -> None return hint + docstring. Two SPDX lines. Module docstring contains VER-001. Hermetic: stub urlopen/_run_subprocess seams, no live HTTP, no live AI. 401-style stubs preferred over 5xx (backoff dodge).
+- Run the file; report the RED list (expect 1,2 RED — possibly 3,4 also RED since they depend on the new catch; 5,6 pass).

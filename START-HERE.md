@@ -1,6 +1,6 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-06 (post RONDO-339/340) | **State:** independent + green
+**Updated:** 2026-06-10 (post ROAD-TO-8, RONDO-372→405) | **State:** independent + green | **Score: 7/10 hostile-verified**
 
 ## Where this repo came from
 
@@ -8,15 +8,16 @@ Split from `~/git/mhubers/ace2/rondo/` with **full history preserved**
 (611+ commits). The ace2 copy is FROZEN (see its POINTER.md). Backups:
 3 verified git bundles (internal + BKUP_DATA_A + BKUP_DATA_B).
 
-## Current health (verified 2026-06-06)
+## Current health (verified 2026-06-10)
 
 | Check | Result |
 |-------|--------|
-| Full suite, own venv, zero ace2 ties | 2,218 passed, 0 failed |
-| Own 6-gate build (`bin/build`) | green (see git log) |
-| `rondo doctor` from installed tool | 6/6 PASS |
-| Docs drift + examples index | clean |
-| Conventions locks (incl. new API-stability lock) | 39 green |
+| Full suite, own venv, zero ace2 ties | 2,610 tests collected, build green |
+| Own 6-gate build (`bin/build`) | green before every commit (694 commits) |
+| `rondo doctor` from installed tool | 6/6 PASS (reinstalled 2026-06-10) |
+| Docs drift + examples index (92) | clean |
+| Conventions locks | 43 classes green |
+| Mutation coverage (measured, not claimed) | spool 97 / envelope 98 / history 100 / sanitize 97 / dispatch_parse 97% |
 
 ## What Rondo is right now (the 25-sprint campaign, RONDO-313→337)
 
@@ -32,11 +33,17 @@ guided failures, dead-flag lock. Full record:
 **Nothing ships under 7.5/10; target 8.5** — scored by the 10-dimension
 hostile-review rubric in `specs/Rondo-SOP-106-road-to-8.5.md`.
 
-**Measured 2026-06-06 (RONDO-339):** 3-AI hostile panel scored **3.13 mean,
-all 10 dimensions under the 7.5 floor** — full evidence in
-`reports/hostile-review-2026-06-06.md`. The engineering evidence was
-accepted; the score is floored because 5 of 10 dimensions cannot rise
-while the repo is private and unpublished.
+**Trajectory (same hostile instrument, fixes verified in code each time):**
+3.13 (panel, Jun 6) → 5 → 6 → **7/10** (Jun 10, `reports/cursor-reviews/
+review-20260610-184904.md`). The four-day climb is the ROAD-TO-8 campaign:
+`reports/ROAD-TO-8.md` — every engineering item CLOSED (rounds 1 + 2,
+RONDO-391→405): quarantine-on-scrub-failure, advisory path under the
+machinery with scope honesty, every artifact born 0o600, per-class +
+auth-class budget estimates, bounded cross-process locks with TTL hygiene,
+reconcile under the audit file's own flock, complete scrub set, bounded
+in-memory cache, pure plan_only previews, mutation-gate baseline guard.
+The score remains floored by private/unpublished status — ~5 of 10 panel
+dimensions cannot rise until the publish decision (Mark's alone).
 
 **Banked since the review (RONDO-340, fix #3 of the report):**
 - `docs/API-STABILITY.md` — stable surface declared (24 CLI commands,
@@ -51,7 +58,11 @@ while the repo is private and unpublished.
 
 ## What's next — ALL gated on Mark's decisions
 
-Nothing left on the score is self-serve. Each row needs Mark's word first:
+Self-serve engineering is DONE (ROAD-TO-8 rounds 1+2 closed 2026-06-10).
+Open: the round-2 re-score needs an instrument (Cursor quota resets 6/15;
+alternatives: a Cursor spend limit, or a rondo cloud panel with an
+instrument-change note). NOTE: this repo has NO git remote yet — creating
+one is part of the publish decision below. Each row needs Mark's word first:
 
 | Decision | Unlocks (dim) | Panel-estimated gain |
 |----------|---------------|----------------------|

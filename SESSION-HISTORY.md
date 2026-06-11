@@ -4,6 +4,49 @@ Newest at top. Per-repo session log (see `~/.claude/on-demand/session-save-proce
 
 ---
 
+## 2026-06-10 EVENING — ROAD-TO-8: 6/10 → 7/10 measured, every engineering item closed (RONDO-391→405)
+
+**TL;DR:** Mark's order: "do all that needed to get this to a 8/10... clear trackable task
+list... deep review as you go." Built `reports/ROAD-TO-8.md` and closed ALL of it — rounds
+1 AND 2 — in one evening: ~15 sprints, ~25 commits, every fix judge-tested RED→GREEN,
+build green before every commit. **Re-scored 7/10** (same hostile instrument; trajectory
+3.13 → 5 → 6 → 7 in four days). Suite 2,486 → 2,610 collected.
+
+### Round 1 (8.1-8.11): quarantine-on-scrub-failure (391; prompt_sent + RecursionError twins
+caught by the mid-point review and fixed); advisory path under the machinery — audit
+INTENT/advisory OUTCOME, dispatch_id correlation, guarantees_scope/not_covered on every
+plan builder, schema 3, estimate-gated budget at issuance (394; design Cursor-reviewed
+BEFORE code — found a real pre-existing cache-collision bug); artifacts born 0o600
+everywhere incl. 4 twin-grep finds (393); per-class budget estimates (395); bounded
+cross-process lock + flock-probe TTL sweep (396); reconcile under the audit file's own
+flock with thread-local re-entrancy (398); adapter catch widening with a no-bare-Exception
+pin (397); mutate --timeout-per-mutant, hang=caught (392); STD-115 scope honesty in
+SECURITY.md; mid-point hostile review (11 findings: 6 fixed, 2 documented, 3 acknowledged).
+
+### Round 2 (R2-1..R2-8): bounded in-memory idempotency cache (400); complete scrub set —
+error_message/context_data/command_sent + archive 0o600 (401); matrix output scrubbed +
+advisory OUTCOME req-021 + STD-113 §8 amended to the open status vocabulary (402);
+claude-max/claude-api auth-class split + PURE plan_only previews (403); mutation-gate
+baseline guard — red-on-clean aborts, tight timeout warns (404); dispatch_parse MEASURED
+31/61 honest → kill suite → **59/61 = 97%**, 2 survivors documented provable equivalents;
+the timeout flag caught a genuinely hanging mutant in production use (405).
+
+### The day's defining event: Cursor died mid-round (Pro+ monthly limit, resets 6/15).
+The independent-author role moved to **gemini-2.5-pro dispatched through rondo itself**
+(rondo_run, ~$0.03 total, separation of duties kept with a DIFFERENT vendor). Twice,
+gemini's test fixtures came back with the fake AWS key ALREADY SCRUBBED — rondo's own
+sanitize pipeline scrubbing its own dispatch results mid-authoring. Every gemini harness
+guess was RED-replicated before trust (caught one vacuously-passing test); every re-point
+documented in module docstrings, never silent. Authoring prompts preserved in
+reports/authoring-prompts/2026-06-10/.
+
+### State at save
+- All committed through RONDO-405; bin/build 6/6 green; no git remote exists (publish = 8.12).
+- OPEN: round-2 re-score (instrument = Cursor, quota-dead till 6/15; alternatives: spend
+  limit, or rondo cloud panel with an instrument-change note); 8.12 publish fork (MARK'S).
+
+---
+
 ## 2026-06-10 — The 24-item quality burn-down: 5/10 review → everything fixed (20 sprints, RONDO-372→390)
 
 **TL;DR:** Cursor's hostile holistic review scored rondo **5/10** with 10 findings (2 release

@@ -79,6 +79,19 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # -- run subcommand (Rondo-REQ-100 req 38)
+    pipeline_parser = subparsers.add_parser(
+        "pipeline", help="Run a prompt-pipeline YAML (REQ-114): plan/apply prompt programs"
+    )
+    pipeline_parser.add_argument("file", help="pipeline YAML file")
+    pipeline_parser.add_argument("--plan", action="store_true", help="show the plan only — no dispatches, no cost")
+    pipeline_parser.add_argument(
+        "--input",
+        action="append",
+        default=[],
+        metavar="K=V",
+        help="pipeline input (repeatable); V starting with @ reads a file",
+    )
+
     run_parser = subparsers.add_parser("run", help="Execute a round definition file (.py, .yaml, .json)")
     run_parser.add_argument("file", help="Path to round file (.py, .yaml, .yml, .json)")
     _add_common_flags(run_parser)
@@ -448,6 +461,7 @@ def main(argv: list[str] | None = None) -> int:
         # -- REQ-111 req 400: detect inline prompt before argparse
         # -- If first arg is not a known subcommand or flag, treat as prompt
         _known_commands = {
+            "pipeline",
             "run",
             "live",
             "overnight",

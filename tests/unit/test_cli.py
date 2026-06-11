@@ -1177,4 +1177,60 @@ class TestProviderPrefixedDispatch:
         assert "404" in out.get("error_message", "")
 
 
+class TestPipelineSubcommand:
+    """RONDO-406 (REQ-114 req 030): `rondo pipeline` — dead-flag lock coverage.
+
+    Labeled Claude tests (CLI wiring; the engine itself is judged by the
+    gemini-authored tests/unit/test_pipeline_engine_cursor.py).
+    """
+
+    def _write_pipeline(self, tmp_path) -> str:
+        yaml_text = textwrap.dedent("""\
+            name: cli-demo
+            budget_usd: 1.0
+            steps:
+              - name: s1
+                prompt: "Say hi to {{inputs.who}}"
+        """)
+        path = tmp_path / "pipe.yaml"
+        path.write_text(yaml_text, encoding="utf-8")
+        return str(path)
+
+    def test_pipeline_plan_flag_dispatches_nothing(self, tmp_path, capsys) -> None:
+        """--plan returns the plan envelope, exit 0, no dispatch attempted."""
+        path = self._write_pipeline(tmp_path)
+        code = main(["pipeline", path, "--plan", "--input", "who=world"])
+        out = json.loads(capsys.readouterr().out)
+        assert code == EXIT_SUCCESS
+        assert out["status"] == "plan"
+        assert out["steps"][0]["name"] == "s1"
+        assert "world" in out["steps"][0]["prompt_preview"]
+
+    def test_pipeline_input_at_file(self, tmp_path, capsys) -> None:
+        """--input K=@file reads the file content into {{inputs.K}}."""
+        data = tmp_path / "payload.txt"
+        data.write_text("FROM-A-FILE", encoding="utf-8")
+        path = self._write_pipeline(tmp_path)
+        code = main(["pipeline", path, "--plan", "--input", f"who=@{data}"])
+        out = json.loads(capsys.readouterr().out)
+        assert code == EXIT_SUCCESS
+        assert "FROM-A-FILE" in out["steps"][0]["prompt_preview"]
+
+    def test_pipeline_invalid_definition_exits_2(self, tmp_path, capsys) -> None:
+        """A bad pipeline file is a usage-class failure: exit 2 + clear error."""
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("name: x\nbudget_usd: 1.0\nbogus: 1\nsteps: []\n", encoding="utf-8")
+        code = main(["pipeline", str(bad), "--plan"])
+        err = capsys.readouterr().err
+        assert code == 2
+        assert "bogus" in err
+
+    def test_pipeline_bad_input_pair_exits_2(self, tmp_path, capsys) -> None:
+        """--input without K=V form is rejected with exit 2."""
+        path = self._write_pipeline(tmp_path)
+        code = main(["pipeline", path, "--plan", "--input", "no-equals-sign"])
+        assert code == 2
+        assert "K=V" in capsys.readouterr().err
+
+
 # -- sig: mgh-6201.cd.bd955f.90ef.7572f7

@@ -1,0 +1,144 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+#
+# THE FLAGSHIP (Rondo-REQ-114 + RONDO-407): rondo drives CLAUDE CODE ITSELF,
+# one step at a time. This is the point of prompt coding: CLAUDE.md/memory
+# instructions are suggestions an AI drifts from after a few steps — this
+# engine sits OUTSIDE the model and cannot drift. Every step must answer
+# "did you actually do it?" (smart-return passed=true/false, verified by
+# RUNNING the work); passed=false blocks advancement and retries are the
+# fix loop. No step 7 until step 6 is PROVEN.
+#
+# What it builds: a working todo-list CLI (todo.py) + its test suite, from
+# nothing, in 10 enforced steps inside {{inputs.workspace}}.
+# Run: uv run python examples/api/claude_step_driver.py --plan | (live, $0 on max auth)
+
+name: claude-builder
+budget_usd: 4.00
+
+steps:
+  - name: scaffold
+    model: "sonnet"
+    tools: "Read,Write,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Create {{inputs.workspace}}/todo.py: a todo-list module storing items
+      in {{inputs.workspace}}/todos.json. Functions: add_task(text) -> dict,
+      list_tasks() -> list[dict]. Each task: {"id": int, "text": str,
+      "done": false}. VERIFY by running:
+      python3 -c "import sys; sys.path.insert(0,'{{inputs.workspace}}'); import todo; todo.add_task('x'); print(todo.list_tasks())"
+      Set passed=true ONLY if that command actually ran clean; on any error
+      set passed=false and list the error in issues.
+
+  - name: cli_interface
+    model: "sonnet"
+    tools: "Read,Edit,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Add an argparse CLI to {{inputs.workspace}}/todo.py: subcommands
+      `add "text"`, `list`, `done <id>`. VERIFY by running all three:
+      python3 {{inputs.workspace}}/todo.py add "demo task"
+      python3 {{inputs.workspace}}/todo.py list
+      python3 {{inputs.workspace}}/todo.py done 1
+      Set passed=true ONLY if all three ran clean; otherwise passed=false
+      with the failures in issues.
+
+  - name: input_validation
+    model: "sonnet"
+    timeout: 600
+    tools: "Read,Edit,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Harden {{inputs.workspace}}/todo.py: empty task text rejected with a
+      clear message and exit code 2; `done` with a missing/non-integer id
+      rejected the same way; a corrupt/missing todos.json handled without a
+      traceback. VERIFY each case by running it and checking the exit code
+      (e.g. `python3 {{inputs.workspace}}/todo.py add "" ; echo exit=$?`).
+      passed=true ONLY if every case behaves as specified.
+
+  - name: write_tests
+    model: "sonnet"
+    timeout: 600
+    tools: "Read,Write,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Write {{inputs.workspace}}/test_todo.py: pytest tests for add/list/
+      done plus the validation cases (empty text, bad id, corrupt JSON).
+      Use tmp_path/monkeypatch so tests never touch the real todos.json.
+      VERIFY by running: python3 -m pytest {{inputs.workspace}}/test_todo.py -q
+      passed=true ONLY if pytest exited 0; report the test count in result.
+
+  - name: hostile_self_review
+    model: "sonnet"
+    tools: "Read,Bash"
+    max_turns: 12
+    prompt: |
+      Hostile review of {{inputs.workspace}}/todo.py and test_todo.py: find
+      real weaknesses (race on the JSON file? ids reused after deletion?
+      tests that cannot fail?). Do NOT fix anything yet. Return your
+      findings as JSON: set result to {"findings": ["..."]} — passed=true
+      (the review itself succeeding), findings may be empty if truly clean.
+
+  - name: apply_review_fixes
+    model: "sonnet"
+    timeout: 600
+    tools: "Read,Edit,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Apply these review findings to {{inputs.workspace}}/todo.py and
+      test_todo.py: {{steps.hostile_self_review.output}}
+      VERIFY by re-running: python3 -m pytest {{inputs.workspace}}/test_todo.py -q
+      passed=true ONLY if pytest is green after your fixes.
+
+  - name: add_docstrings
+    model: "sonnet"
+    timeout: 600
+    tools: "Read,Edit,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Add docstrings and meaningful comments to every function in
+      {{inputs.workspace}}/todo.py. Change NO behavior. VERIFY:
+      python3 -m pytest {{inputs.workspace}}/test_todo.py -q
+      still green AND python3 -c "import sys; sys.path.insert(0,'{{inputs.workspace}}'); import todo; print(todo.add_task.__doc__ is not None)"
+      prints True. passed=true ONLY if both verified.
+
+  - name: edge_case_tests
+    model: "sonnet"
+    timeout: 600
+    tools: "Read,Edit,Bash"
+    max_turns: 16
+    retries: 1
+    prompt: |
+      Extend {{inputs.workspace}}/test_todo.py with edge cases: unicode
+      task text, very long text, done on an already-done task, list with
+      zero tasks. VERIFY: python3 -m pytest {{inputs.workspace}}/test_todo.py -q
+      passed=true ONLY if green; report the NEW total test count in result.
+
+  - name: final_verification
+    model: "sonnet"
+    timeout: 600
+    tools: "Read,Bash"
+    max_turns: 12
+    prompt: |
+      Final gate for {{inputs.workspace}}: run the FULL check yourself —
+      pytest -q on test_todo.py, then exercise the CLI end to end (add,
+      list, done) in a temp HOME. passed=true ONLY if everything is green;
+      list anything broken in issues.
+
+  - name: report
+    model: "sonnet"
+    tools: "Read,Bash"
+    max_turns: 6
+    retries: 1
+    prompt: |
+      Produce the build report for {{inputs.workspace}}. Set result to a
+      JSON object: {"files": [...], "test_count": N, "features": [...],
+      "loc": N}. Count tests by running pytest --collect-only -q. passed
+      reflects whether you could verify everything you report.
+    expect: {required: [passed, result]}

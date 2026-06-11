@@ -49,6 +49,7 @@ keeps this list complete.
 | Command | What it does |
 |---------|--------------|
 | `run` | Execute a round definition file (.py/.yaml/.json) |
+| `pipeline` | Run a REQ-114 prompt pipeline YAML (plan/apply prompt programs) |
 | `live` | Execute round in live mode (human reviews) |
 | `overnight` | Phase scheduler with watchdog response |
 | `report` | Morning report generation |

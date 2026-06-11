@@ -149,4 +149,44 @@ def _cmd_overnight(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS if result.status == "done" else EXIT_FAILURE
 
 
+def _cmd_pipeline(args: argparse.Namespace) -> int:
+    """Execute 'rondo pipeline <file.yaml>' — REQ-114 req 030.
+
+    Exit codes per the spec: 0 done/plan, 1 partial/error, 2 invalid
+    definition. --plan dispatches nothing; --input K=V supplies
+    {{inputs.K}} (V starting with @ reads the file at that path — prompt
+    programs eat real data).
+    """
+    import json as _json  # pylint: disable=import-outside-toplevel
+    from pathlib import Path as _Path  # pylint: disable=import-outside-toplevel
+
+    from rondo.pipeline import PipelineError, load_pipeline, run_pipeline  # pylint: disable=import-outside-toplevel
+
+    inputs: dict[str, str] = {}
+    for pair in getattr(args, "input", []) or []:
+        if "=" not in pair:
+            print(f"Error: --input expects K=V, got {pair!r}", file=sys.stderr)
+            return 2
+        key, value = pair.split("=", 1)
+        if value.startswith("@"):
+            try:
+                value = _Path(value[1:]).expanduser().read_text(encoding="utf-8")
+            except OSError as exc:
+                print(f"Error: --input {key}: cannot read file: {exc}", file=sys.stderr)
+                return 2
+        inputs[key] = value
+
+    try:
+        spec = load_pipeline(args.file)
+        envelope = run_pipeline(spec, inputs=inputs, plan=getattr(args, "plan", False))
+    except (PipelineError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    print(_json.dumps(envelope, indent=2))
+    if envelope.get("status") in ("done", "plan"):
+        return EXIT_SUCCESS
+    return EXIT_FAILURE
+
+
 # -- sig: mgh-6201.cd.bd955f.a2c3.f30936

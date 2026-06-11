@@ -1,0 +1,15 @@
+{
+  "next_id": 3,
+  "tasks": [
+    {
+      "id": 1,
+      "text": "Buy groceries",
+      "done": true
+    },
+    {
+      "id": 2,
+      "text": "Fix the bug",
+      "done": false
+    }
+  ]
+}

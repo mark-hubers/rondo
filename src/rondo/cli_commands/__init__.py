@@ -25,6 +25,7 @@ def register_commands(commands: dict) -> None:
     from rondo.cli_commands.dispatch import (  # pylint: disable=import-outside-toplevel
         _cmd_live,
         _cmd_overnight,
+        _cmd_pipeline,
         _cmd_run,
     )
     from rondo.cli_commands.infra import (  # pylint: disable=import-outside-toplevel
@@ -55,6 +56,7 @@ def register_commands(commands: dict) -> None:
 
     commands.update(
         {
+            "pipeline": _cmd_pipeline,
             "run": _cmd_run,
             "live": _cmd_live,
             "overnight": _cmd_overnight,

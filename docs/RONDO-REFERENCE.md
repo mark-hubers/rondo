@@ -151,10 +151,11 @@ Execution defaults when `execution=""`:
 
 ---
 
-## CLI Commands (24)
+## CLI Commands (25)
 
 | Command | What it does |
 |---------|-------------|
+| `rondo pipeline <file.yaml> [--plan] [--input K=V]` | Run a REQ-114 prompt pipeline (plan/apply prompt programs) |
 | `rondo run <file>` | Execute a round definition file |
 | `rondo run <file> --dry-run` | Preview prompts without dispatching |
 | `rondo run <file> --model gemini:gemini-flash-latest` | Override model for all tasks |

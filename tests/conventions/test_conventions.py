@@ -303,6 +303,7 @@ class TestImportLayering:
             "engine",  # -- RONDO-213: load_round_file moved from cli to engine (leaf)
             "live",
             "overnight",
+            "pipeline",  # -- RONDO-407: `rondo pipeline` command drives REQ-114 prompt programs
             "report",
             "preflight",
         },

@@ -1,0 +1,165 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+#
+# THE FLAGSHIP PROMPT PROGRAM (Rondo-REQ-114) — a 10-step code-refinement
+# assembly line. Give it a bare Python file; it analyzes, comments, adds
+# error trapping, hostile-reviews its own changes with a DIFFERENT provider,
+# fixes, writes tests, critiques the tests for tautology, strengthens them,
+# polishes, and reports. The runner then EXECUTES the generated tests
+# against the generated code — the pipeline proves its own output.
+#
+# Prompt coding, demonstrated: explicit wiring ({{steps.NAME.output}}),
+# per-step models chosen for the role, typed outputs (expect contracts),
+# one hard budget, plan-before-apply. Run it:
+#   uv run python examples/api/code_refine_pipeline.py --plan   # free
+#   uv run python examples/api/code_refine_pipeline.py          # live
+
+name: code-refine
+budget_usd: 1.50
+
+steps:
+  # -- 1. Understand the patient before operating
+  - name: analyze
+    model: "gemini:low"
+    retries: 1
+    prompt: |
+      Review this Python file. List its concrete weaknesses (missing error
+      handling, missing docstrings/comments, fragile parsing, edge cases).
+      Return ONLY JSON: {"issues": ["..."]}
+
+      ```python
+      {{inputs.code}}
+      ```
+    expect: {required: [issues]}
+
+  # -- 2. Mark's step: add comments first (understanding before surgery)
+  - name: add_comments
+    model: "gemini:high"
+    prompt: |
+      Add clear docstrings and meaningful comments to this Python file.
+      Do NOT change any behavior. Keep every function. Return ONLY the
+      complete commented file in one ```python fenced block.
+
+      ```python
+      {{inputs.code}}
+      ```
+
+  # -- 3. Mark's step: error trapping
+  - name: add_error_trapping
+    model: "gemini:high"
+    retries: 1
+    prompt: |
+      Harden this Python file: validate inputs, handle missing/unreadable
+      files, malformed CSV rows, and empty data — fail with clear messages,
+      never a raw traceback for predictable problems. Known weaknesses to
+      address: {{steps.analyze.output}}
+      Keep the public function names and behavior for valid input. Return
+      ONLY the complete file in one ```python fenced block.
+
+      ```python
+      {{steps.add_comments.output}}
+      ```
+
+  # -- 4. A DIFFERENT provider hostile-reviews the changes
+  - name: hostile_review
+    model: "openai:high"
+    retries: 2
+    prompt: |
+      You are a hostile reviewer. Compare the ORIGINAL and HARDENED versions
+      below. Did the hardening break or silently change any behavior? Any
+      error handling that swallows real bugs? Return ONLY a JSON object
+      with EXACTLY these two keys and nothing else:
+      {"verdict": "ok", "issues": []}  (verdict is "ok" or "issues")
+
+      ORIGINAL:
+      ```python
+      {{inputs.code}}
+      ```
+
+      HARDENED:
+      {{steps.add_error_trapping.output}}
+    expect: {required: [verdict, issues]}
+
+  # -- 5. Apply the review findings
+  - name: apply_review_fixes
+    model: "gemini:high"
+    prompt: |
+      Apply these reviewer findings to the file below. If the verdict was
+      "ok" with no issues, return the file unchanged. Return ONLY the
+      complete file in one ```python fenced block.
+
+      FINDINGS: {{steps.hostile_review.output}}
+
+      FILE:
+      {{steps.add_error_trapping.output}}
+
+  # -- 6. Mark's step: write tests for the refined code
+  - name: write_tests
+    model: "openai:high"
+    retries: 1
+    prompt: |
+      Write a pytest file for the module below. The module will be saved as
+      `csv_report_refined.py`, so import from THAT name. Cover: happy path
+      (build a small CSV with tmp_path), missing file, malformed row, empty
+      data, and top_category tie-or-empty behavior. Plain pytest only.
+      Return ONLY the complete test file in one ```python fenced block.
+
+      ```python
+      {{steps.apply_review_fixes.output}}
+      ```
+
+  # -- 7. A THIRD provider critiques the tests (green is not real)
+  - name: critique_tests
+    model: "mistral:default"
+    retries: 1
+    prompt: |
+      Critique these tests for weaknesses: tautologies, assertions that
+      cannot fail, missing failure-path coverage, over-mocking. Return ONLY
+      JSON: {"issues": ["..."]}
+
+      {{steps.write_tests.output}}
+    expect: {required: [issues]}
+
+  # -- 8. Strengthen the tests per the critique
+  - name: strengthen_tests
+    model: "openai:high"
+    prompt: |
+      Improve the test file below by addressing these critique findings.
+      Keep it plain pytest, importing from `csv_report_refined`. Return
+      ONLY the complete test file in one ```python fenced block.
+
+      CRITIQUE: {{steps.critique_tests.output}}
+
+      TESTS:
+      {{steps.write_tests.output}}
+
+  # -- 9. Mark's step: another comment pass on the final code
+  - name: final_polish
+    model: "gemini:low"
+    prompt: |
+      Final pass on this Python file: polish docstrings and comments so a
+      newcomer understands every function. Change NOTHING about behavior.
+      Return ONLY the complete file in one ```python fenced block.
+
+      {{steps.apply_review_fixes.output}}
+
+  # -- 10. Honest summary of what the assembly line did
+  - name: summary
+    model: "gemini:low"
+    retries: 1
+    prompt: |
+      Summarize what changed between the ORIGINAL and FINAL versions below
+      and what the test suite covers. Return ONLY JSON:
+      {"changes": ["..."], "coverage": ["..."]}
+
+      ORIGINAL:
+      ```python
+      {{inputs.code}}
+      ```
+
+      FINAL:
+      {{steps.final_polish.output}}
+
+      TESTS:
+      {{steps.strengthen_tests.output}}
+    expect: {required: [changes, coverage]}

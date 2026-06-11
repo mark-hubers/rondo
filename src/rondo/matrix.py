@@ -37,6 +37,8 @@ from typing import Any
 
 import yaml
 
+from rondo.sanitize import sanitize_text
+
 logger = logging.getLogger(__name__)
 
 ALLOWED_FIELDS = {
@@ -226,11 +228,24 @@ def _load_or_init_manifest(spec: MatrixSpec, out_dir: Path, cells: list[dict[str
 
 
 def _write_cell_output(out_dir: Path, safe_stem: str, output: str) -> None:
-    """Per-cell output file, born 0o600 — RONDO-399 (mid-point #9, RONDO-393 twin).
+    """Per-cell output file: SCRUBBED content, born 0o600.
 
-    Raw model output never sits an instant at umask perms: mkstemp births the
-    temp restrictive, os.replace carries the mode to {safe_stem}.txt.
+    RONDO-399 (perms): mkstemp births the temp restrictive, os.replace carries
+    the mode. RONDO-402 (R2-3, STD-114 r006): model output is scrubbed via the
+    single sanitize truth BEFORE the write; scrub failure WITHHOLDS the text
+    (stub persisted, never raw — the RONDO-391 quarantine ruling's reading)
+    and never crashes the cell (req 023 isolation stays intact).
     """
+    try:
+        output = sanitize_text(output).sanitized_text
+    except Exception as exc:  # noqa: BLE001  -- STD-114 boundary: withhold on ANY scrub failure
+        logger.warning(
+            "-WARNING- matrix cell scrub FAILED (%s: %s) — output WITHHELD from %s.txt",
+            type(exc).__name__,
+            exc,
+            safe_stem,
+        )
+        output = "[WITHHELD: sanitize failed — cell output not persisted raw]"
     fd, tmp_name = tempfile.mkstemp(dir=out_dir, prefix=f"{safe_stem}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:

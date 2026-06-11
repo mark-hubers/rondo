@@ -142,7 +142,27 @@ No MCP interface for audit trail. `rondo audit` CLI is the query interface. CORE
 
 ## 8. States & Modes
 
-Audit records have two states: `INTENT` (phase 1 written, dispatch in progress) and `COMPLETE` (phase 2 written, dispatch finished). An `INTENT` record with no corresponding `COMPLETE` indicates a crash or timeout during dispatch. This is detectable and useful for post-mortem.
+Audit records have one opening state — `INTENT` (phase 1 written, dispatch in
+progress) — paired with a terminal-status OUTCOME record (phase 2 written).
+The terminal status vocabulary is OPEN and currently comprises:
+
+| Status | Meaning |
+|--------|---------|
+| `done` | Dispatch finished successfully |
+| `partial` | Dispatch finished with partial results |
+| `error` | Dispatch failed (error_code + error_message persisted, req 021) |
+| `blocked` | A gate blocked the dispatch (blocked_reason persisted, req 023) |
+| `skipped` | Task skipped by round logic |
+| `stuck` | Synthetic OUTCOME written by reconcile for a crashed dispatch (req 017) |
+| `advisory` | RONDO-394: an inline/agent plan was returned to the host — delegated execution, the result is never observed by rondo. The OUTCOME's error_message carries the delegation note (req 021 applies to ALL non-`done` statuses, including this one). |
+| `refused` | RONDO-399: an advisory plan was refused at issuance by the estimate budget gate (error_code `ERR_BUDGET_EXCEEDED`). |
+
+An `INTENT` record with no corresponding OUTCOME indicates a crash or timeout
+during dispatch — detectable, and reconciled to `stuck` (req 017).
+
+> Amendment 2026-06-10 (RONDO-402, ROAD-TO-8 R2-4): replaced the original
+> binary INTENT/COMPLETE wording — the code's de-facto status vocabulary had
+> outgrown it (spec-honesty; no silent spec-vs-code gaps).
 
 ---
 

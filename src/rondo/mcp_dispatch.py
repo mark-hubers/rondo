@@ -1019,7 +1019,11 @@ def _audit_advisory_plan(
             status=status,
             exit_code=0 if issued else 1,
             error_code=error_code,
-            error_message=error_message,
+            # -- RONDO-402 (R2-4, STD-113 req 021 MUST): every non-done OUTCOME
+            # -- persists a non-empty error_message — for issued advisory plans
+            # -- it is the honest delegation note, not a fake error.
+            error_message=error_message
+            or "advisory plan returned to host (delegated execution; result not observed by rondo)",
             cost_usd=0.0,
             duration_sec=0.0,
             raw_output=json.dumps(plan, indent=2) if issued else "",

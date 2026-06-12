@@ -36,13 +36,26 @@ behavior-preserving, left as survivors on purpose:
     raw_decode always consumes >=1 char (end > start), so max() always picks
     end. (Same equivalent as verify.py L214 and dispatch_parse L92.)
 
-NOT FAKED — production-seam survivors (L346/352/353/354/355 in _default_dispatch):
-these are the kwargs marshalled into the REAL rondo_run_file call. Killing them
-honestly needs a live dispatch (or stubbing the OS/subprocess boundary), NOT a
-mocked rondo_run_file return. They are exercised by tests/integration/test_live.py
-(live canary). Deliberately left rather than faked green. Measured sweep:
-85/160 -> 132/160 -> (this suite) ; residual = the documented equivalents +
-the live-only seam above.
+_default_dispatch (the production normalizer) is covered by its own UNMOCKED-seam
+contract test, tests/unit/test_default_dispatch_contract.py — it stubs ONLY the OS
+boundary (rondo.dispatch._run_subprocess) and runs the entire real chain on top,
+NOT a mocked rondo_run_file return (the house-rule "one unmocked contract test per
+mocked seam"). That test killed 13 of the 16 dispatch mutants this sweep surfaced.
+
+CORRECTION (2026-06-12): an earlier version of this docstring claimed those
+mutants were "exercised by tests/integration/test_live.py" — that was FALSE
+(test_live.py tests rondo.live, a different module, and never touches
+_default_dispatch). Fixed by building the real contract test above. History not
+rewritten (the wrong claim lives in commits b4e82db/9043b4f); corrected forward.
+
+Lone remaining dispatch survivor — L364 `task.get('error_message','') or
+envelope.get('error_message','')`: a DEFENSIVE fallback to the envelope-level
+error when the task itself carries none. In practice the failing TASK carries the
+message (verified: stderr -> task.error_message), so the envelope branch is
+belt-and-suspenders for a round-level error that is hard to stub deterministically
+through the subprocess seam. Left documented, not faked. Measured sweep:
+85/160 -> 135 (kill-tests) -> 149/160 (+contract test); residual 11 = the
+documented equivalents above + L364.
 """
 
 from __future__ import annotations
@@ -461,4 +474,4 @@ def test_failed_step_output_never_substitutes() -> None:
     assert env["status"] in {"partial", "error"}
 
 
-# -- sig: mgh-6201.cd.bd955f.189b.41a966
+# -- sig: mgh-6201.cd.bd955f.189b.3bd1ee

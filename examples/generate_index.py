@@ -16,7 +16,7 @@ from pathlib import Path
 
 META_RE = re.compile(r"^\s*#\s*rondo-meta:\s*(.+?)\s*$")
 MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-EXPECTED_EXAMPLE_COUNT = 96  # -- RONDO-412: +verified_step (REQ-115 anti-lying example)
+EXPECTED_EXAMPLE_COUNT = 97  # -- RONDO-417: +lie_trap_loop (lie-trap QA demo, deterministic + live)
 
 
 def _collect_example_files(examples_dir: Path) -> list[Path]:

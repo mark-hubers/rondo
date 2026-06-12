@@ -8,7 +8,7 @@ hands. This is the anti-lying layer.*
 **Category:** REQ
 **Created:** 2026-06-11 | **Status:** BUILT (all MUSTs; placeholder substitution inside verify blocks = known v1 gap)
 **Classification:** open
-**Version:** 0.1
+**Version:** 0.2 (RONDO-415: content assertions)
 **Owner:** Mark G. Hubers
 **Depends on:** REQ-114 (pipelines), STD-113 (audit — open status vocabulary), STD-114 (sanitization)
 **Author:** Mark Hubers — HubersTech
@@ -66,6 +66,20 @@ tool calls; cross-machine verification.
 | 020 | A pipeline step WITH a verify block: after the dispatch returns (and the passed-flag/contract gates pass), the ENGINE runs the verification itself; a verification failure FAILS the step (retryable per `retries`, on_fail semantics unchanged) — the model's passed=true cannot override rondo's own observation | MUST | Engine test |
 | 021 | The step record carries `verification`: {checked_files, cmd, exit_code, ok} so the envelope shows BOTH the model's claim and rondo's observation | MUST | Envelope test |
 | 022 | Steps WITHOUT a verify block behave exactly as v1.1 (no regression; verification is opt-in per step) | MUST | Rail test |
+
+### Content assertions — **v0.2 (RONDO-415): file EXISTS is not file is RIGHT**
+
+*Driver: the hostile reviewer's residual gap — `files` proves existence, not
+correctness. The most common real lie is "I wrote the function" when the file
+exists but is empty/stub/wrong. These prove the file has the right STUFF;
+still pure-Python, deterministic, no AI.*
+
+| # | Requirement | Priority | Verification |
+|---|-------------|----------|--------------|
+| 040 | The verify block gains `contains: [str]` — every listed substring MUST appear in the concatenated content of the declared `files`; a miss is `failed_verification` naming the absent substring | MUST | Contains test |
+| 041 | The verify block gains `min_bytes: int` — the declared `files` MUST total at least this many bytes (catches empty/stub files); below it is `failed_verification` | MUST | Min-bytes test |
+| 042 | `contains`/`min_bytes` REQUIRE `files` to be non-empty (nothing to scan otherwise) — a definition error at validation if set without `files` | MUST | Validation test |
+| 043 | Evidence records what was checked (the substrings found/missing, the byte total) so the verdict is auditable | SHOULD | Evidence test |
 
 ### Spec honesty — **BUILT** (r030 in STD-113 §8; r031 in docs)
 

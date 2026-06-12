@@ -84,7 +84,10 @@ and the override.
 * **Shallow validation:** `expect` checks key presence, not deep types — but
   `verify:` (REQ-115) goes further: rondo ITSELF checks declared files exist
   and runs a declared command, so a step's success claim cannot override
-  rondo's own observation. For inline plans the same loop closes via
+  rondo's own observation. A verify block also checks CONTENT, not just
+existence — `contains: [...]` (substrings that must be present) and
+`min_bytes` (catches empty/stub files), so "I wrote the function" fails when
+the file is empty or wrong. For inline plans the same loop closes via
   `rondo_verify(dispatch_id)` (MCP tool + API): rondo re-checks the declared
   postconditions and records verified/failed_verification in the audit
   trail. Free-text answers remain advisory (honest limit).

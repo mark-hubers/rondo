@@ -30,7 +30,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-VERIFY_FIELDS = {"files", "cmd", "expect_exit", "within_sec"}
+VERIFY_FIELDS = {"files", "cmd", "expect_exit", "within_sec", "contains", "min_bytes"}
 _STDOUT_TAIL_CAP = 2000  # -- req 010: evidence stdout capped + sanitized
 
 
@@ -61,7 +61,28 @@ def validate_verify_block(verify: Any, owner: str) -> dict[str, Any] | None:
     within = verify.get("within_sec", 120)
     if not isinstance(within, int) or within <= 0:
         raise VerifyBlockError(f"{owner}: verify.within_sec must be a positive int")
-    return {"files": files, "cmd": cmd, "expect_exit": expect_exit, "within_sec": within}
+    contains, min_bytes = _validate_content_assertions(verify, owner, files)
+    return {
+        "files": files,
+        "cmd": cmd,
+        "expect_exit": expect_exit,
+        "within_sec": within,
+        "contains": contains,
+        "min_bytes": min_bytes,
+    }
+
+
+def _validate_content_assertions(verify: dict, owner: str, files: list) -> tuple[list, int]:
+    """REQ-115 v0.2 reqs 040-042: validate contains/min_bytes — need files to scan."""
+    contains = verify.get("contains", [])
+    if not isinstance(contains, list) or not all(isinstance(c, str) for c in contains):
+        raise VerifyBlockError(f"{owner}: verify.contains must be a list of substrings")
+    min_bytes = verify.get("min_bytes", 0)
+    if not isinstance(min_bytes, int) or min_bytes < 0:
+        raise VerifyBlockError(f"{owner}: verify.min_bytes must be a non-negative int")
+    if (contains or min_bytes) and not files:
+        raise VerifyBlockError(f"{owner}: verify.contains/min_bytes require verify.files to scan")
+    return contains, min_bytes
 
 
 def _check_files(verify: dict[str, Any], result: dict[str, Any]) -> None:
@@ -109,6 +130,38 @@ def _check_cmd(verify: dict[str, Any], result: dict[str, Any], cwd: str) -> None
         )
 
 
+def _check_content(verify: dict[str, Any], result: dict[str, Any]) -> None:
+    """REQ-115 v0.2 reqs 040/041: declared files have the right STUFF, not just exist.
+
+    contains[] — every substring must appear in the concatenated file content;
+    min_bytes — the files must total at least that size. Evidence records the
+    byte total and any missing substrings (req 043).
+    """
+    contains = verify.get("contains", [])
+    min_bytes = verify.get("min_bytes", 0)
+    if not contains and not min_bytes:
+        return
+    blob = ""
+    total = 0
+    for path_str in verify.get("files", []):
+        try:
+            data = Path(path_str).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            data = ""
+        blob += data
+        total += len(data.encode("utf-8"))
+    result["content_bytes"] = total
+    missing = [sub for sub in contains if sub not in blob]
+    if missing:
+        result["ok"] = False
+        result["missing_substrings"] = missing
+        result["error"] = f"ERR_VERIFICATION: declared file(s) missing required substring(s): {missing}"
+        return
+    if min_bytes and total < min_bytes:
+        result["ok"] = False
+        result["error"] = f"ERR_VERIFICATION: declared file(s) total {total} bytes, expected >= {min_bytes}"
+
+
 def run_verification(verify: dict[str, Any], cwd: str = "") -> dict[str, Any]:
     """REQ-115 r020/r010: check declared files + cmd. Returns the evidence dict.
 
@@ -117,6 +170,8 @@ def run_verification(verify: dict[str, Any], cwd: str = "") -> dict[str, Any]:
     """
     result: dict[str, Any] = {"ok": True, "exit_code": None, "checked_files": [], "error": ""}
     _check_files(verify, result)
+    if result["ok"]:
+        _check_content(verify, result)
     if result["ok"]:
         _check_cmd(verify, result, cwd)
     return result

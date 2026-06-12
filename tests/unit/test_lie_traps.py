@@ -236,4 +236,90 @@ def test_loop_recovers_and_completes_after_a_mid_stream_lie(tmp_path: Path) -> N
     assert out_a.exists() and out_b.exists() and out_c.exists()
 
 
-# -- sig: mgh-6201.cd.bd955f.7583.ad325d
+# ── The scale Mark named: a 10-15 step loop that survives lies at several points ──
+
+
+def test_twelve_step_loop_survives_multiple_mid_stream_lies(tmp_path: Path) -> None:
+    """A 12-step scripted loop with lies planted at steps 3, 7, 10 reaches done.
+
+    Each liar step claims passed=true but writes NOTHING on attempt 1; rondo's
+    file check catches it, the bounded retry re-dispatches, and the retry does
+    the real work. The whole long loop must still arrive at a fully-built,
+    independently-verified done — proving the scripted loop scales past the
+    point where a CLAUDE.md's instructions drift.
+    """
+    n_steps = 12
+    liars = {3, 7, 10}  # -- these lie once, then recover on the retry
+    files = [tmp_path / f"f{i:02d}.txt" for i in range(n_steps)]
+    attempts = {i: 0 for i in range(n_steps)}
+
+    def adversary(prompt, model, opts=None):
+        i = int(prompt.split("#")[1])  # -- prompt encodes the step index
+        attempts[i] += 1
+        # -- honest steps write immediately; liar steps only on their retry
+        if i not in liars or attempts[i] >= 2:
+            files[i].write_text(f"step {i} did real work\n")
+        return _done('{"passed": true}')
+
+    spec = PipelineSpec(
+        name="long_loop",
+        budget_usd=100.0,
+        steps=[
+            PipelineStep(
+                name=f"s{i:02d}",
+                prompt=f"do step #{i}# of the build",
+                retries=1 if i in liars else 0,
+                verify={"files": [str(files[i])], "min_bytes": 5},
+            )
+            for i in range(n_steps)
+        ],
+    )
+    env = run_pipeline(spec, dispatch=adversary)
+
+    # -- the long loop completed despite three mid-stream lies
+    assert env["status"] == "done"
+    assert len(env["steps"]) == n_steps
+    assert all(f.exists() for f in files)
+    # -- each liar was caught once and recovered (2 dispatches); honest steps ran once
+    assert all(attempts[i] == 2 for i in liars)
+    assert all(attempts[i] == 1 for i in range(n_steps) if i not in liars)
+    # -- every step carries rondo's OWN verification verdict, not just the model's claim
+    assert all(s["verification"]["ok"] is True for s in env["steps"])
+
+
+def test_twelve_step_loop_halts_when_a_lie_is_unrecoverable(tmp_path: Path) -> None:
+    """If a mid-loop step lies and NEVER recovers, the loop stops there — no false done."""
+    n_steps = 12
+    broken = 6  # -- this step never writes its file, even on retry
+    files = [tmp_path / f"g{i:02d}.txt" for i in range(n_steps)]
+
+    def adversary(prompt, model, opts=None):
+        i = int(prompt.split("#")[1])
+        if i != broken:
+            files[i].write_text(f"step {i}\n")
+        return _done('{"passed": true}')  # -- always CLAIMS success
+
+    spec = PipelineSpec(
+        name="long_loop_halt",
+        budget_usd=100.0,
+        steps=[
+            PipelineStep(
+                name=f"s{i:02d}",
+                prompt=f"do step #{i}# of the build",
+                retries=1,
+                verify={"files": [str(files[i])]},
+            )
+            for i in range(n_steps)
+        ],
+    )
+    env = run_pipeline(spec, dispatch=adversary)
+
+    # -- the loop stops AT the unrecoverable lie; later steps never run (on_fail=stop default)
+    assert env["status"] == "partial"
+    assert len(env["steps"]) == broken + 1  # -- steps 0..broken attempted, then halt
+    assert env["steps"][broken]["verification"]["ok"] is False
+    assert not files[broken].exists()
+    assert not files[broken + 1].exists()  # -- no drift past the failure
+
+
+# -- sig: mgh-6201.cd.bd955f.7583.78f00b

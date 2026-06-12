@@ -4,6 +4,49 @@ Newest at top. Per-repo session log (see `~/.claude/on-demand/session-save-proce
 
 ---
 
+## 2026-06-11 — Prompt coding + the anti-lying stack + loop-engineering convergence (RONDO-406→414)
+
+**TL;DR:** Mark's redirect: rondo's REAL power is PROMPT CODING — looping small,
+verified steps to control Claude Code, vs CLAUDE.md/memory which drift. Built the whole
+thesis stack + an anti-lying verification layer, and discovered the head of Claude Code
+publicly described the SAME idea ("loop engineering") the day before. ~14 commits today,
+build 6/6 green throughout. (Naming note Mark surfaced: a *rondo* is the musical form built
+on a RECURRING REFRAIN — literally a loop. The name was about loops all along.)
+
+### The build (each gemini-judged RED→GREEN; Cursor quota-dead till 6/15, gemini-via-rondo substitutes)
+- **REQ-114 pipeline engine** (RONDO-406): YAML prompt programs — explicit placeholder
+  wiring, expect contracts, hard budget, plan/apply, retries; 13 judges.
+- **The flagships** (RONDO-407/408): claude-builder.yaml drove 10 Claude Code subprocesses to
+  build a todo app + 54 tests from nothing, 54/54 INDEPENDENTLY re-verified; the conductor
+  (if/else Python driving Claude, 18/18). passed=false gate; per-step tools/turns/timeout.
+- **REQ-115 verified execution** (RONDO-409/410): the ANTI-LYING layer. A step DECLARES
+  postconditions (files/cmd); rondo checks them ITSELF (sha256 + exit codes); rondo_verify
+  loads a persisted spec, records verified/failed_verification + evidence. Live-proven: an
+  honest dispatch verified, a LIAR claiming passed=true over a missing file caught every time.
+- **Hostile review** (RONDO-411): gemini found 3 REAL holes in the new code, each reproduced:
+  F3 the anti-lying gate itself could be lied to (appended passed=true hid a real failure) →
+  fail-closed; F1 rondo_verify dispatch_id path traversal → regex guard; F2 placeholder
+  injection → single-pass. (Claude-authored pins — honest lower-assurance note.)
+- **Flagship machine-verified** (RONDO-412): claude-builder gains verify: blocks (rondo RUNS
+  pytest itself); closed the placeholder-in-verify v1 gap; verified_step.py runnable example.
+- **REQ-116 scope guard** (RONDO-413): Mark's "one or two things per step" made mechanical —
+  scope_score + strict_scope (block fat steps at load) + allow_broad + --plan surfacing.
+- **Inline loop-control suite** (RONDO-414): 7 tests locking plan→execute→rondo_verify→branch.
+
+### The convergence (reports/external-validation-loop-engineering-2026-06-11.md)
+Boris Cherny, head of Claude Code: "I don't prompt Claude anymore. I have loops running that
+prompt Claude." His "loop engineering" components (loops/verification/context/guardrails/cron)
+map onto rondo line for line — INDEPENDENTLY (rondo's campaign predates the article). Strong
+8.12 publish tailwind. Honest: article gated, only the verifiable quote captured.
+
+### State at save (point #8, 10h 23m, 1321 messages)
+- All committed through c8f08f6; bin/build 6/6 green; no git remote (publish = 8.12, MARK'S).
+- The control ladder, all built + tested: CLAUDE.md (drifts) → inline+token+hook → inline+
+  verify+rondo_verify → subprocess pipelines (total) → the conductor.
+- OPEN: round-2 re-score + Cursor deep review (instrument back 6/15); 8.12 publish.
+
+---
+
 ## 2026-06-10 EVENING — ROAD-TO-8: 6/10 → 7/10 measured, every engineering item closed (RONDO-391→405)
 
 **TL;DR:** Mark's order: "do all that needed to get this to a 8/10... clear trackable task

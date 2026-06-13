@@ -162,6 +162,19 @@ The mutation gate (RONDO-363) is the independent referee: it proves a test fails
 when the code is broken, so "green" isn't a green mock. Numbers in any report can
 be re-measured with `bin/mutate`; do not take them on faith.
 
+## 3b. Cursor independent third pass — staged for 6/15 (quota-gated today)
+
+Cursor (and `cursor-review`) need the cursor-agent quota, which resets 6/15. When
+it's back, run from the repo root:
+```
+cursor-review "Audit spec->code->test conformance for REQ-114/115/116 + STD-113/114.
+For each requirement: is there a real test, or is it claimed-only? Flag overclaims.
+PRIORITY: REQ-114 — Claude wrote most of its tests this session, so check that hardest."
+```
+Why Cursor specifically: it reads the actual code independently (a third party, not
+Claude self-grading, not a summary-only cross-vendor read). It is the bias-counter
+on REQ-114. File its findings as §1g here.
+
 ## 4. Standing commitment
 
 - Every "built/verified/tested" claim gets a path + a runnable command, or it

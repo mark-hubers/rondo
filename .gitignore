@@ -9,3 +9,7 @@ dist/
 build/
 .mypy_cache/
 .pytest_cache/
+
+# -- Competitive reference clones (loop/agent repos for me + Cursor to read).
+# -- Local reference DATA, not part of rondo. Refresh via reference/README.md.
+reference/loop-repos/

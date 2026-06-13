@@ -47,7 +47,7 @@ tool calls; cross-machine verification.
 | # | Requirement | Priority | Verification |
 |---|-------------|----------|--------------|
 | 001 | A pipeline step (and an inline `rondo_run` call via a `verify` argument) may declare a verify block: `files` (list of paths that must exist after execution), `cmd` (argv LIST — never a shell string — run with cwd = the step's add_dir/workspace), `expect_exit` (default 0), `within_sec` (cmd timeout, default 120) | MUST | Loader/API test |
-| 002 | The verify block is authored LOCALLY (YAML/caller arg). It is persisted at plan-issuance time in the dispatch's audit result record so `rondo_verify(dispatch_id)` later runs EXACTLY what was declared — the model never sees a way to alter it | MUST | Tamper test |
+| 002 | The verify block is authored LOCALLY (YAML/caller arg). It is persisted at plan-issuance time in the dispatch's audit result record so `rondo_verify(dispatch_id)` later runs EXACTLY what was declared — the model never sees a way to alter it | MUST | Tamper test — `tests/unit/test_verifyspec_tamper.py` (added RONDO-421 after a 2026-06-13 self-audit found this req had NO dedicated test; persistence was only indirectly exercised) |
 | 003 | `cmd` rejects shell strings: a string instead of a list is a definition error (`shell=False` execution only, REQ-100 subprocess hygiene) | MUST | Safety test |
 
 ### rondo_verify — the loop closer — **BUILT 2026-06-11 (RONDO-410)**

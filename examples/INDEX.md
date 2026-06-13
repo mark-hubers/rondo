@@ -21,7 +21,7 @@ Auto-generated from per-file `rondo-meta` headers.
 | 15 | `conductor_if_else.py` | api | subprocess | anthropic | flagship | if/else prompt coding: Python branching drives Claude Code with 100% control |
 | 16 | `confidence_escalation.py` | api | subprocess | anthropic | pipeline | Confidence threshold flow that escalates to stronger model |
 | 17 | `config_template_override.py` | api | subprocess | anthropic | config | Per-call override behavior for config-backed dispatch options |
-| 18 | `controlled_review_loop.py` | api | mixed | anthropic,gemini,grok | flagship | Live controlled loop: rondo drives Claude step-by-step (verifying itself) then convenes OTHER AI bodies as a review gate before accepting |
+| 18 | `controlled_review_loop.py` | api | mixed | anthropic,gemini,grok | flagship | THE FLAGSHIP — cross-vendor jury: the AI that writes the code does NOT get to certify it; a DIFFERENT vendor does, and disagreements are the signal |
 | 19 | `cross_ai_verify.py` | api | mixed | anthropic,gemini | flagship | P2P cross-AI verify: one vendor does the work, a DIFFERENT vendor checks the claim — anti-lying by second opinion |
 | 20 | `dispatch_with_hooks.py` | api | subprocess | anthropic | pipeline | Prompt/result hook lifecycle from Python API |
 | 21 | `envelope_validation.py` | api | subprocess | anthropic | observability | Validate canonical envelope keys and error contract from live MCP/API dispatches |

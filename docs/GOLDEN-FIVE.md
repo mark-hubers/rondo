@@ -76,11 +76,25 @@ Want this running while you sleep?
 
 ---
 
+## The capstone — why rondo exists (live, ~a few dispatches)
+
+```bash
+uv run python examples/api/controlled_review_loop.py
+```
+The cross-vendor jury: Claude builds, rondo runs the test itself, then Gemini +
+Grok independently judge. Watch scenario 2 — a function that PASSES its test but
+is latently wrong gets caught by the jury (a single-vendor "tests pass" loop ships
+it). That's the one thing single-vendor tools can't copy. Full thesis:
+`docs/CROSS-VENDOR-JURY.md`. (Costs a few real dispatches, not 5 cents — it's live.)
+
+---
+
 ## Where next
 
 | Want | Go to |
 |------|-------|
-| All 90 runnable examples | `examples/INDEX.md` |
+| The thesis (the cross-vendor jury) | `docs/CROSS-VENDOR-JURY.md` |
+| All runnable examples (101) | `examples/INDEX.md` |
 | Full getting-started (incl. the 30-second glossary) | `docs/GETTING-STARTED.md` |
 | The error contract | `docs/ERROR-ENVELOPE-CONTRACT.md` |
 | MCP (Claude Code) path | `examples/mcp/README.md` |

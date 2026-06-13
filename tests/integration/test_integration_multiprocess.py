@@ -144,31 +144,31 @@ class TestMultiProcessIdempotency:
             "import sys\n"
             "sys.path.insert(0, " + repr(str(src_path)) + ")\n"
             "import rondo.idempotency as idem\n"
-            "import time\n"
-            "time.sleep({sleep})\n"
             'idem.cache_result("shared-key", {{"worker": {id}, "value": {value}}})\n'
             'print("OK")\n'
         )
 
-        # -- Worker A goes first, Worker B delays slightly to ensure ordering
-        proc_a = subprocess.Popen(
-            [sys.executable, "-c", worker_code_template.format(sleep=0.0, id=1, value=100)],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        proc_b = subprocess.Popen(
-            [sys.executable, "-c", worker_code_template.format(sleep=0.1, id=2, value=200)],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        # -- DETERMINISTIC ordering (RONDO-425): run A to COMPLETION, then B — so B is
+        # -- unambiguously the latest write. The old version raced a 0.1s sleep against
+        # -- process-startup jitter (interpreter boot + import), so under load A could
+        # -- finish after B and value=100 wins -> flaky failure (seen twice 2026-06-12/13).
+        # -- This test is about latest-wins-on-READ; concurrent-write SAFETY is covered
+        # -- separately by test_high_concurrency_no_corruption.
+        def _run_ordered_worker(worker_id: int, value: int) -> tuple[int, str, str]:
+            """Run one worker subprocess to completion; return (rc, stdout, stderr)."""
+            proc = subprocess.Popen(
+                [sys.executable, "-c", worker_code_template.format(id=worker_id, value=value)],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            out, err = proc.communicate(timeout=10)
+            return proc.returncode, out, err
 
-        out_a, err_a = proc_a.communicate(timeout=10)
-        out_b, err_b = proc_b.communicate(timeout=10)
-        assert proc_a.returncode == 0 and proc_b.returncode == 0, f"workers failed: a={err_a}, b={err_b}"
+        rc_a, out_a, err_a = _run_ordered_worker(1, 100)
+        rc_b, out_b, err_b = _run_ordered_worker(2, 200)  # -- starts only after A has exited
+        assert rc_a == 0 and rc_b == 0, f"workers failed: a={err_a}, b={err_b}"
 
         # -- Read back with a fresh process to verify latest-wins semantics
         reader_code = (
@@ -625,4 +625,4 @@ class TestCrashRecovery:
         assert "stuck" in statuses, "stuck OUTCOME must have been added by reconcile"
 
 
-# -- sig: mgh-6201.cd.bd955f.d209.201146
+# -- sig: mgh-6201.cd.bd955f.d18a.bdc12f

@@ -79,13 +79,20 @@ AI reads source code that contains secrets: API keys in config files, passwords 
 | 012 | If 0 secrets scrubbed: don't log (no noise for clean output) | SHOULD | Quiet test |
 
 
-### False Positive Management
+### False Positive Management — ⚠️ DEFERRED / NOT BUILT (2026-06-13 self-audit, RONDO-422)
 
-| ID | Requirement | Priority | Verified By |
-|----|-------------|----------|-------------|
-| 013 | `rondo sanitize allow <pattern> <value_hash>` — mark a specific match as non-secret (e.g., "base64_encoded" that's actually just a test fixture) | SHOULD | Allow test |
-| 014 | Allowed patterns tracked in config, not in code. Feeds back to reduce false positives over time. | SHOULD | Feedback test |
-| 015 | CORE-STD-011 (Self-Correction) applied: track scrubbing accuracy (was it really a secret?) to improve patterns | SHOULD | Correction test |
+These three SHOULD reqs are DESIGNED but NOT IMPLEMENTED. There is no
+`rondo sanitize allow` CLI, no config-backed allow-list, no accuracy tracking.
+Spec status is DESIGNED; flagged explicitly here so the req table cannot read as
+"complete" (an independent cross-vendor audit called the unmarked rows a real
+audit problem). Today, false positives are managed by the gitleaks allowlist for
+test fixtures, not by this subsystem.
+
+| ID | Requirement | Priority | Status |
+|----|-------------|----------|--------|
+| 013 | `rondo sanitize allow <pattern> <value_hash>` — mark a specific match as non-secret | SHOULD | ❌ NOT BUILT |
+| 014 | Allowed patterns tracked in config, not in code. Feeds back to reduce false positives over time. | SHOULD | ❌ NOT BUILT |
+| 015 | CORE-STD-011 (Self-Correction): track scrubbing accuracy to improve patterns | SHOULD | ❌ NOT BUILT |
 
 
 ---
@@ -239,6 +246,7 @@ Pattern scanner: 3 hours (regex engine, default patterns, custom pattern loading
 | Pattern misses a secret format | Secret persisted in audit/spool | Conservative threshold + entropy fallback |
 | Over-scrubbing breaks result parsing | Consumer cannot use result | `[REDACTED:...]` placeholder preserves JSON structure |
 | Allowlist too permissive | Real secrets slip through | Review allowlist periodically |
+| **Secret split across a line break** (regex is line-oriented) | A token broken by a `\n` is not matched as one secret | KNOWN LIMIT (2026-06-13 cross-vendor audit): contiguous single-token secrets (keys/tokens/PEM-on-one-line) ARE caught; a deliberately newline-split token is not — but a split token is also non-functional. Multi-line PEM blocks are the residual risk; not yet mitigated. Honest limit, not a silent gap. |
 
 ---
 

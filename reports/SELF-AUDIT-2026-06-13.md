@@ -54,16 +54,40 @@ exercised. That is exactly the kind of conformance overclaim Mark feared. It is
 now closed (`test_verifyspec_tamper.py`, 4 tests: persisted-spec is the only
 source, world-change → failed_verification, path-traversal dispatch_id blocked).
 
+## 1b. STD-114 (output sanitization — the secrets scrubber) — AUDITED 2026-06-13
+
+Status: **core BUILT + tested; 3 reqs DEFERRED; spec hygiene fixed.** Cross-vendor
+finder = gemini:high (independent; agreed the split is fair, passed=true).
+
+- reqs 001-012 (detection, AWS/base64 patterns, confidence, custom patterns,
+  [REDACTED] replace, scrub-before-write, raw-in-memory boundary, env-var strip,
+  path basename, count, quiet-when-zero): **BUILT, 85 tests green live**:
+  ```
+  .venv/bin/python -m pytest tests/unit/test_sanitize.py tests/unit/test_sanitize_entropy_cursor.py \
+    tests/unit/test_sanitize_homoglyph.py tests/unit/test_redaction_guarantee.py \
+    tests/unit/test_scrub_dict_cursor.py tests/unit/test_scrub_set_complete_cursor.py -q
+  ```
+- req 010 (NEVER log the actual secret — the scariest MUST): genuinely tested —
+  `test_redaction_guarantee.py` plants secrets, asserts they never reach disk /
+  audit artifacts / notification logs. Not a gap.
+- **GAP FOUND + FIXED (spec hygiene, not a code lie):** reqs 013-015 (`rondo
+  sanitize allow` CLI + self-correction) are DESIGNED-not-built; the req table
+  left them unmarked (gemini called this "a severe audit problem"). Now marked
+  ❌ NOT BUILT.
+- **LIMIT DOCUMENTED (honest, was silent):** a secret split across a line break
+  is not caught (regex is line-oriented); contiguous tokens ARE. Added to §20
+  failure modes. Low practical risk (split tokens are non-functional); residual
+  risk is multi-line PEM.
+- No code or MUST-test gap found in STD-114.
+
 ## 2. NOT yet audited this way (honest scope — do NOT assume these are verified)
 
-I have only put REQ-115 through this trace so far. The following are claimed BUILT
-and have tests that pass in `bin/build`, but I have NOT yet done the req-by-req
-"does each specific requirement have a test" audit that found the req-002 gap:
+REQ-115 and STD-114 are traced. STILL claimed-but-not-req-by-req-audited:
 
+- **STD-113** (audit trail) — `src/rondo/audit.py`, mutation 103/133 (RONDO-418)
 - **REQ-114** (pipeline) — `src/rondo/pipeline.py`, mutation 149/160 (RONDO-417)
 - **REQ-116** (scope guard) — `src/rondo/scope.py`, mutation 10/10
-- **REQ-117** (signed receipts) — DRAFT only, NOT built
-- **STD-113 / STD-114** (audit / sanitize) — audit 103/133, sanitize 35/36
+- **REQ-117** (signed receipts) — DRAFT only, NOT built (honestly labeled)
 
 Until each is traced req-by-req, treat "built to spec" for them as **claimed, not
 audited**. I will run the same trace on them next, same method, same honesty about

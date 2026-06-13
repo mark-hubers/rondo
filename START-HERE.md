@@ -1,6 +1,17 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-10 (post ROAD-TO-8, RONDO-372→405) | **State:** independent + green | **Score: 7/10 hostile-verified**
+**Updated:** 2026-06-13 (RONDO-419→426) | **State:** independent + green (2798 tests)
+
+**Thesis:** the cross-vendor jury — the AI that writes the code doesn't certify it,
+a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`).
+
+**Honest rating:** an independent cross-vendor panel scored it **3-4/10 as it was
+positioned ("another agent loop"), ~7/10 reframed around the jury + published proof**
+(`reports/competitive/LANDSCAPE-2026-06-13.md`). The earlier "7/10 hostile-verified"
+was an internal score; the external read is lower until the reframe lands. A
+spec→code→test self-audit (`reports/SELF-AUDIT-2026-06-13.md`) found + fixed 4 real
+conformance overclaims — the MUST cores (scrub/audit/verify/pipeline) are real and
+tested; some SHOULD-level CLI reqs are honestly marked NOT BUILT / PARTIAL.
 
 ## Where this repo came from
 

@@ -1,5 +1,17 @@
 # Rondo-STD-115: Result Quarantine
 
+> ⚠️ **NOT BUILT — design only (2026-06-13 self-audit, RONDO-427).** The result
+> trust-lifecycle described here (PENDING→VERIFIED→TRUSTED→REJECTED state machine,
+> auto-approval after 100+ reviews, morning review queue, rejection-reason
+> tracking — reqs 001-021) is **not implemented**. No `PENDING`/`TRUSTED` states
+> or quarantine state machine exist in the code.
+>
+> **Name-collision warning:** the only "quarantine" rondo actually ships is the
+> UNRELATED **scrub-failure quarantine** (`dispatch.py:_quarantine_scrub_failure`,
+> RONDO-391): when sanitization fails, the unscrubbed result is redacted in place
+> and the raw payload locked away instead of persisted. That is a STD-114 concern,
+> not this trust-lifecycle. Do not read "quarantine for free" in the code as STD-115.
+
 *AI results are staged, not trusted. Pending → Verified → Trusted. Never skip the gate.*
 
 **Product:** Rondo

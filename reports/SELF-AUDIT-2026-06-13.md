@@ -142,6 +142,19 @@ scope.py mutation 10/10.
 | STD-113 | req 011 claimed query filters the CLI lacks | marked PARTIAL (RONDO-423) |
 | REQ-116 | req 013 code-only, untested | `test_plan_surfaces_scope_score_per_step` (RONDO-424) |
 | REQ-114 | none found (worked on most; Cursor 6/15 to counter bias) | — |
+| REQ-112 | none found — error-envelope honesty contract real | 70 tests green; req 507 fallback + 508 ERR_TIMEOUT both tested |
+| STD-115 | DESIGNED spec ~95% NOT BUILT, unmarked; name-collides with scrub-failure quarantine | NOT-BUILT banner added (RONDO-427) |
+
+### REQ-112 (error envelope — "never fake data") + STD-115 (quarantine) — AUDITED 2026-06-13
+- **REQ-112: CLEAN.** `envelope.py` real; 70 tests green. req 507 (every error_code
+  gets a remediation message) guaranteed by the `_resolve_error_message` fallback
+  AND tested (`test_unknown_code_gets_generic_help`, `test_empty_message_resolves_to_fallback`);
+  req 508 ERR_TIMEOUT tested. The honesty contract holds.
+- **STD-115: DESIGNED, NOT BUILT.** The result trust-lifecycle (PENDING/VERIFIED/
+  TRUSTED state machine, auto-approval, review queue — reqs 001-021) has NO code.
+  Honest at spec level (status DESIGNED) but the req table was unmarked and the
+  word "quarantine" collides with the unrelated, shipped scrub-failure quarantine
+  (RONDO-391). Added a prominent NOT-BUILT + name-collision banner.
 
 Pattern: the overclaims were SHOULD-level CLI/feature reqs and missing
 conformance tests — NOT fake core functionality. The MUST cores (scrub, audit,

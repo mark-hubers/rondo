@@ -1,5 +1,25 @@
 # Rondo
 
+**The AI that writes the code doesn't get to certify it. A different vendor does.**
+
+Rondo drives a coding AI in a scripted loop, verifies the work *itself* (runs the
+test, hashes the file — the model's "passed" is never the gate), and then convenes
+a **cross-vendor jury**: a *different* vendor independently reviews the result, and
+disagreements are surfaced as the signal.
+
+That last part is the moat. Single-vendor tools (Claude Code, Cursor, Copilot) can
+all run tests — but they structurally **won't** have a competitor's model judge
+their own. Rondo will.
+
+```
+accept = rondo_verifies(work) AND a DIFFERENT vendor agrees
+```
+
+→ See it live (Claude builds, Gemini + Grok judge, a bug that passes its tests
+gets caught): `examples/api/controlled_review_loop.py`
+
+---
+
 Turn prompts into reliable, scriptable AI workflows.
 
 ## What Rondo Is (and Is Not)

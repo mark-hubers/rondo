@@ -134,8 +134,15 @@ softened — the §4 self-rating was too generous:
 - **The "individual dev + Claude Code" wedge is absorbable.** Both: Anthropic /
   Cursor / Copilot Workspace ship native verified loops within months; rondo
   risks being "a temporary polyfill for a missing feature in a beta product."
-- **Missed competitors: Cline + Roo Code** — high-traction VS Code agent-loops
-  with verification. A real gap in the scan (add to reference next refresh).
+- **Missed competitors: Cline + Roo Code** — high-traction VS Code agent-loops.
+  RESOLVED 2026-06-13: cloned + read (`reference/loop-repos/cline`, `Roo-Code`).
+  Placement: both are **single-vendor, HUMAN-GATED** editor agents (rich
+  auto-approval — `alwaysAllow*`, `autoApprovalEnabled` — run commands + show
+  output for the model to iterate). Same "trust the model + human gate"
+  verification class as aider/OpenHands, just far more adopted. They do NOT do
+  independent mechanical gating or cross-vendor review. Lesson: the editor-agent
+  loop is CROWDED (Cline, Roo, Cursor) — rondo must not compete there; its wedge
+  is the cross-vendor jury + mechanical verify, not "drive the AI in the editor."
 - **Mutation-tested core = launch theater.** Internal QA metric, not a user value
   prop; "zero users adopt on that." (It's why the tool is trustworthy — but it's
   not a headline.)

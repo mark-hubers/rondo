@@ -20,6 +20,8 @@ Kept locally so Claude and Cursor can read real code instead of blog summaries.
 | `promptfoo` | declarative YAML prompt/eval harness (70+ assertions) | assertion richness for rondo's verify (REQ-115) — kept src/ + docs/ |
 | `live-swe-agent` | "self-evolving" SWE harness (config-tuned mini-swe-agent) | the self-evolve angle |
 | `awesome-harness-engineering` | curated catalog of harness patterns + tools | the competitive map; surfaced Conductor / bernstein / Hive / Symphony |
+| `cline` | high-traction VS Code agent extension (single-vendor, human-gated auto-approve) | added 2026-06-13 (self-audit flagged it missed); the crowded editor-agent niche |
+| `Roo-Code` | VS Code agent extension; rich auto-approval (alwaysAllow*) | added 2026-06-13; human-gated single-vendor loop — kept src/+packages/ |
 
 ## Refresh
 

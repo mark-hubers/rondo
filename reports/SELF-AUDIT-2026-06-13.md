@@ -80,11 +80,28 @@ finder = gemini:high (independent; agreed the split is fair, passed=true).
   risk is multi-line PEM.
 - No code or MUST-test gap found in STD-114.
 
+## 1c. STD-113 (dispatch audit trail) — AUDITED 2026-06-13
+
+Status: **built + tested; one SHOULD overclaim corrected.** 112 audit tests green:
+```
+.venv/bin/python -m pytest tests/unit/test_audit.py tests/unit/test_audit_mutation_kills.py \
+  tests/unit/test_advisory_outcome_std113_cursor.py tests/unit/test_mcp_run_status.py \
+  tests/unit/test_reconcile_audit_flock_cursor.py -q
+```
+- reqs 001-010 (intent/outcome records, prompt+result files, append-only JSONL,
+  scrub-before-write, immutability), 014-027 (morning-report ids, reconcile_stuck
+  + age threshold + stuck_after_sec, run_status 2000-char truncate, forensic
+  fields error_message/stderr/blocked_reason/project, append-only schema): BUILT,
+  tested. The `rondo audit` CLI (012 detail, 013 --cost) is REAL (cli.py:151).
+- **OVERCLAIM corrected:** req 011 claimed query "by date range, task name, model,
+  status" — the CLI has only `--failed` + detail, none of those filters. Marked
+  PARTIAL in the spec (mechanically certain from the parser args).
+- No MUST gap. (Mutation residual 103/133 = documented rails+equivalents, RONDO-418.)
+
 ## 2. NOT yet audited this way (honest scope — do NOT assume these are verified)
 
-REQ-115 and STD-114 are traced. STILL claimed-but-not-req-by-req-audited:
+REQ-115, STD-114, STD-113 are traced. STILL claimed-but-not-req-by-req-audited:
 
-- **STD-113** (audit trail) — `src/rondo/audit.py`, mutation 103/133 (RONDO-418)
 - **REQ-114** (pipeline) — `src/rondo/pipeline.py`, mutation 149/160 (RONDO-417)
 - **REQ-116** (scope guard) — `src/rondo/scope.py`, mutation 10/10
 - **REQ-117** (signed receipts) — DRAFT only, NOT built (honestly labeled)

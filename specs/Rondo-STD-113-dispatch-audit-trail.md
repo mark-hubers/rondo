@@ -62,7 +62,7 @@ Overnight runs produce results but no explanation. A task failed — was the pro
 | 008 | Audit files stored in `~/.rondo/audit/` or configured path | MUST | Path test |
 | 009 | Credential scrubbing applied per CORE-STD-010 reqs 19-22 before writing audit files | MUST | Scrub test |
 | 010 | Audit records are append-only. Never modify or delete existing records. | MUST | Immutability test |
-| 011 | `rondo audit` CLI: query audit log by date range, task name, model, status | SHOULD | Query test |
+| 011 | `rondo audit` CLI: query audit log. ⚠️ PARTIAL (2026-06-13 self-audit, RONDO-423): built = detail-by-dispatch_id (012), `--cost` (013), `--failed`, `--rotate`, `--reset`, `--json`. NOT built = the date-range / task-name / model / arbitrary-status FILTERS this row claimed. Overclaim corrected here. | SHOULD | Query test (partial) |
 | 012 | `rondo audit {dispatch_id}` CLI: show full audit record including prompt and result | SHOULD | Detail test |
 | 013 | `rondo audit --cost` CLI: show total cost for date range | SHOULD | Cost test |
 | 014 | Overnight runs: morning report references dispatch_ids for failed tasks so Mark can audit | MUST | Report test |

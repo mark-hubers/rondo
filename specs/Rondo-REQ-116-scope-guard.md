@@ -62,7 +62,7 @@ planner could SPLIT a fat step — this only DETECTS); semantic task counting.
 | 010 | Step fields gain `allow_broad: bool` (default false). A step with `allow_broad: true` is exempt from scope checking entirely | MUST | Exempt test |
 | 011 | Pipeline top-level gains `strict_scope: bool` (default false). In strict mode, loading a pipeline whose non-exempt step scores over threshold raises PipelineError naming the step + its signals | MUST | Strict test |
 | 012 | In the DEFAULT (non-strict) mode, an over-threshold step is NOT blocked: a `-WARNING-` is logged and the step record carries `scope_warning` (score + signals) in the run envelope | MUST | Warn test |
-| 013 | Plan mode (`--plan`) surfaces each step's scope score so the author sees fat steps BEFORE running | SHOULD | Plan test |
+| 013 | Plan mode (`--plan`) surfaces each step's scope score so the author sees fat steps BEFORE running | SHOULD | Plan test — `test_pipeline_mutation_kills.py::test_plan_surfaces_scope_score_per_step` (added RONDO-424 after a 2026-06-13 self-audit found this req was code-only, untested) |
 | 014 | No regression: existing pipelines (no strict_scope, no allow_broad) run exactly as before; a focused step carries no scope_warning | MUST | Rail test |
 
 ---

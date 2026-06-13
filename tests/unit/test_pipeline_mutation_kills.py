@@ -262,6 +262,25 @@ def test_plan_within_budget_flag_tracks_total() -> None:
     assert _build_plan(tight, {})["within_budget_estimate"] is False
 
 
+def test_plan_surfaces_scope_score_per_step() -> None:
+    """REQ-116 req 013: each plan step carries its scope_score (was code-only, untested).
+
+    Closes a gap found in the 2026-06-13 self-audit (RONDO-424): _build_plan emits
+    scope_score per step but no test proved it. A fat step's plan score clears the
+    scope threshold; a focused step's is low.
+    """
+    fat = "Create a.py and then write b.py, also update c.py, additionally run the linter"
+    spec = PipelineSpec(
+        name="t",
+        budget_usd=1.0,
+        steps=[PipelineStep(name="focused", prompt="add one function"), PipelineStep(name="broad", prompt=fat)],
+    )
+    steps = _build_plan(spec, {})["steps"]
+    assert "scope_score" in steps[0] and "scope_score" in steps[1]
+    assert steps[0]["scope_score"] <= 1  # -- focused
+    assert steps[1]["scope_score"] >= 3  # -- bundled, over the scope threshold
+
+
 def test_plan_within_budget_is_inclusive_at_equality() -> None:
     """Budget EXACTLY equal to the estimate is within (kills the L318 <= -> < mutant)."""
     # -- 'hi' estimates to 0.006145 (computed live); a budget == that is within
@@ -474,4 +493,4 @@ def test_failed_step_output_never_substitutes() -> None:
     assert env["status"] in {"partial", "error"}
 
 
-# -- sig: mgh-6201.cd.bd955f.189b.3bd1ee
+# -- sig: mgh-6201.cd.bd955f.189b.44b3b8

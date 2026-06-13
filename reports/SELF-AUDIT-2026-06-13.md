@@ -98,13 +98,55 @@ Status: **built + tested; one SHOULD overclaim corrected.** 112 audit tests gree
   PARTIAL in the spec (mechanically certain from the parser args).
 - No MUST gap. (Mutation residual 103/133 = documented rails+equivalents, RONDO-418.)
 
-## 2. NOT yet audited this way (honest scope — do NOT assume these are verified)
+## 1d. REQ-114 (prompt pipelines — the engine) — AUDITED 2026-06-13
 
-REQ-115, STD-114, STD-113 are traced. STILL claimed-but-not-req-by-req-audited:
+Status: **built + tested, NO overclaim found** (the honest good news — not
+everything is a gap). 78 pipeline tests green live; mutation 149/160 (RONDO-417,
+the residual documented). 
+- CLI `rondo pipeline [--plan]` REAL (cli.py:83). Plan-mode purity (011/012)
+  tested (`test_plan_only_preview_pure_cursor.py`). Flagship examples ship
+  (`examples/pipelines/claude-builder.yaml`, `code-refine.yaml` — req 032).
+- reqs 001-005 (YAML safe_load, field validation, placeholders, forward-ref
+  reject, expect contract), 010 (budget ceiling), 020-025 (sequential guarded
+  dispatch, on_fail, retries, envelope, explicit wiring, injectable dispatch):
+  all have req-mapped kill-tests written this session.
+- **Bias caveat (honest):** this is the spec I worked on MOST this session, so my
+  "clean" verdict could be over-confident. It gets the Cursor independent
+  third-pass on 6/15 specifically to counter that bias.
 
-- **REQ-114** (pipeline) — `src/rondo/pipeline.py`, mutation 149/160 (RONDO-417)
-- **REQ-116** (scope guard) — `src/rondo/scope.py`, mutation 10/10
-- **REQ-117** (signed receipts) — DRAFT only, NOT built (honestly labeled)
+## 1e. REQ-116 (scope guard) — AUDITED 2026-06-13
+
+Status: **built + tested; one gap found + closed.** 12 scope tests green;
+scope.py mutation 10/10.
+- reqs 001-003 (scope_score shape, deterministic, scoring), 010-012/014
+  (allow_broad, strict_scope blocks, default warns, no regression): tested
+  (`test_scope_guard_cursor.py` + `test_scope_mutation_kills.py`).
+- **GAP FOUND + CLOSED:** req 013 (plan surfaces each step's scope score) was
+  code-only (pipeline.py:309) with NO test — same pattern as req-002. Closed:
+  `test_pipeline_mutation_kills.py::test_plan_surfaces_scope_score_per_step`.
+
+## 1f. REQ-115 — already audited (§1); req-002 gap closed (`test_verifyspec_tamper.py`).
+
+## 2. Remaining
+
+- **REQ-117** (signed receipts) — DRAFT only, NOT built (honestly labeled; not a gap).
+- **Cursor independent third pass** — queued for 6/15 (counters my own-work bias,
+  esp. on REQ-114).
+
+## 3. Tally — gaps found by this audit (every one a real overclaim, now fixed)
+
+| Spec | Overclaim found | Fix |
+|------|-----------------|-----|
+| REQ-115 | req 002 "Tamper test" claimed, no test existed | `test_verifyspec_tamper.py` (RONDO-421) |
+| STD-114 | reqs 013-015 unmarked but NOT built; multiline limit silent | marked NOT BUILT + limit documented (RONDO-422) |
+| STD-113 | req 011 claimed query filters the CLI lacks | marked PARTIAL (RONDO-423) |
+| REQ-116 | req 013 code-only, untested | `test_plan_surfaces_scope_score_per_step` (RONDO-424) |
+| REQ-114 | none found (worked on most; Cursor 6/15 to counter bias) | — |
+
+Pattern: the overclaims were SHOULD-level CLI/feature reqs and missing
+conformance tests — NOT fake core functionality. The MUST cores (scrub, audit,
+verify, pipeline) are real and tested. Every gap above is now closed or honestly
+labeled, with a runnable command.
 
 Until each is traced req-by-req, treat "built to spec" for them as **claimed, not
 audited**. I will run the same trace on them next, same method, same honesty about

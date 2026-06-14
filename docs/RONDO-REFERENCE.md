@@ -1,6 +1,6 @@
 # Rondo Reference — Complete System Guide
 
-**Product:** Rondo v0.6 | **Updated:** 2026-06-14 | **Tests:** 2,817 | **MCP Tools:** 27
+**Product:** Rondo v0.6 | **Updated:** 2026-06-14 | **Tests:** see `bin/build` | **MCP Tools:** 27
 
 *Define AI tasks in Python. Send them to any provider. Get structured results back.*
 

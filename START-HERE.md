@@ -27,7 +27,7 @@ Split from `~/git/mhubers/ace2/rondo/` with **full history preserved**
 | Own 6-gate build (`bin/build`) | green before every commit (743 commits) |
 | `rondo doctor` from installed tool | 6/6 PASS |
 | Docs drift + examples index (101) | clean (`generate_index.py --check`) |
-| Conventions locks | 29 classes green |
+| Conventions locks | 30 classes green |
 | Mutation kill-rates (reproduce: `bin/mutate <module>`) | from the RONDO-416→418 hardening — spool 97 / envelope 98 / history 100 / sanitize 97 / dispatch_parse 97% (see `reports/LIVE-TESTING-2026-06-12.md`) |
 
 ## What Rondo is right now (the 25-sprint campaign, RONDO-313→337)

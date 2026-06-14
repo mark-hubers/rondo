@@ -87,7 +87,7 @@ rondo retryq list                       # self-classifying retry queue (dead-let
 rondo metrics                           # 7d/30d reliability scoreboard vs 95% target
 ```
 
-Thinking models (Opus 4.8-era) are handled automatically: adaptive thinking,
+Modern extended-thinking models are handled automatically: adaptive thinking,
 effort control, output headroom, and **streamed dispatch** with an event
 watchdog — a model may think for many minutes safely. Every failure carries
 the provider's own explanation into the audit trail.

@@ -83,10 +83,13 @@ one is part of the publish decision below. Each row needs Mark's word first:
 | CI matrix: GitHub Actions Linux/macOS/Windows × py3.12-3.14 | 6 Portability, 3 public-cut verify | ~+1.0 mean |
 | req 606 auto-apply (3 questions in `specs/Rondo-DESIGN-registry-auto-apply.md`) | `learn` exits experimental | — |
 
-**Open item (found by the armed watchdog, first sweep):** 7-day dispatch
-reliability is 85% vs the 95% target (62 dispatches). Triage via
-`rondo audit --failed` — dim 10's "reliability scoreboard honest" means
-fixing the rate, not the meter.
+**Open item (armed watchdog; first flagged 2026-06-06):** dispatch reliability
+sits below the 95% target. As of 2026-06-14 the all-time success rate is **81.4%
+(2,453/3,015 dispatches)** — but most failures are transient/external, not rondo
+logic: `ERR_RATE_LIMIT` (255), `ERR_PROVIDER_DOWN` (101), `ERR_SUBPROCESS` (104).
+Triage via `rondo audit --failed`; dim 10's "reliability scoreboard honest" means
+fixing the rate (retry/backoff coverage of the transient classes), not the meter.
+Re-check the live number with `rondo metrics` — do not trust this snapshot.
 
 Deferred-by-evidence (unchanged): chunked streaming (needs a 2nd ~1800s
 forensic), context-limits table refresh (needs verified numbers),

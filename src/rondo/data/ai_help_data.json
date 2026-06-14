@@ -289,6 +289,12 @@
       "category": "dispatch",
       "description": "REQ-115 verified execution: rondo checks a dispatch's declared postconditions (files/cmd) itself",
       "stability": "experimental"
+    },
+    {
+      "name": "rondo_jury",
+      "category": "compose",
+      "description": "REQ-118 cross-vendor jury: DIFFERENT vendors independently judge an artifact; accepted only if every reached juror agrees; disagreement is surfaced as the signal",
+      "stability": "experimental"
     }
   ],
   "providers": [

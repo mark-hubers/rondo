@@ -91,7 +91,7 @@ GEMINI_API_KEY   ace.ai-key.gemini   op://AI Keys/gemini/password
 
 ---
 
-## MCP Tools (26)
+## MCP Tools (27)
 
 Claude Code discovers these automatically when the Rondo MCP server is registered.
 Also exposes `rondo://help` resource for AI agent discovery (version, commands, schemas).
@@ -110,12 +110,13 @@ Execution defaults when `execution=""`:
 - Python/CLI caller: `subprocess`
 - Provider-prefixed models always route HTTP and bypass execution mode
 
-### Composition (6 tools)
+### Composition (7 tools)
 
 | Tool | Parameters | What it does |
 |------|-----------|-------------|
 | **rondo_cloud** | `prompt`, `profile`, `tier`, `count`, `dry_run` | Cloud AI dispatch — pick providers by profile (review/coding/research), tier (high/default/low), count (1-4). Cost-capped at $0.50/dispatch. |
 | **rondo_multi_review** | `prompt`, `providers` (JSON array), `dry_run` | Same prompt to N providers, returns per-provider findings + merged summary. Default: local:qwen2.5:32b + gemini:gemini-flash-latest + grok:grok-4.3. |
+| **rondo_jury** | `artifact`, `question`, `jurors` (JSON array) | Cross-vendor jury (REQ-118) — DIFFERENT vendors judge an artifact; the model that wrote it never certifies it. Returns accepted + per-vendor verdicts + the disagreement. The moat single-vendor tools can't copy. |
 | **rondo_chain** | `steps_json`, `dry_run` | Pipeline — output of step N feeds into step N+1. Max 20 steps. |
 | **rondo_benchmark** | `prompt`, `models` (JSON array), `dry_run` | Same prompt to multiple models, ranked by speed + cost. Max 10 models. |
 | **rondo_explain** | `output`, `question`, `model`, `dry_run` | Second opinion from local model ($0 cost). Default: qwen2.5:32b. |

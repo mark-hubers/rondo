@@ -187,6 +187,7 @@ class TestImportLayering:
             "mcp_dispatch",
             "config",
             "providers",
+            "jury",  # -- RONDO-431 (REQ-118): rondo_jury wraps jury_review
         },
         "dispatch_routing.py": {
             "config",
@@ -938,4 +939,4 @@ class TestNoHttpUrls:
             assert not matches, f"{src_file.name} uses plain HTTP: {matches[:2]}"
 
 
-# -- sig: mgh-6201.cd.bd955f.6280.8f7324
+# -- sig: mgh-6201.cd.bd955f.6280.163ed1

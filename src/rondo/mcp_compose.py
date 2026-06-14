@@ -830,4 +830,23 @@ def rondo_review_codebase(
     )
 
 
-# -- sig: mgh-6201.cd.bd955f.48a1.4c051e
+def rondo_jury(
+    artifact: str, question: str = "Is this artifact correct for all reasonable inputs?", jurors: str = "[]"
+) -> str:
+    """Cross-vendor jury (REQ-118): DIFFERENT vendors judge an artifact; the author's model never certifies it.
+
+    The moat single-vendor tools can't copy. Returns JSON: accepted (only if >=1
+    juror reached AND all reached agree), per-vendor verdicts, and the disagreement
+    (the objecting jurors — the bug nobody else would have caught). Costs N
+    dispatches. jurors = JSON array of model strings (default gemini:high + grok).
+    """
+    from rondo.jury import DEFAULT_JURORS, jury_review  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+
+    try:
+        juror_list = json.loads(jurors) if jurors and jurors.strip() not in ("", "[]") else DEFAULT_JURORS
+    except (json.JSONDecodeError, ValueError):
+        juror_list = DEFAULT_JURORS
+    return json.dumps(jury_review(artifact, question, jurors=juror_list), indent=2)
+
+
+# -- sig: mgh-6201.cd.bd955f.48a1.34e3d4

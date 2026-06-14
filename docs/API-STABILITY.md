@@ -89,7 +89,7 @@ Defined at `src/rondo/cli.py` and documented in `--help` epilog:
 
 ---
 
-## Stable surface 2: MCP tools (25)
+## Stable surface 2: MCP tools (27)
 
 Derived from `src/rondo/mcp_server.py` (`create_mcp_server()`).
 
@@ -105,6 +105,7 @@ Derived from `src/rondo/mcp_server.py` (`create_mcp_server()`).
 | rondo_explain | Explain AI-generated output |
 | rondo_review_file | AI code review of one file |
 | rondo_multi_review | Same prompt to N providers, merged findings |
+| rondo_jury | REQ-118 cross-vendor jury: different vendors judge an artifact; disagreement is the signal (experimental) |
 | rondo_review_codebase | AI review of an entire codebase |
 | rondo_summarize | Summarize code/docs |
 | rondo_diff | Diff two task results |

@@ -24,6 +24,7 @@ from rondo.mcp_compose import (  # noqa: F401
     rondo_benchmark,
     rondo_chain,
     rondo_explain,
+    rondo_jury,
     rondo_multi_review,
     rondo_review_codebase,
     rondo_review_file,
@@ -249,6 +250,15 @@ def create_mcp_server() -> Any:
         return rondo_multi_review(prompt=prompt, providers=providers, dry_run=dry_run)
 
     @mcp.tool(
+        name="rondo_jury",
+        description="Cross-vendor jury (REQ-118): DIFFERENT vendors independently judge an artifact — the model that wrote it never certifies it. Returns accepted (only if >=1 juror reached AND all agree) + per-vendor verdicts + the disagreement. jurors=JSON array (default gemini:high+grok). Costs N dispatches.",
+    )
+    def _jury(
+        artifact: str, question: str = "Is this artifact correct for all reasonable inputs?", jurors: str = "[]"
+    ) -> str:
+        return rondo_jury(artifact=artifact, question=question, jurors=jurors)
+
+    @mcp.tool(
         name="rondo_review_codebase",
         description="Deep codebase review: reads multiple source files, batches them (4 per call), sends actual code to AI providers with architecture context. Calibrated per-provider prompts. Default: review_deep profile at high tier. RONDO-215.",
     )
@@ -356,4 +366,4 @@ def run_mcp() -> None:
     mcp.run(transport="stdio")
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a7.98a7b9
+# -- sig: mgh-6201.cd.bd955f.61e9.3abdd0

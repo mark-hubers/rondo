@@ -1,9 +1,15 @@
 # Rondo-STD-116: Oscillation Detection
 
-> ⚠️ **NOT BUILT — design only (2026-06-14 status-hygiene, RONDO-429).** No
-> `oscillat*` detection code exists. Status field said DESIGNED; this banner makes
-> it unambiguous. Thesis-aligned candidate to build (detect the loop thrashing /
-> fix-A-breaks-B) — see `reports/SPEC-STATUS-TRUTH-2026-06-14.md`.
+> ✅ **BUILT (minimal) — 2026-06-14, RONDO-430.** `src/rondo/oscillation.py`
+> (`round_signature` + `detect_repeat`, mutation 10/10) wired into the pipeline
+> retry loop (`_run_step`): a retry that reproduces a prior attempt's EXACT result
+> (error + raw_output) sets `record["oscillation"]` with `ERR_OSCILLATION`. Tests:
+> `tests/unit/test_oscillation.py` (9). HONEST SCOPE: this is **flag-only** — it
+> does NOT halt early (retries + budget already bound the loop; flag-only keeps
+> the retry contract). Cross-vendor decision was a SPLIT: gemini approved (a
+> deterministic round-signature is cheap + field-rare); grok judged a heavy
+> circuit-breaker redundant. The minimal flag honors both. The full state-machine
+> (reqs below: 3-cycle auto-halt, file-pair tracking) remains DESIGN-only.
 
 *Fix for A breaks B. Fix for B breaks A. Three cycles = halt. Don't loop forever.*
 

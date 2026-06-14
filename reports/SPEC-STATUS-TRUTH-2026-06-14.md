@@ -48,7 +48,7 @@ feature to code) · ☠️ DEAD (archived/superseded/proposal).
 | STD-108 error-resilience | ✅ BUILT | `retry.py`, `retry_queue.py`, `runner.py` |
 | STD-109 configuration | ✅ BUILT | `config.py` |
 | STD-101 observability | ✅ BUILT | `structured_log.py` |
-| STD-116 oscillation-detection | ❌ NOT BUILT | no `oscillat*` code — candidate to build (thesis-aligned) |
+| STD-116 oscillation-detection | ✅ BUILT (minimal) | `oscillation.py` (mutation 10/10) wired into `_run_step`; flag-only; 9 tests (RONDO-430). Full state-machine still design-only |
 | STD-117 prompt-protection | ❌ NOT BUILT | "injection" in code = prompt CONSTRUCTION, not injection DEFENSE |
 
 ## Standards / process docs (📏 — rules, not features)

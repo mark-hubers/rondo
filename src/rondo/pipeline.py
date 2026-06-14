@@ -31,6 +31,7 @@ from typing import Any
 
 import yaml
 
+from rondo.oscillation import detect_repeat, round_signature
 from rondo.scope import is_over_threshold, scope_score
 from rondo.verify import VerifyBlockError, extract_json_object, run_verification, validate_verify_block
 
@@ -450,6 +451,36 @@ def _run_verification(
     return run_verification(_resolve_verify(step, inputs, outputs), cwd=step.add_dir)
 
 
+def _attempt_outcome(
+    step: PipelineStep,
+    result: dict[str, Any],
+    record: dict[str, Any],
+    inputs: dict[str, str],
+    outputs: dict[str, tuple[str, bool]],
+) -> tuple[str, dict[str, Any] | None]:
+    """Judge ONE dispatch attempt — reqs 005/020/022. Returns (error, parsed).
+
+    Empty error == the attempt passed every gate (dispatch done, no self-reported
+    failure, contract ok, rondo's own verify ok). Extracted from _run_step so the
+    retry loop stays under the complexity lock and can layer oscillation on top.
+    """
+    if result.get("status") != "done":
+        return str(result.get("error", "") or f"step '{step.name}' dispatch failed"), None
+    self_fail = _self_reported_failure(step, record["raw_output"])
+    if self_fail:
+        return self_fail, None  # -- the model said it failed; retry IS the fix loop
+    parsed, contract_err = _contract_error(step, record["raw_output"])
+    if contract_err:
+        return contract_err, None  # -- a contract failure is retryable too (req 022)
+    if step.verify is not None:
+        # -- REQ-115 r020: rondo's OWN observation outranks every claim above
+        verification = _run_verification(step, inputs, outputs)
+        record["verification"] = verification
+        if not verification["ok"]:
+            return verification["error"], None
+    return "", parsed
+
+
 def _run_step(
     step: PipelineStep,
     prompt: str,
@@ -470,33 +501,32 @@ def _run_step(
             scope["score"],
             scope["signals"],
         )
+    signatures: list[str] = []  # -- STD-116: per-step round signatures for oscillation
     for attempt in range(step.retries + 1):
         result = _dispatch_step(dispatch, prompt, step)
         record["raw_output"] = str(result.get("raw_output", ""))
         record["cost_usd"] = record["cost_usd"] + float(result.get("cost_usd") or 0.0)
-        if result.get("status") != "done":
-            record["error"] = str(result.get("error", "") or f"step '{step.name}' dispatch failed")
-            continue  # -- retry if attempts remain
-        self_fail = _self_reported_failure(step, record["raw_output"])
-        if self_fail:
-            record["error"] = self_fail
-            continue  # -- the model said it failed; retry IS the fix loop
-        parsed, contract_err = _contract_error(step, record["raw_output"])
-        if contract_err:
-            record["error"] = contract_err
-            continue  # -- a contract failure is retryable too (req 022)
-        if step.verify is not None:
-            # -- REQ-115 r020: rondo's OWN observation outranks every claim above
-            verification = _run_verification(step, inputs, outputs)
-            record["verification"] = verification
-            if not verification["ok"]:
-                record["error"] = verification["error"]
-                continue  # -- verification failure is retryable like the rest
-        record["status"] = "done"
-        record["error"] = ""
-        if parsed is not None:
-            record["parsed"] = parsed
-        break
+        error, parsed = _attempt_outcome(step, result, record, inputs, outputs)
+        if not error:
+            record["status"] = "done"
+            record["error"] = ""
+            if parsed is not None:
+                record["parsed"] = parsed
+            break
+        record["error"] = error
+        # -- STD-116 (minimal): an attempt reproducing a prior attempt's EXACT result
+        # -- is thrash, not progress. Flag it (retries+budget still bound the loop;
+        # -- flag-only preserves the retry contract — cross-vendor decision RONDO-430).
+        signatures.append(round_signature(error, record["raw_output"]))
+        repeated = detect_repeat(signatures)
+        if repeated is not None and "oscillation" not in record:
+            record["oscillation"] = {"error_code": "ERR_OSCILLATION", "attempt": attempt, "repeated_attempt": repeated}
+            logger.warning(
+                "-WARNING- step '%s' oscillating: attempt %d reproduced attempt %d's exact result",
+                step.name,
+                attempt,
+                repeated,
+            )
     if record["status"] != "done":
         logger.warning(
             "-WARNING- pipeline step '%s' failed after %d attempt(s): %s", step.name, step.retries + 1, record["error"]

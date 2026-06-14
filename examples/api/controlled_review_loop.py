@@ -42,8 +42,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+from rondo.jury import jury_review
 from rondo.mcp_dispatch import rondo_run_file
-from rondo.verify import extract_json_object, run_verification
+from rondo.verify import run_verification
 
 BUILDER_MODEL = "sonnet"  # -- Claude subprocess: the hands (writes the code)
 JURY = ["gemini:high", "grok:grok-4.3"]  # -- DIFFERENT vendors: the independent jury
@@ -66,58 +67,42 @@ def claude_builds(task: str, workspace: Path) -> bool:
     return (envelope.get("tasks") or [{}])[0].get("status") == "done"
 
 
-def juror_verdict(model: str, code: str, question: str) -> dict:
-    """One DIFFERENT-vendor juror reviews the actual code. Returns {model, reached, passed, why}.
+def convene_jury(code: str, question: str) -> dict:
+    """Convene the DIFFERENT-vendor jury via the SHIPPED feature (rondo.jury.jury_review).
 
-    Verdict channel = the smart-return `passed` field (normalized across vendors).
-    Unreachable / unparseable -> reached=False (INCONCLUSIVE), never a silent vote.
+    This is the dogfood: the example calls the same `jury_review()` the MCP tool
+    `rondo_jury` exposes — no hand-wired copy to drift. Returns the full result
+    dict: {accepted, reached, agree, verdicts, disagreement}.
     """
-    prompt = (
-        f"You are a code reviewer from a DIFFERENT team than the author. Review:\n\n"
-        f"```python\n{code}\n```\n\n{question}\n"
-        "Judge BEHAVIORAL correctness only (ignore style). Set passed=true ONLY if it is "
-        "actually correct for ALL reasonable inputs; else passed=false with the flaw. "
-        'Respond with ONLY JSON: {"passed": true|false, "result": "one-line reason"}'
-    )
-    raw = json.loads(rondo_run_file(prompt=prompt, model=model, dry_run=False))
-    rec = (raw.get("tasks") or [{}])[0]
-    verdict = extract_json_object(str(rec.get("raw_output", "")))
-    if rec.get("status") != "done" or verdict is None or "passed" not in verdict:
-        return {"model": model, "reached": False, "passed": False, "why": "inconclusive"}
-    return {
-        "model": model,
-        "reached": True,
-        "passed": bool(verdict.get("passed")),
-        "why": str(verdict.get("result", ""))[:90],
-    }
-
-
-def convene_jury(code: str, question: str) -> list[dict]:
-    """Convene the DIFFERENT-vendor jury and SURFACE each verdict (incl. disagreement)."""
-    verdicts = []
-    for model in JURY:
-        print(f">> JUROR ({model}) reviews the logic...")
-        v = juror_verdict(model, code, question)
+    print(f">> JURY ({', '.join(JURY)}) reviews the logic...")
+    result = jury_review(code, question, jurors=JURY)
+    for v in result["verdicts"]:
         mark = "CONCUR" if v["passed"] else ("INCONCLUSIVE" if not v["reached"] else "OBJECT")
-        print(f"   {model}: {mark} — {v['why']}")
-        verdicts.append(v)
-    return verdicts
+        print(f"   {v['model']}: {mark} — {v['why'][:90]}")
+    return result
 
 
-def report_round(label: str, mech_ok: bool, verdicts: list[dict]) -> bool:
-    """Report a round: mechanical result + jury verdicts + the DISAGREEMENT. Return accepted."""
-    reached = [v for v in verdicts if v["reached"]]
-    objections = [v for v in reached if not v["passed"]]
-    accepted = mech_ok and len(reached) >= 1 and not objections
+def report_round(label: str, mech_ok: bool, jury: dict) -> bool:
+    """Report a round: mechanical result + the jury_review verdict + the DISAGREEMENT.
+
+    accept = rondo's own mechanical check GREEN *and* the cross-vendor jury accepted.
+    The two halves compose: mechanical verify (REQ-115) AND a DIFFERENT vendor agrees.
+    """
+    objections = jury["disagreement"]
+    accepted = mech_ok and jury["accepted"]
     print(f"\n   == {label} ==")
     print(f"   rondo mechanical check (tests/files): {'GREEN' if mech_ok else 'RED'}")
-    print(f"   jury: {len(reached)}/{len(JURY)} reached, {len(objections)} objection(s)")
+    print(f"   jury: {jury['reached']}/{len(JURY)} reached, {len(objections)} objection(s)")
     if objections:
         # -- the DISAGREEMENT is the product: name who objected and why
         for o in objections:
-            print(f"   >>> {o['model']} OBJECTED: {o['why']}")
-    print(f"   ACCEPT = mechanical GREEN AND no cross-vendor objection -> {accepted}")
+            print(f"   >>> {o['model']} OBJECTED: {o['why'][:90]}")
+    print(f"   ACCEPT = mechanical GREEN AND cross-vendor jury accepted -> {accepted}")
     return accepted
+
+
+# -- an empty jury result for rounds that never reach the jury (mechanical RED first)
+_NO_JURY: dict = {"accepted": False, "reached": 0, "agree": 0, "verdicts": [], "disagreement": []}
 
 
 def scenario_live_concur(workspace: Path) -> bool:
@@ -136,9 +121,12 @@ def scenario_live_concur(workspace: Path) -> bool:
     )
     if not mech["ok"]:
         print("   (Claude's build did not pass rondo's own check — honest miss this run)")
-        return report_round("SCENARIO 1", False, [])
-    verdicts = convene_jury(target.read_text(encoding="utf-8"), "Does mean() correctly average and reject empty input?")
-    return report_round("SCENARIO 1: should ACCEPT", mech["ok"], verdicts)
+        return report_round("SCENARIO 1", False, _NO_JURY)
+    jury = convene_jury(
+        target.read_text(encoding="utf-8"),
+        "Given nums is a list[float], does mean() correctly average the list and raise ValueError on empty input?",
+    )
+    return report_round("SCENARIO 1: should ACCEPT", mech["ok"], jury)
 
 
 def scenario_proof(workspace: Path) -> bool:
@@ -158,11 +146,11 @@ def scenario_proof(workspace: Path) -> bool:
         {"files": [str(target), str(test_file)], "cmd": pytest_cmd, "expect_exit": 0}, cwd=str(workspace)
     )
     print(f"   shallow test result: {'GREEN (a single-vendor loop would SHIP this)' if mech['ok'] else 'RED'}")
-    verdicts = convene_jury(
+    jury = convene_jury(
         target.read_text(encoding="utf-8"),
         "Does days_in_month return the correct days for ALL months 1-12 (Feb=28, some 30, some 31)?",
     )
-    return report_round("SCENARIO 2: should REJECT (jury catches the latent bug)", mech["ok"], verdicts)
+    return report_round("SCENARIO 2: should REJECT (jury catches the latent bug)", mech["ok"], jury)
 
 
 def run_demo(workspace: Path) -> int:
@@ -203,4 +191,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-# -- sig: mgh-6201.cd.bd955f.24dd.32b74a
+# -- sig: mgh-6201.cd.bd955f.24dd.766a32

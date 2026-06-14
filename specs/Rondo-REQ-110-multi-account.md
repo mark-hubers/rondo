@@ -1,5 +1,9 @@
 # Rondo-REQ-110: Multi-Account Capacity Management
 
+> ⚠️ **NOT BUILT — design only (2026-06-14 status-hygiene, RONDO-429).** No
+> multi-account code exists. Low thesis value (ops capacity feature); not a
+> launch blocker. See `reports/SPEC-STATUS-TRUTH-2026-06-14.md`.
+
 **Parent:** Rondo-REQ-101 (Automation)
 **Created:** 2026-03-20 | **Status:** DESIGNED
 **Classification:** open

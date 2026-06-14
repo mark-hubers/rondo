@@ -1,5 +1,10 @@
 # Rondo-STD-117: Prompt Protection
 
+> ⚠️ **NOT BUILT — design only (2026-06-14 status-hygiene, RONDO-429).** No
+> prompt-template version-tracking / degradation-detection exists. (The word
+> "injection" in the code is prompt CONSTRUCTION, not defense.) See
+> `reports/SPEC-STATUS-TRUTH-2026-06-14.md`.
+
 *Task templates are code. Track versions, detect weakening, prevent silent degradation of AI review quality.*
 
 **Product:** Rondo

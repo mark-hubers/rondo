@@ -1,5 +1,10 @@
 # Rondo-STD-116: Oscillation Detection
 
+> ⚠️ **NOT BUILT — design only (2026-06-14 status-hygiene, RONDO-429).** No
+> `oscillat*` detection code exists. Status field said DESIGNED; this banner makes
+> it unambiguous. Thesis-aligned candidate to build (detect the loop thrashing /
+> fix-A-breaks-B) — see `reports/SPEC-STATUS-TRUTH-2026-06-14.md`.
+
 *Fix for A breaks B. Fix for B breaks A. Three cycles = halt. Don't loop forever.*
 
 **Product:** Rondo

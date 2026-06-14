@@ -1,5 +1,10 @@
 # Rondo-IFS-102: OB Integration Contract
 
+> ⚠️ **NOT BUILT in standalone rondo — design only (2026-06-14 status-hygiene,
+> RONDO-429).** No `oaresult`/ob-connect code. This is the ace2/OB cross-product
+> contract; arguably OUT OF SCOPE for standalone rondo until/unless re-integrated.
+> See `reports/SPEC-STATUS-TRUTH-2026-06-14.md`.
+
 *How Rondo talks to OB — what it sends, what it receives, when it connects, and what it never touches. The execution muscle plugged into the methodology brain.*
 
 **Created:** 2026-03-18 | **Status:** DESIGNED

@@ -4,7 +4,7 @@
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-06-05 (Session 104) | **Status:** DESIGNED
+**Created:** 2026-06-05 (Session 104) | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 0.2
 **Owner:** Mark G. Hubers

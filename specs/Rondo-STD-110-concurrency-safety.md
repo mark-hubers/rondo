@@ -2,7 +2,7 @@
 
 *How Rondo runs tasks in parallel safely — no injection, no leaks, no corruption.*
 
-**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 0.6
 **Owner:** Mark G. Hubers

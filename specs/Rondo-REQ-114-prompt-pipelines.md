@@ -5,7 +5,7 @@ before any spend, and an audit trail after. This is what Rondo is FOR.*
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-06-10 | **Status:** DESIGNED
+**Created:** 2026-06-10 | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 0.1
 **Owner:** Mark G. Hubers

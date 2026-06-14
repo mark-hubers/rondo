@@ -2,7 +2,7 @@
 
 *The exact contract between Rondo and Claude Code's `claude -p` command.*
 
-**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-06-03 | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 0.8
 **Owner:** Mark G. Hubers

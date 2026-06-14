@@ -2,7 +2,7 @@
 
 *How Rondo is configured — TOML file, CLI flags, sane defaults, COALESCE resolution.*
 
-**Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Updated:** 2026-03-14 | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 0.7
 **Owner:** Mark G. Hubers

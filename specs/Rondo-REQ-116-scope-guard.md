@@ -7,7 +7,7 @@ remember.*
 
 **Product:** Rondo
 **Category:** REQ
-**Created:** 2026-06-11 | **Status:** DESIGNED
+**Created:** 2026-06-11 | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 0.1
 **Owner:** Mark G. Hubers

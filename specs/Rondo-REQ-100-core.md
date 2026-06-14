@@ -2,7 +2,7 @@
 
 *Define AI tasks in Python, send them to Claude, get structured results back.*
 
-**Created:** 2026-03-13 | **Status:** DRAFT
+**Created:** 2026-03-13 | **Status:** BUILT (verified 2026-06-14, RONDO-432)
 **Classification:** open
 **Version:** 1.4
 **Owner:** Mark G. Hubers

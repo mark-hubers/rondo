@@ -80,20 +80,25 @@ round-trust lesson), streaming step output.
 |---|-------------|----------|--------------|
 | 030 | CLI: `rondo pipeline <file.yaml> [--plan] [--input K=V ...]`; exit 0 done, 1 partial/error, 2 invalid definition | MUST | CLI test |
 | 031 | Python API: `load_pipeline(path)` + `run_pipeline(spec, inputs=..., dispatch=..., plan=...)` exported from `rondo.pipeline` | MUST | API test |
-| 032 | A runnable flagship example ships WITH this feature (examples ARE docs): a real multi-step pipeline doing real work, live-verified with logged cost | MUST | Example + index |
+| 032 | A runnable flagship example ships WITH this feature (examples ARE docs): a real multi-step pipeline doing real work, live-verified with logged cost | MUST | `examples/pipelines/claude-builder.yaml` (+ index) |
 
 ---
 
-## 3. The flagship: release-notes assembly line
+## 3. The flagship: claude-builder (rondo drives Claude Code itself)
 
-The proving pipeline (`examples/pipelines/release-notes.yaml`): 9 steps over
-rondo's own `git log` — classify commits → select highlights → draft notes →
-HOSTILE REVIEW by a different provider → revise → fact-check every claim
-against the commit data → strip unverified claims → style pass → TL;DR
-header. Multi-provider by design (each role goes to the model class suited
-to it); budget-capped; every intermediate visible in the result envelope.
-Output: a CHANGELOG draft the publish step (ROAD-TO-8 8.12) actually needs.
-Dogfood: rondo documents rondo, with one AI's claims checked by another.
+The proving pipeline (`examples/pipelines/claude-builder.yaml`): 10 enforced
+steps in which rondo drives a Claude Code subprocess to build a working
+todo-list CLI + its test suite from nothing. Every step must answer "did you
+actually do it?" (smart-return `passed=true/false`, verified by RUNNING the
+work); `passed=false` blocks advancement and a retry is the fix loop — no step
+7 until step 6 is PROVEN. Budget-capped; every intermediate visible in the
+result envelope. Live-verified (RONDO-406→417, $0 on max auth); driver
+`examples/api/claude_step_driver.py`.
+
+**Not yet built (named here as the next pipeline, not a shipped one):** a
+`release-notes.yaml` assembly line — 9 steps over rondo's own `git log`,
+multi-provider, with one provider's claims hostile-reviewed and fact-checked
+by another. Designed, not implemented; do not cite it as existing.
 
 ---
 

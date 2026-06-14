@@ -1,5 +1,14 @@
 # Rondo-REQ-108: Task Template Promotion
 
+> ⚠️ **PARTIAL — mostly NOT BUILT (2026-06-14 truth-audit, RONDO-432).** Only a
+> static built-in template listing exists (`rondo_templates()` in `mcp_tools.py`).
+> The promotion lifecycle this spec describes — usage tracking, the
+> ADHOC→CANDIDATE→TEMPLATE→ARCHIVED states (reqs 002/003), `rondo templates
+> --candidates` (req 005), and copy-to-`~/.rondo/templates/` promotion (req 006)
+> — is DESIGN ONLY; none of it is implemented and there is no `templates` CLI
+> subcommand. Do not cite auto-promotion as existing. See
+> `reports/SPEC-STATUS-TRUTH-2026-06-14.md`.
+
 *Useful twice = permanent template. Track one-off task definitions, promote the ones that stick.*
 
 **Product:** Rondo

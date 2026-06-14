@@ -92,8 +92,9 @@ effort control, output headroom, and **streamed dispatch** with an event
 watchdog — a model may think for many minutes safely. Every failure carries
 the provider's own explanation into the audit trail.
 
-**The documentation IS the examples**: 85 real, runnable files under
-`examples/` (start at `examples/INDEX.md`); smoke-checked by
+**The documentation IS the examples**: 101 real, runnable files under
+`examples/` (start at `examples/INDEX.md`; count lock-verified by
+`examples/generate_index.py --check`), smoke-checked by
 `examples/verify-examples.sh`, with key paths exercised in the test suite.
 
 ---
@@ -113,7 +114,7 @@ Use tool calls like:
 
 Start here:
 - `examples/mcp/README.md` (13 MCP examples)
-- **Full example index:** `examples/INDEX.md` (all 85 examples mapped by mode/provider/use case)
+- **Full example index:** `examples/INDEX.md` (all 101 examples mapped by mode/provider/use case)
 
 ### 2) CLI (scripts, CI, terminal workflows)
 

@@ -1,6 +1,6 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-13 (RONDO-419→426) | **State:** independent + green (2798 tests)
+**Updated:** 2026-06-14 (RONDO-419→431) | **State:** independent + green (2,817 tests)
 
 **Thesis:** the cross-vendor jury — the AI that writes the code doesn't certify it,
 a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`).
@@ -19,16 +19,16 @@ Split from `~/git/mhubers/ace2/rondo/` with **full history preserved**
 (611+ commits). The ace2 copy is FROZEN (see its POINTER.md). Backups:
 3 verified git bundles (internal + BKUP_DATA_A + BKUP_DATA_B).
 
-## Current health (verified 2026-06-10)
+## Current health (verified 2026-06-14)
 
 | Check | Result |
 |-------|--------|
-| Full suite, own venv, zero ace2 ties | 2,610 tests collected, build green |
-| Own 6-gate build (`bin/build`) | green before every commit (694 commits) |
-| `rondo doctor` from installed tool | 6/6 PASS (reinstalled 2026-06-10) |
-| Docs drift + examples index (92) | clean |
-| Conventions locks | 43 classes green |
-| Mutation coverage (measured, not claimed) | spool 97 / envelope 98 / history 100 / sanitize 97 / dispatch_parse 97% |
+| Full suite, own venv, zero ace2 ties | 2,817 tests collected, build green |
+| Own 6-gate build (`bin/build`) | green before every commit (743 commits) |
+| `rondo doctor` from installed tool | 6/6 PASS |
+| Docs drift + examples index (101) | clean (`generate_index.py --check`) |
+| Conventions locks | 29 classes green |
+| Mutation kill-rates (reproduce: `bin/mutate <module>`) | from the RONDO-416→418 hardening — spool 97 / envelope 98 / history 100 / sanitize 97 / dispatch_parse 97% (see `reports/LIVE-TESTING-2026-06-12.md`) |
 
 ## What Rondo is right now (the 25-sprint campaign, RONDO-313→337)
 
@@ -57,8 +57,8 @@ The score remains floored by private/unpublished status — ~5 of 10 panel
 dimensions cannot rise until the publish decision (Mark's alone).
 
 **Banked since the review (RONDO-340, fix #3 of the report):**
-- `docs/API-STABILITY.md` — stable surface declared (24 CLI commands,
-  25 MCP tools, config keys) + deprecation policy, drift-locked by
+- `docs/API-STABILITY.md` — stable surface declared (25 CLI commands,
+  27 MCP tools, config keys) + deprecation policy, drift-locked by
   `tests/conventions/test_api_stability.py` (dim 9)
 - RONDO-335 error-UX sweep LIVE-VERIFIED and marked in SOP-106 (dim 4)
 - LICENSE file (MIT) — fixes the pyproject contradiction (dim 8, partial)

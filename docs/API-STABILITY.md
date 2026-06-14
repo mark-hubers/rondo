@@ -41,7 +41,7 @@ formats) carry no promise yet.
 
 ---
 
-## Stable surface 1: CLI subcommands (24)
+## Stable surface 1: CLI subcommands (25)
 
 Derived from `src/rondo/cli.py` (`build_parser()`); the conventions lock
 keeps this list complete.

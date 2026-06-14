@@ -1,6 +1,6 @@
 # Rondo Reference — Complete System Guide
 
-**Product:** Rondo v0.6 | **Updated:** 2026-04-05 | **Tests:** 1,404 | **MCP Tools:** 23
+**Product:** Rondo v0.6 | **Updated:** 2026-06-14 | **Tests:** 2,817 | **MCP Tools:** 27
 
 *Define AI tasks in Python. Send them to any provider. Get structured results back.*
 
@@ -16,7 +16,7 @@
                           │  rondo run        rondo_run()   Round() │
                           │  rondo providers  rondo_cloud() Task()  │
                           │  rondo metrics    + 19 more     run()   │
-                          │  15 commands      23 tools      import  │
+                          │  25 commands      27 tools      import  │
                           └────────┬──────────┬──────────┬──────────┘
                                    │          │          │
                           ┌────────┴──────────┴──────────┴──────────┐
@@ -459,8 +459,8 @@ rondo/
 
 | Metric | Value |
 |--------|-------|
-| MCP tools | 23 |
-| CLI commands | 14 |
+| MCP tools | 27 |
+| CLI commands | 25 |
 | Cloud adapters | 5 (Gemini, ChatCompletions, Anthropic, Ollama, Claude CLI) |
 | Cloud providers | 7 (Gemini, Grok, Mistral, OpenAI, Anthropic, Ollama, Claude) |
 | Tests | 1,347 |

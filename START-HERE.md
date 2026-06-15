@@ -1,9 +1,15 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-14 (RONDO-419→431) | **State:** independent + green (2,817 tests)
+**Updated:** 2026-06-15 (RONDO-419→432) | **State:** independent + green (2,819 tests)
+
+**▶ RESUME (post-restart):** truth-audit + drift lock shipped 6/14 (RONDO-432,
+`reports/TRUTH-AUDIT-2026-06-14.md`). **Next action = the Cursor independent deep pass on
+REQ-114** (quota resets 6/15): `cursor-review "deep spec->code->test audit of REQ-114
+prompt-pipelines, hunt overclaims + untested reqs"`. Then ASK Mark — release is his call.
 
 **Thesis:** the cross-vendor jury — the AI that writes the code doesn't certify it,
-a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`).
+a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`,
+MCP tool `rondo_jury`).
 
 **Honest rating:** an independent cross-vendor panel scored it **3-4/10 as it was
 positioned ("another agent loop"), ~7/10 reframed around the jury + published proof**
@@ -23,7 +29,7 @@ Split from `~/git/mhubers/ace2/rondo/` with **full history preserved**
 
 | Check | Result |
 |-------|--------|
-| Full suite, own venv, zero ace2 ties | 2,817 tests collected, build green |
+| Full suite, own venv, zero ace2 ties | 2,819 tests collected, build green |
 | Own 6-gate build (`bin/build`) | green before every commit (743 commits) |
 | `rondo doctor` from installed tool | 6/6 PASS |
 | Docs drift + examples index (101) | clean (`generate_index.py --check`) |

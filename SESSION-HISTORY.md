@@ -4,6 +4,65 @@ Newest at top. Per-repo session log (see `~/.claude/on-demand/session-save-proce
 
 ---
 
+## 2026-06-14/15 — Cross-vendor jury as a LIVE feature + full truth-audit + drift lock (RONDO-431→432)
+
+**TL;DR:** Made the cross-vendor jury a first-class, live-callable feature, then ran a
+full truth-audit ("remove any writing we said we have but not really in rondo") across
+docs + specs, and finally killed the drift class with a build-enforced lock. ~10 commits,
+build 6/6 green throughout (2,819 tests). Session: 14h 3m, save point #12.
+
+### HOW TO RESUME THIS STATE (type "rondo")
+The rondo session-start (project CLAUDE.md) = read `START-HERE.md` → run `rondo doctor`
+→ ASK what to work on. `START-HERE.md` is current (updated this session) and is the
+recovery anchor. The single most important next action is in its "What's next" section.
+**Next action: the Cursor independent deep pass on REQ-114 (quota resets 6/15).**
+Run it with: `cursor-review "deep spec->code->test audit of REQ-114 prompt-pipelines,
+hunt overclaims and untested reqs"` (from the rondo repo). Memory boot-cache (MEMORY.md)
+also has the full 6/14 EVENING entry.
+
+### What we did
+- **RONDO-431 — cross-vendor jury is now live.** `jury_review()` (src/rondo/jury.py,
+  mutation 22/22) wired into the MCP surface as **rondo_jury** (tool #27). Adding one
+  MCP tool tripped 3 conventions locks (import-layering, API-STABILITY, ai_help count) —
+  all satisfied properly. Then the flagship `examples/api/controlled_review_loop.py` was
+  refactored to CALL jury_review() (deleted its hand-wired copy — one source of truth).
+  Live end-to-end PASS: S1 build+verify+concur→ACCEPT, S2 latent bug→both vendors
+  OBJECT→REJECT.
+- **RONDO-432 — truth-audit (4 batches).** B1 stale numbers fixed (examples →101, tests
+  →2,817, MCP →27, CLI →25; RONDO-REFERENCE was a 2-month-old exhibit). B2 two REAL
+  capability overclaims corrected (REQ-114 named a non-existent flagship file → repointed
+  to claude-builder.yaml; REQ-108 promotion lifecycle isn't built → PARTIAL banner). B3
+  the "~45 unfinished specs" illusion killed — 21 spec Status → BUILT (verified), each
+  gated by confirming the module exists. B4 cross-vendor jury hostile-reviewed the fixed
+  docs; 1 of 3 objections real (watchdog metric refreshed to live 81.4%).
+- **Doc-number drift LOCK** (the hard-path fix): new `TestDocNumberDrift` conventions test
+  asserts every stated example/MCP/CLI count matches ground truth from source. Proved it
+  bites (planted 101→85 → RED → restored). A hand-typed count that lies now fails the build.
+
+### Key decisions / rationale
+- Corrected overclaims by pointing at what EXISTS, not deleting the requirement (the MUST
+  was genuinely met by a different file).
+- A juror's objection isn't automatically right — its value is forcing a LOOK; verified
+  each (2 of 3 jury objections did not survive).
+- Killed the drift class with a lock rather than just hand-fixing — rondo's identity is
+  machinery-enforced truth.
+
+### Files changed (committed; build green each time)
+- src/rondo/mcp_server.py, mcp_compose.py (rondo_jury), src/rondo/data/ai_help_data.json
+- tests/conventions/test_conventions.py, test_docs_drift.py (new lock)
+- README.md, START-HERE.md, docs/RONDO-REFERENCE.md, docs/API-STABILITY.md
+- specs/Rondo-REQ-114, REQ-108 + 22 spec Status fields
+- examples/api/controlled_review_loop.py (dogfood)
+- reports/TRUTH-AUDIT-2026-06-14.md (new)
+
+### What's next
+1. **Cursor independent deep pass on REQ-114** (6/15) — the only auditor that's neither
+   Claude nor doc-only. Highest-value remaining risk-reducer before release.
+2. Release blockers = MARK'S decisions (publish go, PyPI name, CHANGELOG/SemVer, CI).
+3. Genuinely-unbuilt set (~6) mostly not worth building; all honestly bannered.
+
+---
+
 ## 2026-06-11 — Prompt coding + the anti-lying stack + loop-engineering convergence (RONDO-406→414)
 
 **TL;DR:** Mark's redirect: rondo's REAL power is PROMPT CODING — looping small,

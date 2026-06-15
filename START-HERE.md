@@ -1,11 +1,18 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-15 (RONDO-419→432) | **State:** independent + green (2,819 tests)
+**Updated:** 2026-06-15 (RONDO-419→433) | **State:** independent + green (2,825 tests)
 
-**▶ RESUME (post-restart):** truth-audit + drift lock shipped 6/14 (RONDO-432,
-`reports/TRUTH-AUDIT-2026-06-14.md`). **Next action = the Cursor independent deep pass on
-REQ-114** (quota resets 6/15): `cursor-review "deep spec->code->test audit of REQ-114
-prompt-pipelines, hunt overclaims + untested reqs"`. Then ASK Mark — release is his call.
+**▶ RESUME (post-restart):** the Cursor independent REQ-114 deep pass RAN 6/15
+(`reports/cursor-reviews/review-20260615-081804.md`) and **RONDO-433 fixed the 6
+verified-real findings** (commits 2bb703c + 70dc490): F1 budget hard-ceiling was
+soft on step 0 (now model-aware admission — the headline guarantee was actually
+false, the jury caught it), F2 `duration` MUST field absent (now `duration_sec`),
+F4 exit-code legs pinned, F5 dead REQ-106 refs, F6 domain-blind failed-ref guard,
+F10 envelope `budget_usd`. Mutation-verified (pipeline.py 157/167, 10 residual all
+provable equivalents; the gate caught a one-sided test in my own F2 work, fixed).
+**Next action = ASK Mark the 4 deferred decisions** (judgment/governance, his call):
+F3 `passed=false` opt-out, F7 duplicate REQ-114 spec id, F8 contract/self-report
+parity, F9 `--plan` requires inputs. Release remains his call.
 
 **Thesis:** the cross-vendor jury — the AI that writes the code doesn't certify it,
 a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`,

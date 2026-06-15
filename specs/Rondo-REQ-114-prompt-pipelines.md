@@ -110,3 +110,30 @@ by another. Designed, not implemented; do not cite it as existing.
   validation is the caller's step (a fact-check step IS the deep validator).
 - Cost estimates are admission heuristics (STD-105), not quotes; the hard
   ceiling is enforced on actuals as they land.
+
+---
+
+## 5. Audit refinements (RONDO-433, 2026-06-15 — Cursor independent review)
+
+An independent Cursor deep audit (`reports/cursor-reviews/review-20260615-081804.md`)
+hardened the engine against the spec's own MUSTs. Behavior clarified/changed:
+
+- **req 010 (budget) now MODEL-AWARE on step 0.** The run-mode admission gate
+  was using a flat `_MIN_STEP_EST_USD` floor for the first step, so a single
+  expensive step under a small budget could overshoot the "hard ceiling"
+  unbounded. It now admits against `max(prior_high_cost, _estimate_step_cost)`
+  — the same estimator plan mode uses. The run envelope also carries `budget_usd`
+  so an overshoot is visible in-band.
+- **req 023 `duration` is REAL.** Per-step `duration_sec` is now recorded
+  (was listed as a MUST but absent).
+- **req 005 (contract) checks the PRIMARY result object**, not the last — an
+  appended decoy JSON object can no longer satisfy a contract the real output
+  fails (parity with the passed=false self-report's all-objects stance).
+- **Step field `allow_passed_false`** (additive to req 002): opt OUT of the
+  `passed=false` self-report gate for a data step whose legitimate deliverable
+  carries that key. Default false — the anti-lying gate stays ON. (Joins the
+  other post-v1 step fields: `tools`, `max_turns`, `add_dir`, `timeout`,
+  `verify`, `allow_broad`.)
+- **req 011 (`--plan`) no longer requires inputs.** Plan dispatches nothing, so
+  unsupplied `{{inputs.X}}` are shown symbolically rather than hard-erroring;
+  the resolvability check still gates actual runs (req 003).

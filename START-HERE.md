@@ -1,6 +1,6 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-15 (RONDO-419→433) | **State:** independent + green (2,825 tests)
+**Updated:** 2026-06-15 (RONDO-419→433) | **State:** independent + green (2,828 tests)
 
 **▶ RESUME (post-restart):** the Cursor independent REQ-114 deep pass RAN 6/15
 (`reports/cursor-reviews/review-20260615-081804.md`) and **RONDO-433 fixed the 6
@@ -10,9 +10,13 @@ false, the jury caught it), F2 `duration` MUST field absent (now `duration_sec`)
 F4 exit-code legs pinned, F5 dead REQ-106 refs, F6 domain-blind failed-ref guard,
 F10 envelope `budget_usd`. Mutation-verified (pipeline.py 157/167, 10 residual all
 provable equivalents; the gate caught a one-sided test in my own F2 work, fixed).
-**Next action = ASK Mark the 4 deferred decisions** (judgment/governance, his call):
-F3 `passed=false` opt-out, F7 duplicate REQ-114 spec id, F8 contract/self-report
-parity, F9 `--plan` requires inputs. Release remains his call.
+**ALL 10 Cursor findings now resolved** — Mark chose to take all 4 deferred ones
+too (commit 305e0c8): F3 `passed=false` opt-out (`allow_passed_false` step field),
+F7 duplicate id renumbered (structured-input → **REQ-119**; prompt-pipelines keeps
+114), F8 contract checks the primary object (append-to-bury closed), F9 `--plan`
+no longer requires inputs. Spec §5 records the refinements. **Next action = ASK
+Mark** — the only open items are his release-gated decisions (publish/PyPI/CI),
+unchanged. Release remains his call.
 
 **Thesis:** the cross-vendor jury — the AI that writes the code doesn't certify it,
 a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`,

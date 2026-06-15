@@ -182,4 +182,77 @@ def test_finding4_cli_partial_exits_1(tmp_path, capsys) -> None:
     assert '"status": "partial"' in out
 
 
-# -- sig: mgh-6201.cd.bd955f.25b9.28dc6c
+# ── Finding 3: passed=false is a reserved key — a step can OPT OUT of the gate ──
+
+
+def test_finding3_allow_passed_false_opts_out_of_self_report_gate() -> None:
+    """A step declaring allow_passed_false keeps a legit passed=false payload.
+
+    Default: the engine force-fails any output containing passed=false (the
+    RONDO-407 anti-lying gate). With the opt-out, a data step whose deliverable
+    IS {"passed": false} succeeds — the reserved key is no longer hijacked.
+    """
+
+    def dispatch(prompt: str, model: str, opts=None) -> dict:
+        return {"status": "done", "raw_output": '{"tests": 10, "passed": false}', "cost_usd": 0.0}
+
+    # -- control: WITHOUT the opt-out the gate fires (the existing behavior)
+    guarded = PipelineSpec(name="t", budget_usd=1.0, steps=[PipelineStep(name="s", prompt="summarize the run")])
+    env_guarded = run_pipeline(guarded, dispatch=dispatch)
+    assert env_guarded["steps"][0]["status"] == "error"
+    assert "ERR_STEP_REPORTED_FAILURE" in env_guarded["steps"][0]["error"]
+
+    # -- with the opt-out, passed=false is the legitimate deliverable -> success
+    opted = PipelineSpec(
+        name="t",
+        budget_usd=1.0,
+        steps=[PipelineStep(name="s", prompt="summarize the run", allow_passed_false=True)],
+    )
+    env_opted = run_pipeline(opted, dispatch=dispatch)
+    assert env_opted["steps"][0]["status"] == "done"
+
+
+# ── Finding 8: an appended decoy object cannot satisfy a failed contract ──
+
+
+def test_finding8_appended_object_cannot_satisfy_a_failed_contract() -> None:
+    """The contract gate checks the PRIMARY (first) result object.
+
+    Matches the self-report gate's all-objects fail-closed stance: a real output
+    missing a required key, followed by an appended {key: ...} decoy, must still
+    FAIL the contract — the append cannot rescue it.
+    """
+
+    def dispatch(prompt: str, model: str, opts=None) -> dict:
+        return {"status": "done", "raw_output": '{"other": 1}\n{"labels": ["x"]}', "cost_usd": 0.0}
+
+    spec = PipelineSpec(
+        name="t",
+        budget_usd=1.0,
+        steps=[PipelineStep(name="s", prompt="extract", expect={"required": ["labels"]})],
+    )
+    env = run_pipeline(spec, dispatch=dispatch)
+    assert env["steps"][0]["status"] == "error"
+    assert "ERR_CONTRACT" in env["steps"][0]["error"]
+
+
+# ── Finding 9: --plan does not require every input to be supplied first ──
+
+
+def test_finding9_plan_mode_allows_unsupplied_inputs_symbolically() -> None:
+    """Plan dispatches nothing, so it shows unresolved {{inputs.X}} symbolically.
+
+    'Plan before any spend' must not hard-error until every input is gathered
+    (req 011 permits symbolic previews for not-yet-resolved values).
+    """
+    spec = PipelineSpec(
+        name="t",
+        budget_usd=1.0,
+        steps=[PipelineStep(name="s", prompt="research {{inputs.topic}}")],
+    )
+    plan = run_pipeline(spec, inputs={}, plan=True)  # -- no topic supplied
+    assert plan["status"] == "plan"
+    assert "{{inputs.topic}}" in plan["steps"][0]["prompt_preview"]
+
+
+# -- sig: mgh-6201.cd.bd955f.25b9.a21730

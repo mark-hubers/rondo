@@ -52,6 +52,7 @@ _STEP_FIELDS = {
     "timeout",
     "verify",
     "allow_broad",
+    "allow_passed_false",
 }
 _ON_FAIL = {"stop", "continue"}
 _MAX_RETRIES = 2
@@ -86,6 +87,9 @@ class PipelineStep:
     verify: dict[str, Any] | None = None
     # -- RONDO-413 (REQ-116): exempt a genuinely-broad step from the scope guard
     allow_broad: bool = False
+    # -- RONDO-433 (Cursor finding 3): opt OUT of the passed=false self-report
+    # -- gate for a data step whose legitimate deliverable carries that key.
+    allow_passed_false: bool = False
 
 
 @dataclass
@@ -182,6 +186,7 @@ def _validate_step(raw_step: Any, index: int, prior_names: set[str]) -> Pipeline
         timeout=timeout,
         verify=_validate_verify(raw_step.get("verify"), name),
         allow_broad=bool(raw_step.get("allow_broad", False)),
+        allow_passed_false=bool(raw_step.get("allow_passed_false", False)),
     )
 
 
@@ -268,7 +273,12 @@ def _contract_error(step: PipelineStep, raw_output: str) -> tuple[dict[str, Any]
     if not step.expect:
         return None, ""
     required = step.expect["required"]
-    parsed = extract_json_object(raw_output)
+    # -- RONDO-433 (Cursor finding 8): check the PRIMARY (first) result object,
+    # -- not the LAST (what extract_json_object returns). Parity with the
+    # -- self-report gate's all-objects stance — an APPENDED decoy object can no
+    # -- longer rescue a contract the real output fails (append-to-bury).
+    objects = _all_json_objects(raw_output)
+    parsed = objects[0] if objects else None
     if parsed is None:
         return (
             None,
@@ -299,7 +309,8 @@ def _build_plan(spec: PipelineSpec, inputs: dict[str, str]) -> dict[str, Any]:
     for step in spec.steps:
         preview = step.prompt
         for domain, key in _placeholders(step.prompt):
-            if domain == "inputs":
+            # -- finding 9: substitute supplied inputs; leave the rest SYMBOLIC
+            if domain == "inputs" and key in inputs:
                 preview = preview.replace("{{inputs." + key + "}}", inputs[key])
         est = _estimate_step_cost(step)
         total += est
@@ -470,9 +481,11 @@ def _attempt_outcome(
     """
     if result.get("status") != "done":
         return str(result.get("error", "") or f"step '{step.name}' dispatch failed"), None
-    self_fail = _self_reported_failure(step, record["raw_output"])
-    if self_fail:
-        return self_fail, None  # -- the model said it failed; retry IS the fix loop
+    if not step.allow_passed_false:
+        # -- RONDO-433 (Cursor finding 3): a data step can opt out; default ON
+        self_fail = _self_reported_failure(step, record["raw_output"])
+        if self_fail:
+            return self_fail, None  # -- the model said it failed; retry IS the fix loop
     parsed, contract_err = _contract_error(step, record["raw_output"])
     if contract_err:
         return contract_err, None  # -- a contract failure is retryable too (req 022)
@@ -554,9 +567,11 @@ def run_pipeline(
     reported in the envelope as status "error").
     """
     inputs = dict(inputs or {})
-    _check_inputs_resolvable(spec, inputs)  # -- req 003: before ANY dispatch
     if plan:
+        # -- RONDO-433 (Cursor finding 9): plan dispatches NOTHING, so it shows
+        # -- unresolved {{inputs.X}} symbolically — no need to gather inputs first.
         return _build_plan(spec, inputs)
+    _check_inputs_resolvable(spec, inputs)  # -- req 003: before ANY dispatch (runs only)
 
     dispatch = dispatch or _default_dispatch
     records: list[dict[str, Any]] = []
@@ -610,4 +625,4 @@ def run_pipeline(
     return envelope
 
 
-# -- sig: mgh-6201.cd.bd955f.6b92.64f794
+# -- sig: mgh-6201.cd.bd955f.6b92.b4175d

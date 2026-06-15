@@ -474,4 +474,4 @@ Not yet populated. Will track token/cost data from build sprints referencing thi
 
 ## Number Collision Resolved (Session 104)
 
-A second spec (Structured Task Input, created 2026-03-28) accidentally also used REQ-106. It is now **Rondo-REQ-114**. This spec (Dispatch Trend Alerting) is the sole REQ-106. RONDO-307.
+A second spec (Structured Task Input, created 2026-03-28) accidentally also used REQ-106. It is now **Rondo-REQ-119** (was briefly REQ-114, which collided with Prompt Pipelines; RONDO-433). This spec (Dispatch Trend Alerting) is the sole REQ-106. RONDO-307.

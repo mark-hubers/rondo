@@ -1,4 +1,4 @@
-# Rondo-REQ-114: Structured Task Input
+# Rondo-REQ-119: Structured Task Input
 
 *Tasks can receive structured data (JSON, findings, results) — not just file paths.*
 
@@ -198,3 +198,5 @@ if task.context_data:
 ## Renumber Note (Session 104)
 
 **Was Rondo-REQ-106** — that number was already held by Dispatch Trend Alerting (created 2026-03-20, referenced by STD-113/IFS-101/REQ-105). This spec (created 2026-03-28) collided into the number. Renumbered REQ-114; REQ-111's references updated. RONDO-307.
+
+**Then Rondo-REQ-114 again COLLIDED** — Prompt Pipelines (Rondo-REQ-114-prompt-pipelines) already owned that number. Cursor's 2026-06-15 audit (finding 7) flagged the duplicate id. Renumbered to **REQ-119** (above-max, no gap-collision risk); REQ-111/REQ-106 refs and engine.py citations updated. RONDO-433.

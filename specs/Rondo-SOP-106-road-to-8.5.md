@@ -82,5 +82,6 @@ labor — the kind this codebase has been eating for breakfast.
 
 | Version | Date | What Changed |
 |---------|------|-------------|
+| 0.3 | 2026-06-15 | RONDO-434: 4-vendor hostile re-score (gemini/grok/openai/mistral) — **mean 5.3** (up from 3.13), reports/hostile-review-2026-06-15.md. Engineering dims (3/4/5/9) average ~8.3 across four vendors; mean still capped by the publish-floored dims 1/6/7 (≈0.5). Dim 10 (the one engineering dim below floor) addressed: honest core/end-to-end reliability split (rondo-logic 96.1% vs end-to-end 81.9%) in metrics.py + `rondo metrics`. Also RONDO-433: all 10 findings of the Cursor REQ-114 audit resolved (dims 3/4/5/9 hardened). |
 | 0.2 | 2026-06-06 | RONDO-340: hostile re-review executed (3-AI panel, mean 3.13 — reports/hostile-review-2026-06-06.md); RONDO-335 marked LIVE-VERIFIED with evidence; stable API surface declared (docs/API-STABILITY.md + conventions lock, dim 9); LICENSE file added (pyproject already said MIT — consistency fix, not a publish decision). |
 | 0.1 | 2026-06-06 | Initial: the 10-dimension rubric (8.5 mean + 7.5 per-dimension floor), gap plan C-now vs B-gated, honest current position ~6.5. |

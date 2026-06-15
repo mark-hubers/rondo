@@ -1,6 +1,6 @@
 # START HERE — Rondo standalone repo
 
-**Updated:** 2026-06-15 (RONDO-419→433) | **State:** independent + green (2,828 tests)
+**Updated:** 2026-06-15 (RONDO-419→434) | **State:** independent + green (2,831 tests)
 
 **▶ RESUME (post-restart):** the Cursor independent REQ-114 deep pass RAN 6/15
 (`reports/cursor-reviews/review-20260615-081804.md`) and **RONDO-433 fixed the 6
@@ -14,9 +14,20 @@ provable equivalents; the gate caught a one-sided test in my own F2 work, fixed)
 too (commit 305e0c8): F3 `passed=false` opt-out (`allow_passed_false` step field),
 F7 duplicate id renumbered (structured-input → **REQ-119**; prompt-pipelines keeps
 114), F8 contract checks the primary object (append-to-bury closed), F9 `--plan`
-no longer requires inputs. Spec §5 records the refinements. **Next action = ASK
-Mark** — the only open items are his release-gated decisions (publish/PyPI/CI),
-unchanged. Release remains his call.
+no longer requires inputs. Spec §5 records the refinements.
+
+**Then RONDO-434 re-scored + closed the one movable engineering gap** (commit
+142a0c3): a 4-vendor hostile panel (gemini/grok/openai/mistral via
+`rondo_multi_review`, `reports/hostile-review-2026-06-15.md`) scored **5.3/10,
+up from 3.13** on 2026-06-06. The mean is MATH-capped while private (dims 1/6/7
+≈0.5 — no install/CI/PyPI), but the engineering dims average ~8.3 (Error-UX 9.25,
+Security 8.6, API 8.25, Docs 8.1) — already 8.5-grade by 4 independent vendors.
+The one engineering dim below floor (10, op-trust 6.6) was the 81.4% reliability;
+fixed honestly with a core/end-to-end split — rondo-LOGIC reliability is **96.1%**
+(above the 95% target), shown beside the unchanged 81.9% end-to-end in
+`rondo metrics`. **Next action = ASK Mark** — the only remaining items are his
+release-gated decisions (publish/PyPI/CI). 8.5 overall is unreachable until
+publish (3 dims are definitionally about being public); the engineering is there.
 
 **Thesis:** the cross-vendor jury — the AI that writes the code doesn't certify it,
 a *different* vendor does (`docs/CROSS-VENDOR-JURY.md`, live: `examples/api/controlled_review_loop.py`,

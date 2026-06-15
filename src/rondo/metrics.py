@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 # -- STD-101 req 242 (RONDO-302): the reliability campaign target line
 SUCCESS_TARGET = 0.95
 
+# -- RONDO-434 (dim-10 honesty): externally-caused failure classes that are NOT
+# -- rondo-logic faults. Mirrored as literals because metrics.py imports NO rondo
+# -- modules (the layering rule, see module docstring). An UNMOCKED contract test
+# -- (test_metrics.py::test_transient_codes_match_engine_constants) pins these to
+# -- engine.py's real ERR_ constants so a rename there fails loudly, not silently.
+_TRANSIENT_ERROR_CODES = frozenset({"ERR_RATE_LIMIT", "ERR_PROVIDER_DOWN", "ERR_STREAM_DISCONNECT", "ERR_SUBPROCESS"})
+
 
 # -- ──────────────────────────────────────────────────────────────
 # --  Metrics report — the single JSON blob OB needs
@@ -51,6 +58,11 @@ class MetricsReport:  # pylint: disable=too-many-instance-attributes
     success_count: int = 0
     error_count: int = 0
     error_breakdown: dict[str, int] = field(default_factory=dict)
+    # -- RONDO-434 (dim-10 honesty): rondo-LOGIC reliability — excludes externally
+    # -- caused transient failures (rate-limit/provider-down/subprocess/disconnect)
+    # -- from the denominator. Never inflates: logic failures still count.
+    core_success_rate: float = 1.0
+    transient_failures: int = 0
 
     # -- latency
     avg_duration_sec: float = 0.0
@@ -87,6 +99,8 @@ class MetricsReport:  # pylint: disable=too-many-instance-attributes
             "success_count": self.success_count,
             "error_count": self.error_count,
             "error_breakdown": self.error_breakdown,
+            "core_success_rate": self.core_success_rate,
+            "transient_failures": self.transient_failures,
             "avg_duration_sec": self.avg_duration_sec,
             "max_duration_sec": self.max_duration_sec,
             "min_duration_sec": self.min_duration_sec,
@@ -244,6 +258,14 @@ def compute_metrics(
         code = r.get("error_code") or r.get("status", "unknown")
         report.error_breakdown[code] = report.error_breakdown.get(code, 0) + 1
 
+    # -- RONDO-434 (dim-10 honesty): rondo-LOGIC reliability drops externally
+    # -- caused transient failures from the denominator (never from the numerator,
+    # -- so it cannot inflate). core == end-to-end when there are no transients.
+    transient = sum(1 for r in errors if (r.get("error_code") or "") in _TRANSIENT_ERROR_CODES)
+    report.transient_failures = transient
+    logic_attempts = len(outcomes) - transient
+    report.core_success_rate = (len(successes) / logic_attempts) if logic_attempts else 1.0
+
     # -- Latency metrics
     durations = [r.get("duration_sec", 0) or 0 for r in outcomes if r.get("duration_sec")]
     if durations:
@@ -271,4 +293,4 @@ def compute_metrics(
     return report
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a6.97a6b8
+# -- sig: mgh-6201.cd.bd955f.8957.9b5b97

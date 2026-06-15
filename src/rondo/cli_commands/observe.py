@@ -425,7 +425,9 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
     print(f"  {'─' * 45}")
     print(f"  Health:       {report.health}")
     print(f"  Dispatches:   {report.total_dispatches}")
-    print(f"  Success rate: {report.success_rate:.0%}")
+    print(f"  Success rate: {report.success_rate:.0%}  (end-to-end, incl. provider transients)")
+    # -- RONDO-434 (dim-10 honesty): rondo-logic reliability, transients excluded
+    print(f"  Core success: {report.core_success_rate:.0%}  (rondo logic; {report.transient_failures} transient excl.)")
     print(f"  Total cost:   ${report.total_cost_usd:.4f}")
     print(f"  Avg cost:     ${report.avg_cost_usd:.4f}")
     print(f"  Avg duration: {report.avg_duration_sec:.1f}s")
@@ -475,4 +477,4 @@ def _cmd_learn(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
-# -- sig: mgh-6201.cd.bd955f.a3d4.9136a5
+# -- sig: mgh-6201.cd.bd955f.3e16.b894cc

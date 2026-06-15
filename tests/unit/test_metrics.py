@@ -453,4 +453,62 @@ class TestScoreboardInMorningReport:
         assert text  # -- no crash, report still generated
 
 
-# -- sig: mgh-6201.cd.bd955f.f1a6.97a6b7
+class TestCoreReliability:
+    """RONDO-434 (dim-10 honesty): split end-to-end vs rondo-LOGIC reliability.
+
+    The single "success rate" blamed rondo for provider outages. A 4-vendor
+    hostile panel (reports/hostile-review-2026-06-15.md) flagged this on every
+    review: "split core reliability from provider/transient reliability." The
+    core rate excludes externally-caused transient failures from the denominator
+    — it never INFLATES (logic failures still count); it only stops counting a
+    provider's rate-limit against rondo's own correctness.
+    """
+
+    def test_core_success_rate_excludes_transient_failures(self, tmp_path):
+        """A transient (external) failure drops out of the core denominator."""
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("a", "done", 0.01, 1.0),
+                _make_outcome("b", "done", 0.01, 1.0),
+                _make_outcome("c", "error", 0.0, 1.0, error_code="ERR_RATE_LIMIT"),  # transient
+                _make_outcome("d", "error", 0.0, 1.0, error_code="ERR_CONFIG"),  # rondo logic
+            ],
+        )
+        report = compute_metrics(audit_dir=audit_dir)
+        assert report.success_rate == 0.5  # -- end-to-end: 2/4, nothing hidden
+        assert report.transient_failures == 1
+        assert report.core_success_rate == pytest.approx(2 / 3)  # -- 2 / (4 - 1 transient)
+
+    def test_core_equals_end_to_end_when_no_transient(self, tmp_path):
+        """No transient failures => core == end-to-end (a logic failure gets no free pass)."""
+        audit_dir = _write_audit(
+            tmp_path,
+            [
+                _make_outcome("a", "done", 0.01, 1.0),
+                _make_outcome("b", "error", 0.0, 1.0, error_code="ERR_CONFIG"),  # rondo logic
+            ],
+        )
+        report = compute_metrics(audit_dir=audit_dir)
+        assert report.success_rate == 0.5
+        assert report.core_success_rate == 0.5
+        assert report.transient_failures == 0
+
+    def test_transient_codes_match_engine_constants(self):
+        """The literal transient set mirrors engine's real ERR_ codes.
+
+        Unmocked contract test: a rename in engine.py fails HERE instead of
+        silently desyncing the honesty split.
+        """
+        from rondo import engine
+        from rondo.metrics import _TRANSIENT_ERROR_CODES
+
+        assert _TRANSIENT_ERROR_CODES == {
+            engine.ERR_RATE_LIMIT,
+            engine.ERR_PROVIDER_DOWN,
+            engine.ERR_STREAM_DISCONNECT,
+            engine.ERR_SUBPROCESS,
+        }
+
+
+# -- sig: mgh-6201.cd.bd955f.2758.43b0b0

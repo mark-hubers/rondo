@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -236,8 +237,11 @@ def _resolve_prompt(step: PipelineStep, inputs: dict[str, str], outputs: dict[st
     # -- token get re-expanded by a later steps-pass (order-dependent
     # -- injection). One regex pass with a lookup means a substituted value is
     # -- never re-scanned for placeholders.
-    for _domain, key in _placeholders(step.prompt):
-        if (key in outputs) and not outputs[key][1]:
+    for domain, key in _placeholders(step.prompt):
+        # -- RONDO-433 (Cursor finding 6): only steps.* refs can be "the failed
+        # -- step"; an inputs.X placeholder that happens to share a failed step's
+        # -- name must NOT be falsely aborted (outputs is keyed by step name).
+        if domain == "steps" and (key in outputs) and not outputs[key][1]:
             raise PipelineError(
                 f"step '{step.name}' references step '{key}' which FAILED — refusing to substitute its output"
             )
@@ -489,6 +493,7 @@ def _run_step(
     outputs: dict[str, tuple[str, bool]],
 ) -> dict[str, Any]:
     """Dispatch one step with retries + contract + self-report gates — reqs 005/022."""
+    start = time.monotonic()  # -- RONDO-433 (Cursor finding 2): req 023 MUST field
     record: dict[str, Any] = {"name": step.name, "status": "error", "raw_output": "", "cost_usd": 0.0, "error": ""}
     # -- RONDO-413 (REQ-116 r012): warn-by-default on a fat ask (never blocks
     # -- here; strict_scope blocks at load). The nudge toward one-or-two things.
@@ -531,6 +536,7 @@ def _run_step(
         logger.warning(
             "-WARNING- pipeline step '%s' failed after %d attempt(s): %s", step.name, step.retries + 1, record["error"]
         )
+    record["duration_sec"] = round(time.monotonic() - start, 4)  # -- req 023 MUST: per-step duration
     return record
 
 
@@ -561,7 +567,13 @@ def run_pipeline(
     pipeline_error = ""
 
     for step in spec.steps:
-        est = high_cost if high_cost > 0 else _MIN_STEP_EST_USD
+        # -- RONDO-433 (Cursor finding 1): admit each step against the LARGER of
+        # -- the prior-step actual high-water mark and this step's MODEL-AWARE
+        # -- estimate. The old gate used a flat _MIN floor for step 0, so a single
+        # -- expensive step under a small budget was admitted and could overshoot
+        # -- the "hard ceiling" by its full actual cost. _estimate_step_cost floors
+        # -- at _MIN_STEP_EST_USD, so this is strictly >= the old value.
+        est = max(high_cost, _estimate_step_cost(step))
         if spent + est > spec.budget_usd:
             status = "partial"
             pipeline_error = (
@@ -589,6 +601,9 @@ def run_pipeline(
         "name": spec.name,
         "steps": records,
         "total_cost_usd": round(spent, 6),
+        # -- RONDO-433 (Cursor finding 10): surface the ceiling so an overshoot
+        # -- (or a plan<->apply estimate divergence) is visible in-band.
+        "budget_usd": spec.budget_usd,
     }
     if pipeline_error:
         envelope["error"] = pipeline_error

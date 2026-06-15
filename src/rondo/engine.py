@@ -63,7 +63,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
     context_files: list[str] = field(default_factory=list)  # -- Read: files for context
     done_when: str = ""  # -- Done: completion criteria
 
-    # -- structured input (REQ-106 req 001)
+    # -- structured input (REQ-114 (structured-input) req 001)
     context_data: dict[str, Any] = field(default_factory=dict)
 
     # -- auto task (alternative to three-field — Rondo-REQ-100 req 4)
@@ -171,7 +171,7 @@ class TaskResult:  # pylint: disable=too-many-instance-attributes
     # -- file tracking (Rondo-STD-110 conflict detection)
     files_modified: list[str] = field(default_factory=list)
 
-    # -- structured input audit (REQ-106 req 002)
+    # -- structured input audit (REQ-114 (structured-input) req 002)
     context_data: dict[str, Any] = field(default_factory=dict)
 
     # -- audit trail (STD-113: callers can reference this dispatch)
@@ -473,7 +473,7 @@ def validate_task(
             f"Task '{task.name}' tool_mode '{task.tool_mode}' invalid — must be one of {sorted(valid_tool_modes)}"
         )
 
-    # -- REQ-106 req 009: context_data must be JSON-serializable
+    # -- REQ-114 (structured-input) req 009: context_data must be JSON-serializable
     context_data_size = 0
     if task.context_data:
         try:
@@ -482,7 +482,7 @@ def validate_task(
         except (TypeError, ValueError) as e:
             errors.append(f"Task '{task.name}' context_data not JSON-serializable: {e}")
 
-    # -- REQ-106 req 005: context_data included in size cap
+    # -- REQ-114 (structured-input) req 005: context_data included in size cap
     if context_data_size > max_context_bytes:
         errors.append(
             f"Task '{task.name}' context_data {context_data_size} bytes exceeds max_context_bytes ({max_context_bytes})"
@@ -503,7 +503,7 @@ def _validate_context_files(
     """Validate context_files paths — REQ-100 req 003.
 
     Checks: no traversal, no absolute (without root), no symlinks outside root, size cap.
-    REQ-106 req 005: combined context_files + context_data size checked.
+    REQ-114 (structured-input) req 005: combined context_files + context_data size checked.
     """
     errors: list[str] = []
     total_size = 0

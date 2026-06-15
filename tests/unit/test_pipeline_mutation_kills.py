@@ -71,6 +71,7 @@ from rondo.pipeline import (
     _all_json_objects,
     _build_plan,
     _contract_error,
+    _estimate_step_cost,
     _placeholders,
     _resolve_verify,
     _self_reported_failure,
@@ -376,11 +377,18 @@ def _cost_dispatch(cost: float):
 
 
 def test_budget_gate_is_exclusive_at_equality() -> None:
-    """spent+est EXACTLY equal to budget still runs (kills the L535 > -> >= mutant)."""
-    # -- one free step, est defaults to _MIN_STEP_EST_USD 0.001; budget == 0.001
-    spec = PipelineSpec(name="t", budget_usd=0.001, steps=[PipelineStep(name="s", prompt="p")])
+    """spent+est EXACTLY equal to budget still runs (kills the budget gate > -> >= mutant).
+
+    UPDATED RONDO-433 (Cursor finding 1): step-0 admission now uses the
+    MODEL-AWARE estimate (max(prior_high_cost, _estimate_step_cost)), not the
+    old flat _MIN_STEP_EST_USD floor — the old floor was the soft-ceiling bug.
+    The boundary is therefore budget == that estimate, derived live (no guess).
+    """
+    step = PipelineStep(name="s", prompt="p")
+    est = _estimate_step_cost(step)  # -- the value the gate actually uses for step 0
+    spec = PipelineSpec(name="t", budget_usd=est, steps=[step])
     env = run_pipeline(spec, dispatch=_cost_dispatch(0.0))
-    assert env["status"] == "done"  # -- 0 + 0.001 > 0.001 is False -> the step runs
+    assert env["status"] == "done"  # -- 0 + est > est is False -> the step runs
 
 
 def test_budget_gate_uses_prior_step_high_cost() -> None:

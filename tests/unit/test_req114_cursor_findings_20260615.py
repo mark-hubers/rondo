@@ -106,7 +106,11 @@ def test_finding2_step_record_carries_measured_duration() -> None:
     rec = env["steps"][0]
     assert "duration_sec" in rec, "step record is missing the MUST field duration_sec"
     assert isinstance(rec["duration_sec"], float)
-    assert rec["duration_sec"] >= 0.02, "duration_sec not actually measured"
+    # -- Two-sided: the lower bound kills a hardcoded-0; the upper bound kills the
+    # -- arithmetic-direction mutant (monotonic()+start / *start / /start all
+    # -- explode far past 0.5s, since monotonic() is seconds-since-boot). The real
+    # -- elapsed is the 0.02s sleep plus a few ms of overhead — well inside [0.02, 0.5).
+    assert 0.02 <= rec["duration_sec"] < 0.5, "duration_sec not actually measured"
 
 
 # ── Finding 6: the failed-ref guard must respect the placeholder DOMAIN ──
@@ -178,4 +182,4 @@ def test_finding4_cli_partial_exits_1(tmp_path, capsys) -> None:
     assert '"status": "partial"' in out
 
 
-# -- sig: mgh-6201.cd.bd955f.25b9.854619
+# -- sig: mgh-6201.cd.bd955f.25b9.28dc6c

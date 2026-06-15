@@ -24,17 +24,25 @@ replaces a rondo function with a canned return.
 
 DOCUMENTED EQUIVALENTS (house rule: never tautology-tested) — provably
 behavior-preserving, left as survivors on purpose:
-  - L57 _EST_OUTPUT_TOKENS 2048, L285 (model `or ''` + split maxsplit),
-    L286 (len//4 + the max(1,…) floor): all feed the plan COST ESTIMATE, which
-    the provider rate table collapses to the same value for every model/length
-    sampled (verified live: claude-opus / gemini:high / claude:max:foo all ->
-    0.007144). A heuristic admission number, never a quote — these cannot move
-    an observable verdict.
-  - L306 / L316 / L561 round(x, 6): cosmetic precision on cost fields; no
-    contract asserts six decimals.
-  - L402 `idx = max(end, start + 1)` SUCCESS-decode path: dead defensive arm —
+  - L290 (model `or ''` + split), L290 (max(1,…) floor), L291 (len//4): feed
+    the COST ESTIMATE. RONDO-433 (F1) gave that estimate a SECOND consumer — it
+    now also gates run-mode budget admission, not just plan display — so the old
+    "only feeds the plan number" justification no longer holds. They stay
+    equivalent anyway: the rate table collapses model/length to one value
+    (verified live: claude-opus / gemini:high / claude:max:foo all -> the same
+    number for a fixed prompt), AND every budget test derives its ceiling from
+    the same _estimate_step_cost, so a changed estimate moves both sides of the
+    gate equally — no test pins an ABSOLUTE estimate against an absolute budget.
+    A heuristic admission number, never a quote.
+  - L311 / L321 / L539 / L603 round(x, N): cosmetic precision on cost/duration
+    fields (L539 is the RONDO-433 F2 per-step duration; the arith-DIRECTION
+    mutant there IS killed — test_req114_cursor_findings's two-sided 0.02<=d<0.5
+    bound). No contract asserts the decimal count.
+  - L407 `idx = max(end, start + 1)` SUCCESS-decode path: dead defensive arm —
     raw_decode always consumes >=1 char (end > start), so max() always picks
-    end. (Same equivalent as verify.py L214 and dispatch_parse L92.)
+    end. (Same equivalent as verify.py L214 and dispatch_parse L92.) The
+    invariant-BREAK mutants on this loop ARE infinite loops — now -CAUGHT- by
+    --timeout-per-mutant (a hang is a kill); they only survive an UNBOUNDED run.
 
 _default_dispatch (the production normalizer) is covered by its own UNMOCKED-seam
 contract test, tests/unit/test_default_dispatch_contract.py — it stubs ONLY the OS
@@ -48,14 +56,22 @@ mutants were "exercised by tests/integration/test_live.py" — that was FALSE
 _default_dispatch). Fixed by building the real contract test above. History not
 rewritten (the wrong claim lives in commits b4e82db/9043b4f); corrected forward.
 
-Lone remaining dispatch survivor — L364 `task.get('error_message','') or
+Dispatch survivor — L369 `task.get('error_message','') or
 envelope.get('error_message','')`: a DEFENSIVE fallback to the envelope-level
 error when the task itself carries none. In practice the failing TASK carries the
 message (verified: stderr -> task.error_message), so the envelope branch is
 belt-and-suspenders for a round-level error that is hard to stub deterministically
-through the subprocess seam. Left documented, not faked. Measured sweep:
-85/160 -> 135 (kill-tests) -> 149/160 (+contract test); residual 11 = the
-documented equivalents above + L364.
+through the subprocess seam. Left documented, not faked.
+
+Measured sweep: 85/160 -> 135 (kill-tests) -> 149/160 (+contract test) ->
+157/167 (RONDO-433, 2026-06-15: F1/F2 added code + the duration arith kill).
+SCOPE MATTERS (RONDO-433 lesson): the run MUST cover every pipeline-exercising
+test (the definitive 14-file set incl. scope_guard / verified_execution /
+lie_traps / the pat suite + `--timeout-per-mutant 60`). A NARROWER scope showed
+6 FALSE survivors (strict_scope load + verify-rail returns) that the omitted
+files actually kill — under-scoping lies in the pessimistic direction. The 10
+true residual = the documented equivalents above (3 estimate-arith, 4 round
+cosmetics, L369 error fallback, 2 dead-arm). All provably behavior-preserving.
 """
 
 from __future__ import annotations
@@ -501,4 +517,4 @@ def test_failed_step_output_never_substitutes() -> None:
     assert env["status"] in {"partial", "error"}
 
 
-# -- sig: mgh-6201.cd.bd955f.189b.44b3b8
+# -- sig: mgh-6201.cd.bd955f.189b.bd8bd9

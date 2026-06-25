@@ -72,7 +72,7 @@ Rondo is the last gate before content leaves the local machine. Every rule here 
 | 004 | System SHALL **Input validation at every boundary** — spool file content, task definitions, CLI arguments, API responses. Never trust external input. Validate JSON schema, field types, and value ranges before processing | MUST |
 | 005 | System SHALL **No database access** — Rondo is stateless by design. Any code that imports `sqlite3` or references a `.db` file is a design violation. Convention lock tests enforce this | MUST |
 | 006 | System SHALL **File permissions** — config files `600`, spool directory `700`, scripts `755`, spec files `644`. Spool directory restricted to owner-only access | MUST |
-| 007 | System SHALL **Dependency audit** — no known CVEs in dependencies. `ace-build outdated` checks monthly. Any HIGH or CRITICAL CVE blocks the build until resolved or explicitly accepted in a DEC record | MUST |
+| 007 | System SHALL **Dependency audit** — no known CVEs in dependencies; checked periodically via a dependency-audit step (CI / release). Any HIGH or CRITICAL CVE blocks the build until resolved or explicitly accepted in a DEC record | MUST |
 
 ### Spool and Pipeline Threats (rules 8-15)
 | ID | Requirement | Priority |
@@ -170,7 +170,7 @@ Security config in `rondo.toml` is limited to thresholds: `max_dispatches_per_ho
 | Method | What It Checks |
 |--------|---------------|
 | Gitleaks pre-commit | Secrets in commits (rule 2) |
-| `ace-build security` | Bandit scan, file permissions, dependency CVEs (rules 1, 6, 7) |
+| `bin/build` (bandit gate) | Static security scan, rule 1 (file-perms + dependency CVEs, rules 6/7, are CI/release checks) |
 | Convention lock tests | No sqlite3 imports, no DB file references (rule 5) |
 | HMAC validation | Spool file integrity before dispatch (rule 8) |
 | JSON schema validation | Spool file structure, API response structure (rules 9, 12, 26) |

@@ -21,10 +21,16 @@ from rondo.mcp_dispatch import rondo_run_file, rondo_run_status
 # -- RONDO-341: live tests need the REAL binary — on a machine without it
 # -- (Linux container, fresh CI) they SKIP honestly instead of failing.
 # -- Never fake the binary here: that would silently mock an unmocked seam.
-pytestmark = pytest.mark.skipif(
-    shutil.which("claude") is None,
-    reason="live dispatch tests require the real claude binary (RONDO-341)",
-)
+## -- RONDO-435: marked `cloud` so the live/paid dispatches are opt-in
+## -- (`pytest -m cloud`) and never run in the default/CI gate, where real-LLM
+## -- output variance + provider latency caused nondeterministic flakes.
+pytestmark = [
+    pytest.mark.cloud,
+    pytest.mark.skipif(
+        shutil.which("claude") is None,
+        reason="live dispatch tests require the real claude binary (RONDO-341)",
+    ),
+]
 
 
 def _run_json(**kwargs) -> dict:

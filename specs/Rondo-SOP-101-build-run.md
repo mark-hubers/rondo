@@ -266,7 +266,7 @@ If all checks pass, Rondo is ready for development.
 
 | Integration | What | Notes |
 |-------------|------|-------|
-| ace-build | Monorepo build tool | `ace-build full` runs all gates |
+| `bin/build` | Self-contained build gate | runs all 6 gates |
 | pre-commit hooks | Automated gate enforcement | Runs on every commit |
 | CI/CD (future) | Automated build pipeline | Same 6 gates |
 
@@ -414,7 +414,7 @@ Not applicable — this IS the build procedure.
 ## 26. External Scan
 
 Build gate pattern is standard in Python projects. Tools used (ruff, bandit, mypy, pytest)
-are industry-standard. The 6-gate pattern matches ACE's ace-build tool. Similar to
+are industry-standard. The 6-gate pattern is self-contained in `bin/build`. Similar to
 GitHub Actions CI workflows with multiple quality checks.
 
 ---
@@ -486,7 +486,7 @@ Not applicable — this is a build procedure SOP.
 
 | Feature | Maturity | Evidence | Retest |
 |---------|----------|----------|--------|
-| Build execution procedure | WORKING | ace-build full documented and operational | After build changes |
+| Build execution procedure | WORKING | `bin/build` documented and operational | After build changes |
 | Gate failure handling | WORKING | Fix-recheck loop documented | Every sprint |
 | Build environment setup | WORKING | Shared venv documented | After env changes |
 

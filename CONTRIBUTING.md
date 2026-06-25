@@ -1,13 +1,16 @@
 # Contributing to Rondo
 
-> **Status:** pre-release draft (RONDO-337). Contribution policy activates
-> when the repo goes public — but the rules below already govern every
+> **Status & posture.** Rondo is a *signed showcase*: source-available to
+> read, install, fork, and learn from. It is **maintainer-mediated** — Mark
+> Hubers authors and signs every commit (each `.py` carries an `orbit-sign`
+> watermark proving authorship), so it does not take outside pull requests.
+> Found a bug or have an idea? Open an issue. The rules below govern every
 > commit in this tree, including the owner's.
 
 ## The non-negotiables (enforced by machinery, not goodwill)
 
 1. **Tests first.** Every change starts with a failing test. The suite is
-   ~2,250 tests and the build gate runs ALL of them — a gate that skips
+   ~2,800 tests and the build gate runs ALL of them — a gate that skips
    tests was found once and made structurally impossible (zero-collected
    is a hard failure).
 2. **Conventions are locked by tests** (`tests/conventions/`):
@@ -15,7 +18,7 @@
      flag nobody can trust — the dead-flag lock)
    - cyclomatic complexity ≤ 15 (extract, don't exempt)
    - import layering enforced; no `shell=True`; SPDX headers; signatures
-3. **Examples ARE the documentation.** 90 runnable files under `examples/`,
+3. **Examples ARE the documentation.** 100+ runnable files under `examples/`,
    smoke-checked and drift-scanned (`rondo models --docs-drift`). A feature
    without a real working example isn't done.
 4. **Honesty engineering.** Errors carry the envelope contract

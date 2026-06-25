@@ -110,7 +110,7 @@ AI dispatch frameworks are deceptively simple to build and deceptively hard to t
 ---
 ## 4. Architecture / Design
 
-Quality is enforced at three gates: (1) pre-commit hooks (ruff, bandit, mypy), (2) `ace-build full` (lint + security + types + tests + coverage), (3) convention lock tests (AST-based structural enforcement). All three gates must pass before code merges. No gate can be bypassed without removing the hook config (which is tracked in git).
+Quality is enforced at three gates: (1) pre-commit hooks (ruff, bandit, mypy), (2) `bin/build` (lint, format, security, types, tests, pylint — 6 gates), (3) convention lock tests (AST-based structural enforcement). All three gates must pass before code merges. No gate can be bypassed without removing the hook config (which is tracked in git).
 
 ---
 
@@ -196,7 +196,7 @@ The compound effect (CORE-STD-004 section 5) applies to Rondo through tests and 
 
 | Integration | What Crosses | Standard Enforced |
 |-------------|-------------|-------------------|
-| Rondo tests → ace-build | Test pass/fail gates the build | Build gate (6 hard gates) |
+| Rondo tests → `bin/build` | Test pass/fail gates the build | Build gate (6 hard gates) |
 | Rondo conventions → Rondo-STD-100 | Convention tests verify data standard compliance | Field naming, status vocabulary |
 | Rondo coverage → Rondo-STD-112 | Coverage % is a golden number | Drift detection |
 | Rondo tests → CORE-STD-012 | Test pass is a readiness prerequisite | Requirement readiness |
@@ -233,7 +233,7 @@ Rondo's test suite IS its self-correction mechanism. Every bug found becomes a r
 
 | # | Criterion | How to Verify |
 |---|-----------|---------------|
-| 1 | Coverage >= 80% and ratchet never decreases | `ace-build full` gate |
+| 1 | Coverage >= 80% and ratchet never decreases | `pytest --cov` (CI / manual check) |
 | 2 | Every public function has at least one test | Convention test |
 | 3 | Every convention has an enforcing AST test | Convention meta-test |
 | 4 | No test depends on another test's state | Randomized test order (`pytest-random-order`) |
@@ -371,7 +371,7 @@ CORE-STD-012 (Requirement Readiness) requires all tests passing before a require
 
 | Feature | Maturity | Evidence | Retest |
 |---------|----------|----------|--------|
-| Quality gate definitions | WORKING | 6 gates from ace-build applied to Rondo | After gate changes |
+| Quality gate definitions | WORKING | 6 gates in `bin/build` | After gate changes |
 | Quality thresholds | WORKING | Pass/fail thresholds defined | After threshold changes |
 | Quality trending | THEORY | Specced for multi-build quality tracking | Phase 2 build |
 

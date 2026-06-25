@@ -1385,6 +1385,7 @@ class TestRealDispatchSmoke:
     ever ran a real Claude dispatch. This test prevents that.
     """
 
+    @pytest.mark.ollama
     def test_real_ollama_dispatch(self) -> None:
         """Ollama dispatch: real HTTP call to local model."""
         import tempfile
@@ -1404,6 +1405,7 @@ class TestRealDispatchSmoke:
         ## -- 0=success, 1=Ollama down or dispatch error — both are valid PATH outcomes
         assert result.returncode in (0, 1), f"Unexpected returncode {result.returncode}: {result.stderr[:200]}"
 
+    @pytest.mark.cloud
     def test_real_claude_dispatch(self) -> None:
         """Claude subprocess dispatch — only works from independent process.
 

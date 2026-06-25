@@ -1,6 +1,11 @@
 # -- Test artifacts
 reports/rondo-results/
 
+# -- Runtime/operational artifacts (regenerated locally; not source)
+reports/history/
+reports/notifications.log
+reports/rondo-morning-*.md
+
 # -- Python
 __pycache__/
 *.pyc

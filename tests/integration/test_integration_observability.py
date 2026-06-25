@@ -207,7 +207,7 @@ class TestObservabilityIntegration:
         payload = (
             "Here's the deployment config:\n"
             f'    export API_KEY="{fake_openai}"\n'
-            "    export HOME=/Users/markhubers\n"
+            "    export HOME=/home/user\n"
             "\n"
             "The bearer of bad news says the API is down. Please retry with\n"
             f"Authorization: Bearer {fake_jwt_body}\n"

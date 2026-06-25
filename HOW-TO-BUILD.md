@@ -159,7 +159,7 @@ rondo audit --cost
 
 ## 3. MCP stdio (for Claude Code — Claude calls tools mid-conversation)
 ## Enable in ~/.claude/settings.json:
-##   "rondo": { "command": "/Users/markhubers/.local/bin/rondo", "args": ["mcp"] }
+##   "rondo": { "command": "/Users/you/.local/bin/rondo", "args": ["mcp"] }
 ## Tools: rondo_metrics, rondo_health, rondo_audit_summary, rondo_dispatch_info
 ```
 

@@ -351,13 +351,13 @@ class TestRondoSchedule:
         from rondo.schedule import generate_plist
 
         plist = generate_plist(
-            name="ush-weekly",
-            command="/Users/markhubers/.local/bin/rondo",
-            args=["run", "scripts/ush-scan.py", "--model", "haiku"],
+            name="weekly-scan",
+            command="/usr/local/bin/rondo",
+            args=["run", "scripts/scan.py", "--model", "haiku"],
             interval="weekly",
             output_dir=str(tmp_path),
         )
-        assert "com.rondo.ush-weekly" in plist
+        assert "com.rondo.weekly-scan" in plist
         assert "StartCalendarInterval" in plist
 
     def test_schedule_daily(self, tmp_path) -> None:

@@ -1,1 +1,0 @@
-{"round_name": "", "task_name": "inline-task", "model": "llama3.1:8b", "status": "skipped", "cost_usd": 0.0, "duration_sec": 0.0, "input_tokens": 0, "output_tokens": 0, "confidence": 0.0, "error_code": null, "budget_exceeded": false, "timestamp": "2026-04-10T17:13:32.595767+00:00"}

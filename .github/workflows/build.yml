@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 Mark Hubers
+# SPDX-License-Identifier: MIT
+#
+# CI: run the same 6-gate build that gates every local commit (bin/build) across
+# a Linux + macOS matrix and Python 3.12-3.14.
+#
+# Live/paid dispatch tests are NOT run here — they are marked `cloud`/`ollama`
+# and excluded by the default pytest config, so CI needs no API keys and is
+# deterministic. Run them locally with `pytest -m cloud` / `pytest -m ollama`.
+#
+# Windows is intentionally omitted: rondo has not been verified on Windows, and
+# bin/build is a zsh script. Add it here only once a real Windows run is green —
+# claiming support before that would be dishonest.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zsh (Linux — the build gate is a zsh script)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Set up uv + Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Sync dependencies (runtime + dev)
+        run: uv sync --extra dev
+
+      - name: Run the 6-gate build
+        run: bin/build

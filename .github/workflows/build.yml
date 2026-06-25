@@ -47,5 +47,10 @@ jobs:
       - name: Sync dependencies (runtime + dev)
         run: uv sync --extra dev
 
+      # -- Note: we deliberately do NOT `uv tool install` the rondo CLI here.
+      # -- The e2e suite self-skips without it (SKIP_E2E), and the few tests that
+      # -- drive the real CLI skip too — those need a full dispatch environment
+      # -- (a `claude` binary, allow_python_rounds config) that a clean CI box
+      # -- lacks. CI runs the deterministic ~2,700-test gate; full e2e runs locally.
       - name: Run the 6-gate build
         run: bin/build

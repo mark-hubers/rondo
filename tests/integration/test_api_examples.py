@@ -12,6 +12,7 @@ VER-001: Product acceptance / integration test coverage.
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -102,6 +103,13 @@ class TestAPIExamplesRun:
     )
     def test_example_main_runs(self, example_file: Path) -> None:
         """Import and run example's main() — must not raise."""
+        # -- Some examples shell out to the installed `rondo` CLI directly (e.g.
+        # -- replay/compare), bypassing the stubbed dispatch seam. When the CLI
+        # -- isn't on PATH (clean checkout / CI without `uv tool install`), skip —
+        # -- mirrors the SKIP_E2E convention. Exercised locally where rondo exists.
+        source = example_file.read_text(encoding="utf-8")
+        if '["rondo"' in source and shutil.which("rondo") is None:
+            pytest.skip(f"{example_file.name} drives the rondo CLI, which is not installed")
         module = _load_example(example_file)
         if not hasattr(module, "main"):
             pytest.skip(f"{example_file.name} has no main()")

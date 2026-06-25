@@ -60,16 +60,18 @@ else
 fi
 
 step "6/6 Pylint score"
-## -- RONDO-338: head -1 — multi-line grep output fed bc a broken expression
-## -- ("9.34\n0"), failing the gate on a passing 9.34 score.
+## -- RONDO-338: head -1 — multi-line grep output would feed a broken expression
+## -- ("9.34\n0") to the compare, failing the gate on a passing 9.34 score.
 ## -- The `|| true` is NOT gate-weakening: pylint's exit code is a bitmask of
 ## -- message TYPES (non-zero even at 9.34/10) — under ERR_EXIT+PIPE_FAIL it
 ## -- silently killed the script at this line (b8tnu6eu1: no banner, no verdict).
 ## -- The gate's truth is the SCORE; an empty score fails hard below.
+## -- RONDO-435: zsh native float arithmetic — no `bc` dependency (a minimal
+## -- Linux/CI image has no bc; the missing tool used to fail a passing score).
 SCORE=$("$PY/pylint" src/rondo/ --score=y 2>/dev/null | grep -oE 'rated at [0-9.]+' | grep -oE '[0-9.]+' | head -1) || true
 if [[ -z "$SCORE" ]]; then
    fail "pylint produced no score — tool error, not a pass"
-elif (( $(print -- "$SCORE >= 9.0" | bc -l) )); then
+elif (( SCORE >= 9.0 )); then
    pass "pylint $SCORE"
 else
    fail "pylint $SCORE < 9.0"

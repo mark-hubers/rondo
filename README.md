@@ -20,7 +20,10 @@ gets caught): `examples/api/controlled_review_loop.py`
 
 ---
 
-Turn prompts into reliable, scriptable AI workflows.
+Turn prompts into reliable, scriptable AI workflows — **multi-provider LLM
+dispatch** (Claude, Gemini, Grok, Mistral, OpenAI, Anthropic API, Ollama) with
+verified execution and **cross-vendor AI code review**, driven from MCP, the CLI,
+or a Python API.
 
 ## What Rondo Is (and Is Not)
 

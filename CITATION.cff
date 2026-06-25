@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use Rondo, please cite it as below."
+title: "Rondo: scripted multi-provider AI dispatch with a cross-vendor jury"
+abstract: >-
+  Rondo drives a coding AI in a scripted loop, verifies the work itself (runs the
+  tests and hashes the files rather than trusting the model's self-report), and
+  convenes a cross-vendor jury — a different vendor independently reviews the
+  result, surfacing disagreements as the signal. Multi-provider LLM dispatch
+  (Claude, Gemini, Grok, Mistral, OpenAI, Ollama) from MCP, CLI, or Python API.
+type: software
+authors:
+  - family-names: Hubers
+    given-names: Mark
+version: 0.7.0
+license: MIT
+keywords:
+  - llm
+  - ai-code-review
+  - cross-vendor
+  - multi-provider
+  - dispatch
+  - verified-execution
+  - mcp
+  - agents
+# repository-code: set this to the public URL when the repo is published.

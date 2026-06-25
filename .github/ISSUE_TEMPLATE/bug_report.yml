@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in Rondo doesn't behave as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Rondo is maintainer-mediated
+        (see CONTRIBUTING.md) — issues are the way to flag problems; the maintainer
+        triages and fixes them.
+  - type: input
+    id: version
+    attributes:
+      label: Rondo version
+      description: Output of `rondo --version`.
+      placeholder: "0.7.0+YYYYMMDD.N"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got. Include the error envelope if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that triggers it. A failing `rondo` command or round file is ideal.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS + Python
+      placeholder: "macOS 15 / Python 3.13 (via uv)"
+    validations:
+      required: false

@@ -1,0 +1,16 @@
+name: Question or idea
+description: Ask how something works, or suggest a direction.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rondo is a maintainer-mediated showcase (see CONTRIBUTING.md). Questions
+        and ideas are welcome as issues; outside pull requests are not the model.
+  - type: textarea
+    id: body
+    attributes:
+      label: Question or idea
+      description: What are you trying to do, or what would you like Rondo to consider?
+    validations:
+      required: true

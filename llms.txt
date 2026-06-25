@@ -1,0 +1,29 @@
+# Rondo
+
+> Scripted, multi-provider AI/LLM dispatch with verified execution and a
+> cross-vendor jury: the model that writes the code does not certify it — a
+> *different* vendor independently reviews the result, and disagreements are the
+> signal. Drives a coding AI in a loop, runs the tests and hashes the files
+> itself (the model's "passed" is never the gate), then convenes the jury.
+
+Rondo routes prompts to Claude, Gemini, Grok, Mistral, OpenAI, the Anthropic API,
+and Ollama from MCP (Claude Code), a CLI, or a Python API — with budgets, a
+uniform error envelope, an audit trail, secret sanitization, and repeatable
+output contracts. Think "Terraform for prompts." It is maintainer-mediated and
+source-available (see CONTRIBUTING.md).
+
+## Key docs
+- [The cross-vendor jury (the thesis)](docs/CROSS-VENDOR-JURY.md): why a competitor's model vetoing the author's model is the moat single-vendor tools structurally won't build.
+- [Getting started](docs/GETTING-STARTED.md): install and first run.
+- [The Golden Five](docs/GOLDEN-FIVE.md): a stranger's first hour, five commands.
+- [How Rondo scores itself](docs/SCORING.md): the blind cross-vendor hostile-review trajectory (3.13 → 5.3) and the honest reliability split.
+- [API stability](docs/API-STABILITY.md): the stable CLI commands, MCP tools, and config keys.
+- [Prompt coding](docs/PROMPT-CODING.md): looping small verified steps to control a coding AI.
+
+## Examples
+- [controlled_review_loop.py](examples/api/controlled_review_loop.py): live — Claude builds, Gemini + Grok judge, a bug that passes its own tests gets caught.
+
+## Topics
+llm, ai, multi-provider, cross-vendor, ai-code-review, code-review, llm-jury,
+claude, gemini, grok, mistral, openai, ollama, mcp, agents, loop-engineering,
+verified-execution, dispatch, prompt-engineering, python, cli

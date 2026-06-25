@@ -12,7 +12,7 @@
 ```bash
 # Install uv (if needed) + Rondo — one command, no venv
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install --editable ~/git/mhubers/ace2/rondo --force
+uv tool install --editable . --force
 rondo --version
 ```
 

@@ -1,44 +1,43 @@
 # Rondo Test Suite — Layer Guide
 
-**Total tests:** 1661 across 7 layers (47 test files)
-**Layout:** `rondo/tests/<layer>/` — each layer has a distinct purpose
-**Inventory:** see `rondo/docs/TEST-INVENTORY.md` for a full auto-generated listing
+**Total tests:** ~2,800 across 7 layers
+**Layout:** `tests/<layer>/` — each layer has a distinct purpose
+**Inventory:** run `pytest tests/ --co -q` for the full listing
 
 ## Quick start
 
 ```bash
-# -- Run everything except cloud + ollama (free, fast, default)
-cd ~/git/mhubers/ace2
-ace-build test
+# -- Run the full 6-gate build (from the repo root)
+bin/build
 
 # -- Run ONE layer
-.venv/bin/python -m pytest rondo/tests/unit/
+.venv/bin/python -m pytest tests/unit/
 
 # -- Run ONE file
-.venv/bin/python -m pytest rondo/tests/pat/test_routing.py
+.venv/bin/python -m pytest tests/pat/test_routing.py
 
 # -- Run cloud tests (costs ~$0.10 in real API calls)
-.venv/bin/python -m pytest rondo/tests/pat/ -m cloud
+.venv/bin/python -m pytest tests/pat/ -m cloud
 
 # -- Run ollama tests (needs local `ollama serve`)
-.venv/bin/python -m pytest rondo/tests/pat/ -m ollama
+.venv/bin/python -m pytest tests/pat/ -m ollama
 ```
 
 ## Performance monitoring
 
 ```bash
 # -- Show 20 slowest tests (useful for spotting slowdowns)
-.venv/bin/python -m pytest rondo/tests/ --durations=20
+.venv/bin/python -m pytest tests/ --durations=20
 
 # -- Only count tests, don't run them (fast structural sanity check)
-.venv/bin/python -m pytest rondo/tests/ --co -q
+.venv/bin/python -m pytest tests/ --co -q
 
-# -- Full build with metrics captured in OB DB
-cd ~/git/mhubers/ace2 && ace-build full --product rondo
+# -- Full 6-gate build
+bin/build
 ```
 
-As of 2026-04-09, the full 1661-test suite runs in ~23 seconds (parallel via
-pytest-xdist). The cloud suite (16 tests) runs in ~90 seconds with real API calls.
+The full suite runs in well under a minute (parallel via pytest-xdist). The
+cloud suite runs in ~90 seconds with real API calls.
 If any unit/integration test exceeds 5 seconds, investigate — it's either doing
 real I/O that should be mocked or using `time.sleep()` when `threading.Barrier`
 would work better.
@@ -58,7 +57,7 @@ When implemented, Caliber will enforce:
 - `tests/` folder is **append-only** for assertions
 - Removing an `assert` requires a `# rm: <reason>` comment approved by Mark
 - Editing BOTH `src/` and `tests/` in the same diff triggers enhanced review
-- Test count must not decrease per commit (tracked in OB quality snapshot)
+- Test count must not decrease per commit
 
 ## Layer purpose
 
@@ -138,7 +137,7 @@ Example: `test_conventions.py::test_import_layers_enforced`
 
 ## Testing principles (Rondo-specific)
 
-These evolved from real lessons — see `rondo/docs/ADR-001-test-strategy.md` for the full reasoning.
+These evolved from real lessons — see `docs/ADR-001-test-strategy.md` for the full reasoning.
 
 1. **Real > mocked.** Every dispatch test uses real dispatch code. Only the outbound network call is replaced with `FakeProvider`/`FlakyProvider`.
 

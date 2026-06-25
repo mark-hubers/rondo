@@ -19,6 +19,8 @@ import subprocess
 import pytest
 
 RONDO_BIN = os.path.expanduser("~/.local/bin/rondo")
+## -- Repo root computed from this file's location — portable, no hardcoded user path.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SKIP_E2E = not shutil.which("rondo")
 skip_no_rondo = pytest.mark.skipif(SKIP_E2E, reason="rondo CLI not installed")
 
@@ -248,8 +250,8 @@ class TestE2EAllExampleRounds:
         result = _run(["run", "examples/rounds/round_test_generator.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
-    def test_round_caliber_fix_dry_run(self):
-        result = _run(["run", "examples/rounds/round_caliber_fix.py", "--dry-run"], timeout=10)
+    def test_round_lint_fix_dry_run(self):
+        result = _run(["run", "examples/rounds/round_lint_fix.py", "--dry-run"], timeout=10)
         assert result.returncode in (0, 1)
 
 
@@ -696,7 +698,7 @@ class TestE2ETraceability:
             text=True,
             check=False,
             timeout=10,
-            cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
+            cwd=REPO_ROOT,
         )
         assert "TRACEABILITY MATRIX" in result.stdout
         assert "TRACED" in result.stdout
@@ -708,7 +710,7 @@ class TestE2ETraceability:
             text=True,
             check=False,
             timeout=10,
-            cwd=os.path.expanduser("~/git/mhubers/ace2/rondo"),
+            cwd=REPO_ROOT,
         )
         data = json.loads(result.stdout)
         assert len(data) >= 5  # at least 5 specs traced
@@ -1804,8 +1806,7 @@ class TestE2EVersionConsistency:
         result = _run(["--version"])
         installed_version = result.stdout.strip().replace("rondo ", "")
         assert installed_version == repo_version, (
-            f"Stale install: binary={installed_version}, repo={repo_version}. "
-            f"Run: uv tool install --editable ~/git/mhubers/ace2/rondo"
+            f"Stale install: binary={installed_version}, repo={repo_version}. Run: uv tool install --editable ."
         )
 
 

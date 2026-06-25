@@ -5,8 +5,8 @@
 VER-001: Product acceptance / unit test coverage.
 
 Finding #266: `bump_build()` was defined in _version.py but had zero callers.
-RONDO-290 wires it into the `rondo version --bump` CLI command so ace-sprint
-done hooks and CI pipelines can invoke it.
+RONDO-290 wires it into the `rondo version --bump` CLI command so release
+hooks and CI pipelines can invoke it.
 
 These tests cover:
     1. bump_build() increments same-day counter

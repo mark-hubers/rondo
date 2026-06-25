@@ -15,7 +15,7 @@
 ## Prerequisites:
 ##   - rondo installed and configured
 ##   - jq installed (JSON parsing)
-##   - ace-sprint installed (for OB patterns)
+##   - (optional) an issue-tracker CLI, if you wire findings to one
 ##
 ## Usage: bash examples/cli/real-world-scripting.sh
 ##        Or copy individual patterns into your own scripts.
@@ -50,7 +50,7 @@ echo "--- Pattern 1: Multi-AI Code Review → Sprint Findings ---"
 ##     ## Consensus: 2+ agree = create finding
 ##     echo "$all_issues" | jq -r '.[] | select(.count >= 2) | .issue' | while read -r issue; do
 ##         echo "CONSENSUS ($file): $issue"
-##         ace-sprint finding add "$SPRINT" --category security --detail "$issue"
+##         your-tracker add --category security --detail "$issue"
 ##     done
 ##
 ##     ## Solo flags: only 1 provider → human review
@@ -58,10 +58,10 @@ echo "--- Pattern 1: Multi-AI Code Review → Sprint Findings ---"
 ##         echo "REVIEW ($file): $issue (1 provider only)"
 ##     done
 ## done
-echo "  Would: 3 providers review each .py → consensus → ace-sprint finding add"
+echo "  Would: 3 providers review each .py → consensus → file an issue"
 
 ## ─── Pattern 2: Lint-Fix-Verify Loop ─────────────────────────────
-## REPLACES: ace-build → see pylint at 9.75 → fix one → rebuild → repeat.
+## REPLACES: run lint → see pylint score → fix one → rebuild → repeat.
 ## FREQUENCY: 1,460 build/lint messages in 90 days.
 ##
 ## Logic: Loop until pylint score hits target or max retries.
@@ -76,7 +76,7 @@ echo "--- Pattern 2: Lint-Fix-Verify Loop ---"
 ##
 ## while [ $attempt -lt $MAX_RETRIES ]; do
 ##     ## Run linter, capture score
-##     lint_output=$(cd ~/git/mhubers/ace2 && ace-build lint 2>&1)
+##     lint_output=$(pylint src/ 2>&1)
 ##     score=$(echo "$lint_output" | grep -oP 'rated at \K[\d.]+')
 ##
 ##     echo "Attempt $((attempt+1)): score=$score"
@@ -127,8 +127,8 @@ echo "--- Pattern 3: Spec-Code Drift Scanner ---"
 ##
 ##     case "$verdict" in
 ##         PASS)     echo "  PASS: $req" ;;
-##         FAIL)     echo "  FAIL: $req" && ace-sprint finding add "$SPRINT" --detail "Spec drift: $req" ;;
-##         CONFLICT) echo "  CONFLICT: $req" && ace-sprint finding add "$SPRINT" --category critical --detail "Contradiction: $req" ;;
+##         FAIL)     echo "  FAIL: $req" && your-tracker add --detail "Spec drift: $req" ;;
+##         CONFLICT) echo "  CONFLICT: $req" && your-tracker add --category critical --detail "Contradiction: $req" ;;
 ##     esac
 ## done
 echo "  Would: extract reqs → check each against code → create findings for FAILs"
@@ -145,7 +145,7 @@ echo "--- Pattern 4: Build Failure Triage ---"
 ## BASELINE="reports/failure-baseline.json"
 ##
 ## ## Run build, capture failures
-## failures=$(cd ~/git/mhubers/ace2 && ace-build test --json 2>&1 | jq '.failures')
+## failures=$(pytest tests/ -q --json 2>&1 | jq '.failures')
 ##
 ## ## Diff against baseline
 ## new_failures=$(jq -n --argjson current "$failures" --slurpfile baseline "$BASELINE" \

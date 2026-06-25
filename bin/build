@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Mark Hubers
 # SPDX-License-Identifier: MIT
 ## -- Rondo build gate — the same 6 gates the product grew up under
-## -- (ace-build heritage), self-contained for the standalone repo.
+## -- self-contained for the standalone repo.
 ## -- Hard lesson baked in: zero-collected tests = HARD FAIL, never a warn.
 
 setopt ERR_EXIT NO_UNSET PIPE_FAIL

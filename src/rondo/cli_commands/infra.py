@@ -130,7 +130,7 @@ def _cmd_version(args: argparse.Namespace) -> int:
 
     Intended callers:
         - User: `rondo version` for quick version check
-        - ace-sprint done post-hook: `rondo version --bump` after each sprint close
+        - Release hook: `rondo version --bump` after each release
         - CI: `rondo version --bump` after successful build
     """
     from rondo._version import bump_build, get_version  # pylint: disable=import-outside-toplevel

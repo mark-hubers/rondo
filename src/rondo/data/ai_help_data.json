@@ -897,5 +897,5 @@
   },
   "description": "AI dispatch layer \u2014 route tasks to any AI provider (Claude, Gemini, Grok, Mistral, Anthropic API, OpenAI, Ollama) and get structured results back. Supports single-provider dispatch, multi-provider sequential review (rondo_cloud / rondo_multi_review), and automatic health-based fallback.",
   "deployment": "Per-user, local infrastructure. Each user runs their own instance via Claude Code MCP stdio. No shared/multi-tenant mode.",
-  "install": "uv tool install --editable ~/git/mhubers/ace2/rondo"
+  "install": "uv tool install --editable ."
 }

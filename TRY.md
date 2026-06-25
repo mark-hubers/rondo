@@ -34,7 +34,7 @@ pip install --user rondo
 **For developers** (editable install for contributing):
 ```bash
 git clone <repo-url>
-cd ace2/rondo
+cd rondo
 uv tool install --editable . --force
 ```
 

@@ -154,7 +154,7 @@ echo "--- Pattern 7: Findings → Tasks ---"
 ## echo "$result" | jq -r '.findings[]' | while read -r finding; do
 ##     severity=$(echo "$result" | jq -r ".issues[] | select(. == \"$finding\") | .severity // \"medium\"")
 ##     echo "Creating task: [$severity] $finding"
-##     ## In real use: create GitHub issue, Jira ticket, or ace-sprint
+##     ## In real use: create a GitHub issue, Jira ticket, etc.
 ##     ## gh issue create --title "$finding" --label "security,$severity"
 ## done
 echo "  Would: audit → for each finding → create ticket with severity"

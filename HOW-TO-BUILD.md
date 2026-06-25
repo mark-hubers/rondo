@@ -1,154 +1,50 @@
-# How to Build Rondo — OB1 Process Guide
+# How to Build Rondo
 
-**For:** Any Claude session building Rondo from ~/.claude/ or ace2
-**System:** OB1 (manual build process, until OB2 replaces it)
-**Status:** 993 tests, 93% coverage, 12/12 specs traced, 23 modules, 11 CLI commands
-**Version:** 0.2.0+CalVer
-**Interfaces:** Python import + CLI (11 commands) + MCP stdio (4 tools)
+A short, mechanical guide to the build loop. For the *why* behind the rules,
+see `CONTRIBUTING.md`. For the stable public surface (CLI commands, MCP tools,
+config keys), see `docs/API-STABILITY.md`.
 
----
-
-## TL;DR — The Loop
-
-```
-1. ace-sprint start RONDO-FIX-NNN     ## Register sprint
-2. Read the spec                       ## Know WHAT to build
-3. Write tests FIRST (TDD)            ## Tests should FAIL
-4. Write code to make tests pass       ## Tests should PASS
-5. ace-build full                      ## 8-gate quality check
-6. ai-review (Phase 3b)               ## External AI review
-7. Fix findings                        ## Don't ship with known bugs
-8. E2E spike                          ## Prove it works for real
-9. ace-sprint done RONDO-FIX-NNN      ## Close sprint
-10. git commit                         ## Ship it
-```
-
----
-
-## Before Starting
+## Setup
 
 ```bash
-## Enable Caliber build mode (unlocks protected source paths)
-## Mark must type this in the CC prompt — it's a keyword, not a command
-caliber build
-
-## If importing rondo from ace2 scripts fails (ModuleNotFoundError):
-/opt/homebrew/bin/uv tool install --editable --force ~/git/mhubers/ace2/rondo
-
-## Health check
-ace-preflight
-
-## Check where we are
-ace-sprint status
-
-## Check Rondo test status
-cd ~/git/mhubers/ace2/rondo && .venv/bin/python -m pytest tests/ -q
-
-## Check spec coverage (current: ~58%)
-python3 scripts/traceability.py
+git clone <repo-url> rondo
+cd rondo
+uv sync --extra dev          # create .venv with runtime + dev dependencies
+uv tool install --editable . # put the `rondo` CLI on your PATH
+rondo doctor                 # confirm the install is healthy (free, no dispatch)
 ```
 
----
-
-## The Sprint (Step by Step)
-
-### Step 1: Register Sprint
-```bash
-ace-sprint register RONDO-FIX-NNN --layer FIX --orbit 5 --round 7
-ace-sprint start RONDO-FIX-NNN
-```
-
-### Step 2: Read the Spec
-Specs live in `~/git/mhubers/ace2/rondo/specs/`. Read the requirements table:
-```bash
-grep "^| [0-9]" rondo/specs/Rondo-REQ-NNN-name.md | head -20
-```
-
-### Step 3: Write Tests FIRST (TDD)
-Add tests to the appropriate test file. Tests should FAIL because the code doesn't exist yet.
-```bash
-## Run just your new tests — should RED
-.venv/bin/python -m pytest tests/test_xxx.py::TestNewClass -v --tb=short
-```
-
-### Step 4: Write Code
-Make the tests pass. Follow existing patterns:
-- New module? Copy preflight.py as template
-- New field? Add to engine.py dataclass
-- New CLI flag? Add to cli.py `_add_common_flags` + `_build_config`
-- New dispatch feature? Add to dispatch.py `_build_subprocess_cmd`
-
-### Step 5: Build Gate
-```bash
-cd ~/git/mhubers/ace2 && ace-build full
-```
-Must pass: ruff lint, ruff format, bandit, mypy, pytest, pylint ≥ 9.0
-
-### Step 6: AI Review (Phase 3b — MANDATORY)
-```bash
-cd ~/git/mhubers/ace2
-python3 scripts/ai_review.py rondo/src/rondo/CHANGED_FILE.py --provider gemini --save
-```
-Log findings: `ace-sprint finding --severity ... --category ai-review --description "..."`
-Fix all findings before committing.
-
-### Step 7: E2E Spike
-Run a real test of the feature:
-```bash
-CLAUDECODE="" ~/.local/bin/rondo preflight         ## Or whatever you built
-CLAUDECODE="" ~/.local/bin/rondo run file.py --dry-run --verbose
-```
-
-### Step 8: Close Sprint
-```bash
-ace-sprint activity RONDO-FIX-NNN --loop write_tests --cat test_write --activity "N new tests: ..."
-ace-sprint activity RONDO-FIX-NNN --loop verify --cat test_write --activity "NNN tests pass. ..."
-ace-sprint done RONDO-FIX-NNN --force
-```
-
-### Step 9: Commit
-```bash
-cd ~/git/mhubers/ace2
-git add rondo/
-git commit -m "Session NN Sprint N (RONDO-FIX-NNN): what was done"
-```
-
----
-
-## Where Things Live
-
-| What | Where |
-|------|-------|
-| Source code | `rondo/src/rondo/*.py` (16 modules) |
-| Tests | `rondo/tests/test_*.py` (727 tests) |
-| E2E tests | `rondo/tests/test_integration_e2e.py` (60 tests) |
-| Spike tests | `rondo/tests/test_spikes.py` (9 CC flag sentinels) |
-| Specs | `rondo/specs/Rondo-*.md` (40 files) |
-| Examples | `rondo/examples/` (11 round definitions) |
-| Config | `rondo/pyproject.toml`, `rondo/rondo.toml` |
-| Scripts | `rondo/scripts/traceability.py`, `rondo/scripts/setup-rondo.sh` |
-| History | `rondo/reports/history/` (JSONL per day) |
-| Reports | `rondo/reports/` |
-| AI reviews | `reports/ai-reviews/` (Gemini/Grok JSON) |
-
-## Module Architecture (23 modules)
+## The TDD loop
 
 ```
-L0 (data):       engine.py, config.py
-L1 (dispatch):   dispatch.py, dispatch_prompt.py, dispatch_parse.py
-L2 (orchestr):   runner.py, parallel.py
-L3 (batch):      overnight.py
-Infrastructure:  sanitize.py, audit.py, spool.py, metrics.py, flaky.py
-Utility:         preflight.py, history.py, notify.py, ai_help.py, _version.py
-Output:          report.py, live.py
-Server:          mcp_server.py
-Entry:           cli.py, __init__.py, __main__.py
+1. Read the spec            # specs/Rondo-*.md — know WHAT to build
+2. Write the test FIRST     # it must FAIL (RED)
+3. Write code to pass it    # GREEN
+4. bin/build                # the 6-gate quality check, before EVERY commit
+5. Live-verify              # run the real command/dispatch, not just unit tests
+6. git commit
 ```
 
-## Three Interfaces
+Run one test while iterating:
 
 ```bash
-## 1. Python import (for OB scripts, overnight automation)
+.venv/bin/python -m pytest tests/unit/test_xxx.py::TestNewClass -v --tb=short
+```
+
+## The build gate
+
+```bash
+bin/build
+```
+
+Six gates, all must pass: ruff lint, ruff format, bandit (security), mypy,
+pytest (zero-collected = hard fail), pylint ≥ 9.0. The build bumps the build
+counter automatically.
+
+## Three interfaces
+
+```bash
+## 1. Python import (for scripts / automation)
 from rondo import dispatch_task, RondoConfig
 result, usage = dispatch_task(task, config)
 
@@ -157,15 +53,15 @@ rondo run round.py --dry-run
 rondo metrics --json
 rondo audit --cost
 
-## 3. MCP stdio (for Claude Code — Claude calls tools mid-conversation)
-## Enable in ~/.claude/settings.json:
-##   "rondo": { "command": "/Users/you/.local/bin/rondo", "args": ["mcp"] }
-## Tools: rondo_metrics, rondo_health, rondo_audit_summary, rondo_dispatch_info
+## 3. MCP stdio (for Claude Code — tools called mid-conversation)
+## Enable in your Claude Code settings.json:
+##   "rondo": { "command": "/path/to/.local/bin/rondo", "args": ["mcp"] }
 ```
 
-## ALWAYS-ON Dispatch Pipeline
+## The always-on dispatch pipeline
 
 Every dispatch (success or error) automatically produces:
+
 ```
 dispatch_task()
   → INTENT audit record (crash-safe)
@@ -177,112 +73,28 @@ dispatch_task()
   → metrics dict (in TaskResult.metrics)
   → return to caller
 ```
-No flags needed. Caller ignores what it doesn't need.
 
-## Versioning (CalVer+Build)
+No flags needed; the caller ignores what it doesn't need.
 
-```
-Format: MAJOR.MINOR.PATCH+YYYYMMDD.BUILD
-Example: 0.2.0+20260329.17
-
-MAJOR = 0 (pre-release), 1 (OB2 production)
-MINOR = milestone bumps (Mark decides)
-PATCH = 0 (we use build counter instead)
-+YYYYMMDD = date of build
-.BUILD = auto-incrementing counter per day
-```
-
-**Single source of truth:** `pyproject.toml` has base version. `_version.py` reads it + adds build metadata.
-
-**To bump build counter:**
-```python
-from rondo._version import bump_build
-print(bump_build())  # → 0.2.0+20260329.18
-```
-
-**To bump minor version:** Edit `pyproject.toml` version field (one place only).
-
-**Never hardcode version strings** — always `from rondo._version import get_version`.
-
-## Convention Rules
-
-- Every module has SPDX header + docstring with spec refs
-- Every module ends with `# -- sig: mgh-6201.cd.bd955f.XXXX.YYYYYY`
-- Import layers enforced (engine→config→dispatch→runner→parallel→...)
-- No bare print in library modules (except cli.py, live.py, notify.py)
-- Cyclomatic complexity max 15 per function
-- Test files reference VER-001
-- MgH signature on every .py file (5-segment hex format)
-
-## Build Order (Session 92 Learning)
-
-Build in this order for maximum impact:
+## Versioning (CalVer + build counter)
 
 ```
-FOUNDATION → WIRE → HARDEN → AUTOMATE
+Format:  MAJOR.MINOR.PATCH+YYYYMMDD.BUILD
+Example: 0.7.0+20260615.12
 ```
 
-| Phase | What | Why |
-|-------|------|-----|
-| FOUNDATION | TDD new modules in isolation | Can parallelize, clean tests |
-| WIRE | Connect to existing pipeline | Makes code live, reveals integration bugs |
-| HARDEN | Fix findings, run multi-AI review | Catches drift before it compounds |
-| AUTOMATE | Add process checks from learnings | Prevents same problems next session |
+Single source of truth: `pyproject.toml` holds the base version; `_version.py`
+reads it and adds build metadata. Never hardcode a version string — always
+`from rondo._version import get_version`. Bump the build counter via
+`rondo version --bump` (or `from rondo._version import bump_build`).
 
-## What's Left to Build (to hit 75% spec coverage)
+## Convention locks (enforced by `tests/conventions/`)
 
-| Spec | Reqs | Priority | Status | What |
-|------|------|----------|--------|------|
-| REQ-100 deeper | ~12 | HIGH | Partial | Remaining MUST reqs |
-| REQ-101 deeper | ~20 | MEDIUM | Partial | Spool system, watchdog |
-| STD-113 CLI | 5 | HIGH | **Module done, CLI needed** | `rondo audit` query command |
-| REQ-107 CLI | 3 | HIGH | **Module done, CLI needed** | `rondo flaky` display command |
-| REQ-108 Templates | 17 | MEDIUM | Not started | New module — task reuse tracking |
-| STD-112 Golden Numbers | 16 | LOW | Not started | Drift detection |
-| ~~STD-113 Audit Trail~~ | 22 | ~~MEDIUM~~ | **Done** (Session 92) | ~~Deepen history~~ |
-| ~~STD-114 Sanitization~~ | 21 | ~~MEDIUM~~ | **Done** (Session 92) | ~~Secret detection~~ |
-| ~~REQ-107 Flakiness~~ | 19 | ~~MEDIUM~~ | **Done** (Session 92) | ~~Flip detection~~ |
-| ~~dispatch.py wiring~~ | — | ~~HIGH~~ | **Done** (Session 92) | ~~sanitize + audit in pipeline~~ |
+- SPDX header + module docstring with spec references on every module
+- Import layers enforced (engine → config → dispatch → runner → parallel → …)
+- No bare `print` in library modules (CLI/output modules are exempt)
+- Cyclomatic complexity ≤ 15 per function (extract, never exempt)
+- Every CLI flag has a test (the dead-flag lock)
 
-## Quick Commands
-
-```bash
-## Run all tests
-cd ~/git/mhubers/ace2/rondo && .venv/bin/python -m pytest tests/ -v
-
-## Run E2E only
-.venv/bin/python -m pytest tests/test_integration_e2e.py -v
-
-## Run with coverage
-.venv/bin/python -m pytest tests/ --cov=rondo --cov-report=term
-
-## Run traceability
-python3 scripts/traceability.py
-
-## Check installed CLI
-rondo preflight
-rondo --ai-help
-rondo history
-rondo --version
-
-## Reinstall after changes
-/opt/homebrew/bin/uv tool install --editable --force ~/git/mhubers/ace2/rondo
-```
-
----
-
-## OB1 Rules (Non-Negotiable)
-
-1. **TDD** — write tests FIRST, make them fail, then code
-2. **ace-sprint start/done** — track every sprint in DB
-3. **ace-build full** — before every commit
-4. **AI review (Phase 3b)** — external AI reviews changed files ($0.003/review)
-5. **E2E spike** — prove it works with real CLI, not just unit tests
-6. **No agents for code** — agents bypass Caliber, do inline only
-7. **Read the spec** — before coding anything
-8. **Fix findings** — don't ship with known bugs from AI review
-9. **`caliber build`** — say this at session start to unlock protected source paths
-
----
-
-*This guide is for OB1. When OB2 replaces OB1, this file gets archived.*
+A lock firing on your change means *fix the change* or update the registry with
+a rationale — never weaken a lock. See `CONTRIBUTING.md`.

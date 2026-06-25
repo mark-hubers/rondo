@@ -9,7 +9,7 @@ This checklist verifies:
 - CLI example scripts,
 - MCP example playbooks (tool-call workflows).
 
-Run from `ace2/rondo/` unless noted.
+Run from the repo root unless noted.
 
 ---
 

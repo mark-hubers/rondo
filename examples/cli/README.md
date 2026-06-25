@@ -35,7 +35,7 @@ rondo "Find security issues" --field vulnerabilities < app.py
 
 ## Round files (YAML / Python)
 
-Paths below are from the **repository root** (`ace2/rondo/`).
+Paths below are from the **repository root**.
 
 ```bash
 # Preview a YAML round (no API calls)

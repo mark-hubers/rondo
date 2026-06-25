@@ -271,7 +271,7 @@ def build_parser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
     ver_parser.add_argument(
         "--bump",
         action="store_true",
-        help="Increment build counter and print new version (call from ace-sprint done or CI)",
+        help="Increment build counter and print new version (call from CI or a release script)",
     )
 
     # -- review subcommand (REQ-109 reqs 082-087)

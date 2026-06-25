@@ -388,7 +388,7 @@ Living examples in `rondo/examples/`:
 | `round_doc_sweep.py` | Documentation audit pattern |
 | `round_test_generator.py` | Test generation from source |
 | `round_refactor_audit.py` | Refactoring safety check |
-| `round_caliber_fix.py` | Caliber integration example |
+| `round_lint_fix.py` | Linter-fix loop example |
 | `round_security_audit.py` | Security audit pattern |
 | `phases_overnight.py` | Overnight multi-phase example |
 | `demo_pipeline.py` | Unix-style pipeline chaining |
@@ -397,8 +397,8 @@ Living examples in `rondo/examples/`:
 ### Running the Tests
 
 ```bash
-# All Rondo tests
-cd ~/git/mhubers/ace2 && pytest rondo/tests/ -v
+# All Rondo tests (from the repo root)
+pytest tests/ -v
 
 # Just E2E (requires rondo installed)
 pytest rondo/tests/test_integration_e2e.py -v

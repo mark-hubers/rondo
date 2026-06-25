@@ -54,7 +54,7 @@ def _write_build_counter(date_str: str, build: int) -> None:
 def bump_build() -> str:
     """Increment build counter and return full version string.
 
-    Called by ace-sprint done or version bump script.
+    Called by a release script or CI version bump.
     Same-day builds increment counter. New day resets to 1.
     """
     today = datetime.now(UTC).strftime("%Y%m%d")

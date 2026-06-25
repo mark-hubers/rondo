@@ -191,7 +191,7 @@ def _resolve_project(project: str = "") -> str:
     """Resolve the project field — STD-113 req 026 (RONDO-301).
 
     COALESCE: caller-supplied → env RONDO_PROJECT → cwd directory name.
-    Lets per-project health (USH vs GHE vs ace2) be separated in metrics.
+    Lets per-project health be separated in metrics (one install, many projects).
     """
     return project or os.environ.get("RONDO_PROJECT", "") or Path.cwd().name
 

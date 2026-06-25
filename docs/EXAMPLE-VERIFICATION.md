@@ -55,7 +55,7 @@ Adjust provider strings to match `~/.rondo/config.toml`. If a step fails, captur
 
 ## Prompt you can give Claude to test CLI
 
-> From `ace2/rondo`, run:
+> From the repo root, run:
 > `rondo run examples/rounds/round_hello.py --dry-run`
 > and
 > `rondo "smoke test inline prompt" --dry-run` (expect failure explaining `--dry-run` is invalid for inline — that proves our docs are honest).

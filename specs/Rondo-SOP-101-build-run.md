@@ -104,10 +104,10 @@ Not applicable — this is a build procedure. No runtime data model.
 
 ### Setup
 
-1. Clone the repository (Rondo lives inside the ace2 monorepo):
+1. Clone the repository:
    ```bash
-   git clone <repo-url> ace2
-   cd ace2/rondo
+   git clone <repo-url> rondo
+   cd rondo
    ```
 
 2. Create or activate the venv:

@@ -18,6 +18,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: {}  # manual "Run workflow" button (also lets the first run fire on demand)
 
 concurrency:
   group: build-${{ github.ref }}

@@ -13,7 +13,6 @@ NASA validation testing: prove the tool works as documented.
 
 import json
 import os
-import shutil
 import subprocess
 
 import pytest
@@ -21,8 +20,14 @@ import pytest
 RONDO_BIN = os.path.expanduser("~/.local/bin/rondo")
 ## -- Repo root computed from this file's location — portable, no hardcoded user path.
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SKIP_E2E = not shutil.which("rondo")
-skip_no_rondo = pytest.mark.skipif(SKIP_E2E, reason="rondo CLI not installed")
+# -- Skip-guard must check the SAME binary the tests exec (RONDO_BIN), not just
+# -- "rondo on PATH". RONDO-435: in CI `uv sync` activates .venv and puts
+# -- .venv/bin/rondo on PATH, so shutil.which("rondo") was truthy and the suite
+# -- ran — then tried to exec the hardcoded ~/.local/bin/rondo, which the runner
+# -- doesn't have (95 x FileNotFoundError). os.path.exists(RONDO_BIN) keeps the
+# -- guard and the exec consistent: e2e runs only where the tool is installed there.
+SKIP_E2E = not os.path.exists(RONDO_BIN)
+skip_no_rondo = pytest.mark.skipif(SKIP_E2E, reason="rondo CLI not installed at RONDO_BIN")
 
 
 def _e2e_env() -> dict[str, str]:
